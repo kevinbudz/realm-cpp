@@ -7,6 +7,9 @@
 #include <zlib.h>
 #include <bit>
 #include <cmath>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_TRUETYPE_TABLES_H
 namespace realm {
 namespace {
 // Vertical phases lie on Flash's twentieth-pixel grid.
@@ -36,7 +39,29 @@ void composite(Image& target,const Image& bitmap,int gx,int gy,int padding,doubl
 // It truncates after the horizontal pass, then again after the vertical
 // pass. Alpha compositing uses a 256 divisor. Filters act on the complete
 // clipped TextField: a per-glyph shadow would darken the preceding glyph.
-void finish(Image& image,bool shadow,unsigned shadow_strength) {
+void finish(Image& image,bool shadow,unsigned shadow_strength,double blur=4) {
+    if(shadow&&(image.pixel_scale!=1||blur!=4)) {
+        const int w=image.width,h=image.height,radius=std::max(1,static_cast<int>(std::round(blur/2*image.pixel_scale)));
+        std::vector<unsigned> horizontal(static_cast<std::size_t>(w)*static_cast<std::size_t>(h));
+        const unsigned taps=static_cast<unsigned>(radius*2+1);
+        for(int y=0;y<h;++y) {
+            unsigned sum{};
+            for(int x=-radius;x<w;++x) {
+                if(x+radius<w)sum+=image.pixels[(static_cast<std::size_t>(y)*w+static_cast<std::size_t>(x+radius))*4+3];
+                if(x-radius-1>=0)sum-=image.pixels[(static_cast<std::size_t>(y)*w+static_cast<std::size_t>(x-radius-1))*4+3];
+                if(x>=0)horizontal[static_cast<std::size_t>(y)*w+static_cast<std::size_t>(x)]=sum/taps;
+            }
+        }
+        for(int x=0;x<w;++x) {
+            unsigned sum{};
+            for(int y=-radius;y<h;++y) {
+                if(y+radius<h)sum+=horizontal[static_cast<std::size_t>(y+radius)*w+static_cast<std::size_t>(x)];
+                if(y-radius-1>=0)sum-=horizontal[static_cast<std::size_t>(y-radius-1)*w+static_cast<std::size_t>(x)];
+                if(y>=0) { auto& a=image.pixels[(static_cast<std::size_t>(y)*w+static_cast<std::size_t>(x))*4+3];a=static_cast<unsigned char>(a+(std::min(255U,sum/taps*shadow_strength)*(255U-a)/255U)); }
+            }
+        }
+        shadow=false;
+    }
     if(shadow) {
         const int w=image.width,h=image.height;
         std::vector<unsigned char> horizontal(static_cast<std::size_t>(w)*static_cast<std::size_t>(h));
@@ -72,6 +97,115 @@ std::uint32_t character(std::string_view input,std::size_t& at) {
     if(code>0x10ffffU || (code>=0xd800U&&code<=0xdfffU) || (extra==1&&code<128) || (extra==2&&code<2048) || (extra==3&&code<65536))return '?';
     return code;
 }
+}
+struct FontBook::NativeFonts {
+    FT_Library library{};
+    std::array<FT_Face,2> faces{};
+    ~NativeFonts() { for(auto face:faces)if(face)FT_Done_Face(face);if(library)FT_Done_FreeType(library); }
+};
+FontBook::~FontBook()=default;
+void FontBook::enable_native(const std::filesystem::path& root) {
+    auto native=std::make_unique<NativeFonts>();
+    if(FT_Init_FreeType(&native->library))throw std::runtime_error("Cannot initialize native font renderer");
+    for(std::size_t i=0;i<2;++i) {
+        const auto path=root/"src/com/company/ui/fonts"/(i ? "MyriadProBold.otf" : "MyriadPro.otf");
+        if(FT_New_Face(native->library,path.string().c_str(),0,&native->faces[i]))throw std::runtime_error("Cannot load original Myriad font: "+path.string());
+    }
+    native_=std::move(native);
+}
+void FontBook::set_pixel_scale(double scale) {
+    if(!std::isfinite(scale)||scale<=0||scale>16)throw std::invalid_argument("Invalid font pixel density");
+    if(scale!=1&&!native_)throw std::logic_error("Native font outlines are required for resized text");
+    pixel_scale_=scale;
+}
+TextBitmap FontBook::rasterize_at_scale(std::string_view text,int size,double scale,bool bold,bool shadow,std::uint32_t color,Vec2 pixel_phase) const {
+    if(!native_||!std::isfinite(scale)||scale<=0||scale>16||
+       !std::isfinite(pixel_phase.x)||!std::isfinite(pixel_phase.y)||pixel_phase.x<0||pixel_phase.x>=1||pixel_phase.y<0||pixel_phase.y>=1)
+        throw std::invalid_argument("Invalid animated font density or phase");
+    return rasterize_native(text,size,bold,shadow,color,0,0,1,0,0,scale,pixel_phase);
+}
+TextBitmap FontBook::rasterize_glow(std::string_view text,int size,bool bold,std::uint32_t color,unsigned strength) const {
+    const double scale=pixel_scale_;
+    auto render=[this,text=std::string(text),size,bold,color,strength,scale](Vec2 pp) {
+        constexpr double padding=2;
+        // The glyph origin sits padding+pp inside the bitmap: whole pixels placed by the blit, remainder by the glyphs.
+        const double dx=padding*scale+pp.x,dy=padding*scale+pp.y,nx=std::floor(dx),ny=std::floor(dy);
+        const auto core=rasterize_at_scale(text,size,scale,bold,false,color,{dx-nx,dy-ny});
+        TextBitmap result{ui_image(core.image.width/scale+padding*2+pp.x/scale,core.image.height/scale+padding*2+pp.y/scale,scale),{-padding,-padding},core.width,core.height};
+        ui_blit(result.image,core.image,nx/scale,ny/scale,false,true);
+        finish(result.image,true,strength,2);return result;
+    };
+    auto result=render({});result.redraw=std::make_shared<const std::function<TextBitmap(Vec2)>>(std::move(render));return result;
+}
+double FontBook::line_measure(std::string_view text,int size,bool bold) const {
+    if(!native_)throw std::logic_error("TextLine rendering requires original font outlines");
+    auto face=native_->faces[bold ? 1 : 0];double width{};FT_UInt previous{};
+    for(std::size_t at=0;at<text.size();) {
+        const auto code=character(text,at);auto index=FT_Get_Char_Index(face,code);if(!index)index=FT_Get_Char_Index(face,'?');
+        FT_Vector kern{};FT_Get_Kerning(face,previous,index,FT_KERNING_UNSCALED,&kern);
+        if(FT_Load_Glyph(face,index,FT_LOAD_NO_SCALE))throw std::runtime_error("Cannot measure native glyph");
+        width+=static_cast<double>(face->glyph->metrics.horiAdvance+kern.x)*size/face->units_per_EM;previous=index;
+    }
+    return width;
+}
+double FontBook::line_ascent(int size,bool bold) const {
+    if(!native_)throw std::logic_error("TextLine rendering requires original font outlines");
+    const auto face=native_->faces[bold ? 1 : 0];return static_cast<double>(face->ascender)*size/face->units_per_EM;
+}
+TextBitmap FontBook::rasterize_line(std::string_view text,double scale,std::uint32_t color,int size,bool bold) const {
+    if(!native_||!std::isfinite(scale)||scale<=0||scale>16)throw std::invalid_argument("Invalid chat text density");
+    auto bitmap=rasterize_native(text,size,bold,false,color,0,0,1,0,0,scale,{},true);
+    bitmap.offset.y=-line_ascent(size,bold);return bitmap;
+}
+TextBitmap FontBook::rasterize_native(std::string_view text,int size,bool bold,bool shadow,std::uint32_t color,double phase,double vertical_phase,unsigned strength,int field_width,int field_height,double density,Vec2 pixel_phase,bool natural_metrics) const {
+    auto run=layout(text,size,bold,false,phase,vertical_phase);
+    if(natural_metrics) { run.width=line_measure(text,size,bold)+4;run.height=size+4; }
+    if(field_width<0||field_height<0)throw std::invalid_argument("Invalid text field size");
+    const double padding=shadow ? 8 : 0,s=density;
+    const double w=field_width ? field_width : run.width,h=field_height ? field_height : run.height;
+    TextBitmap result{ui_image(std::max(1.0,w+padding*2+pixel_phase.x/s),std::max(1.0,h+padding*2+pixel_phase.y/s),s),{-padding-phase,-padding},run.width,run.height};
+    auto face=native_->faces[bold ? 1 : 0];
+    // Place the outlines as the original TextField does: after its 2 px gutter, with the first baseline at the
+    // gutter plus the embedded font's ascent (usWinAscent; the baked line heights are win ascent + descent).
+    // Keep the logical advances/kerning so larger rendering does not change wrapping or hit areas.
+    const auto& logical=faces_.at(style(size,bold,false,vertical_phase));
+    const auto* os2=static_cast<const TT_OS2*>(FT_Get_Sfnt_Table(face,FT_SFNT_OS2));
+    if(!natural_metrics&&!os2)throw std::runtime_error("Cannot read native font metrics");
+    const double gutter=natural_metrics ? 0 : 2;
+    const double baseline=natural_metrics ? line_ascent(size,bold) : gutter+static_cast<double>(os2->usWinAscent)*size/face->units_per_EM;
+    if(FT_Set_Char_Size(face,0,static_cast<FT_F26Dot6>(std::lround(size*s*64)),72,72))throw std::runtime_error("Cannot size native font");
+    double x{},y{};std::uint32_t previous{};
+    for(std::size_t at=0;at<text.size();) {
+        auto code=character(text,at);if(code=='\r')continue;
+        if(code=='\n') { x=0;y+=logical.line_advance;previous=0;continue; }
+        auto glyph=logical.glyphs.find(code*32U);if(glyph==logical.glyphs.end()||!FT_Get_Char_Index(face,code)) { code='?';glyph=logical.glyphs.find(code*32U); }
+        if(glyph==logical.glyphs.end())continue;
+        double natural_advance{};
+        if(natural_metrics) {
+            const auto index=FT_Get_Char_Index(face,code);FT_Vector kern{};
+            FT_Get_Kerning(face,FT_Get_Char_Index(face,previous),index,FT_KERNING_UNSCALED,&kern);
+            if(FT_Load_Glyph(face,index,FT_LOAD_NO_SCALE))throw std::runtime_error("Cannot measure chat glyph");
+            x+=static_cast<double>(kern.x)*size/face->units_per_EM;
+            natural_advance=static_cast<double>(face->glyph->metrics.horiAdvance)*size/face->units_per_EM;
+        } else if(const auto kern=logical.kerning.find((static_cast<std::uint64_t>(previous)<<32U)|code);kern!=logical.kerning.end())x+=kern->second;
+        const double origin=(x+phase+padding+gutter)*s+pixel_phase.x,by=(y+baseline+vertical_phase+padding)*s+pixel_phase.y;
+        FT_Vector delta{static_cast<FT_Pos>(std::lround((origin-std::floor(origin))*64)),static_cast<FT_Pos>(-std::lround((by-std::floor(by))*64))};
+        FT_Set_Transform(face,nullptr,&delta);
+        if(FT_Load_Char(face,code,FT_LOAD_RENDER|FT_LOAD_NO_HINTING))throw std::runtime_error("Cannot rasterize native glyph");
+        const auto& bitmap=face->glyph->bitmap;
+        const int ox=static_cast<int>(std::floor(origin))+face->glyph->bitmap_left,oy=static_cast<int>(std::floor(by))-face->glyph->bitmap_top;
+        for(unsigned row=0;row<bitmap.rows;++row)for(unsigned col=0;col<bitmap.width;++col) {
+            const int px=ox+static_cast<int>(col),py=oy+static_cast<int>(row);
+            if(px<padding*s+pixel_phase.x||py<padding*s+pixel_phase.y||px>=(padding+w-2+phase)*s+pixel_phase.x||py>=(padding+h-2+vertical_phase)*s+pixel_phase.y||px<0||py<0||px>=result.image.width||py>=result.image.height)continue;
+            const auto dst=(static_cast<std::size_t>(py)*static_cast<std::size_t>(result.image.width)+static_cast<std::size_t>(px))*4;
+            const auto a=bitmap.buffer[static_cast<std::ptrdiff_t>(row)*bitmap.pitch+col];
+            const unsigned combined=std::min(255U,static_cast<unsigned>(result.image.pixels[dst+3])+a);
+            result.image.pixels[dst+3]=static_cast<unsigned char>(combined);
+            for(unsigned c=0;c<3;++c)result.image.pixels[dst+c]=static_cast<unsigned char>(((color>>(16-c*8))&255U)*(combined+1U)>>8U);
+        }
+        x+=natural_metrics ? natural_advance : glyph->second.advance;previous=code;
+    }
+    FT_Set_Transform(face,nullptr,nullptr);finish(result.image,shadow,strength);return result;
 }
 FontBook::FontBook(const std::filesystem::path& directory):directory_(directory) {
     if(directory.empty())return;
@@ -183,6 +317,11 @@ TextRun FontBook::layout(std::string_view text,int size,bool bold,bool,double ph
     }
     run.width=std::floor(std::max(run.width,x)+4);run.height=static_cast<double>(lines)*face.line_height;return run;
 }
+double FontBook::line_advance(int size,bool bold) const {
+    const auto found=faces_.find(style(size,bold,false));
+    if(found==faces_.end())throw std::runtime_error("Missing baked font style");
+    return found->second.line_advance;
+}
 double FontBook::measure(std::string_view text,int size,bool bold) const {
     const auto found=faces_.find(style(size,bold,false));if(found==faces_.end())throw std::runtime_error("Missing baked font style; regenerate the font pack with tools/bake_fonts.py");
     load_face(found->second);const auto& face=found->second;double x{};std::uint32_t previous{};
@@ -195,6 +334,13 @@ double FontBook::measure(std::string_view text,int size,bool bold) const {
     return x;
 }
 TextBitmap FontBook::rasterize(std::string_view text,int size,bool bold,bool shadow,std::uint32_t color,double phase,double vertical_phase,unsigned shadow_strength,int field_width,int field_height) const {
+    if(native_&&pixel_scale_!=1) {
+        const double scale=pixel_scale_;
+        auto render=[this,text=std::string(text),size,bold,shadow,color,phase,vertical_phase,shadow_strength,field_width,field_height,scale](Vec2 pp) {
+            return rasterize_native(text,size,bold,shadow,color,phase,vertical_phase,shadow_strength,field_width,field_height,scale,pp);
+        };
+        auto result=render({});result.redraw=std::make_shared<const std::function<TextBitmap(Vec2)>>(std::move(render));return result;
+    }
     const auto run=layout(text,size,bold,false,phase,vertical_phase);
     const int padding=shadow ? 8 : 0;
     if(run.width>8192 || run.height>8192)throw std::runtime_error("Text field exceeds size limit");
@@ -207,6 +353,31 @@ TextBitmap FontBook::rasterize(std::string_view text,int size,bool bold,bool sha
     return result;
 }
 TextBitmap FontBook::rasterize_spans(std::span<const TextSpan> spans,int size,bool shadow,std::uint32_t color,double bold_vertical_phase) const {
+    if(native_&&pixel_scale_!=1) {
+        struct Owned { std::string text;bool bold{}; };
+        std::vector<Owned> owned;owned.reserve(spans.size());
+        for(const auto& span:spans)owned.push_back({std::string(span.text),span.bold});
+        const double scale=pixel_scale_;
+        auto render=[this,owned=std::move(owned),size,shadow,color,bold_vertical_phase,scale](Vec2 pp) {
+            double advance{},height{};
+            for(const auto& span:owned) { advance+=measure(span.text,size,span.bold);height=std::max(height,layout(span.text,size,span.bold).height); }
+            const double padding=shadow ? 8 : 0;
+            TextBitmap result{ui_image(std::floor(advance+4)+2*padding+pp.x/scale,height+2*padding+pp.y/scale,scale),{-padding,-padding},std::floor(advance+4),height};
+            advance=0;
+            for(const auto& span:owned) {
+                if(span.text.empty())continue;
+                const double dx=(padding+advance)*scale+pp.x,dy=padding*scale+pp.y,nx=std::floor(dx),ny=std::floor(dy);
+                const auto part=rasterize_native(span.text,size,span.bold,false,color,0,span.bold ? bold_vertical_phase : 0,1,0,0,scale,{dx-nx,dy-ny});
+                ui_blit(result.image,part.image,nx/scale,ny/scale);
+                advance+=measure(span.text,size,span.bold);
+            }
+            // Apply the filter once to the complete field, including mixed spans.
+            premultiply_flash_bitmap(result.image);
+            finish(result.image,shadow,1);
+            return result;
+        };
+        auto result=render({});result.redraw=std::make_shared<const std::function<TextBitmap(Vec2)>>(std::move(render));return result;
+    }
     TextRun combined;double advance{};
     for(const auto& span:spans) {
         if(span.text.empty())continue;
@@ -258,6 +429,32 @@ TextBitmap FontBook::rasterize_centered(std::string_view text,int size,bool bold
     // Line positions are twips: x = 2 + (width - 4 - line width) / 2, floored.
     const auto advance=std::lround(found->second.line_advance*20);
     const double height=static_cast<double>(lines.size())*static_cast<double>(advance)/20+4;
+    // Long 14pt regular fields can require vertical phases absent from the
+    // original baked pack. Use the native outlines instead of requiring a
+    // larger phase pack solely for glyph-edge parity.
+    bool missing_phase=false;
+    for(std::size_t i=0;i<lines.size();++i) {
+        const auto twips=static_cast<long>(i)*advance+(i ? 4 : 0);
+        const double y=static_cast<double>(twips/5*5)/20;
+        missing_phase|=!faces_.contains(style(size,bold,false,y-std::floor(y)));
+    }
+    if(native_&&(pixel_scale_!=1||missing_phase)) {
+        const double scale=pixel_scale_;
+        auto render=[this,lines,size,bold,shadow,color,field_width,shadow_strength,advance,height,scale](Vec2 pp) {
+            const double padding=shadow ? 8 : 0;
+            TextBitmap result{ui_image(field_width+2*padding+pp.x/scale,std::ceil(height)+2*padding+pp.y/scale,scale),{-padding,-padding},static_cast<double>(field_width),height};
+            for(std::size_t i=0;i<lines.size();++i) {
+                const double dx=(padding+(field_width-4-measure(trailing_trimmed(lines[i]),size,bold))/2)*scale+pp.x;
+                const double dy=(padding+static_cast<double>(i)*static_cast<double>(advance)/20)*scale+pp.y,nx=std::floor(dx),ny=std::floor(dy);
+                const auto part=rasterize_native(lines[i],size,bold,false,color,0,0,1,0,0,scale,{dx-nx,dy-ny});
+                ui_blit(result.image,part.image,nx/scale,ny/scale);
+            }
+            premultiply_flash_bitmap(result.image);finish(result.image,shadow,shadow_strength);return result;
+        };
+        auto result=render({});
+        if(scale!=1)result.redraw=std::make_shared<const std::function<TextBitmap(Vec2)>>(std::move(render));
+        return result;
+    }
     if(height>8192)throw std::runtime_error("Text field exceeds size limit");
     const int padding=shadow ? 8 : 0;
     TextBitmap result{{field_width+2*padding,static_cast<int>(std::ceil(height))+2*padding,{}},{-static_cast<double>(padding),-static_cast<double>(padding)},static_cast<double>(field_width),height};
@@ -275,5 +472,19 @@ TextBitmap FontBook::rasterize_centered(std::string_view text,int size,bool bold
     }
     finish(result.image,shadow,shadow_strength);
     return result;
+}
+TextBitmap redrawable_text(std::function<TextBitmap(Vec2)> render) {
+    auto result=render({});result.redraw=std::make_shared<const std::function<TextBitmap(Vec2)>>(std::move(render));return result;
+}
+TextBitmap place_text(const TextBitmap& text,double scale,double& x,double& y) {
+    if(!text.redraw||scale==1||text.image.pixel_scale!=scale||!std::isfinite(x)||!std::isfinite(y))return text;
+    const double dx=x*scale,dy=y*scale,nx=std::floor(dx),ny=std::floor(dy);
+    auto exact=(*text.redraw)({dx-nx,dy-ny});
+    x=nx/scale;y=ny/scale;return exact;
+}
+void ui_blit_text(Image& destination,const TextBitmap& text,double x,double y,bool source_premultiplied,bool destination_premultiplied,double opacity,
+                  double clip_x,double clip_y,double clip_width,double clip_height) {
+    const auto placed=place_text(text,destination.pixel_scale,x,y);
+    ui_blit(destination,placed.image,x,y,source_premultiplied,destination_premultiplied,opacity,clip_x,clip_y,clip_width,clip_height);
 }
 }

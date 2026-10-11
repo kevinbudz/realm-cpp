@@ -28,6 +28,8 @@ struct HudState {
     struct Inventory {
         bool enabled{},backpack{},tiers{true};
         int selected{},portrait{},dragging{-1};
+        int appearance_type{},skin{};
+        std::uint32_t tex1{},tex2{};
         // Object ID of the nearby container whose ContainerGrid fills the
         // interaction panel; its eight slots follow the player's twenty.
         std::int32_t container{-1};
@@ -40,6 +42,13 @@ struct HudState {
         bool operator==(const Inventory&) const = default;
     } inventory;
     std::array<HudStatState,6> stats{};
+    // CharacterDetailsView's IconButton at (172, 4) below the minimap: Options in the Nexus, Nexus elsewhere.
+    struct Header {
+        enum class Button { none,options,nexus };
+        Button button{Button::none};
+        bool hover{};
+        bool operator==(const Header&) const = default;
+    } header;
     // PortalPanel for the nearest interactive Portal. The name already has
     // the "Locked " prefix removed for LockedPortal definitions.
     struct Portal {
@@ -95,6 +104,8 @@ struct HudState {
         // int(|sin(t/200)|*10), otherwise -1.
         bool dark{};
         int pulse{-1};
+        int portrait{},skin{};
+        std::uint32_t tex1{},tex2{};
         std::int32_t object_id{-1};
         bool operator==(const PartyMember&) const = default;
     };
@@ -117,11 +128,15 @@ inline constexpr std::array<int,2> potion_types{2594,2595};
 inline constexpr int container_slot=20;
 // The empty 172-pixel ContainerGrid is centered in the panel at HUD y 500.
 inline constexpr int container_x=14,container_y=508;
+// The IconButton's 40x40 bitmap, 12 units up and left of the button, in HUD coordinates.
+inline constexpr HudRect header_button{160,190,40,40};
 // The TextButton "Enter" in HUD coordinates; drawCutEdgeRect cuts all four corners.
 inline constexpr HudRect portal_button{73,562,54,26};
 // LegacyBuyButton("",16,...) layout in HUD coordinates.
 struct BuyButtonLayout { HudRect area;double text_x{},icon_x{};bool icon{}; };
 [[nodiscard]] BuyButtonLayout buy_button_layout(const FontBook& fonts,const HudState::Sellable& state);
+[[nodiscard]] std::optional<TextBitmap> tier_bitmap(const FontBook& fonts,const ObjectDef& item);
+[[nodiscard]] Image rank_star_bitmap(const FontBook& fonts,const HudArt& art,int stars);
 inline constexpr std::array<std::string_view,4> button_panel_classes{"GuildBoard","GuildChronicle","CharacterChanger","ReskinVendor"};
 inline constexpr std::array<std::string_view,4> button_panel_titles{"Guild Board","Guild Chronicle","Change Characters","Change Skin"};
 // TextButton(16,"View"/"View"/"Change"/"Choose") centered at HEIGHT - height - 4.
@@ -130,7 +145,7 @@ inline constexpr std::array<HudRect,4> button_panel_buttons{{{74.5,562,51,26},{7
 // Finite original icon/decorative art is optional for meter-only fixtures.
 class Hud {
 public:
-    explicit Hud(const FontBook& fonts,const HudArt* art=nullptr);
+    explicit Hud(const FontBook& fonts,const HudArt* art=nullptr,const Catalog* catalog=nullptr);
     bool update(const HudState& state);
     [[nodiscard]] const Image& image() const { return image_; }
     [[nodiscard]] std::uint64_t rebuilds() const { return rebuilds_; }
@@ -146,6 +161,7 @@ private:
     void party(const HudState::Party& state);
     void social(const HudState::Social& state);
     void native_button(HudRect area,std::string_view label,bool hover);
+    void tier(const ObjectDef& item,int x,int y);
     void draw(TextBitmap bitmap,double x,double y,double alpha=1,const ColorTransform* transform=nullptr);
     // An unfiltered TextField renders straight into the stage rather than
     // through a filter bitmap, interpolating toward its color by coverage.
@@ -158,6 +174,7 @@ private:
     void bar(const StatusBarState& state);
     const FontBook& fonts_;
     const HudArt* art_{};
+    const Catalog* state_catalog_{};
     Image image_{200,600,std::vector<unsigned char>(200*600*4)};
     HudState state_;
     bool initialized_{};

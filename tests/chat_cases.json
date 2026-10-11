@@ -1,0 +1,26 @@
+[
+ {"id":"mixed","input":null,"lines":[
+  {"name":"","stars":-1,"recipient":"","toMe":false,"text":"Welcome to Realm of the Mad God"},
+  {"name":"Tank","stars":12,"recipient":"","toMe":false,"text":"hello everyone, anyone want to do a run?"},
+  {"name":"*Error*","stars":-1,"recipient":"","toMe":false,"text":"You can not teleport for another 11 seconds."},
+  {"name":"*Help*","stars":-1,"recipient":"","toMe":false,"text":"Help: [/tell (player) (message)]"},
+  {"name":"*Client*","stars":-1,"recipient":"","toMe":false,"text":"Connected!"},
+  {"name":"#Oryx the Mad God","stars":-1,"recipient":"","toMe":false,"text":"I HAVE CLOSED THIS REALM!"},
+  {"name":"@Admin","stars":-1,"recipient":"","toMe":false,"text":"Server restart in 5 minutes"},
+  {"name":"Friend","stars":40,"recipient":"Me","toMe":true,"text":"psst over here"},
+  {"name":"Me","stars":5,"recipient":"Friend","toMe":false,"text":"on my way"},
+  {"name":"Guildie","stars":70,"recipient":"*Guild*","toMe":false,"text":"guild hall tonight?"}
+ ]},
+ {"id":"wrap-input","input":"/tell Friend sure thing","lines":[
+  {"name":"Talker","stars":0,"recipient":"","toMe":false,"text":"this is a much longer message that should wrap onto a second line because it is wider than the chat box allows, and it keeps going for quite a while so the continuation indent is visible too"},
+  {"name":"Short","stars":3,"recipient":"","toMe":false,"text":"ok"}
+ ]},
+ {"id":"stars","input":"","lines":[
+  {"name":"A","stars":0,"recipient":"","toMe":false,"text":"zero"},
+  {"name":"B","stars":14,"recipient":"","toMe":false,"text":"fourteen"},
+  {"name":"C","stars":28,"recipient":"","toMe":false,"text":"twenty eight"},
+  {"name":"D","stars":42,"recipient":"","toMe":false,"text":"forty two"},
+  {"name":"E","stars":56,"recipient":"","toMe":false,"text":"fifty six"},
+  {"name":"F","stars":70,"recipient":"","toMe":false,"text":"seventy"}
+ ]}
+]

@@ -87,6 +87,10 @@ bool Minimap::sync(const World& world) {
     }
     revision_=world.minimap_revision();return changed;
 }
+void Minimap::set_pixel_scale(double scale) {
+    if(image_.pixel_scale==scale)return;
+    image_=ui_image(192,192,scale);drawn_zoom_=-1;
+}
 void Minimap::zoom_in() { zoom_index_=std::max(0,zoom_index_-1);button_zoom_=zoom_index_; }
 void Minimap::zoom_out() { if(!zoom_levels_.empty())zoom_index_=std::min(static_cast<int>(zoom_levels_.size())-1,zoom_index_+1);button_zoom_=zoom_index_; }
 bool Minimap::update(const World& world,const Entity& focus,double angle) {
@@ -102,7 +106,30 @@ bool Minimap::update(const World& world,const Entity& focus,double angle) {
     }
     return render(world,view);
 }
+Vec2 Minimap::marker_position(const World& world,const Entity& focus,Vec2 position) const {
+    if(zoom_levels_.empty())return {-1000,-1000};
+    const double zoom=zoom_levels_[static_cast<std::size_t>(zoom_index_)];
+    const double tx=std::clamp(-focus.position.x*zoom,96-world.width()*zoom,-96.0);
+    const double ty=std::clamp(-focus.position.y*zoom,96-world.height()*zoom,-96.0);
+    double x=position.x*zoom+tx,y=position.y*zoom+ty;
+    const double outside=std::max(std::abs(x),std::abs(y));
+    if(outside>=96) { x*=96/outside;y*=96/outside; }
+    return {96+x,96+y};
+}
+std::vector<std::int32_t> Minimap::hover_players(const World& world,const Entity& focus,Vec2 pointer) const {
+    std::vector<std::int32_t> result;
+    if(pointer.x<0||pointer.y<0||pointer.x>=192||pointer.y>=192)return result;
+    for(const auto& entity:world.entities()) {
+        const auto* def=catalog_.object(entity.type);
+        if(!entity.player||entity.id==focus.id||!def||def->no_minimap)continue;
+        const auto p=marker_position(world,focus,entity.position);
+        const double dx=pointer.x-p.x,dy=pointer.y-p.y;
+        if(dx*dx+dy*dy<25)result.push_back(entity.id);
+    }
+    return result;
+}
 void Minimap::rectangle(double x,double y,double width,double height,std::uint32_t color) {
+    if(image_.pixel_scale!=1) { ui_rectangle(image_,x,y,width,height,color);return; }
     // Graphics positions are stored in twips before coverage rasterization.
     x=std::round(x*20)/20;y=std::round(y*20)/20;
     for(int row=std::max(0,static_cast<int>(std::floor(y)));row<std::min(192,static_cast<int>(std::ceil(y+height)));++row)
@@ -114,10 +141,11 @@ void Minimap::rectangle(double x,double y,double width,double height,std::uint32
         }
 }
 void Minimap::bitmap(const Image& source,double x,double y,double sx,double sy,double multiplier) {
-    for(int row=std::max(0,static_cast<int>(std::floor(y)));row<std::min(192,static_cast<int>(std::ceil(y+source.height*sy)));++row)
-        for(int col=std::max(0,static_cast<int>(std::floor(x)));col<std::min(192,static_cast<int>(std::ceil(x+source.width*sx)));++col) {
+    const double density=image_.pixel_scale;x*=density;y*=density;sx*=density;sy*=density;
+    for(int row=std::max(0,static_cast<int>(std::floor(y)));row<std::min(image_.height,static_cast<int>(std::ceil(y+source.height*sy)));++row)
+        for(int col=std::max(0,static_cast<int>(std::floor(x)));col<std::min(image_.width,static_cast<int>(std::ceil(x+source.width*sx)));++col) {
             const int ix=static_cast<int>(std::floor((col+.5-x)/sx)),iy=static_cast<int>(std::floor((row+.5-y)/sy));if(ix<0||iy<0||ix>=source.width||iy>=source.height)continue;
-            const auto from=static_cast<std::size_t>(ix+iy*source.width)*4,to=static_cast<std::size_t>(col+row*192)*4;const unsigned alpha=source.pixels[from+3];
+            const auto from=static_cast<std::size_t>(ix+iy*source.width)*4,to=static_cast<std::size_t>(col+row*image_.width)*4;const unsigned alpha=source.pixels[from+3];
             for(unsigned c=0;c<3;++c)image_.pixels[to+c]=static_cast<unsigned char>(static_cast<unsigned>(source.pixels[from+c]*multiplier)+(static_cast<unsigned>(image_.pixels[to+c])*(256-alpha)>>8U));
         }
 }
@@ -128,10 +156,11 @@ bool Minimap::render(const World& world,const MinimapView& view) {
     if(!changed&&drawn_zoom_==zoom_index_&&drawn_button_==button_zoom_&&view_.focus.x==view.focus.x&&view_.focus.y==view.focus.y&&view_.angle==view.angle&&view_.markers==view.markers)return false;
     const double zoom=zoom_levels_[static_cast<std::size_t>(zoom_index_)];
     const double tx=std::clamp(-view.focus.x*zoom,96-map_.width*zoom,-96.0),ty=std::clamp(-view.focus.y*zoom,96-map_.height*zoom,-96.0);
-    for(int y=0;y<192;++y)for(int x=0;x<192;++x) {
-        const int mx=static_cast<int>(std::floor((x+.5-96-std::trunc(tx*20)/20)/zoom)),my=static_cast<int>(std::floor((y+.5-96-std::trunc(ty*20)/20)/zoom));
+    const double density=image_.pixel_scale;
+    for(int y=0;y<image_.height;++y)for(int x=0;x<image_.width;++x) {
+        const int mx=static_cast<int>(std::floor(((x+.5)/density-96-std::trunc(tx*20)/20)/zoom)),my=static_cast<int>(std::floor(((y+.5)/density-96-std::trunc(ty*20)/20)/zoom));
         if(mx<0||my<0||mx>=map_.width||my>=map_.height)opaque_pixel(image_,x,y,1776411);
-        else { const auto from=static_cast<std::size_t>(mx+my*map_.width)*4,to=static_cast<std::size_t>(x+y*192)*4;std::copy_n(map_.pixels.begin()+static_cast<std::ptrdiff_t>(from),4,image_.pixels.begin()+static_cast<std::ptrdiff_t>(to)); }
+        else { const auto from=static_cast<std::size_t>(mx+my*map_.width)*4,to=static_cast<std::size_t>(x+y*image_.width)*4;std::copy_n(map_.pixels.begin()+static_cast<std::ptrdiff_t>(from),4,image_.pixels.begin()+static_cast<std::ptrdiff_t>(to)); }
     }
     for(const auto& marker:view.markers) {
         double x=marker.position.x*zoom+tx,y=marker.position.y*zoom+ty;
@@ -139,11 +168,11 @@ bool Minimap::render(const World& world,const MinimapView& view) {
         rectangle(96+x-2,96+y-2,4,4,marker.color);
     }
     const double px=96+view.focus.x*zoom+tx,py=96+view.focus.y*zoom+ty,c=std::cos(view.angle),s=std::sin(view.angle);
-    for(int y=std::max(0,static_cast<int>(std::floor(py-16)));y<std::min(192,static_cast<int>(std::ceil(py+16)));++y)
-        for(int x=std::max(0,static_cast<int>(std::floor(px-16)));x<std::min(192,static_cast<int>(std::ceil(px+16)));++x) {
-            const double dx=x+.5-px,dy=y+.5-py;const int ax=static_cast<int>(std::floor((c*dx+s*dy)*arrow_.width/8+4)),ay=static_cast<int>(std::floor((-s*dx+c*dy)*arrow_.height/32+5));
+    for(int y=std::max(0,static_cast<int>(std::floor((py-16)*density)));y<std::min(image_.height,static_cast<int>(std::ceil((py+16)*density)));++y)
+        for(int x=std::max(0,static_cast<int>(std::floor((px-16)*density)));x<std::min(image_.width,static_cast<int>(std::ceil((px+16)*density)));++x) {
+            const double dx=(x+.5)/density-px,dy=(y+.5)/density-py;const int ax=static_cast<int>(std::floor((c*dx+s*dy)*arrow_.width/8+4)),ay=static_cast<int>(std::floor((-s*dx+c*dy)*arrow_.height/32+5));
             if(ax<0||ay<0||ax>=arrow_.width||ay>=arrow_.height)continue;
-            const auto from=static_cast<std::size_t>(ax+ay*arrow_.width)*4,to=static_cast<std::size_t>(x+y*192)*4;const unsigned alpha=arrow_.pixels[from+3];
+            const auto from=static_cast<std::size_t>(ax+ay*arrow_.width)*4,to=static_cast<std::size_t>(x+y*image_.width)*4;const unsigned alpha=arrow_.pixels[from+3];
             for(unsigned channel=0;channel<3;++channel)image_.pixels[to+channel]=static_cast<unsigned char>(arrow_.pixels[from+channel]+(static_cast<unsigned>(image_.pixels[to+channel])*(256-alpha)>>8U));
         }
     bitmap(out_button_,172,4,2,2,button_zoom_>0 ? 1 : .5);bitmap(in_button_,172,14,2,2,button_zoom_<static_cast<int>(zoom_levels_.size())-1 ? 1 : .5);

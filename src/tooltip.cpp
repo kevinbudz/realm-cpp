@@ -37,6 +37,7 @@ std::array<int,8> bonuses(const ObjectDef& item,int data) {
 const ObjectDef* item_definition(const Catalog& catalog,int type) { return type>0&&type<=65535 ? catalog.object(static_cast<std::uint16_t>(type)) : nullptr; }
 // Font bitmaps contain straight alpha; HUD art contains premultiplied pixels.
 void blit(Image& destination,const Image& source,int x,int y,bool premultiplied=false) {
+    if(destination.pixel_scale!=1) { ui_blit(destination,source,x,y,premultiplied);return; }
     for(int row=std::max(0,-y);row<std::min(source.height,destination.height-y);++row)
         for(int col=std::max(0,-x);col<std::min(source.width,destination.width-x);++col) {
             const auto src=static_cast<std::size_t>(row*source.width+col)*4;
@@ -59,7 +60,6 @@ void fill(Image& image,std::uint32_t color) {
 std::optional<ItemTooltipTarget> item_tooltip_target(const World& world,const HudState& hud,Vec2 pointer) {
     const auto* player=world.entity(world.player_id());if(!player||!hud.inventory.enabled||hud.inventory.dragging>=0)return {};
     ItemTooltipTarget result;result.player_type=player->type;result.backpack=hud.inventory.backpack;
-    const auto* class_def=world.catalog().object(player->type);
     const int potion=HudInput::potion_at(pointer,hud.inventory.selected);
     const int slot=HudInput::slot_at(pointer,hud.inventory.selected,hud.inventory.container>=0);
     if(potion>=0) {
@@ -74,6 +74,16 @@ std::optional<ItemTooltipTarget> item_tooltip_target(const World& world,const Hu
         const auto* definition=world.catalog().object(merchant->type);if(!definition||definition->class_name!="Merchant")return {};
         result.item={stat(*merchant,static_cast<int>(flash::StatId::MERCHANDISE_TYPE_STAT),-1),-1};result.owner=TooltipOwner::merchant;
     } else return {};
+    return complete_tooltip_target(world,result);
+}
+std::optional<ItemTooltipTarget> item_tooltip_target(const World& world,InventoryItem item,TooltipOwner owner) {
+    const auto* player=world.entity(world.player_id());if(!player)return {};
+    ItemTooltipTarget result;result.player_type=player->type;result.item=item;result.owner=owner;
+    return complete_tooltip_target(world,result);
+}
+std::optional<ItemTooltipTarget> complete_tooltip_target(const World& world,ItemTooltipTarget result) {
+    const auto* player=world.entity(world.player_id());if(!player)return {};
+    const auto* class_def=world.catalog().object(player->type);
     const auto* item=item_definition(world.catalog(),result.item.type);if(!item||item->slot_type<0)return {};
     result.usable=item->slot_type==10;
     if(class_def)for(std::size_t i=0;i<std::min<std::size_t>(4,class_def->slot_types.size());++i)if(class_def->slot_types[i]==item->slot_type) {
@@ -190,10 +200,12 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog,const ItemTooltip
 }
 bool ItemTooltip::update(const std::optional<ItemTooltipTarget>& target) {
     if(!target) { target_.reset();scroll_=0;return false; }
-    if(target_==target)return false;
+    if(target_==target&&image_.pixel_scale==fonts_.pixel_scale())return false;
     const auto* definition=item_definition(catalog_,target->item.type);
     if(!definition||definition->slot_type<0) { target_.reset();return false; }
-    target_=target;scroll_=0;render(*target);viewport();++rebuilds_;return true;
+    if(image_.pixel_scale!=fonts_.pixel_scale())image_=ui_image(width,maximum_height,fonts_.pixel_scale());
+    const bool same_content=target_==target;
+    target_=target;if(!same_content)scroll_=0;render(*target);viewport();++rebuilds_;return true;
 }
 void ItemTooltip::render(const ItemTooltipTarget& target) {
     const auto description=item_tooltip_content(catalog_,target);
@@ -208,15 +220,32 @@ void ItemTooltip::render(const ItemTooltipTarget& target) {
     };
     text(description.title,16,true,description.title_color,62,width-72);y=std::max(y,56);
     for(const auto& line:description.lines) { y+=4;text(line.text,14,line.bold,line.color,10,width-20); }
-    content_={width,y+10,std::vector<unsigned char>(static_cast<std::size_t>(width)*static_cast<std::size_t>(y+10)*4)};
+    content_height_=y+10;content_=ui_image(width,content_height_,fonts_.pixel_scale());
     fill(content_,target.usable ? 0x363636 : 0x4b3030);
-    for(const auto& field:fields)blit(content_,field.bitmap.image,field.x+static_cast<int>(std::floor(field.bitmap.offset.x)),field.y+static_cast<int>(std::floor(field.bitmap.offset.y)));
+    for(const auto& field:fields) {
+        if(content_.pixel_scale!=1)ui_blit_text(content_,field.bitmap,field.x+field.bitmap.offset.x,field.y+field.bitmap.offset.y);
+        else blit(content_,field.bitmap.image,field.x+static_cast<int>(std::floor(field.bitmap.offset.x)),field.y+static_cast<int>(std::floor(field.bitmap.offset.y)));
+    }
     const auto key="item"+std::to_string(target.item.type);
     if(art_.contains(key)) { const auto& icon=art_.image(key);blit(content_,icon,10+(44-icon.width)/2,10+(44-icon.height)/2,true); }
 }
 void ItemTooltip::viewport() {
-    height_=std::min(maximum_height,content_.height);std::fill(image_.pixels.begin(),image_.pixels.end(),0);
-    const bool overflow=content_.height>maximum_height;const int body=height_-(overflow ? 22 : 0);
+    height_=std::min(maximum_height,content_height_);std::fill(image_.pixels.begin(),image_.pixels.end(),0);
+    if(image_.pixel_scale!=1) {
+        const double s=image_.pixel_scale;const int body=height_-(content_height_>maximum_height ? 22 : 0);
+        scroll_=std::clamp(scroll_,0,std::max(0,content_height_-body));
+        const int rows=static_cast<int>(std::ceil(body*s)),from=std::min(content_.height-rows,static_cast<int>(std::round(scroll_*s)));
+        std::copy_n(content_.pixels.data()+static_cast<std::size_t>(from)*content_.width*4,static_cast<std::size_t>(rows)*content_.width*4,image_.pixels.data());
+        if(content_height_>maximum_height) {
+            ui_rectangle(image_,0,body,width,22,0x282828);
+            const auto hint=fonts_.rasterize("Mouse wheel to scroll",14,false,false,0xb3b3b3);
+            ui_blit_text(image_,hint,10+hint.offset.x,body+hint.offset.y);
+        }
+        const auto border=target_->usable ? 0x9b9b9bU : 0xa75b5bU;
+        ui_rectangle(image_,0,0,width,1,border);ui_rectangle(image_,0,height_-1,width,1,border);
+        ui_rectangle(image_,0,0,1,height_,border);ui_rectangle(image_,width-1,0,1,height_,border);return;
+    }
+    const bool overflow=content_height_>maximum_height;const int body=height_-(overflow ? 22 : 0);
     scroll_=std::clamp(scroll_,0,std::max(0,content_.height-body));
     std::copy_n(content_.pixels.begin()+static_cast<std::ptrdiff_t>(scroll_)*width*4,static_cast<std::size_t>(body)*width*4,image_.pixels.begin());
     if(overflow) {
@@ -232,8 +261,8 @@ void ItemTooltip::viewport() {
     }
 }
 bool ItemTooltip::scroll(int steps) {
-    if(!visible()||content_.height<=maximum_height||steps==0)return false;
-    const int next=static_cast<int>(std::clamp<std::int64_t>(static_cast<std::int64_t>(scroll_)-static_cast<std::int64_t>(steps)*36,0,content_.height-(height_-22)));
+    if(!visible()||content_height_<=maximum_height||steps==0)return false;
+    const int next=static_cast<int>(std::clamp<std::int64_t>(static_cast<std::int64_t>(scroll_)-static_cast<std::int64_t>(steps)*36,0,content_height_-(height_-22)));
     if(next==scroll_)return false;
     scroll_=next;viewport();return true;
 }

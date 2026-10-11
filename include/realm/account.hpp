@@ -19,7 +19,8 @@ struct CharList {
     std::vector<SavedCharacter> characters;
     std::vector<NewsItem> news;
     // ClassStats objectType -> BestFame.
-    std::map<int,int> best_fame;
+    std::map<int,int> best_fame,best_level;
+    std::vector<int> owned_skins;
     [[nodiscard]] int available_slots() const { return std::max(0,max_num_chars-static_cast<int>(characters.size())); }
     [[nodiscard]] int stars() const;
 };
@@ -30,6 +31,9 @@ inline constexpr int fame_stars[5]{20,150,400,800,2000};
 // AppEngine replies carry failures as <Error>text</Error>.
 [[nodiscard]] std::optional<std::string> app_error(std::string_view response);
 [[nodiscard]] CharList parse_char_list(std::string_view xml);
+struct GuildMember { std::string name;int rank{},fame{}; };
+struct GuildMemberList { std::string name;int fame{},level{};std::vector<GuildMember> members; };
+[[nodiscard]] GuildMemberList parse_guild_members(std::string_view xml);
 // SavedCharacter.compare: most recently played first, then most experience.
 void sort_characters(CharList& list,const std::map<int,std::int64_t>& use);
 

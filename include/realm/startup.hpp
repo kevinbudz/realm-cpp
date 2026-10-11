@@ -6,6 +6,7 @@
 #include "realm/http.hpp"
 #include "realm/renderer.hpp"
 #include "realm/session.hpp"
+#include "realm/skins.hpp"
 #include <array>
 #include <filesystem>
 #include <future>
@@ -52,6 +53,8 @@ public:
     // Set once Play resolves to a character; the caller starts the session.
     [[nodiscard]] std::optional<SessionOptions> take_launch() { return std::exchange(launch_,std::nullopt); }
     void entered_game();
+    [[nodiscard]] std::optional<std::string> take_skin_error() { return std::exchange(skin_error_,{}); }
+    [[nodiscard]] const CharList* char_list() const { return list_ ? &*list_ : nullptr; }
     void renamed_account(const std::string& name);
     // Session ended (death, failure, disconnect or leaving); returns to the
     // character screen with fresh data, showing message if it is not empty.
@@ -59,9 +62,9 @@ public:
     [[nodiscard]] std::span<const HudRegion> uploads() const { return uploads_; }
     void clear_uploads() { uploads_.clear(); }
     // Window-space overlay quads for the size given to the last update().
-    void build(const Atlas& atlas,std::size_t sheet_index,std::int32_t time_ms,std::vector<Quad>& out) const;
+    void build(const SurfaceTexture& texture,std::int32_t time_ms,std::vector<Quad>& out);
 private:
-    enum class Screen { account_loading,loading,title,characters,classes,entering,game };
+    enum class Screen { account_loading,loading,title,characters,classes,skins,entering,game };
     enum class Dialog { none,login,reg,message };
     enum class Task { none,verify_saved,char_list,login,reg };
     enum class Anchor { content,window };
@@ -75,6 +78,10 @@ private:
         // window, the offset is scaled by the UI scale and pixels are unscaled.
         Vec2 position{},anchor_fraction{},pixels{},size{},pulse_center{};
         int group{-1};
+        std::string text;
+        Vec2 text_origin{};
+        int font_size{};
+        bool font_bold{},font_shadow{};
     };
     struct Field { std::string label,value,error;bool password{}; };
     void rebuild();
@@ -91,6 +98,7 @@ private:
     void title_screen();
     void character_screen();
     void class_screen();
+    void skin_screen();
     void loading_screen(std::string_view text);
     void dialog_frame();
     [[nodiscard]] int hit(Vec2 position) const;
@@ -122,15 +130,20 @@ private:
     std::int32_t retry_at_{-1},time_{};
     std::vector<int> player_types_;
     int new_character_type_{};
+    std::map<int,int> selected_skins_;
+    std::optional<std::string> skin_error_;
     double scroll_{},list_height_{};
     std::optional<SessionOptions> launch_;
     Image sheet_,logo_;
     int sheet_x_{1},sheet_y_{1},sheet_row_{},sheet_used_{};
     std::vector<HudRegion> uploads_;
     std::vector<Element> elements_;
+    SurfaceTexture pulse_texture_{true},skin_texture_;
+    std::unique_ptr<SkinChooser> skins_;
     std::string background_map_;
     double background_x_{10},background_y_{10},background_width_{},width_{800},height_{600};
     int hovered_{-1},pressed_{-1};
+    std::size_t dialog_begin_{};
     bool dirty_{true},caret_{};
 };
 }

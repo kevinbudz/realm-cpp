@@ -1,4 +1,5 @@
 #include "realm/world.hpp"
+#include "realm/conditions.hpp"
 #include <nlohmann/json.hpp>
 #include <zlib.h>
 #include <algorithm>
@@ -77,12 +78,13 @@ private:
 };
 }
 void World::initialize(int width, int height, std::string name) {
+    ++generation_;
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096 || static_cast<std::size_t>(width) * static_cast<std::size_t>(height) > 16 * 1024 * 1024)
         throw std::invalid_argument("Invalid map dimensions");
     width_ = width; height_ = height; name_ = std::move(name);
     tiles_.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), {});
     ++minimap_revision_;minimap_rows_.assign(static_cast<std::size_t>(height),minimap_revision_);
-    entities_.clear(); entity_lookup_.clear(); unresolved_.clear(); damage_cues_.clear(); player_id_ = -1;
+    particles_.clear();entities_.clear(); entity_lookup_.clear(); unresolved_.clear(); damage_cues_.clear(); status_events_.clear(); player_id_ = -1;
     spawn_ = {width / 2.0, height / 2.0};
 }
 TileState* World::tile(int x, int y) {
@@ -132,6 +134,7 @@ Entity& World::add(std::int32_t id, std::uint16_t type, Vec2 position, int size)
         e.player = d->player; e.size = size < 0 ? d->min_size : size; e.z = d->z; e.hp = e.max_hp = d->max_hp; e.defense = d->defense;
         e.tex1 = static_cast<std::uint32_t>(d->xml.number("Tex1")); e.tex2 = static_cast<std::uint32_t>(d->xml.number("Tex2"));
     }
+    if(const auto* d=catalog_.object(type))particles_.attach(e,d->texture);
     entity_lookup_[id] = entities_.size(); entities_.push_back(std::move(e)); assign_tile_object(entities_.back()); remember_object(entities_.back()); return entities_.back();
 }
 std::int32_t World::allocate_fake_id() {
@@ -145,6 +148,7 @@ std::int32_t World::allocate_fake_id() {
 }
 void World::remove(std::int32_t id) {
     const auto it = entity_lookup_.find(id); if (it == entity_lookup_.end()) return;
+    particles_.remove_target(id);
     const auto index = it->second; const auto& e = entities_[index];
     if (auto* t = tile(static_cast<int>(std::floor(e.position.x)), static_cast<int>(std::floor(e.position.y)));
         t && t->object_id == id) t->object_id = -1;
@@ -160,13 +164,45 @@ void World::goto_entity(std::int32_t id, Vec2 position) {
         e->position = e->target = position; e->velocity = {}; assign_tile_object(*e);
     }
 }
-void World::report_damage(std::int32_t id,int amount,std::int32_t time,std::span<const std::uint8_t> effects,bool piercing) {
+void World::report_damage(std::int32_t id,int amount,std::int32_t time,std::span<const std::uint8_t> effects,bool piercing,double hit_angle,double hit_speed) {
     const auto* target=entity(id); if (!target) return;
+    // GameServerConnection.onDamage: damage to other objects is dropped when Ally Damage is off.
+    if (!preferences_.ally_damage && id!=player_id_) return;
     // GameObject.damage displays feedback. HP and conditions change only when
     // the authoritative server stats arrive, including locally detected hits.
+    particles_.hit(*this,*target,amount,time,hit_angle,hit_speed,hit_speed>=0);
     if (amount<=0 && effects.empty()) return;
+    // GameObject.damage: condition names stagger by 500 ms, then the damage amount.
+    const bool pierced=piercing || (target->condition&condition::bit(condition::armor_broken));
+    int offset=0;
+    for (const auto effect:effects) {
+        unsigned shown=effect;
+        switch (effect) {
+        case condition::quiet: case condition::weak: case condition::slowed: case condition::sick: case condition::dazed:
+        case condition::blind: case condition::hallucinating: case condition::drunk: case condition::confused:
+        case condition::stun_immune: case condition::invisible: case condition::paralyzed: case condition::speedy:
+        case condition::bleeding: case condition::stasis: case condition::stasis_immune: case condition::armor_broken: break;
+        case condition::stunned:
+            if (target->condition&condition::bit(condition::stun_immune)) { notify(id,"Immune",0xff0000U,3000);shown=condition::nothing; }
+            break;
+        default: shown=condition::nothing;
+        }
+        if (!shown) continue;
+        notify(id,std::string(condition_effect(shown).name),0xff0000U,3000,offset);offset+=500;
+    }
+    if (amount>0) notify(id,"-"+std::to_string(amount),pierced ? 0x9000ffU : 0xff0000U,1000);
     if (damage_cues_.size()>=256) damage_cues_.erase(damage_cues_.begin());
-    damage_cues_.push_back({id,time,amount,piercing || (target->condition&(1U<<23U)),{effects.begin(),effects.end()}});
+    damage_cues_.push_back({id,time,amount,pierced,{effects.begin(),effects.end()}});
+}
+bool World::allows_notification(std::int32_t object_id) const {
+    if (preferences_.ally_notifs || object_id==player_id_) return true;
+    const auto found=entity_lookup_.find(object_id);
+    return found==entity_lookup_.end() || !entities_[found->second].player;
+}
+void World::notify(std::int32_t object_id,std::string text,std::uint32_t color,int lifetime,int offset_time) {
+    if (!entity(object_id)) return;
+    if (status_events_.size()>=64) status_events_.erase(status_events_.begin());
+    status_events_.push_back({object_id,std::move(text),color,lifetime,offset_time});
 }
 void World::expire_damage(std::int32_t time) {
     std::erase_if(damage_cues_,[&](const auto& cue){ return static_cast<std::int64_t>(time)-cue.time_ms>3500 || !entity(cue.object_id); });
@@ -178,6 +214,9 @@ void World::status(Entity& e, const net::Status& s, bool interpolate, double dt_
     if (interpolate && e.id != player_id_ && (e.target.x != position.x || e.target.y != position.y)) {
         e.target = position; e.velocity = {(position.x - e.position.x) / dt_ms, (position.y - e.position.y) / dt_ms};
     } else if (!interpolate) { goto_entity(e.id, position); }
+    // GameServerConnection.onNewTick: level, exp and fame as they were before this update.
+    const auto previous=[&](flash::StatId id,int fallback) { const auto it=e.stats.find(static_cast<std::uint8_t>(id));return it==e.stats.end() ? fallback : it->second; };
+    const int old_level=previous(flash::StatId::LEVEL_STAT,-1),old_exp=previous(flash::StatId::EXP_STAT,0),old_fame=previous(flash::StatId::CHAR_FAME_STAT,0);
     for (const auto& stat : s.stats) {
         if (std::holds_alternative<std::string>(stat.value)) {
             if (stat.type == static_cast<std::uint8_t>(flash::StatId::NAME_STAT)) e.name = std::get<std::string>(stat.value);
@@ -185,6 +224,10 @@ void World::status(Entity& e, const net::Status& s, bool interpolate, double dt_
             continue;
         }
         const auto value = std::get<std::int32_t>(stat.value);
+        if(stat.type==static_cast<std::uint8_t>(flash::StatId::LEVEL_STAT)) {
+            const auto old=e.stats.find(stat.type);
+            if(e.player&&old!=e.stats.end()&&old->second>=0&&value>old->second&&(e.id==player_id_||preferences_.ally_notifs))particles_.level_up(e.id,static_cast<std::int32_t>(particles_.time()));
+        }
         e.stats[stat.type] = value;
         switch (static_cast<flash::StatId>(stat.type)) {
         case flash::StatId::HP_STAT: e.hp = value; break;
@@ -194,12 +237,25 @@ void World::status(Entity& e, const net::Status& s, bool interpolate, double dt_
         case flash::StatId::ATTACK_STAT: e.attack = value; break;
         case flash::StatId::DEXTERITY_STAT: e.dexterity = value; break;
         case flash::StatId::DEFENSE_STAT: e.defense = value; break;
-        case flash::StatId::CONDITION_STAT: e.condition = static_cast<std::uint32_t>(value); break;
+        case flash::StatId::CONDITION_STAT: e.condition = static_cast<std::uint32_t>(value);if(e.player)particles_.healing(e);break;
         case flash::StatId::TEX1_STAT: e.tex1 = static_cast<std::uint32_t>(value); break;
         case flash::StatId::TEX2_STAT: e.tex2 = static_cast<std::uint32_t>(value); break;
-        case flash::StatId::ALT_TEXTURE_STAT: e.alt_texture = value; break;
+        case flash::StatId::ALT_TEXTURE_STAT:
+            e.alt_texture = value;
+            if(const auto* d=catalog_.object(e.type)) {
+                const auto it=d->texture.alternate.find(value);particles_.attach(e,it==d->texture.alternate.end() ? d->texture : it->second);
+            }break;
         case flash::StatId::TEXTURE_STAT: e.texture = value; break;
         default: break;
+        }
+    }
+    // Other players' level-ups and experience are shown only with Ally Notifications on.
+    if (e.player&&old_level!=-1&&(e.id==player_id_||preferences_.ally_notifs)) {
+        const int level=previous(flash::StatId::LEVEL_STAT,-1),exp=previous(flash::StatId::EXP_STAT,0),fame=previous(flash::StatId::CHAR_FAME_STAT,0);
+        if (level>old_level) notify(e.id,"Level Up!",0x00ff00U,2000);
+        else if (exp>old_exp) {
+            if (level!=20) notify(e.id,"+"+std::to_string(exp-old_exp)+" EXP",0x00ff00U,1000);
+            if (fame>old_fame&&level==20) notify(e.id,"+"+std::to_string(fame-old_fame)+" Fame",0xe25f00U,1000);
         }
     }
 }

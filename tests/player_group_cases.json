@@ -1,0 +1,554 @@
+[
+  {
+    "id": "tooltip-one",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "tooltip-group",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "menu",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "menu-hover",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "cooldown-full",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 10000,
+    "scale": 1
+  },
+  {
+    "id": "cooldown-mid",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 4000,
+    "scale": 1
+  },
+  {
+    "id": "no-teleport",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "empty-name",
+    "players": [
+      {
+        "type": 782,
+        "name": "",
+        "level": 0,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "tooltip-empty-name",
+    "players": [
+      {
+        "type": 782,
+        "name": "",
+        "level": 0,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1
+  },
+  {
+    "id": "tooltip-group-1.2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1.2
+  },
+  {
+    "id": "menu-hover-1.2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 0,
+    "scale": 1.2
+  },
+  {
+    "id": "cooldown-mid-1.2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 4000,
+    "scale": 1.2
+  },
+  {
+    "id": "no-teleport-1.2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 1.2
+  },
+  {
+    "id": "tooltip-group-2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 2
+  },
+  {
+    "id": "menu-hover-2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 0,
+    "scale": 2
+  },
+  {
+    "id": "cooldown-mid-2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 4000,
+    "scale": 2
+  },
+  {
+    "id": "no-teleport-2",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 2
+  },
+  {
+    "id": "tooltip-group-3.6",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": false,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 3.6
+  },
+  {
+    "id": "menu-hover-3.6",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 0,
+    "scale": 3.6
+  },
+  {
+    "id": "cooldown-mid-3.6",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": true,
+    "hover": true,
+    "cooldown": 4000,
+    "scale": 3.6
+  },
+  {
+    "id": "no-teleport-3.6",
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20,
+        "fellowGuild": false
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 1,
+        "fellowGuild": true
+      },
+      {
+        "type": 797,
+        "name": "Abcdefghij",
+        "level": 20,
+        "fellowGuild": false
+      }
+    ],
+    "menu": true,
+    "teleport": false,
+    "hover": false,
+    "cooldown": 0,
+    "scale": 3.6
+  }
+]

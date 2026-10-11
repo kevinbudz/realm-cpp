@@ -16,6 +16,9 @@ public:
     [[nodiscard]] Vec2 world_to_screen(Vec2 position, double z = 0) const;
     [[nodiscard]] Vec2 screen_to_world(Vec2 position) const;
     [[nodiscard]] Rect clip_rect() const { return clip_; }
+    [[nodiscard]] double scale() const { return zoom_; }
+    [[nodiscard]] double angle() const { return std::atan2(s_, c_); }
+    [[nodiscard]] Vec2 origin() const { return {-clip_.x*zoom_,-clip_.y*zoom_}; }
     [[nodiscard]] double max_distance() const { return max_distance_; }
     [[nodiscard]] double playable_width() const { return width_ - height_ / 3.0; }
     [[nodiscard]] double pixels_per_unit() const { return 50 * zoom_; }

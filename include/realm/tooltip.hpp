@@ -19,6 +19,10 @@ struct ItemTooltipContent {
     std::vector<TooltipLine> lines;
 };
 [[nodiscard]] std::optional<ItemTooltipTarget> item_tooltip_target(const World& world,const HudState& hud,Vec2 pointer);
+// An item outside the HUD grids, such as a TradeSlot (EquipmentToolTip with
+// another owner); compares with the local player's equipment.
+[[nodiscard]] std::optional<ItemTooltipTarget> item_tooltip_target(const World& world,InventoryItem item,TooltipOwner owner);
+[[nodiscard]] std::optional<ItemTooltipTarget> complete_tooltip_target(const World& world,ItemTooltipTarget target);
 [[nodiscard]] ItemTooltipContent item_tooltip_content(const Catalog& catalog,const ItemTooltipTarget& target);
 // One retained bitmap, uploaded only for content changes or scrolling.
 // Pointer movement changes the overlay position without rasterization.
@@ -30,7 +34,7 @@ public:
     bool scroll(int wheel_steps);
     [[nodiscard]] bool visible() const { return target_.has_value(); }
     [[nodiscard]] int height() const { return height_; }
-    [[nodiscard]] int content_height() const { return content_.height; }
+    [[nodiscard]] int content_height() const { return content_height_; }
     [[nodiscard]] const Image& image() const { return image_; }
     [[nodiscard]] std::uint64_t rebuilds() const { return rebuilds_; }
     [[nodiscard]] static Vec2 position(Vec2 pointer,int window_width,int window_height,int height,double scale);
@@ -42,7 +46,7 @@ private:
     const HudArt& art_;
     std::optional<ItemTooltipTarget> target_;
     Image content_,image_{width,maximum_height,std::vector<unsigned char>(width*maximum_height*4)};
-    int height_{},scroll_{};
+    int height_{},scroll_{},content_height_{};
     std::uint64_t rebuilds_{};
 };
 }

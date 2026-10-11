@@ -23,6 +23,7 @@ def build(program, flash_root, sdk, java_home, output, mask_variant=None):
     elif image_set_path.exists():
         image_set_path.unlink()
     env = os.environ.copy(); env['JAVA_HOME'] = str(java_home); env['PATH'] = str(java_home / 'bin') + os.pathsep + env['PATH']
+    if program in ('GuildMembersExporter','PlayerGroupExporter','PartyArrowExporter','SkinsExporter','DyesExporter','ParticlesExporter','ModelsExporter','PostFxExporter','StatusExporter','OptionsExporter'): env['SETUP_SH_VMARGS'] = '-Xmx2048m'
     source = Path(__file__).resolve().parent / 'flash-reference'
     command = [str(sdk / 'bin/mxmlc'), '+configname=air', '-source-path+=' + str(output), '-source-path+=' + str(flash_root / 'src'), '-output', str(output / (program + '.swf')), '-optimize=true', '-strict=true', '-keep-as3-metadata+=Inject', '-keep-as3-metadata+=PostConstruct', '-keep-as3-metadata+=ArrayElementType']
     command += ['-library-path+=' + str(x) for x in sorted((flash_root / 'libs').glob('*.swc'))]
@@ -43,7 +44,7 @@ def build(program, flash_root, sdk, java_home, output, mask_variant=None):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('program', choices=['TextureExporter', 'GroundExporter', 'BlendExporter', 'StageTextureExporter', 'FontExporter', 'HudExporter', 'MinimapExporter', 'BitmapColorExporter', 'InventoryExporter', 'PlayerTooltipExporter'])
+    p.add_argument('program', choices=['TextureExporter', 'GroundExporter', 'BlendExporter', 'StageTextureExporter', 'FontExporter', 'HudExporter', 'MinimapExporter', 'BitmapColorExporter', 'InventoryExporter', 'PlayerTooltipExporter', 'DialogExporter', 'GuildBoardExporter', 'GuildMembersExporter', 'PlayerGroupExporter', 'PartyArrowExporter', 'SkinsExporter','DyesExporter','ParticlesExporter','ModelsExporter','PostFxExporter','StatusExporter', 'OptionsExporter'])
     p.add_argument('--flash-root', type=Path, default=Path(__file__).resolve().parents[2] / 'realm-client')
     p.add_argument('--sdk', type=Path, default=Path(os.environ.get('AIR_SDK', str(Path.home() / 'Desktop/AIRSDK_Linux'))))
     p.add_argument('--java-home', type=Path, default=Path(os.environ.get('JAVA_HOME', str(Path.home() / '.local/share/air-jdk'))))

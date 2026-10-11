@@ -1,3 +1,6 @@
+#include "realm/trade.hpp"
+#include "realm/dialog.hpp"
+#include "realm/player_menu.hpp"
 #include "realm/session.hpp"
 #include "flash_assets.hpp"
 #include "realm/movement.hpp"
@@ -10,7 +13,7 @@ int value(std::string_view s) { std::size_t count{}; const auto number = std::st
 }
 int main(int argc, char** argv) {
     try {
-        realm::SessionOptions options; int seconds = 10; bool password_stdin{}, exercise{},exercise_inventory{},exercise_potion{},exercise_portal{};
+        realm::SessionOptions options; int seconds = 10; bool password_stdin{}, exercise{},exercise_inventory{},exercise_potion{},exercise_portal{},exercise_menu{};std::string purchase_fonts,trade_partner;bool trade_initiator{};
         for (int i = 1; i < argc; ++i) {
             const std::string arg = argv[i]; const auto next = [&] { if (++i >= argc) throw std::runtime_error("Missing option value"); return std::string(argv[i]); };
             if (arg == "--server") options.host = next();
@@ -25,22 +28,41 @@ int main(int argc, char** argv) {
             else if (arg == "--exercise-inventory") exercise_inventory=true;
             else if (arg == "--exercise-potion") exercise_potion=true;
             else if (arg == "--exercise-portal") exercise_portal=true;
+            else if (arg == "--exercise-menu") exercise_menu=true;
+            else if (arg == "--exercise-purchase") purchase_fonts=next();
+            else if (arg == "--exercise-trade") trade_partner=next();
+            else if (arg == "--trade-initiator") trade_initiator=true;
             else throw std::runtime_error("Usage: realm_session [--server HOST] [--port N] [--username NAME] [--password-stdin] [--character N|--create TYPE] [--game N] [--seconds N]");
         }
         if (seconds < 1 || seconds > 86400) throw std::runtime_error("Invalid session duration");
-        if(static_cast<int>(exercise)+exercise_inventory+exercise_potion+exercise_portal>1)throw std::runtime_error("Choose one exercise mode");
+        if(static_cast<int>(exercise)+exercise_inventory+exercise_potion+exercise_portal+exercise_menu+!purchase_fonts.empty()>1)throw std::runtime_error("Choose one exercise mode");
         if (password_stdin) std::getline(std::cin, options.password);
         realm::Catalog catalog(realm::flash::source_root); realm::World world(catalog); realm::Session session(world);
         session.connect(std::move(options)); const auto epoch = std::chrono::steady_clock::now();
         auto previous = epoch; bool playing{}; std::int32_t ability_time{};
         int inventory_stage{},source_slot{-1},target_slot{-1};realm::InventoryItem original_item,dropped_item;
         int potion_stage{},potion_start{},potion_results{},potion_expected{1},portal_stage{};std::int32_t portal_id{-1};
+        // PlayerMenu actions against a second fixture player.
+        // TradePanel flow between two fixture players: request, offer one item, accept.
+        realm::Dialog purchase_dialog;int purchase_stage{};std::int32_t purchase_id{-1};
+        std::unique_ptr<realm::FontBook> dialog_fonts;
+        if(!purchase_fonts.empty()) { dialog_fonts=std::make_unique<realm::FontBook>(purchase_fonts);dialog_fonts->enable_native(realm::flash::source_root); }
+        realm::Trade trade;int trade_stage{},trade_offered{-1},trade_item{-1};bool trade_changed_seen{};
+        int menu_stage{},menu_lists{};std::int32_t menu_target{-1},menu_account{-1};bool menu_goto{},menu_trade_reply{};
         const auto stat=[](const realm::Entity& entity,std::uint8_t id) { const auto found=entity.stats.find(id);return found==entity.stats.end()?-1:found->second; };
         while (std::chrono::steady_clock::now() - epoch < std::chrono::seconds(seconds)) {
             const auto now = std::chrono::steady_clock::now();
             const auto time = static_cast<std::int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now - epoch).count());
             const auto dt = std::chrono::duration<double,std::milli>(now - previous).count(); previous = now;
             session.poll(time); world.update(dt);
+            if(dialog_fonts&&purchase_stage==0&&session.state()==realm::SessionState::playing)if(const auto* player=world.entity(world.player_id())) {
+                for(const auto& entity:world.entities())if(const auto* def=catalog.object(entity.type);def&&def->class_name=="Merchant") {
+                    const auto price=stat(entity,static_cast<std::uint8_t>(realm::flash::StatId::MERCHANDISE_PRICE_STAT));
+                    const auto currency=stat(entity,static_cast<std::uint8_t>(realm::flash::StatId::MERCHANDISE_CURRENCY_STAT));
+                    const auto gold=stat(*player,static_cast<std::uint8_t>(realm::flash::StatId::CREDITS_STAT));
+                    if(currency==0&&price>gold) { purchase_id=entity.id;session.buy(purchase_id);session.buy(purchase_id);purchase_stage=1;break; }
+                }
+            }
             if(exercise_inventory&&inventory_stage==0&&session.state()==realm::SessionState::playing)if(const auto* player=world.entity(world.player_id())) {
                 for(int i=4;i<12;++i) {
                     const auto item=realm::inventory_item(*player,i);
@@ -111,8 +133,91 @@ int main(int argc, char** argv) {
                 session.shoot(0,time);
                 if(time>=ability_time) { session.use_ability(ability_target,time);ability_time=time+2000; }
             }
+            if(exercise_menu&&session.state()==realm::SessionState::playing&&menu_stage==0) {
+                // Players arrive with 3 seconds of server-applied invisibility.
+                for(const auto& other:world.entities())if(other.player&&other.id!=world.player_id()&&!(other.condition&realm::invisible_condition)) { menu_target=other.id;menu_account=stat(other,static_cast<std::uint8_t>(realm::flash::StatId::ACCOUNT_ID_STAT));break; }
+                if(menu_target>=0) {
+                    const auto target=realm::player_menu_target(world,session.party(),menu_target,session.map_info().allow_teleport);
+                    using A=realm::PlayerMenuAction;
+                    if(!target||target->options!=std::vector{A::teleport,A::lock,A::trade,A::ignore}) {
+                        std::string found;if(target)for(const auto option:target->options)found+=std::to_string(static_cast<int>(option))+",";
+                        throw std::runtime_error("Unexpected PlayerMenu options for fixture player: "+(target ? found : "none")+" allow_teleport="+std::to_string(session.map_info().allow_teleport));
+                    }
+                    if(session.teleport(menu_target,time))throw std::runtime_error("First teleport was refused");
+                    const auto again=session.teleport(menu_target,time);
+                    if(!again||again->find("You can not teleport for another 11 seconds.")==std::string::npos)throw std::runtime_error("Teleport cooldown not enforced");
+                    session.edit_account_list(menu_target,false,true);session.request_trade(target->name);menu_stage=1;
+                }
+            }
+            if(exercise_menu&&menu_stage==1&&menu_goto&&menu_lists==1&&menu_trade_reply&&session.party().starred(menu_target)) {
+                if(const auto again=player_menu_target(world,session.party(),menu_target,true);!again||again->options.at(1)!=realm::PlayerMenuAction::unlock)throw std::runtime_error("Locked player does not offer Unlock");
+                session.edit_account_list(menu_target,false,false);session.edit_account_list(menu_target,true,true);menu_stage=2;
+            }
+            if(exercise_menu&&menu_stage==2&&menu_lists==3) {
+                if(!session.party().ignored(menu_account))throw std::runtime_error("Ignore list was not applied");
+                session.edit_account_list(menu_target,true,false);menu_stage=3;
+            }
+            if(exercise_menu&&menu_stage==3&&menu_lists==4&&!session.party().ignored(menu_account)) {
+                menu_stage=4;std::cout<<"Real server PlayerMenu TELEPORT, EDITACCOUNTLIST lock/unlock/ignore/unignore and REQUESTTRADE accepted\n";
+                session.player_text("native chat check");
+            }
+            if(!trade_partner.empty()&&session.state()==realm::SessionState::playing) {
+                trade.update(time);
+                if(trade_stage==0&&trade_initiator)for(const auto& other:world.entities())if(other.player&&other.name==trade_partner&&!(other.condition&realm::invisible_condition)) { session.request_trade(trade_partner);trade_stage=1;break; }
+                // Accept once the countdown allows it, after the offer is settled on both sides.
+                // Fresh fixtures hold only soulbound gear; an empty trade still runs the full flow.
+                if(trade_stage==2&&trade.button()==realm::Trade::Button::normal&&(trade_initiator||trade_changed_seen||trade_item<0))
+                    if(const auto offers=trade.accept(time)) { session.accept_trade(offers->first,offers->second);trade_stage=3; }
+            }
             session.finish_frame(time);
             for (const auto& event : session.take_events()) {
+                if(!trade_partner.empty()) {
+                    using P=realm::flash::PacketId;
+                    if(event.id==P::TRADEREQUESTED&&!trade_initiator) { session.request_trade(std::get<realm::net::incoming::TradeRequested>(event.data).name);trade_stage=1; }
+                    if(event.id==P::TRADESTART) {
+                        trade.start(std::get<realm::net::incoming::TradeStart>(event.data),"",time);trade_stage=2;
+                        if(trade_initiator)for(std::size_t i=4;i<realm::Trade::slots;++i)if(trade.mine().items[i].tradeable&&trade.mine().items[i].item>0) {
+                            trade_item=trade.mine().items[i].item;
+                            if(const auto offer=trade.toggle(i,time)) { session.change_trade(*offer);trade_offered=static_cast<int>(i); }
+                            break;
+                        }
+                    }
+                    if(event.id==P::TRADECHANGED) { trade.changed(std::get<realm::net::incoming::TradeChanged>(event.data),time);trade_changed_seen=true; }
+                    if(event.id==P::TRADEACCEPTED)trade.accepted(std::get<realm::net::incoming::TradeAccepted>(event.data));
+                    if(event.id==P::TRADEDONE) {
+                        const auto& done=std::get<realm::net::incoming::TradeDone>(event.data);trade.end();
+                        if(done.text!="Trade Successful!")throw std::runtime_error("Trade ended: "+done.text);
+                        trade_stage=4;std::cout<<"Real server trade completed: "<<done.text<<'\n';
+                    }
+                }
+                if(exercise_menu&&event.id==realm::flash::PacketId::GOTO&&std::get<realm::net::incoming::Goto>(event.data).object_id==world.player_id())menu_goto=true;
+                if(exercise_menu&&event.id==realm::flash::PacketId::ACCOUNTLIST) {
+                    const auto& list=std::get<realm::net::incoming::AccountList>(event.data);
+                    const bool listed=std::find(list.account_ids.begin(),list.account_ids.end(),menu_account)!=list.account_ids.end();
+                    // Lock, unlock, ignore and unignore each return the updated list.
+                    const std::array expected{std::pair{0,true},std::pair{0,false},std::pair{1,true},std::pair{1,false}};
+                    if(menu_stage>=1&&menu_lists<4) {
+                        if(list.list_id!=expected[static_cast<std::size_t>(menu_lists)].first||listed!=expected[static_cast<std::size_t>(menu_lists)].second)throw std::runtime_error("Unexpected ACCOUNTLIST reply");
+                        ++menu_lists;
+                    }
+                }
+                if(exercise_menu&&event.id==realm::flash::PacketId::TEXT) {
+                    const auto& message=std::get<realm::net::incoming::Text>(event.data);const auto& text=message.text;
+                    if(menu_stage==4&&text=="native chat check"&&message.object_id==world.player_id()) { menu_stage=5;std::cout<<"Real server PLAYERTEXT echoed from "<<message.name<<"\n"; }
+                    // New fixture accounts have no chosen name, which the server checks before sending the request.
+                    if(text.find("unique name is required before trading")!=std::string::npos||text.find("sent a trade request")!=std::string::npos)menu_trade_reply=true;
+                }
+                if(dialog_fonts&&event.id==realm::flash::PacketId::BUYRESULT) {
+                    const auto& result=std::get<realm::net::incoming::BuyResult>(event.data);
+                    if(purchase_stage!=1||session.buy_pending()||!purchase_dialog.purchase_result(result)||result.text!="Purchase Error: Insufficient Funds.")throw std::runtime_error("Unexpected live purchase error");
+                    dialog_fonts->set_pixel_scale(1.2);purchase_dialog.update(*dialog_fonts,1280,720);
+                    if(!purchase_dialog.visible()||purchase_dialog.content().title!="Purchase Error"||purchase_dialog.height()!=100)throw std::runtime_error("Live Purchase Error layout failed");
+                    const auto b=purchase_dialog.button(0);const auto p=purchase_dialog.position();
+                    const realm::Vec2 point{p.x+(b.x+10)*purchase_dialog.scale(),p.y+(b.y+10)*purchase_dialog.scale()};
+                    purchase_dialog.pointer_down(point);
+                    if(purchase_dialog.pointer_up(point)!=0||purchase_dialog.visible())throw std::runtime_error("Live Purchase Error close failed");
+                    purchase_stage=2;std::cout<<"Real server BUYRESULT 1 opened and closed native Purchase Error; pending purchase released\n";
+                }
                 std::cout << "packet=" << static_cast<int>(event.id) << '\n';
                 if (event.id == realm::flash::PacketId::TEXT) std::cout << std::get<realm::net::incoming::Text>(event.data).text << '\n';
                 if(exercise_potion&&event.id==realm::flash::PacketId::INVRESULT) {
@@ -139,8 +244,19 @@ int main(int argc, char** argv) {
             if (session.state() == realm::SessionState::failed || session.state() == realm::SessionState::disconnected) throw std::runtime_error(session.error());
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+        if(dialog_fonts&&purchase_stage!=2)throw std::runtime_error("Purchase exercise incomplete at stage "+std::to_string(purchase_stage));
         if(exercise_inventory&&inventory_stage!=9)throw std::runtime_error("Inventory exercise incomplete at stage "+std::to_string(inventory_stage));
         if(exercise_portal&&portal_stage!=3)throw std::runtime_error("Portal exercise incomplete at stage "+std::to_string(portal_stage));
+        if(!trade_partner.empty()) {
+            if(trade_stage!=4)throw std::runtime_error("Trade exercise incomplete at stage "+std::to_string(trade_stage));
+            // The traded item moved: the initiator no longer holds it in the offered slot.
+            if(trade_initiator&&trade_offered>=0) {
+                const auto* player=world.entity(world.player_id());
+                if(!player||realm::inventory_item(*player,trade_offered).type==trade_item)throw std::runtime_error("Traded item did not leave the inventory");
+                std::cout<<"Trade inventory verified\n";
+            }
+        }
+        if(exercise_menu&&menu_stage!=5)throw std::runtime_error("PlayerMenu exercise incomplete at stage "+std::to_string(menu_stage));
         if(exercise_potion&&potion_stage!=4)throw std::runtime_error("Potion exercise incomplete at stage "+std::to_string(potion_stage));
         session.disconnect(); std::cout << "World " << world.width() << 'x' << world.height() << " objects=" << world.entities().size() << '\n';
     } catch (const std::exception& error) { std::cerr << "realm_session: " << error.what() << '\n'; return 1; }

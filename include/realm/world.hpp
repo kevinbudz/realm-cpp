@@ -1,8 +1,11 @@
 #pragma once
 #include "realm/catalog.hpp"
 #include "realm/protocol.hpp"
+#include "realm/particles.hpp"
+#include "realm/settings.hpp"
 #include <filesystem>
 #include <limits>
+#include <utility>
 #include <unordered_map>
 
 namespace realm {
@@ -37,6 +40,13 @@ struct DamageCue {
     bool pierced{};
     std::vector<std::uint8_t> effects;
 };
+// A CharacterStatusText request: floating text above an object.
+struct StatusEvent {
+    std::int32_t object_id{};
+    std::string text;
+    std::uint32_t color{};
+    int lifetime{}, offset_time{};
+};
 class World {
 public:
     explicit World(const Catalog& catalog) : catalog_(catalog) {}
@@ -51,8 +61,21 @@ public:
     void update(double dt_ms);
     void goto_entity(std::int32_t id, Vec2 position);
     void report_damage(std::int32_t id, int damage, std::int32_t time,
-                       std::span<const std::uint8_t> effects = {}, bool piercing = false);
+                       std::span<const std::uint8_t> effects = {}, bool piercing = false,
+                       double hit_angle=0,double hit_speed=-1);
     void expire_damage(std::int32_t time);
+    // MapOverlay.addStatusText: Notification packets, damage, conditions, level/exp/fame.
+    void notify(std::int32_t object_id, std::string text, std::uint32_t color, int lifetime, int offset_time = 0);
+    // Hands pending floating-text requests to the overlay; bounded when nothing drains them.
+    [[nodiscard]] std::vector<StatusEvent> take_status_events() { return std::exchange(status_events_, {}); }
+    // Parameters.data_ flags the game systems consult (hpBars, allyDamage, allyNotifs, ...). Applying
+    // them also gates the optional particle effects.
+    void set_preferences(const Preferences& preferences) { preferences_=preferences;particles_.set_enabled(preferences.particles); }
+    [[nodiscard]] const Preferences& preferences() const { return preferences_; }
+    // GameServerConnection.onNotification: other players' notifications are dropped with Ally Notifications off.
+    [[nodiscard]] bool allows_notification(std::int32_t object_id) const;
+    [[nodiscard]] Particles& particles() { return particles_; }
+    [[nodiscard]] const Particles& particles() const { return particles_; }
     [[nodiscard]] const std::vector<DamageCue>& damage_cues() const { return damage_cues_; }
     Entity& add(std::int32_t id, std::uint16_t type, Vec2 position, int size = -1);
     void remove(std::int32_t id);
@@ -62,6 +85,7 @@ public:
     [[nodiscard]] const TileState* tile(int x, int y) const;
     [[nodiscard]] bool walkable(double x, double y) const;
     [[nodiscard]] Vec2 spawn_position() const { return spawn_; }
+    [[nodiscard]] std::uint64_t generation() const { return generation_; }
     [[nodiscard]] std::uint64_t minimap_revision() const { return minimap_revision_; }
     [[nodiscard]] const std::vector<std::uint64_t>& minimap_rows() const { return minimap_rows_; }
     [[nodiscard]] const std::unordered_map<std::uint16_t,std::uint32_t>& minimap_object_ids() const { return minimap_object_ids_; }
@@ -92,9 +116,12 @@ private:
     std::unordered_map<std::int32_t, std::size_t> entity_lookup_;
     std::vector<std::string> unresolved_;
     std::vector<DamageCue> damage_cues_;
+    std::vector<StatusEvent> status_events_;
+    Particles particles_;
     std::int32_t player_id_{-1};
+    Preferences preferences_;
     std::uint32_t fake_counter_{};
-    std::uint64_t minimap_revision_{};
+    std::uint64_t minimap_revision_{},generation_{};
     std::vector<std::uint64_t> minimap_rows_;
     std::unordered_map<std::uint16_t,std::uint32_t> minimap_object_ids_;
 };

@@ -1,0 +1,152 @@
+[
+  {
+    "key": "purchase",
+    "title": "Purchase Error",
+    "body": "Purchase Error: Insufficient Funds.",
+    "buttons": [
+      "Close",
+      null
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": true,
+    "backdrop": true
+  },
+  {
+    "key": "two",
+    "title": "Remove NativeFriend",
+    "body": "Are you sure you want to remove NativeFriend from your guild?",
+    "buttons": [
+      "Cancel",
+      "Remove"
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "hover",
+    "title": "Remove NativeFriend",
+    "body": "Are you sure you want to remove NativeFriend from your guild?",
+    "buttons": [
+      "Cancel",
+      "Remove"
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": 1,
+    "disabled": -1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "disabled",
+    "title": "Remove NativeFriend",
+    "body": "Are you sure you want to remove NativeFriend from your guild?",
+    "buttons": [
+      "Cancel",
+      "Remove"
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": 1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "untitled",
+    "title": null,
+    "body": "This message has no title.\nIt still wraps and centers correctly.",
+    "buttons": [
+      "Ok",
+      null
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "loading",
+    "title": null,
+    "body": "Loading...",
+    "buttons": [
+      null,
+      null
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "long",
+    "title": "A title with two lines\nand a second line",
+    "body": "This longer message checks word wrapping, multiple paragraphs, and the original dialog layout.\n\nThe Close button follows the complete body.",
+    "buttons": [
+      "Close",
+      null
+    ],
+    "width": 800,
+    "height": 600,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": false,
+    "backdrop": false
+  },
+  {
+    "key": "purchase-1280",
+    "title": "Purchase Error",
+    "body": "Purchase Error: Insufficient Funds.",
+    "buttons": [
+      "Close",
+      null
+    ],
+    "width": 1280,
+    "height": 720,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": true,
+    "backdrop": true
+  },
+  {
+    "key": "purchase-1600",
+    "title": "Purchase Error",
+    "body": "Purchase Error: Insufficient Funds.",
+    "buttons": [
+      "Close",
+      null
+    ],
+    "width": 1600,
+    "height": 1200,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": true,
+    "backdrop": true
+  },
+  {
+    "key": "purchase-3840",
+    "title": "Purchase Error",
+    "body": "Purchase Error: Insufficient Funds.",
+    "buttons": [
+      "Close",
+      null
+    ],
+    "width": 3840,
+    "height": 2160,
+    "hover": -1,
+    "disabled": -1,
+    "messageClose": true,
+    "backdrop": true
+  }
+]

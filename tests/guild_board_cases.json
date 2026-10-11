@@ -1,0 +1,132 @@
+[
+  {
+    "key": "member",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 10,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "officer",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 20,
+    "edit": false,
+    "scroll": 0,
+    "hover": 0,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "long",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 40,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "bottom",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 20,
+    "edit": false,
+    "scroll": 1,
+    "hover": -1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "empty",
+    "text": "",
+    "rank": 20,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "edit",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 20,
+    "edit": true,
+    "scroll": 0,
+    "hover": -1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "edit-long",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 20,
+    "edit": true,
+    "scroll": 0,
+    "hover": 1,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "officer-1280",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 20,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "edit-1280",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 20,
+    "edit": true,
+    "scroll": 0,
+    "hover": -1,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "officer-1600",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 20,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "edit-1600",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 20,
+    "edit": true,
+    "scroll": 0,
+    "hover": -1,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "officer-3840",
+    "text": "Welcome to the guild!\n\nNext dungeon run at 8 PM. Bring potions.\nhttps://example.com/guild?x=1&y=2\n\n<Keep this literal> + 100% ready.",
+    "rank": 20,
+    "edit": false,
+    "scroll": 0,
+    "hover": -1,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "edit-3840",
+    "text": "1. Gather in the guild hall and prepare for the next dungeon.\n2. Gather in the guild hall and prepare for the next dungeon.\n3. Gather in the guild hall and prepare for the next dungeon.\n4. Gather in the guild hall and prepare for the next dungeon.\n5. Gather in the guild hall and prepare for the next dungeon.\n6. Gather in the guild hall and prepare for the next dungeon.\n7. Gather in the guild hall and prepare for the next dungeon.\n8. Gather in the guild hall and prepare for the next dungeon.\n9. Gather in the guild hall and prepare for the next dungeon.\n10. Gather in the guild hall and prepare for the next dungeon.\n11. Gather in the guild hall and prepare for the next dungeon.\n12. Gather in the guild hall and prepare for the next dungeon.\n13. Gather in the guild hall and prepare for the next dungeon.\n14. Gather in the guild hall and prepare for the next dungeon.\n15. Gather in the guild hall and prepare for the next dungeon.\n16. Gather in the guild hall and prepare for the next dungeon.\n17. Gather in the guild hall and prepare for the next dungeon.\n18. Gather in the guild hall and prepare for the next dungeon.\n19. Gather in the guild hall and prepare for the next dungeon.\n20. Gather in the guild hall and prepare for the next dungeon.\n21. Gather in the guild hall and prepare for the next dungeon.\n22. Gather in the guild hall and prepare for the next dungeon.\n23. Gather in the guild hall and prepare for the next dungeon.\n24. Gather in the guild hall and prepare for the next dungeon.\n25. Gather in the guild hall and prepare for the next dungeon.\n26. Gather in the guild hall and prepare for the next dungeon.\n27. Gather in the guild hall and prepare for the next dungeon.\n28. Gather in the guild hall and prepare for the next dungeon.\n29. Gather in the guild hall and prepare for the next dungeon.\n30. Gather in the guild hall and prepare for the next dungeon.\n31. Gather in the guild hall and prepare for the next dungeon.\n32. Gather in the guild hall and prepare for the next dungeon.\n33. Gather in the guild hall and prepare for the next dungeon.\n34. Gather in the guild hall and prepare for the next dungeon.",
+    "rank": 20,
+    "edit": true,
+    "scroll": 0,
+    "hover": -1,
+    "width": 3840,
+    "height": 2160
+  }
+]

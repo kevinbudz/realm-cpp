@@ -13,6 +13,12 @@ void Party::receive(const net::incoming::AccountList& list) {
         for(const auto id:list.account_ids) { ignored_.insert(id);last_update_=std::numeric_limits<std::int32_t>::min(); }
     }
 }
+void Party::edit(std::int32_t account,std::int32_t object_id,bool ignore,bool add) {
+    auto& list=ignore ? ignored_ : starred_;
+    if(add)list.insert(account);
+    else { list.erase(account);if(!ignore)starred_objects_.erase(object_id); }
+    last_update_=std::numeric_limits<std::int32_t>::min();
+}
 void Party::update(const World& world,std::int32_t time) {
     if(time<last_update_+500)return;
     last_update_=time;members_.fill(-1);

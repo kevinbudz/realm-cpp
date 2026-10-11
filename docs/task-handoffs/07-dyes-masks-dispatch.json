@@ -1,0 +1,8 @@
+{
+  "taskId": "07-dyes-masks",
+  "predecessor": "06-skins",
+  "projectId": "4e459a47-d36d-4862-9ff2-53c2d40e669c",
+  "environment": "local",
+  "threadId": "01a12b75-54f5-7960-aebe-f33a3605eba9",
+  "hostId": "local"
+}

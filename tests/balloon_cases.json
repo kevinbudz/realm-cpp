@@ -1,0 +1,7 @@
+[
+ {"id":"normal","type":782,"text":"hello there","colors":[14802908,16777215,5526612]},
+ {"id":"wrapped","type":782,"text":"this is a longer message that wraps over several lines in the balloon","colors":[14802908,16777215,5526612]},
+ {"id":"tell","type":768,"text":"psst","colors":[2493110,61695,13880567]},
+ {"id":"guild","type":768,"text":"guild hall tonight?","colors":[4098560,10944349,13891532]},
+ {"id":"enemy","type":3366,"text":"I HAVE CLOSED THIS REALM!","colors":[5644060,16549442,13484223]}
+]

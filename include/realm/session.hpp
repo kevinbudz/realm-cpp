@@ -1,5 +1,6 @@
 #pragma once
 #include "realm/messages.hpp"
+#include "realm/http.hpp"
 #include "realm/transport.hpp"
 #include "realm/world.hpp"
 #include "realm/combat.hpp"
@@ -18,6 +19,8 @@ public:
     explicit Session(World& world) : world_(world), combat_(world),inventory_(world) {}
     void connect(SessionOptions options);
     void disconnect();
+    // The game ID of the current connection (Parameters.NEXUS_GAMEID is -1).
+    [[nodiscard]] std::int32_t game_id() const { return options_.game_id; }
     void poll(std::int32_t time_ms);
     void finish_frame(std::int32_t time_ms);
     void shoot(double angle, std::int32_t time_ms) { if (state_==SessionState::playing) for (const auto& packet : combat_.shoot(angle,time_ms)) transport_.send(packet); }
@@ -32,9 +35,25 @@ public:
     // GameServerConnection.buy: one outstanding purchase, for an object still in the map.
     void buy(std::int32_t object_id) { if(state_==SessionState::playing&&!buy_pending_&&world_.entity(object_id)) { buy_pending_=true;send(net::outgoing::Buy{object_id}); } }
     [[nodiscard]] bool buy_pending() const { return buy_pending_; }
+    bool reskin(int skin_id,std::span<const int> owned);
     void choose_name(const std::string& name) { if(state_==SessionState::playing&&pending_name_.empty()) { pending_name_=name;send(net::outgoing::ChooseName{name}); } }
     void create_guild(const std::string& name) { if(state_==SessionState::playing)send(net::outgoing::CreateGuild{name}); }
     void leave_guild(const std::string& name) { if(state_==SessionState::playing)send(net::outgoing::GuildRemove{name}); }
+    // Player.teleportTo: one TELEPORT per MS_BETWEEN_TELEPORT, never to an
+    // invisible player or on a map that disables teleport. Returns a refusal, if any.
+    [[nodiscard]] std::optional<std::string> teleport(std::int32_t object_id,std::int32_t time_ms);
+    [[nodiscard]] std::int32_t teleport_cooldown(std::int32_t time_ms) const { return std::max<std::int32_t>(0,next_teleport_at_-time_ms); }
+    // TextBox Enter: PLAYERTEXT; the server interprets slash commands.
+    void player_text(const std::string& text) { if(state_==SessionState::playing)send(net::outgoing::PlayerText{text}); }
+    void request_trade(const std::string& name) { if(state_==SessionState::playing)send(net::outgoing::RequestTrade{name}); }
+    void change_trade(const std::vector<bool>& offer) { if(state_==SessionState::playing)send(net::outgoing::ChangeTrade{offer}); }
+    void accept_trade(const std::vector<bool>& mine,const std::vector<bool>& theirs) { if(state_==SessionState::playing)send(net::outgoing::AcceptTrade{mine,theirs}); }
+    void cancel_trade() { if(state_==SessionState::playing)send(net::outgoing::CancelTrade{}); }
+    void change_guild_rank(const std::string& name,int rank) { if(state_==SessionState::playing)send(net::outgoing::ChangeGuildRank{name,rank}); }
+    void guild_invite(const std::string& name) { if(state_==SessionState::playing)send(net::outgoing::GuildInvite{name}); }
+    // Party.lockPlayer/unlockPlayer/ignorePlayer/unignorePlayer: EDITACCOUNTLIST
+    // list 0 stars, list 1 ignores.
+    void edit_account_list(std::int32_t object_id,bool ignore,bool add);
     void escape() { if(state_==SessionState::playing && map_info_.name!="Nexus")send(net::outgoing::Escape{}); }
     template<class T> void send(const T& message) { transport_.send(net::outgoing::encode(message)); }
     [[nodiscard]] SessionState state() const { return state_; }
@@ -43,6 +62,7 @@ public:
     [[nodiscard]] std::uint64_t map_revision() const { return map_revision_; }
     [[nodiscard]] const net::MapInfo& map_info() const { return map_info_; }
     [[nodiscard]] std::int32_t character_id() const { return options_.character_id; }
+    [[nodiscard]] net::FormFields credentials() const { return {{"username",options_.username},{"password",options_.password}}; }
     [[nodiscard]] const Party& party() const { return party_; }
 private:
     void receive(net::Event event, std::int32_t time_ms);
@@ -53,6 +73,7 @@ private:
     Party party_;
     // GameServerConnection.outstandingBuy_.
     bool buy_pending_{};
+    std::int32_t next_teleport_at_{};
     SessionOptions options_;
     SessionState state_{SessionState::disconnected};
     bool hello_sent_{};

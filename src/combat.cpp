@@ -52,13 +52,15 @@ std::vector<net::Packet> Combat::receive(const net::Event& event,std::int32_t ti
     case flash::PacketId::SERVERPLAYERSHOOT: {
         const auto& shoot=std::get<incoming::ServerPlayerShoot>(event.data);const bool local=shoot.owner_id==world_.player_id();
         if(local)output.push_back(outgoing::encode(outgoing::ShootAck{time}));
-        if(world_.entity(shoot.owner_id)) {
+        // GameServerConnection.onServerPlayerShoot: other players' shots are skipped with Ally Shots off.
+        if(world_.entity(shoot.owner_id)&&(local||world_.preferences().ally_shots)) {
             for(std::size_t i=0;i<shoot.damages.size();++i)spawn(static_cast<std::uint16_t>(shoot.container_type),0,shoot.owner_id,local ? shoot.bullet_id+static_cast<std::int32_t>(i) : 0,{shoot.position.x,shoot.position.y},shoot.angle+shoot.angle_increment*static_cast<double>(i),time,shoot.damages[i]);
             attack(shoot.owner_id,static_cast<std::uint16_t>(shoot.container_type),shoot.angle,time);
         }
         break;
     }
     case flash::PacketId::ALLYSHOOT: {
+        if(!world_.preferences().ally_shots)break;
         const auto& shoot=std::get<incoming::AllyShoot>(event.data);const auto* weapon=world_.catalog().object(static_cast<std::uint16_t>(shoot.container_type));const auto* owner=world_.entity(shoot.owner_id);
         if(weapon&&owner) {
             const auto start=owner->position;const int count=weapon->num_projectiles;const double gap=weapon->arc_gap;
@@ -69,6 +71,7 @@ std::vector<net::Packet> Combat::receive(const net::Event& event,std::int32_t ti
     }
     case flash::PacketId::AOE: {
         const auto& aoe=std::get<incoming::Aoe>(event.data);
+        world_.particles().aoe({aoe.position.x,aoe.position.y},aoe.radius,aoe.color,time);
         if(auto* p=world_.entity(world_.player_id())) {
             if(!(p->condition&(1U<<20U))&&std::hypot(p->position.x-aoe.position.x,p->position.y-aoe.position.y)<aoe.radius) {
                 const std::array<std::uint8_t,1> effects{aoe.effect};
@@ -94,10 +97,12 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
             const auto* cover=tile ? world_.entity(tile->object_id) : nullptr;const auto* cover_def=cover ? world_.catalog().object(cover->type) : nullptr;
             if(!tile || tile->type==255 || (cover_def && (!cover_def->enemy||p.damages_players) && (cover_def->enemy_occupy||(!def.passes_cover&&cover_def->occupy)))) {
                 if(p.damages_players)output.push_back(outgoing::encode(outgoing::SquareHit{time,p.bullet_id}));
+                if(!p.damages_players&&cover)if(const auto* d=world_.catalog().object(visual->type))world_.particles().impact(d->texture,position,p.angle,def.motion.speed,time);
                 alive=false;
             } else visual->position=position;
         }
         if(alive) {
+            if(def.particle_trail&&time-p.last_trail>=17) { world_.particles().trail(position,time);p.last_trail=time; }
             Entity* target{};double distance=std::numeric_limits<double>::max();
             auto consider=[&](Entity& e) {
                 if(!targetable(e)||p.hit.contains(e.id))return;
@@ -111,7 +116,8 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
                 if(p.damages_players || p.owner_id==world_.player_id()) {
                     if(target->id==world_.player_id())output.push_back(outgoing::encode(outgoing::PlayerHit{p.bullet_id}));
                     else output.push_back(outgoing::encode(outgoing::EnemyHit{time,p.bullet_id,target->id}));
-                    world_.report_damage(target->id,damage_with_defense(p.damage,target->defense,def.armor_piercing,target->condition),time,{},def.armor_piercing);
+                    const int damage=damage_with_defense(p.damage,target->defense,def.armor_piercing,target->condition);
+                    world_.report_damage(target->id,damage,time,{},def.armor_piercing,p.angle,def.motion.speed);
                 }
                 if(def.multi_hit)p.hit.insert(target->id);else alive=false;
             }

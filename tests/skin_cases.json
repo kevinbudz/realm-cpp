@@ -1,0 +1,490 @@
+[
+  {
+    "key": "modal-782-0-800",
+    "type": 782,
+    "owned": [],
+    "selected": 0,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "modal-782-0-1280",
+    "type": 782,
+    "owned": [],
+    "selected": 0,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "modal-782-0-1600",
+    "type": 782,
+    "owned": [],
+    "selected": 0,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "modal-782-0-3840",
+    "type": 782,
+    "owned": [],
+    "selected": 0,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "modal-782-836-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "modal-782-836-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "modal-782-836-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "modal-782-836-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "modal-782-848-800",
+    "type": 782,
+    "owned": [
+      836,
+      848
+    ],
+    "selected": 848,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "modal-782-848-1280",
+    "type": 782,
+    "owned": [
+      836,
+      848
+    ],
+    "selected": 848,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "modal-782-848-1600",
+    "type": 782,
+    "owned": [
+      836,
+      848
+    ],
+    "selected": 848,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "modal-782-848-3840",
+    "type": 782,
+    "owned": [
+      836,
+      848
+    ],
+    "selected": 848,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "modal-775-835-800",
+    "type": 775,
+    "owned": [
+      835
+    ],
+    "selected": 835,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "modal-775-835-1280",
+    "type": 775,
+    "owned": [
+      835
+    ],
+    "selected": 835,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "modal-775-835-1600",
+    "type": 775,
+    "owned": [
+      835
+    ],
+    "selected": 835,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "modal-775-835-3840",
+    "type": 775,
+    "owned": [
+      835
+    ],
+    "selected": 835,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "modal-797-838-800",
+    "type": 797,
+    "owned": [
+      838
+    ],
+    "selected": 838,
+    "width": 800,
+    "height": 600
+  },
+  {
+    "key": "modal-797-838-1280",
+    "type": 797,
+    "owned": [
+      838
+    ],
+    "selected": 838,
+    "width": 1280,
+    "height": 720
+  },
+  {
+    "key": "modal-797-838-1600",
+    "type": 797,
+    "owned": [
+      838
+    ],
+    "selected": 838,
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "key": "modal-797-838-3840",
+    "type": 797,
+    "owned": [
+      838
+    ],
+    "selected": 838,
+    "width": 3840,
+    "height": 2160
+  },
+  {
+    "key": "startup-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "startup": true,
+    "fame": 321,
+    "level": 20
+  },
+  {
+    "key": "startup-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "startup": true,
+    "fame": 321,
+    "level": 20
+  },
+  {
+    "key": "startup-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "startup": true,
+    "fame": 321,
+    "level": 20
+  },
+  {
+    "key": "startup-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "startup": true,
+    "fame": 321,
+    "level": 20
+  },
+  {
+    "key": "hover-row-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "additional": true,
+    "hover_row": 0
+  },
+  {
+    "key": "hover-cancel-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "additional": true,
+    "hover_button": 0
+  },
+  {
+    "key": "hover-select-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "additional": true,
+    "hover_button": 1
+  },
+  {
+    "key": "error-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "additional": true,
+    "error": "Account in use!"
+  },
+  {
+    "key": "insufficient-800",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 800,
+    "height": 600,
+    "additional": true,
+    "insufficient": true
+  },
+  {
+    "key": "hover-row-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "additional": true,
+    "hover_row": 0
+  },
+  {
+    "key": "hover-cancel-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "additional": true,
+    "hover_button": 0
+  },
+  {
+    "key": "hover-select-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "additional": true,
+    "hover_button": 1
+  },
+  {
+    "key": "error-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "additional": true,
+    "error": "Account in use!"
+  },
+  {
+    "key": "insufficient-1280",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1280,
+    "height": 720,
+    "additional": true,
+    "insufficient": true
+  },
+  {
+    "key": "hover-row-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "additional": true,
+    "hover_row": 0
+  },
+  {
+    "key": "hover-cancel-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "additional": true,
+    "hover_button": 0
+  },
+  {
+    "key": "hover-select-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "additional": true,
+    "hover_button": 1
+  },
+  {
+    "key": "error-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "additional": true,
+    "error": "Account in use!"
+  },
+  {
+    "key": "insufficient-1600",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 1600,
+    "height": 1200,
+    "additional": true,
+    "insufficient": true
+  },
+  {
+    "key": "hover-row-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "additional": true,
+    "hover_row": 0
+  },
+  {
+    "key": "hover-cancel-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "additional": true,
+    "hover_button": 0
+  },
+  {
+    "key": "hover-select-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "additional": true,
+    "hover_button": 1
+  },
+  {
+    "key": "error-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "additional": true,
+    "error": "Account in use!"
+  },
+  {
+    "key": "insufficient-3840",
+    "type": 782,
+    "owned": [
+      836
+    ],
+    "selected": 836,
+    "width": 3840,
+    "height": 2160,
+    "additional": true,
+    "insufficient": true
+  }
+]

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 namespace realm {
 namespace {
@@ -42,6 +43,18 @@ std::optional<std::string> app_error(std::string_view response) {
     try { const auto doc=parse(response);return text(xmlDocGetRootElement(doc->doc)); }
     catch(const std::exception&) { return std::string(response.substr(start)); }
 }
+GuildMemberList parse_guild_members(std::string_view source) {
+    if(auto error=app_error(source))throw std::runtime_error(*error);
+    const auto doc=parse(source);const auto* root=xmlDocGetRootElement(doc->doc);
+    if(!root||name(root)!="Members")throw std::runtime_error("Guild list reply has no <Members> root");
+    GuildMemberList list;list.name=attribute(root,"name");
+    list.fame=integer(child(root,"CurrentFame"));list.level=integer(child(root,"GuildLevel"));
+    for(auto* c=root->children;c;c=c->next)if(c->type==XML_ELEMENT_NODE&&name(c)=="Member") {
+        if(list.members.size()>=1000)throw std::runtime_error("Guild member list exceeds limit");
+        list.members.push_back({text(child(c,"Name")),integer(child(c,"Rank")),integer(child(c,"Fame"))});
+    }
+    return list;
+}
 CharList parse_char_list(std::string_view source) {
     if(auto error=app_error(source))throw std::runtime_error(*error);
     const auto doc=parse(source);const auto* root=xmlDocGetRootElement(doc->doc);
@@ -53,7 +66,12 @@ CharList parse_char_list(std::string_view source) {
     const auto* stats=child(account,"Stats");
     list.total_fame=integer(child(stats,"TotalFame"));list.fame=integer(child(stats,"Fame"));list.credits=integer(child(stats,"Credits"));
     for(auto* c=stats ? stats->children : nullptr;c;c=c->next)
-        if(c->type==XML_ELEMENT_NODE&&name(c)=="ClassStats")list.best_fame[integer(attribute(c,"objectType"))]=integer(child(c,"BestFame"));
+        if(c->type==XML_ELEMENT_NODE&&name(c)=="ClassStats") {
+            const auto type=integer(attribute(c,"objectType"));list.best_fame[type]=integer(child(c,"BestFame"));list.best_level[type]=integer(child(c,"BestLevel"));
+        }
+    auto ownership=text(child(root,"OwnedSkins"));std::replace(ownership.begin(),ownership.end(),',',' ');
+    std::istringstream owned(ownership);int skin{};
+    while(owned>>skin)if(skin>0&&skin<=65535&&std::find(list.owned_skins.begin(),list.owned_skins.end(),skin)==list.owned_skins.end())list.owned_skins.push_back(skin);
     for(auto* c=root->children;c;c=c->next) {
         if(c->type!=XML_ELEMENT_NODE||name(c)!="Char")continue;
         SavedCharacter character;

@@ -28,7 +28,9 @@ int main(int argc, char** argv) {
                 for (const auto& direction : c->directions) for (const auto& action : direction) for (const auto& frame : action)
                     textures.try_emplace(realm::animated_texture_key(frame.image, size, pad), Entry{animation.images().at(frame.image), size, pad});
         };
-        if (std::string_view(argv[2]) == "--all") {
+        if (std::string_view(argv[2]) == "--skins") {
+            for(const auto& skin:catalog.skins())add_texture(skin.texture,100,false);
+        } else if (std::string_view(argv[2]) == "--all") {
             for (const auto& object : catalog.objects()) {
                 if (!object.draw_on_ground && object.model.empty()) { add_texture(object.texture, 100, false); add_texture(object.texture, object.min_size, false); }
             }
@@ -39,6 +41,7 @@ int main(int argc, char** argv) {
                 for (const auto& entity : world.entities()) if (const auto* d = catalog.object(entity.type); d && !d->draw_on_ground && d->model.empty()) add_texture(d->texture, entity.size, false);
             }
         }
+        if (std::string_view(argv[2]) != "--skins") {
         if (const auto* wizard = catalog.object("Wizard")) add_texture(wizard->texture, 100, false);
         // Projectiles can arrive from equipment and enemies outside the baked
         // map. Include their visual definitions and configured container sizes.
@@ -46,6 +49,7 @@ int main(int argc, char** argv) {
             if (const auto* visual = catalog.object(projectile.object_id)) {
                 add_texture(visual->texture, projectile.size >= 0 ? projectile.size : container.size, true);
             }
+        }
         nlohmann::json tasks = nlohmann::json::array(), entries = nlohmann::json::array();
         for (const auto& [key, entry] : textures) {
             const auto raw = output / "raw" / (key + ".png"), final = output / (key + ".png"); realm::save_png(raw, entry.image);

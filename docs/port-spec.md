@@ -2,7 +2,19 @@
 
 ## Contract
 
-Latest direction, 2026-10-10: the player tooltip currently being implemented
+Resize direction, 2026-10-10: preserve the current UI proportions, while redrawing
+text and retained UI surfaces at actual drawable resolution when the window
+changes size. Animated text must also redraw at its current size; the title's
+Play pulse must remain sharp and move smoothly. Original raster artwork remains
+pixel art. This explicit quality change supersedes reproduction of enlarged
+base-resolution text; base-size static layout and appearance remain the reference.
+
+Latest direction, 2026-10-10 (refines the next paragraph): HUD elements must
+look almost 1:1 with Flash, the same at a glance; per-pixel exactness is not
+required. Match layout, sizes, art, colors, text and visual states closely and
+verify by side-by-side review against source captures.
+
+Earlier direction, 2026-10-10: the player tooltip currently being implemented
 and all future elements must appear 1:1 with the original Flash client.
 Source layout, fonts, artwork, colors, alpha, shadows, layering and visual
 states are the acceptance reference. Native implementation and optimization

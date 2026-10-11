@@ -1,12 +1,20 @@
 #include "realm/session.hpp"
 #include "realm/movement.hpp"
+#include "flash_assets.hpp"
 namespace realm {
+bool Session::reskin(int id,std::span<const int> owned) {
+    const auto* player=world_.entity(world_.player_id());
+    if(state_!=SessionState::playing||!player||id<0||id>65535)return false;
+    if(id&&(std::find(owned.begin(),owned.end(),id)==owned.end()||!world_.catalog().skin(id,player->type)))return false;
+    send(net::outgoing::Reskin{id});return true;
+}
+
 void Session::connect(SessionOptions options) {
-    transport_.close(); options_ = std::move(options); hello_sent_ = false; pending_moves_ = 0; error_.clear(); events_.clear();
+    world_.particles().clear();transport_.close(); options_ = std::move(options); hello_sent_ = false; pending_moves_ = 0; error_.clear(); events_.clear();
     inventory_.reset();pending_name_.clear();buy_pending_=false;
     transport_.connect(options_.host, options_.port); state_ = SessionState::connecting;
 }
-void Session::disconnect() { transport_.close();inventory_.reset();pending_name_.clear();buy_pending_=false; state_ = SessionState::disconnected; }
+void Session::disconnect() { world_.particles().clear();transport_.close();inventory_.reset();pending_name_.clear();buy_pending_=false; state_ = SessionState::disconnected; }
 void Session::poll(std::int32_t time) {
     if (state_ == SessionState::disconnected || state_ == SessionState::failed) return;
     try {
@@ -25,6 +33,7 @@ void Session::finish_frame(std::int32_t time) {
     party_.update(world_,time);
     world_.expire_damage(time);
     for (const auto& packet : combat_.update(time)) transport_.send(packet);
+    world_.particles().update(world_,time);
     if (pending_moves_) if (auto* player = world_.entity(world_.player_id())) {
         send(net::outgoing::Move{time,{static_cast<float>(player->position.x),static_cast<float>(player->position.y)}});
         player_move_ack(world_,*player,time); --pending_moves_;
@@ -35,7 +44,7 @@ void Session::receive(net::Event event, std::int32_t time) {
     switch (event.id) {
     case flash::PacketId::MAPINFO: {
         map_info_ = std::get<MapInfo>(event.data);
-        world_.initialize(map_info_.width, map_info_.height, map_info_.display_name); combat_.reset(map_info_.seed);inventory_.reset();party_.reset();buy_pending_=false; pending_moves_=0; ++map_revision_;
+        world_.initialize(map_info_.width, map_info_.height, map_info_.display_name); combat_.reset(map_info_.seed);inventory_.reset();party_.reset();buy_pending_=false;next_teleport_at_=0; pending_moves_=0; ++map_revision_;
         if (options_.create_character) send(outgoing::Create{options_.class_type, options_.skin_type});
         else send(outgoing::Load{options_.character_id});
         state_ = SessionState::selecting_character; break;
@@ -49,8 +58,8 @@ void Session::receive(net::Event event, std::int32_t time) {
     case flash::PacketId::NEWTICK: world_.apply(std::get<Tick>(event.data)); ++pending_moves_; break;
     case flash::PacketId::INVRESULT: inventory_.result(std::get<incoming::InvResult>(event.data).result);break;
     case flash::PacketId::ACCOUNTLIST: party_.receive(std::get<incoming::AccountList>(event.data));break;
-    // onBuyResult clears outstandingBuy_ for every result; its chat line and
-    // "Purchase Error" dialog await those views.
+    // onBuyResult clears outstandingBuy_ for every result; the event remains
+    // available for the view's chat line or Purchase Error dialog.
     case flash::PacketId::BUYRESULT: buy_pending_=false;break;
     case flash::PacketId::NAMERESULT: {
         const auto& result=std::get<incoming::NameResult>(event.data);
@@ -63,6 +72,14 @@ void Session::receive(net::Event event, std::int32_t time) {
     case flash::PacketId::PING: send(outgoing::Pong{std::get<incoming::Ping>(event.data).serial,time}); break;
     case flash::PacketId::FAILURE: error_ = std::get<incoming::Failure>(event.data).text; state_ = SessionState::failed; transport_.close(); break;
     case flash::PacketId::DEATH: state_ = SessionState::dead; break;
+    case flash::PacketId::NOTIFICATION: {
+        // GameServerConnection.onNotification: the packet's own text and color for two seconds.
+        const auto& note=std::get<incoming::Notification>(event.data);
+        // Notifications aimed at other players are dropped when Ally Notifications is off.
+        if(!world_.allows_notification(note.object_id))break;
+        world_.notify(note.object_id,note.text,note.color&0xffffffU,2000);break;
+    }
+    case flash::PacketId::SHOWEFFECT: world_.particles().show(world_,std::get<incoming::ShowEffect>(event.data),time);break;
     case flash::PacketId::DAMAGE: {
         const auto& damage = std::get<incoming::Damage>(event.data);
         world_.report_damage(damage.target_id,damage.damage,time,damage.effects);
@@ -77,5 +94,21 @@ void Session::receive(net::Event event, std::int32_t time) {
     for (const auto& packet : combat_.receive(event,time)) transport_.send(packet);
     if (events_.size() >= 1024) events_.erase(events_.begin(), events_.begin() + 512);
     events_.push_back(std::move(event));
+}
+std::optional<std::string> Session::teleport(std::int32_t object_id,std::int32_t time) {
+    if(state_!=SessionState::playing)return {};
+    if(!map_info_.allow_teleport)return "Teleporting is not allowed in this map.";
+    if(const auto wait=teleport_cooldown(time);wait>0)return "You can not teleport for another "+std::to_string(wait/1000+1)+" seconds.";
+    const auto* target=world_.entity(object_id);if(!target||!target->player||object_id==world_.player_id())return {};
+    if(target->condition&(1U<<11U))return "Can not teleport to "+target->name+" while they are invisible.";
+    send(net::outgoing::Teleport{object_id});next_teleport_at_=time+10000;
+    return {};
+}
+void Session::edit_account_list(std::int32_t object_id,bool ignore,bool add) {
+    if(state_!=SessionState::playing)return;
+    const auto* target=world_.entity(object_id);if(!target)return;
+    const auto found=target->stats.find(static_cast<std::uint8_t>(flash::StatId::ACCOUNT_ID_STAT));
+    party_.edit(found==target->stats.end() ? -1 : found->second,object_id,ignore,add);
+    send(net::outgoing::EditAccountList{ignore ? 1 : 0,add,object_id});
 }
 }

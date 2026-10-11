@@ -98,6 +98,17 @@ TextureDef Catalog::texture(Xml xml) {
     if (xml.has("Texture")) t = texture(xml.child("Texture"));
     else if (xml.has("AnimatedTexture")) t = texture(xml.child("AnimatedTexture"));
     else if (xml.has("RandomTexture")) t = texture(xml.child("RandomTexture"));
+    if(xml.has("Mask")) { const auto mask=texture(xml.child("Mask"));t.mask_sheet=mask.sheet;t.mask_index=mask.index; }
+    if(const auto effect=xml.child("Effect")) {
+        auto& e=t.effect;e.kind=effect.text();e.particle=effect.attribute("particle");
+        const auto attr=[&](std::string_view key,double fallback) { const double v=realm::number(effect.attribute(key));return v==0 ? fallback : v; };
+        e.color=static_cast<std::uint32_t>(attr("color",0));e.cooldown=attr("cooldown",0);
+        e.rate=attr("rate",5);e.speed=attr("speed",0);e.speed_variance=attr("speedVariance",.5);
+        e.spread=attr("spread",0);e.life=attr("life",1);e.life_variance=attr("lifeVariance",0);
+        e.size=static_cast<int>(attr("size",3));e.rise=attr("rise",3);e.rise_variance=attr("riseVariance",0);e.rise_acc=attr("riseAcc",0);
+        e.range_x=static_cast<int>(attr("rangeX",0));e.range_y=static_cast<int>(attr("rangeY",0));e.z_offset=attr("zOffset",0);
+        e.bitmap_sheet=sheet(effect.attribute("bitmapFile"),false);e.bitmap_index=static_cast<int>(attr("bitmapIndex",0));
+    }
     for (auto alternate : xml.children("AltTexture"))
         t.alternate.emplace(static_cast<int>(realm::number(alternate.attribute("id"))), texture(alternate));
     return t;
@@ -134,7 +145,7 @@ Catalog::Catalog(const std::filesystem::path& root)
             d.player = o.has("Player"); d.enemy = o.has("Enemy"); d.draw_on_ground = o.has("DrawOnGround"); d.draw_under = d.draw_on_ground || o.has("DrawUnder");
             d.occupy = o.has("OccupySquare"); d.full_occupy = o.has("FullOccupy"); d.enemy_occupy = o.has("EnemyOccupySquare");
             d.stationary = o.has("Static"); d.no_minimap = o.has("NoMiniMap"); d.protect_ground = o.has("ProtectFromGroundDamage");
-            d.protect_sink = o.has("ProtectFromSink"); d.flying = o.has("Flying"); d.show_name = o.has("ShowName"); d.dont_face_attacks = o.has("DontFaceAttacks");
+            d.protect_sink = o.has("ProtectFromSink"); d.flying = o.has("Flying"); d.show_name = o.has("ShowName"); d.dont_face_attacks = o.has("DontFaceAttacks"); d.hexable = o.child("Group").text() == "Hexable";
             d.z = o.number("Z"); d.rotation = o.number("Rotation"); d.angle_correction = o.number("AngleCorrection") * std::numbers::pi / 4;
             d.color = static_cast<std::uint32_t>(o.number("Color", 0xffffff)); d.blood_color = static_cast<std::uint32_t>(o.number("BloodColor", 0xff0000));
             d.blood_probability = o.number("BloodProb"); d.shadow_color = static_cast<std::uint32_t>(o.number("ShadowColor"));
@@ -164,12 +175,47 @@ Catalog::Catalog(const std::filesystem::path& root)
                 d.projectiles.push_back(std::move(pd));
             }
             object_names_[d.id] = d.type;
+            if (d.hexable) hex_transforms_.push_back(d.type);
             auto& index = object_lookup_[d.type];
             if (index < 0) { index = static_cast<std::int32_t>(objects_.size()); objects_.push_back(std::move(d)); }
             else objects_[static_cast<std::size_t>(index)] = std::move(d);
         }
     }
+    const auto particle_path=root/"src/kabam/rotmg/assets/EmbeddedAssets_particlesEmbed.dat";
+    auto* particles_doc=xmlReadFile(particle_path.string().c_str(),nullptr,XML_PARSE_NONET|XML_PARSE_NOBLANKS);
+    if(!particles_doc)throw std::runtime_error("Cannot load particle definitions");
+    documents_->docs.push_back(particles_doc);
+    for(const auto xml:Xml(xmlDocGetRootElement(particles_doc)).children("Particle")) {
+        ParticleDef p;p.id=xml.attribute("id");p.texture=texture(xml);p.size=xml.integer("Size",100);p.z=xml.number("Z");p.duration_ms=xml.number("Duration")*1000;
+        for(const auto a:xml.children("Animation")) {
+            ParticleAnimationDef animation;animation.probability=realm::number(a.attribute("prob"),1);
+            for(const auto f:a.children("Frame"))animation.frames.push_back({texture(f),realm::number(f.attribute("time"))*1000});
+            p.animations.push_back(std::move(animation));
+        }
+        particles_.push_back(std::move(p));
+    }
+    const auto path=root/"src/kabam/rotmg/assets/EmbeddedData_SkinsCXML.dat";
+    auto* doc=xmlReadFile(path.string().c_str(),nullptr,XML_PARSE_NONET|XML_PARSE_NOBLANKS);
+    if(!doc)throw std::runtime_error("Cannot load skin definitions");
+    documents_->docs.push_back(doc);
+    for(const auto xml:Xml(xmlDocGetRootElement(doc)).children("Object"))
+        skins_.push_back({static_cast<int>(realm::number(xml.attribute("type"))),xml.integer("PlayerClassType"),xml.attribute("id"),texture(xml)});
 }
+const ParticleDef* Catalog::particle(std::string_view id) const {
+    for(const auto& p:particles_)if(p.id==id)return &p;
+    return nullptr;
+}
+const SkinDef* Catalog::skin(int id,int class_type) const {
+    for(const auto& s:skins_)if(s.id==id&&s.class_type==class_type)return &s;
+    return nullptr;
+}
+const TextureDef& Catalog::player_texture(int class_type,int skin_id) const {
+    if(const auto* s=skin(skin_id,class_type))return s->texture;
+    const auto* d=object(static_cast<std::uint16_t>(class_type));
+    if(!d)throw std::runtime_error("Unknown player class");
+    return d->texture;
+}
+int Catalog::portrait_type(int class_type,int skin_id) const { return skin(skin_id,class_type) ? skin_id : class_type; }
 const ObjectDef* Catalog::object(std::uint16_t type) const {
     const auto index = object_lookup_[type]; return index < 0 ? nullptr : &objects_[static_cast<std::size_t>(index)];
 }

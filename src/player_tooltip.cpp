@@ -31,7 +31,7 @@ std::optional<PlayerTooltipTarget> player_tooltip_target(const World& world,std:
         const auto found=member->stats.find(static_cast<std::uint8_t>(key));return found==member->stats.end() ? fallback : found->second;
     };
     const auto* definition=world.catalog().object(member->type);if(!definition)return {};
-    PlayerTooltipTarget result;result.id=id;result.type=member->type;result.level=stat(flash::StatId::LEVEL_STAT,1);
+    PlayerTooltipTarget result;result.id=id;result.type=member->type;result.skin=member->texture;result.tex1=member->tex1;result.tex2=member->tex2;result.level=stat(flash::StatId::LEVEL_STAT,1);
     result.stars=stat(flash::StatId::NUM_STARS_STAT,-1);result.guild_rank=stat(flash::StatId::GUILD_RANK_STAT);
     result.name=member->name;result.guild=member->guild;result.fellow_guild=!local->guild.empty()&&local->guild==member->guild;
     using S=flash::StatId;
@@ -43,6 +43,7 @@ std::optional<PlayerTooltipTarget> player_tooltip_target(const World& world,std:
 }
 void PlayerTooltip::rectangle(double x,int y,double w,int h,std::uint32_t color) {
     x+=padding;y+=padding;
+    if(image_.pixel_scale!=1) { ui_rectangle(image_,x,y,w,h,color,true);return; }
     for(int row=std::max(0,y);row<std::min(maximum_height,y+h);++row)
         for(int col=std::max(0,static_cast<int>(std::floor(x)));col<std::min(width,static_cast<int>(std::ceil(x+w)));++col) {
             const auto at=static_cast<std::size_t>(row*width+col)*4;
@@ -54,6 +55,7 @@ void PlayerTooltip::rectangle(double x,int y,double w,int h,std::uint32_t color)
 }
 void PlayerTooltip::blit(const Image& source,int x,int y,bool premultiplied) {
     x+=padding;y+=padding;
+    if(image_.pixel_scale!=1) { ui_blit(image_,source,x,y,premultiplied,true);return; }
     for(int row=std::max(0,-y);row<std::min(source.height,maximum_height-y);++row)
         for(int col=std::max(0,-x);col<std::min(source.width,width-x);++col) {
             const auto src=static_cast<std::size_t>(row*source.width+col)*4;
@@ -68,11 +70,15 @@ void PlayerTooltip::blit(const Image& source,int x,int y,bool premultiplied) {
 }
 void PlayerTooltip::text(std::string_view value,int size,bool bold,std::uint32_t color,double x,int y,double opacity,int field_width,int field_height) {
     auto bitmap=fonts_.rasterize(value,size,bold,true,color,x-std::floor(x),0,1,field_width,field_height);
+    double bx=x+bitmap.offset.x+padding,by=y+bitmap.offset.y+padding;
+    if(image_.pixel_scale!=1)bitmap=place_text(bitmap,image_.pixel_scale,bx,by);
     premultiply_flash_bitmap(bitmap.image);
     if(opacity!=1)for(auto& channel:bitmap.image.pixels)channel=static_cast<unsigned char>(static_cast<unsigned>(channel)*static_cast<unsigned>(opacity*256)>>8U);
-    blit(bitmap.image,static_cast<int>(std::round(x+bitmap.offset.x)),y+static_cast<int>(bitmap.offset.y),true);
+    if(image_.pixel_scale!=1)ui_blit(image_,bitmap.image,bx,by,true,true);
+    else blit(bitmap.image,static_cast<int>(std::round(x+bitmap.offset.x)),y+static_cast<int>(bitmap.offset.y),true);
 }
 void PlayerTooltip::shadow() {
+    if(image_.pixel_scale!=1) { ui_shadow(image_,8,draw_width_,height_);return; }
     // DropShadowFilter(0,0,0,1,16,16): one separable box pass with half
     // endpoint taps. Work happens only when visible content changes.
     const int w=draw_width_,h=height_;
@@ -95,11 +101,12 @@ void PlayerTooltip::shadow() {
 }
 bool PlayerTooltip::update(const std::optional<PlayerTooltipTarget>& target) {
     if(!target) { target_.reset();return false; }
-    if(target_==target)return false;
+    if(target_==target&&image_.pixel_scale==fonts_.pixel_scale())return false;
     if(target->type<0||target->type>65535||!catalog_.object(static_cast<std::uint16_t>(target->type))) { target_.reset();return false; }
     target_=target;render(*target);++rebuilds_;return true;
 }
 void PlayerTooltip::render(const PlayerTooltipTarget& target) {
+    if(image_.pixel_scale!=fonts_.pixel_scale())image_=ui_image(width,maximum_height,fonts_.pixel_scale());
     std::fill(image_.pixels.begin(),image_.pixels.end(),0);
     const auto* definition=catalog_.object(static_cast<std::uint16_t>(target.type));
     std::string suffix=target.name.empty() ? "" : " ("+definition->display_id+(target.level>0 ? " "+std::to_string(target.level) : "")+")";
@@ -125,13 +132,27 @@ void PlayerTooltip::render(const PlayerTooltipTarget& target) {
         std::copy_n(frame.pixels.begin()+static_cast<std::ptrdiff_t>(sy*80+sx)*4,4,shell.pixels.begin()+static_cast<std::ptrdiff_t>(y*fw+x)*4);
     }
     blit(shell,-22,-22,true);
-    const auto portrait="portrait"+std::to_string(target.type);if(art_.contains(portrait))blit(art_.image(portrait),-4,-4,true);
-    blit(header.image,32+static_cast<int>(header.offset.x),6+static_cast<int>(header.offset.y));
+    const auto portrait="portrait"+std::to_string(catalog_.portrait_type(target.type,target.skin));if(art_.contains(portrait))blit(art_.portrait(target.type,target.skin,target.tex1,target.tex2),-4,-4,true);
+    if(image_.pixel_scale!=1)ui_blit_text(image_,header,padding+32+header.offset.x,padding+6+header.offset.y,false,true);
+    else blit(header.image,32+static_cast<int>(header.offset.x),6+static_cast<int>(header.offset.y));
     // The vector star is captured against this same translucent interior.
     // Copying avoids a second alpha quantization of its antialiased edges.
-    const auto rank_number=std::to_string(std::clamp(target.stars,-1,99));blit(art_.image("playerrank"+rank_number),6,34,true);
-    const auto& rank=art_.image("playerbadge"+rank_number);
-    for(int y=0;y<rank.height;++y)std::copy_n(rank.pixels.begin()+(static_cast<std::ptrdiff_t>(y)*rank.width+41)*4,static_cast<std::size_t>(rank.width-41)*4,image_.pixels.begin()+(static_cast<std::ptrdiff_t>(y+padding+34)*width+padding+47)*4);
+    const auto rank_number=std::to_string(std::clamp(target.stars,-1,99));
+    if(image_.pixel_scale!=1) {
+        text("Rank: ",16,false,11776947,6,34);
+        if(target.stars>=0) {
+            const auto number=fonts_.layout(rank_number,16),prefix=fonts_.layout("Rank: ",16);
+            const auto icon=rank_star_bitmap(fonts_,art_,target.stars);
+            const double x=6+prefix.width,y=std::floor(number.height/2-icon.height/2)+1;
+            ui_rounded_rectangle(image_,padding+x-2,padding+34+y-3,number.width+icon.width+8,icon.height+8,6,0,.4,true);
+            text(rank_number,16,false,11776947,x,34);
+            blit(icon,static_cast<int>(x+number.width+2),34+static_cast<int>(y),true);
+        }
+    } else {
+        blit(art_.image("playerrank"+rank_number),6,34,true);
+        const auto& rank=art_.image("playerbadge"+rank_number);
+        for(int y=0;y<rank.height;++y)std::copy_n(rank.pixels.begin()+(static_cast<std::ptrdiff_t>(y)*rank.width+41)*4,static_cast<std::size_t>(rank.width-41)*4,image_.pixels.begin()+(static_cast<std::ptrdiff_t>(y+padding+34)*width+padding+47)*4);
+    }
     if(!target.guild.empty()) {
         const auto guild="playerguild"+std::to_string(target.guild_rank);
         if(art_.contains(guild))blit(art_.image(guild),-2,54,true);
@@ -158,7 +179,9 @@ void PlayerTooltip::render(const PlayerTooltipTarget& target) {
         const int mana=def->usable ? (def->xml.has("MultiPhase") ? def->xml.integer("MpEndCost") : def->mp_cost) : 0;
         const auto icon=(target.bars[1].value<mana ? "dim" : "item")+std::to_string(item.type);
         if(art_.contains(icon)) { const auto& bitmap=art_.image(icon);blit(bitmap,x+20-bitmap.width/2,equipment_y+20-bitmap.height/2,true); }
-        const auto tier="tier"+std::to_string(item.type);if(art_.contains(tier))blit(art_.image(tier),x,equipment_y,true);
+        if(image_.pixel_scale!=1) {
+            if(const auto tier=tier_bitmap(fonts_,*def))ui_blit_text(image_,*tier,padding+x+40-tier->width+tier->offset.x,padding+equipment_y+24+tier->offset.y,false,true);
+        } else { const auto tier="tier"+std::to_string(item.type);if(art_.contains(tier))blit(art_.image(tier),x,equipment_y,true); }
     }
     const double hint_x=before_width/2-107/2.0;
     // Two finite phases preserve the original half-pixel hint placement.

@@ -16,6 +16,10 @@ public:
     Minimap(const Catalog& catalog,const AnimationLibrary& animations,const std::filesystem::path& root);
     bool update(const World& world,const Entity& focus,double angle);
     bool render(const World& world,const MinimapView& view);
+    void set_pixel_scale(double scale);
+    // Logical 192x192 minimap coordinates; strict radius and current entity order.
+    [[nodiscard]] std::vector<std::int32_t> hover_players(const World& world,const Entity& focus,Vec2 pointer) const;
+    [[nodiscard]] Vec2 marker_position(const World& world,const Entity& focus,Vec2 position) const;
     void zoom_in();
     void zoom_out();
     [[nodiscard]] int zoom_index() const { return zoom_index_; }

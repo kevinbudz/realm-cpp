@@ -65,10 +65,11 @@ void InteractionDialog::update(const World& world) {
     if(kind_==Kind::leave_guild&&player->guild!=guild_)reset();
     if(kind_==Kind::create_guild&&!player->guild.empty())reset();
 }
-double InteractionDialog::scale(double w,double h) { return std::max(.01,std::min({1.0,(w-16)/width,(h-16)/height})); }
+double InteractionDialog::scale(double w,double h) { return std::max(.01,std::min({h/600.0,(w-16)/width,(h-16)/height})); }
 Vec2 InteractionDialog::position(double w,double h) { const double s=scale(w,h);return {(w-width*s)/2,(h-height*s)/2}; }
 Vec2 InteractionDialog::local(Vec2 point,double w,double h) { const auto p=position(w,h);const double s=scale(w,h);return {(point.x-p.x)/s,(point.y-p.y)/s}; }
 void InteractionDialog::rectangle(int x,int y,int w,int h,std::uint32_t color) {
+    if(image_.pixel_scale!=1) { ui_rectangle(image_,x,y,w,h,color);return; }
     for(int row=std::max(0,y);row<std::min(height,y+h);++row)for(int col=std::max(0,x);col<std::min(width,x+w);++col) {
         const auto at=static_cast<std::size_t>(row*width+col)*4;
         for(unsigned c=0;c<3;++c)image_.pixels[at+c]=static_cast<unsigned char>((color>>(16-c*8))&255U);
@@ -76,6 +77,7 @@ void InteractionDialog::rectangle(int x,int y,int w,int h,std::uint32_t color) {
     }
 }
 void InteractionDialog::paint(const Image& source,int x,int y) {
+    if(image_.pixel_scale!=1) { ui_blit(image_,source,x,y);return; }
     for(int row=0;row<source.height;++row)for(int col=0;col<source.width;++col) {
         const int px=x+col,py=y+row;if(px<0||py<0||px>=width||py>=height)continue;
         const auto src=static_cast<std::size_t>(row*source.width+col)*4,dst=static_cast<std::size_t>(py*width+px)*4;
@@ -84,10 +86,13 @@ void InteractionDialog::paint(const Image& source,int x,int y) {
     }
 }
 bool InteractionDialog::render(const FontBook& fonts) {
+    if(image_.pixel_scale!=fonts.pixel_scale()) { image_=ui_image(width,height,fonts.pixel_scale());dirty_=true; }
     if(!visible()||!dirty_)return false;
     rectangle(0,0,width,height,0xffffff);rectangle(1,1,width-2,height-2,0x363636);rectangle(1,1,width-2,34,0x4d4d4d);
     const auto text=[&](std::string_view value,int size,bool bold,std::uint32_t color,int x,int y,int field=0) {
-        const auto b=fonts.rasterize(value,size,bold,true,color,0,0,1,field);paint(b.image,x+static_cast<int>(b.offset.x),y+static_cast<int>(b.offset.y));
+        const auto b=fonts.rasterize(value,size,bold,true,color,0,0,1,field);
+        if(image_.pixel_scale!=1)ui_blit_text(image_,b,x+b.offset.x,y+b.offset.y);
+        else paint(b.image,x+static_cast<int>(b.offset.x),y+static_cast<int>(b.offset.y));
     };
     text(title_,18,true,0xffffff,16,5,width-32);
     if(kind_!=Kind::leave_guild) {

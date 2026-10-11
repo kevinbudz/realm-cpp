@@ -68,7 +68,7 @@ void pop_utf8(std::string& value) {
 }
 }
 Startup::Startup(const FontBook& fonts,const HudArt* art,const Catalog& catalog,const std::filesystem::path& root,StartupOptions options)
-    : fonts_(fonts),art_(art),catalog_(catalog),root_(root),options_(std::move(options)),sheet_{sheet_size,sheet_size,std::vector<unsigned char>(static_cast<std::size_t>(sheet_size)*sheet_size*4)} {
+    : fonts_(fonts),art_(art),catalog_(catalog),root_(root),options_(std::move(options)),sheet_{sheet_size,sheet_size,std::vector<unsigned char>(static_cast<std::size_t>(sheet_size)*sheet_.width*4)} {
     if(fonts_.empty())throw std::runtime_error("Menus need a font pack; bake one with tools/bake_fonts.py");
     if(options_.account_file.empty())options_.account_file=account_path();
     logo_=load_png(root_/"src/kabam/rotmg/ui/view/TitleView_Logo.png");normalize_flash_png(logo_);
@@ -76,6 +76,7 @@ Startup::Startup(const FontBook& fonts,const HudArt* art,const Catalog& catalog,
     // ObjectLibrary.playerChars_: Player definitions in their XML order.
     for(const auto& object:catalog_.objects())if(object.class_name=="Player")player_types_.push_back(object.type);
     if(player_types_.empty())throw std::runtime_error("No Player definitions in the object catalog");
+    if(art_)skins_=std::make_unique<SkinChooser>(catalog_,fonts_,*art_);
     std::random_device random;new_character_type_=player_types_[random()%player_types_.size()];
     // WebLoadAccountTask: verify saved credentials, otherwise continue as a guest.
     saved_=load_account(options_.account_file);
@@ -99,6 +100,7 @@ void Startup::start_task(Task task,const std::string& path,net::FormFields field
 }
 void Startup::update(std::int32_t time,double dt,double width,double height) {
     time_=time;width_=width;height_=height;
+    if(sheet_.pixel_scale!=fonts_.pixel_scale()) { sheet_=ui_image(sheet_size,sheet_size,fonts_.pixel_scale());sheet_used_=0;dirty_=true; }
     if(background()&&background_width_>0) {
         background_x_+=dt/1000;
         if(background_x_>background_width_+10)background_x_-=background_width_;
@@ -115,6 +117,21 @@ void Startup::update(std::int32_t time,double dt,double width,double height) {
     }
     const bool caret=wants_text()&&time/500%2==0;
     if(caret!=caret_) { caret_=caret;dirty_=true; }
+    if(skins_) {
+        skins_->poll();
+        if(auto purchase=skins_->take_purchase();purchase&&purchase->username==account_.username&&list_) {
+            if(!purchase->error.empty()) {
+                if(screen_==Screen::game)skin_error_=purchase->error;
+                else if(screen_!=Screen::skins)skins_->purchase_error(purchase->error);
+            } else if(std::find(list_->owned_skins.begin(),list_->owned_skins.end(),purchase->id)==list_->owned_skins.end()) { list_->owned_skins.push_back(purchase->id);list_->credits=std::max(0,list_->credits-1000);dirty_=true; }
+        }
+    }
+    if(screen_==Screen::skins&&skins_) {
+        selected_skins_[new_character_type_]=skins_->selected();
+        if(skins_->update(width,height,time)) { const auto r=skins_->change();skin_texture_.update_region(skins_->image(),r.x,r.y,r.width,r.height); }
+        if(list_) { if(list_->credits!=skins_->data().credits)dirty_=true;list_->owned_skins=skins_->data().owned_skins;list_->credits=skins_->data().credits; }
+    }
+    if(skins_&&skins_->visible()&&screen_!=Screen::skins&&skins_->modal_input())if(skins_->update(width,height,time)) { const auto r=skins_->change();skin_texture_.update_region(skins_->image(),r.x,r.y,r.width,r.height); }
     if(dirty_)rebuild();
 }
 void Startup::finish_task(const std::string& response,const std::string& error) {
@@ -133,7 +150,7 @@ void Startup::finish_task(const std::string& response,const std::string& error) 
             loading_text_="Load error, retrying";
             // GetCharListTask: rejected credentials are cleared and the guest list is requested at once.
             if(*failure=="Account credentials not valid") {
-                account_={};
+                account_={};selected_skins_.clear();if(skins_)skins_->close();
                 try { save_account(options_.account_file,account_); } catch(const std::exception&) {}
                 start_task(Task::char_list,"/char/list",credentials());
             } else { retry_task_=Task::char_list;retry_at_=time_+1000; }
@@ -144,6 +161,7 @@ void Startup::finish_task(const std::string& response,const std::string& error) 
         } catch(const std::exception&) { loading_text_="Load error, retrying";retry_task_=Task::char_list;retry_at_=time_+1000;break; }
         invalidated_=false;loading_text_="Loading...";scroll_=0;
         if(screen_==Screen::account_loading||screen_==Screen::loading)screen_=pending_screen_;
+        if(screen_==Screen::skins&&skins_) { skins_->endpoint(options_.host,options_.app_port,credentials());skins_->open(new_character_type_,selected_skins_[new_character_type_],*list_,true); }
         break;
     case Task::login:
     case Task::reg:
@@ -151,10 +169,11 @@ void Startup::finish_task(const std::string& response,const std::string& error) 
             if(!fields_.empty())fields_[task==Task::login ? 1 : 0].error=*failure;
             break;
         }
+        selected_skins_.clear();if(skins_)skins_->close();
         account_.username=fields_.at(0).value;account_.password=fields_.at(1).value;
         try { save_account(options_.account_file,account_); } catch(const std::exception& e) { open_dialog(Dialog::message,e.what());break; }
         dialog_=Dialog::none;invalidated_=true;
-        with_valid_data(screen_==Screen::characters||screen_==Screen::classes ? screen_ : Screen::title);
+        with_valid_data(screen_==Screen::characters||screen_==Screen::classes||screen_==Screen::skins ? screen_ : Screen::title);
         break;
     case Task::none: break;
     }
@@ -176,7 +195,7 @@ void Startup::play(const SavedCharacter* character,int class_type) {
     session.game_id=-1;
     session.create_character=character==nullptr;
     session.character_id=character ? character->id : list_->next_char_id;
-    if(!character)session.class_type=static_cast<std::uint16_t>(class_type);
+    if(!character) { session.class_type=static_cast<std::uint16_t>(class_type);if(screen_==Screen::skins&&skins_&&skins_->owned(skins_->selected()))session.skin_type=static_cast<std::uint16_t>(skins_->selected()); }
     // PlayGameCommand.recordCharacterUseInSharedObject.
     account_.char_use[session.character_id]=now_ms();
     try { save_account(options_.account_file,account_); } catch(const std::exception&) {}
@@ -224,6 +243,7 @@ void Startup::activate(int action) {
     case submit_action: submit_dialog();return;
     case link_action: open_dialog(dialog_==Dialog::login ? Dialog::reg : Dialog::login);return;
     case play_action:
+        if(screen_==Screen::skins) { if(list_&&list_->available_slots()>0)play(nullptr,new_character_type_);return; }
         if(screen_==Screen::title)with_valid_data(Screen::characters);
         else if(list_&&!list_->characters.empty())play(&list_->characters.front(),0);
         else screen_=Screen::classes;
@@ -238,35 +258,45 @@ void Startup::activate(int action) {
     case login_action:
         if(!account_.registered()) { open_dialog(Dialog::login);return; }
         // WebLogoutCommand: forget the account and reload the guest data.
-        account_={};
+        account_={};selected_skins_.clear();if(skins_)skins_->close();
         try { save_account(options_.account_file,account_); } catch(const std::exception&) {}
         invalidated_=true;with_valid_data(Screen::title);
         return;
     case register_action: open_dialog(Dialog::reg);return;
-    case back_action: screen_=screen_==Screen::classes ? Screen::characters : Screen::title;return;
+    case back_action: if(screen_==Screen::skins) { screen_=Screen::classes;if(skins_)skins_->close(); }else screen_=screen_==Screen::classes ? Screen::characters : Screen::title;return;
     case classes_action: screen_=Screen::classes;return;
     case new_character_action: with_valid_data(Screen::classes);return;
     default: break;
     }
-    if(action>=class_action&&action<class_action+static_cast<int>(player_types_.size()))play(nullptr,player_types_[static_cast<std::size_t>(action-class_action)]);
+    if(action>=class_action&&action<class_action+static_cast<int>(player_types_.size())) {
+        new_character_type_=player_types_[static_cast<std::size_t>(action-class_action)];
+        if(skins_&&list_) { screen_=Screen::skins;skins_->endpoint(options_.host,options_.app_port,credentials());skins_->open(new_character_type_,selected_skins_[new_character_type_],*list_,true); }
+    }
     else if(list_&&action>=character_action&&action<character_action+static_cast<int>(list_->characters.size()))play(&list_->characters[static_cast<std::size_t>(action-character_action)],0);
 }
-void Startup::pointer_move(Vec2 position) { hovered_=hit(position); }
+void Startup::pointer_move(Vec2 position) { if(skins_&&skins_->visible()&&skins_->modal_input()) { skins_->pointer_move(position);hovered_=-1;return; }hovered_=hit(position);if(screen_==Screen::skins&&dialog_==Dialog::none&&skins_)skins_->pointer_move(position); }
 void Startup::pointer_down(Vec2 position) {
+    if(skins_&&skins_->visible()&&skins_->modal_input()) { skins_->pointer_down(position);pressed_=-1;return; }
+    if(screen_==Screen::skins&&dialog_==Dialog::none&&skins_) { skins_->pointer_down(position);if(skins_->modal_input()) { pressed_=-1;return; } }
     pressed_=hit(position);
     // CreateNewCharacterRect and text fields respond to MOUSE_DOWN.
     if(pressed_==new_character_action||pressed_>=field_action) { activate(pressed_);pressed_=-1; }
 }
 void Startup::pointer_up(Vec2 position) {
+    if(skins_&&skins_->visible()&&skins_->modal_input()) { skins_->pointer_up(position);pressed_=-1;return; }
+    if(screen_==Screen::skins&&dialog_==Dialog::none&&skins_) { const bool modal=skins_->modal_input();skins_->pointer_up(position);if(modal) { pressed_=-1;return; } }
     const int target=hit(position);
     if(target>=0&&target==pressed_)activate(target);
     pressed_=-1;hovered_=hit(position);
 }
 void Startup::wheel(double steps) {
+    if(skins_&&skins_->visible()&&skins_->modal_input())return;
+    if(screen_==Screen::skins&&dialog_==Dialog::none&&skins_) { skins_->wheel(steps);return; }
     if(screen_!=Screen::characters||dialog_!=Dialog::none||list_height_<=400)return;
     scroll_=std::clamp(scroll_-steps*30,0.0,list_height_-400);dirty_=true;
 }
 void Startup::text(std::string_view utf8) {
+    if(skins_&&skins_->visible()&&skins_->modal_input())return;
     if(!wants_text()||focus_>=fields_.size())return;
     auto& field=fields_[focus_];
     if(field.value.size()+utf8.size()>64)return;
@@ -274,6 +304,7 @@ void Startup::text(std::string_view utf8) {
 }
 bool Startup::key(StartupKey key) {
     if(!menus())return false;
+    if(skins_&&skins_->visible()&&skins_->modal_input())return true;
     if(dialog_==Dialog::none)return key!=StartupKey::escape||screen_!=Screen::title;
     dirty_=true;
     switch(key) {
@@ -286,17 +317,17 @@ bool Startup::key(StartupKey key) {
 }
 void Startup::reset_sheet() {
     // Stale pixels in the gaps would bleed into filtered edges of the next screen's elements.
-    std::fill_n(sheet_.pixels.begin(),static_cast<std::ptrdiff_t>(sheet_used_)*sheet_size*4,static_cast<unsigned char>(0));
+    std::fill_n(sheet_.pixels.begin(),static_cast<std::ptrdiff_t>(sheet_used_)*sheet_.width*4,static_cast<unsigned char>(0));
     sheet_x_=sheet_y_=1;sheet_row_=0;
 }
 HudRegion Startup::store(const Image& image) {
-    if(image.width+2>sheet_size||image.height+2>sheet_size)throw std::runtime_error("Menu element exceeds sheet size");
-    if(sheet_x_+image.width+1>sheet_size) { sheet_x_=1;sheet_y_+=sheet_row_+1;sheet_row_=0; }
-    if(sheet_y_+image.height+1>sheet_size)throw std::runtime_error("Menu sheet is full");
+    if(image.width+2>sheet_.width||image.height+2>sheet_.height)throw std::runtime_error("Menu element exceeds sheet size");
+    if(sheet_x_+image.width+1>sheet_.width) { sheet_x_=1;sheet_y_+=sheet_row_+1;sheet_row_=0; }
+    if(sheet_y_+image.height+1>sheet_.height)throw std::runtime_error("Menu sheet is full");
     const HudRegion region{sheet_x_,sheet_y_,image.width,image.height};
     for(int y=0;y<image.height;++y)
         std::copy_n(image.pixels.begin()+static_cast<std::ptrdiff_t>(static_cast<std::size_t>(y)*static_cast<std::size_t>(image.width)*4),static_cast<std::ptrdiff_t>(image.width)*4,
-                    sheet_.pixels.begin()+static_cast<std::ptrdiff_t>((static_cast<std::size_t>(region.y+y)*sheet_size+static_cast<std::size_t>(region.x))*4));
+                    sheet_.pixels.begin()+static_cast<std::ptrdiff_t>((static_cast<std::size_t>(region.y+y)*static_cast<std::size_t>(sheet_.width)+static_cast<std::size_t>(region.x))*4));
     sheet_x_+=image.width+1;sheet_row_=std::max(sheet_row_,image.height);
     return region;
 }
@@ -307,7 +338,8 @@ Startup::Element& Startup::add_solid(double x,double y,double w,double h,std::ui
 Vec2 Startup::add_text(std::string_view value,int size,bool bold,std::uint32_t color,double x,double y,int group,bool shadow) {
     const auto bitmap=fonts_.rasterize(value,size,bold,shadow,color,x-std::floor(x),0);
     Element e;e.source=store(bitmap.image);e.group=group;
-    e.position={std::round(x+bitmap.offset.x),std::floor(y)+bitmap.offset.y};e.size={static_cast<double>(bitmap.image.width),static_cast<double>(bitmap.image.height)};
+    e.text=value;e.text_origin={x,y};e.font_size=size;e.font_bold=bold;e.font_shadow=shadow;
+    e.position={std::round(x+bitmap.offset.x),std::floor(y)+bitmap.offset.y};e.size={bitmap.image.width/bitmap.image.pixel_scale,bitmap.image.height/bitmap.image.pixel_scale};
     if(group>=0)e.over=over_text;
     elements_.push_back(e);
     return {bitmap.width,bitmap.height};
@@ -324,7 +356,13 @@ Vec2 Startup::add_button(std::string_view label,int size,double x,double y,int a
     return {field.width,field.height};
 }
 void Startup::add_image(const Image& image,double x,double y,double scale,int group) {
-    Element e;e.source=store(image);e.position={x,y};e.size={image.width*scale,image.height*scale};e.group=group;
+    Element e;
+    if(sheet_.pixel_scale!=1) {
+        auto pixels=ui_image(image.width*scale,image.height*scale,sheet_.pixel_scale);
+        auto source=image;source.pixel_scale=1/scale;ui_blit(pixels,source,0,0);
+        e.source=store(pixels);
+    } else e.source=store(image);
+    e.position={x,y};e.size={image.width*scale,image.height*scale};e.group=group;
     elements_.push_back(e);
 }
 void Startup::add_window_text(std::string_view value,int size,bool bold,std::uint32_t color,Vec2 anchor,Vec2 offset,Vec2 pixels,bool align_right,bool align_bottom,int action) {
@@ -410,7 +448,7 @@ void Startup::character_screen() {
         for(std::size_t i=0;i<list_->characters.size();++i) {
             const auto& c=list_->characters[i];const int action=character_action+static_cast<int>(i);
             const double top=rect(6052956,8355711,action);if(top<0)continue;
-            portrait(c.object_type,14,top,action);
+            portrait(catalog_.portrait_type(c.object_type,c.skin),14,top,action);
             const auto* def=c.object_type>0&&c.object_type<=65535 ? catalog_.object(static_cast<std::uint16_t>(c.object_type)) : nullptr;
             add_text((def ? def->id : "Unknown")+" "+std::to_string(c.level),18,true,white,10+58,top);
             const auto best=list_->best_fame.find(c.object_type);
@@ -457,6 +495,16 @@ void Startup::class_screen() {
         auto& h=add_solid(x,y,box,box,0,0,action);h.hit=true;
     }
     account_header();
+}
+void Startup::skin_screen() {
+    menu_frame(true);
+    add_solid(0,104,800,2,dark_line).full_width=true;
+    add_solid(345,105,2,421,dark_line);
+    const auto first=elements_.size();
+    const bool available=list_&&list_->available_slots()>0;
+    add_button("play",36,0,520,available ? play_action : -1,false,true);
+    if(!available)for(auto i=first;i<elements_.size();++i) { elements_[i].color=rgba(0x363636);elements_[i].over={}; }
+    add_button("back",22,30,534,back_action);account_header();
 }
 void Startup::dialog_frame() {
     const bool message=dialog_==Dialog::message;
@@ -508,11 +556,13 @@ void Startup::rebuild() {
     case Screen::title: title_screen();break;
     case Screen::characters: character_screen();break;
     case Screen::classes: class_screen();break;
+    case Screen::skins: skin_screen();break;
     case Screen::game: break;
     }
+    dialog_begin_=elements_.size();
     if(dialog_!=Dialog::none&&screen_!=Screen::game)dialog_frame();
-    const int used=std::min(sheet_size,sheet_y_+sheet_row_+1);
-    uploads_.push_back({0,0,sheet_size,std::max(used,sheet_used_)});
+    const int used=std::min(sheet_.height,sheet_y_+sheet_row_+1);
+    uploads_.push_back({0,0,sheet_.width,std::max(used,sheet_used_)});
     sheet_used_=used;
 }
 Vec2 Startup::to_window(const Element& e,Vec2 p) const {
@@ -531,13 +581,15 @@ int Startup::hit(Vec2 p) const {
     }
     return -1;
 }
-void Startup::build(const Atlas& atlas,std::size_t sheet_index,std::int32_t time,std::vector<Quad>& out) const {
+void Startup::build(const SurfaceTexture& texture,std::int32_t time,std::vector<Quad>& out) {
     if(!menus())return;
     const double scale=height_/600;
-    const auto base=atlas.additional(sheet_index);
     // TitleMenuOption pulse: 1.05 + 0.05 sin(t / 200) about the field center.
     const double pulse=1.05+.05*std::sin(time/200.0);
+    bool skin_drawn=false;std::size_t element_index=0;
+    const bool skin_visible=skins_&&skins_->visible()&&(screen_==Screen::skins||skins_->modal_input());
     for(const auto& e:elements_) {
+        if(element_index++==dialog_begin_&&skin_visible&&!skins_->modal_input()) { out.push_back(skin_texture_.quad({0,0},{width_,0},{0,height_}));skin_drawn=true; }
         if(e.hit||(e.solid&&e.color[3]<=0))continue;
         auto origin=to_window(e,e.position);Vec2 size{e.size.x*scale,e.size.y*scale};
         if(e.full_width) { origin.x=0;size.x=width_; }
@@ -546,15 +598,40 @@ void Startup::build(const Atlas& atlas,std::size_t sheet_index,std::int32_t time
             origin={pivot.x+(origin.x-pivot.x)*pulse,pivot.y+(origin.y-pivot.y)*pulse};size={size.x*pulse,size.y*pulse};
         }
         const bool over=e.group>=0&&e.group==hovered_&&e.over[3]>0;
+        if(e.pulse&&!e.text.empty()) {
+            const auto pivot=to_window(e,e.pulse_center),field=to_window(e,e.text_origin);
+            const double density=scale*pulse;
+            const double padding=e.font_shadow ? 8 : 0;
+            const Vec2 bitmap_origin{pivot.x+(field.x-pivot.x)*pulse-padding*density,
+                                    pivot.y+(field.y-pivot.y)*pulse-padding*density};
+            const Vec2 at{std::floor(bitmap_origin.x),std::floor(bitmap_origin.y)};
+            const Vec2 phase{bitmap_origin.x-at.x,bitmap_origin.y-at.y};
+            // The quad stays at native texel size. Fractional motion belongs in
+            // glyph coverage, so neither texture filtering nor pixel snapping
+            // introduces stepping as the pulse grows and shrinks.
+            const auto bitmap=fonts_.rasterize_at_scale(e.text,e.font_size,density,e.font_bold,e.font_shadow,0xffffff,phase);
+            const auto logical=fonts_.layout(e.text,e.font_size,e.font_bold);
+            pulse_texture_.reserve(static_cast<int>(std::ceil((logical.width+padding*2)*scale*1.1))+1,
+                                   static_cast<int>(std::ceil((logical.height+padding*2)*scale*1.1))+1);
+            pulse_texture_.update(bitmap.image);
+            auto q=pulse_texture_.quad(at,{static_cast<double>(bitmap.image.width),0},{0,static_cast<double>(bitmap.image.height)});
+            q.multiply=over ? e.over : e.color;out.push_back(q);continue;
+        }
         Quad q;
         if(e.solid) {
             q.origin={static_cast<float>(origin.x),static_cast<float>(origin.y)};q.axis_x={static_cast<float>(size.x),0};q.axis_y={0,static_cast<float>(size.y)};
             q.kind=2;q.multiply=over ? e.over : e.color;
         } else {
-            q=sprite_quad({base.page,base.x+e.source.x,base.y+e.source.y,e.source.width,e.source.height},origin,{size.x,0},{0,size.y});
+            // The sheet is rasterized at the window density and sampled without filtering, so a quad whose size or
+            // origin is a fraction of a pixel off its texels duplicates or drops texel rows and shifts the content.
+            if(!e.pulse&&!e.full_width&&std::abs(size.x-e.source.width)<1&&std::abs(size.y-e.source.height)<1) {
+                origin={std::round(origin.x),std::round(origin.y)};size={static_cast<double>(e.source.width),static_cast<double>(e.source.height)};
+            }
+            q=texture.quad(origin,{size.x,0},{0,size.y},e.source.x,e.source.y,e.source.width,e.source.height);
             q.kind=5;q.multiply=over ? e.over : e.color;
         }
         out.push_back(q);
     }
+    if(skin_visible&&!skin_drawn)out.push_back(skin_texture_.quad({0,0},{width_,0},{0,height_}));
 }
 }

@@ -27,8 +27,16 @@ private:
     const void* node_{};
 };
 
+struct EffectDef {
+    std::string kind, particle;
+    std::uint32_t color{};
+    double cooldown{}, rate{5}, speed{}, speed_variance{.5}, spread{}, life{1}, life_variance{},
+        rise{3}, rise_variance{}, rise_acc{}, z_offset{};
+    int size{3}, range_x{}, range_y{}, bitmap_sheet{-1}, bitmap_index{};
+};
 struct TextureDef {
-    int sheet{-1}, animated{-1}, index{};
+    EffectDef effect;
+    int sheet{-1}, animated{-1}, index{}, mask_sheet{-1}, mask_index{};
     std::vector<TextureDef> random;
     std::unordered_map<int, TextureDef> alternate;
     [[nodiscard]] const TextureDef& select(std::uint32_t id) const;
@@ -63,13 +71,17 @@ struct ObjectDef {
     double z{}, rotation{}, angle_correction{}, blood_probability{};
     std::uint32_t color{0xffffff}, blood_color{0xff0000}, shadow_color{};
     bool player{}, enemy{}, draw_on_ground{}, draw_under{}, occupy{}, full_occupy{}, enemy_occupy{},
-         stationary{}, no_minimap{}, protect_ground{}, protect_sink{}, flying{}, show_name{}, dont_face_attacks{};
+         stationary{}, no_minimap{}, protect_ground{}, protect_sink{}, flying{}, show_name{}, dont_face_attacks{}, hexable{};
     // Classes implementing IInteractiveObject, and the Container subclasses among them.
     bool interactive{}, container{};
     std::vector<int> slot_types;
     std::vector<ProjectileDef> projectiles;
     Xml xml;
 };
+struct ParticleFrameDef { TextureDef texture; double duration_ms{}; };
+struct ParticleAnimationDef { double probability{1}; std::vector<ParticleFrameDef> frames; };
+struct ParticleDef { std::string id; TextureDef texture; int size{100}; double z{}, duration_ms{}; std::vector<ParticleAnimationDef> animations; };
+struct SkinDef { int id{},class_type{};std::string name;TextureDef texture; };
 class Catalog {
 public:
     explicit Catalog(const std::filesystem::path& flash_root);
@@ -81,13 +93,23 @@ public:
     [[nodiscard]] const ObjectDef* object(std::string_view id) const;
     [[nodiscard]] const GroundDef* ground(std::string_view id) const;
     [[nodiscard]] const std::vector<ObjectDef>& objects() const { return objects_; }
+    // ObjectLibrary.hexTransforms_: object types in Group "Hexable", in load order; a Hexed player becomes one of them.
+    [[nodiscard]] const std::vector<std::uint16_t>& hex_transforms() const { return hex_transforms_; }
     [[nodiscard]] const std::vector<GroundDef>& grounds() const { return grounds_; }
     [[nodiscard]] const std::vector<std::string>& unresolved_textures() const { return unresolved_; }
     [[nodiscard]] TextureDef texture(Xml node);
+    [[nodiscard]] const ParticleDef* particle(std::string_view id) const;
+    [[nodiscard]] const std::vector<SkinDef>& skins() const { return skins_; }
+    [[nodiscard]] const SkinDef* skin(int id,int class_type) const;
+    [[nodiscard]] const TextureDef& player_texture(int class_type,int skin_id) const;
+    [[nodiscard]] int portrait_type(int class_type,int skin_id) const;
 private:
     struct Documents;
     std::unique_ptr<Documents> documents_;
     std::vector<ObjectDef> objects_;
+    std::vector<std::uint16_t> hex_transforms_;
+    std::vector<SkinDef> skins_;
+    std::vector<ParticleDef> particles_;
     std::vector<GroundDef> grounds_;
     std::vector<std::int32_t> object_lookup_, ground_lookup_;
     std::unordered_map<std::string, std::uint16_t> object_names_, ground_names_;

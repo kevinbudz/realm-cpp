@@ -1,0 +1,8 @@
+[
+ {"id":"basic","type":782,"name":"Tank","level":20,"fellowGuild":false,"options":[2,4,5],"hover":-1,"cooldown":0},
+ {"id":"teleport-hover","type":782,"name":"Tank","level":20,"fellowGuild":false,"options":[0,1,2,4,5],"hover":2,"cooldown":0},
+ {"id":"starred-ignored","type":768,"name":"Rogueish","level":7,"fellowGuild":true,"options":[0,3,6],"hover":0,"cooldown":0},
+ {"id":"cooldown","type":775,"name":"Wizzy","level":1,"fellowGuild":false,"options":[0,2,4,5],"hover":-1,"cooldown":4000},
+ {"id":"long-name","type":797,"name":"Abcdefghij","level":20,"fellowGuild":false,"options":[0,1,2,4,5],"hover":4,"cooldown":0},
+ {"id":"empty-name","type":782,"name":"","level":0,"fellowGuild":false,"options":[2,4,5],"hover":5,"cooldown":0}
+]

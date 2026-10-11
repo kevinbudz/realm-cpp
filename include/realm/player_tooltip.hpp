@@ -21,6 +21,8 @@ private:
 struct PlayerTooltipTarget {
     std::int32_t id{-1};
     int type{},level{},stars{-1},guild_rank{};
+    int skin{};
+    std::uint32_t tex1{},tex2{};
     std::string name,guild;
     bool fellow_guild{};
     std::array<StatusBarState,2> bars;

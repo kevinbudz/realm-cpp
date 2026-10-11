@@ -1,6 +1,12 @@
 # C++ client priorities
 
-Latest user instruction (2026-10-10): this player tooltip and all future
+Latest user instruction (2026-10-10, refines the paragraph below): HUD work
+must look almost 1:1 with Flash, the same at a glance. Per-pixel exactness is
+not required; do not reverse-engineer Flash rasterization solely to close
+pixel diffs. Layout, sizes, art, colors, text content and visual states must
+still match closely, verified by side-by-side review against source captures.
+
+Earlier instruction (2026-10-10): this player tooltip and all future
 elements must appear 1:1 with the original Flash client. This supersedes the
 earlier visual approximation policy below. Preserve original layout, sizing,
 fonts, art, colors, transparency, shadows, layering and visual states; validate

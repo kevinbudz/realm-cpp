@@ -1,0 +1,434 @@
+[
+  {
+    "id": "left",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 10,
+    "y": 50,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "left-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 10,
+    "y": 50,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "right",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 90,
+    "y": 50,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "right-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 90,
+    "y": 50,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "top",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 10,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "top-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 10,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "bottom",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 90,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "bottom-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 90,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "corner-top",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 10,
+    "y": 10,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "corner-top-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 10,
+    "y": 10,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "corner-bottom",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 90,
+    "y": 90,
+    "hover": false,
+    "tooltip": false,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "corner-bottom-hover",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 90,
+    "y": 90,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "rotated",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0.7853981633974483,
+    "centered": true,
+    "x": 90,
+    "y": 50,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "offset",
+    "width": 800,
+    "height": 600,
+    "zoom": 1,
+    "angle": 0,
+    "centered": false,
+    "x": 10,
+    "y": 10,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "zoomed",
+    "width": 800,
+    "height": 600,
+    "zoom": 2,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 90,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "720p",
+    "width": 1280,
+    "height": 720,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 10,
+    "y": 50,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "1200p",
+    "width": 1600,
+    "height": 1200,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 10,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  },
+  {
+    "id": "4K",
+    "width": 3840,
+    "height": 2160,
+    "zoom": 1,
+    "angle": 0,
+    "centered": true,
+    "x": 50,
+    "y": 90,
+    "hover": true,
+    "tooltip": true,
+    "players": [
+      {
+        "type": 782,
+        "name": "Tank",
+        "level": 20
+      },
+      {
+        "type": 775,
+        "name": "Wizzy",
+        "level": 20
+      }
+    ]
+  }
+]

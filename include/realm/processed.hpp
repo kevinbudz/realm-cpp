@@ -7,6 +7,8 @@ namespace realm {
 class ProcessedTextures {
 public:
     explicit ProcessedTextures(const std::filesystem::path& directory, std::size_t first_index);
+    void append(const std::filesystem::path& directory,std::size_t first_index);
+    [[nodiscard]] bool contains(const std::string& key) const { return lookup_.contains(key); }
     [[nodiscard]] std::size_t find(const std::string& key) const;
     [[nodiscard]] const std::vector<Image>& images() const { return images_; }
 private:

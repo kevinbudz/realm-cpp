@@ -43,6 +43,10 @@ the source and assets. The Flash, server, and C# repositories remain unchanged.
   selection and B-key cycling through inventory/stats/backpack.
 - Guild registrar with creation/renunciation dialogs, guild hall entry, and
   account name changes with rejection feedback and saved/reconnect credentials.
+- Guild board read/edit/save and guild chronicle member fame/rank/slots, scrolling,
+  permission-aware promote/demote/remove confirmations and server chat feedback.
+- Standard Flash dialogs with wrapped body text, hover/disabled buttons, sharp
+  resized text and modal Purchase Error feedback for rejected purchases.
 - Cached native item tooltips with effects, ItemData modifiers, equipped-item
   comparisons, class restrictions, and scrolling for long descriptions.
 - Exact framebuffer capture/comparison tools and isolated real-server tests.
@@ -50,7 +54,7 @@ the source and assets. The Flash, server, and C# repositories remain unchanged.
 ## Build
 
 Requires CMake >=3.22, a C++20 compiler, Python 3, SDL2, GLEW, OpenGL 3.3,
-libpng, libxml2, zlib, and nlohmann JSON. The presets use Ninja. Pillow is needed
+libpng, libxml2, FreeType, zlib, and nlohmann JSON. The presets use Ninja. Pillow is needed
 for optional image comparisons. AIR SDK and Java are needed only for original
 Flash reference exporters and texture baking.
 
@@ -93,9 +97,17 @@ character selection. Death, server failures and disconnects also return
 there, with a message. Escape on the title screen quits.
 
 `--script FILE` replays timed input for headless checks. Each line is
-`MS click X Y`, `MS move X Y`, `MS key NAME`, `MS text STRING`, `MS capture PATH.png` or
+`MS click X Y`, `MS move X Y`, `MS resize WIDTH HEIGHT`, `MS key NAME`, `MS text STRING`, `MS capture PATH.png` or
 `MS quit`, where MS is milliseconds since start and X/Y are window points.
 Combine it with `--hidden`.
+
+Window resizing preserves the UI's proportions and redraws its retained surfaces
+at drawable resolution, including HiDPI pixels. Enlarged text uses the original
+Myriad font outlines through FreeType; menus, HUD values/labels, item/player
+tooltips and guild/name dialogs no longer enlarge their base-resolution text.
+The Play pulse rasterizes each animation frame at its current size and fractional
+position, with reusable GPU storage. Original raster artwork retains its pixel art.
+At 800x600, static text and HUD artwork keep the existing reference rendering.
 
 ### Development harness
 
@@ -117,10 +129,12 @@ python3 tools/bake_textures.py --output build/baked-nexus ../realm-server/Resour
 ./build/realm_viewer --hidden --benchmark --frames 600 --sprites 10000
 ```
 
-WASD moves, Q/E rotates, +/- changes minimap zoom when the HUD is enabled
-(or world zoom in the development gallery), C toggles camera centering, and
-left mouse shoots, Space uses the ability and R escapes to Nexus during a live
-session. Tab switches the development gallery;
+Controls are the Flash defaults and are rebindable on the Options screen (below):
+WASD moves, Q/E rotates the camera when Allow Camera Rotation is on, =/- changes
+minimap zoom when the HUD is enabled (or world zoom in the development gallery),
+left mouse shoots, Space uses the ability, I toggles autofire, R resets the camera
+angle and Insert/F5 escape to Nexus during a live session. C toggles camera
+centering in the development gallery only. Tab switches the development gallery;
 Left/Right selects image sets and Up/Down changes gallery pages. Escape exits
 this harness. These controls and CLI are development tooling, not the final
 Flash-equivalent UI. Use `--create CLASS_TYPE` instead of `--character N` to
@@ -144,12 +158,25 @@ Long tooltips scroll with the mouse wheel. Guild registrars offer guild creation
 portals admit guild members. Name changers open the account-name dialog and
 show server rejections. This server charges 1000 gold for a changed name,
 and successful changes update your saved login and reconnect credentials.
-The default party panel is present;
-party hover, player tooltips, and player menus are still pending.
+Hovering a party member shows the player tooltip; clicking one opens the
+player menu (Teleport, Invite, Lock/Unlock, Trade, Ignore/Unignore).
+Hover minimap player markers to see a group tooltip; click to open its menu.
+Teleport selects the first visible player in the displayed order when the map
+allows it, with the original ten-second cooldown. Edge markers also group.
+Chat works like Flash: Enter opens the chat field (Enter again sends),
+`/` starts a command, Tab starts a `/tell` to recent whisperers (Shift+Tab
+for older ones), G starts guild chat, PageUp/PageDown scroll history and
+Escape closes the field. Messages also appear as speech balloons above the
+speaker. Trade requests appear in the interaction panel with Accept/Reject;
+during a trade, click your items to offer them and press Trade once its
+three-second countdown ends.
 
-`--processed` currently requires pre-baked appearances for every encountered
-size/texture. Missing appearances produce a clear error. A map-specific bake
-is not yet a complete asset pack for arbitrary live maps, dyes, or characters.
+World appearances now compose missing sizes and dyes lazily in native C++.
+Optional `--processed` packs supply original neutral Flash filters; an absent
+appearance falls back to the native compositor. Red/green masks support solid
+dyes and all four textile sets, including live skin and portrait updates.
+CPU and GPU appearance caches each retain at most 256 entries / 32 MiB;
+unbaked inventory icons use the existing bounded HUD cache.
 
 ## Verify
 
@@ -199,14 +226,20 @@ The optional exact font comparisons expose multiline and coverage differences.
 Small subpixel differences are accepted; readable text, correct wrapping, and
 usable clipping/layout are the requirements. The regular/bold size-14
 HP, value, level, name and basic text reference fixtures match exactly. Runtime
-uses a compact binary index, loads font styles on demand and keeps decoded
-glyphs in a bounded cache. Gameplay names and status meters use this renderer.
+uses a compact binary index for logical layout and base-size coverage, loads font
+styles on demand and keeps decoded glyphs in a bounded cache. Resized and animated
+text additionally loads the original regular/bold OTF files from the Flash asset
+root and rasterizes at physical size.
 
 ### HUD and minimap references
 
 ```sh
 # Bake finite original HUD artwork; runtime is native and loads icons on demand
 python3 tools/bake_hud_art.py --output build/hud-art
+# Separate guild fame/rank/remove supplement; existing HUD bundle stays intact
+python3 tools/bake_guild_members_art.py --output build/hud-art/guild-members
+# Original skin portraits, walking previews, stars and currency art (separate supplement)
+python3 tools/bake_skin_art.py
 # 140 assembled portrait/equipment/inventory fixtures, including 533 items
 python3 tests/inventory_hud_tests.py --rebuild-reference
 # 140 stats/tab transitions across all 14 classes, with exact source comparisons
@@ -238,12 +271,15 @@ The optional Flash comparisons keep strict diagnostic exit codes; those codes
 alone are not product completion gates. Review visible defects at playing size
 and prioritize correctness, performance, and usability. Base class portraits,
 equipment, tier/dose labels and main/backpack inventory regions match the source
-fixtures exactly. HUD artwork uses a 128-entry / 4 MiB decoded cache. The HUD
-still needs party hover/menus and MoneyChanger. Guild-register, guild-hall
+fixtures exactly. Each HUD artwork pack uses a 128-entry / 4 MiB decoded cache; the separate skin supplement brings the combined bound to 256 entries / 8 MiB. Party hover, player menus and edge party arrows with grouped tooltips/menus are implemented. MoneyChanger
+has no panel in this Flash fork. Guild-register, guild-hall
 and name-changer panels and their native dialogs are implemented. Merchant, closed vault chest, and guild
-merchant purchase panels are implemented; live purchase feedback needs further
-review. Live portrait skin/dye updates and dragged sprite visuals need verification.
-Minimap menus/tooltips, marker overflow and resize behavior remain unverified.
+merchant purchase panels are implemented; BUYRESULT 1 opens the standard Purchase
+Error dialog, while other results appear in chat. The isolated real-server
+insufficient-funds purchase flow is verified. Owned/class skin selection, startup purchases, RESKIN and live skin portraits are verified. Dyes and dragged sprite visuals remain for subsequent tasks.
+Minimap group tooltips/menus, edge grouping, teleport restrictions and cooldown
+are verified through real Flash class captures, SDL/TCP/GPU and isolated server
+checks. Minimap resizing is covered by the native CPU and GPU resize checks.
 
 Individual reference tests verify sprite processing, terrain composition and
 projectile geometry. **They do not establish complete gameplay visual quality
@@ -263,9 +299,22 @@ See [the port specification](docs/port-spec.md) and
 ./build/realm_tooltip_tests build/fonts-client build/hud-art build/tooltip-reference
 ```
 
-Tooltips use one retained 256x580 atlas region. Pointer movement repositions
+Tooltips use one retained surface with a logical 256x580 viewport. Its texture
+resizes with drawable density. Pointer movement repositions
 the overlay; item/comparison changes rebuild it, and scrolling copies a slice
 of the existing content. These checks use native layout and gameplay data.
+
+### Native resize and pulse checks
+
+```sh
+./build/realm_ui_resize_tests build/fonts-client build/hud-art
+python3 tests/ui_resize_gpu_tests.py
+```
+
+These cover fractional/enlarged/shrinking densities, restored base rendering,
+retained-cache invalidation, resized menu input and tooltips at 4K. The GPU runner
+also exercises 720 Play pulse frames, checking that native-size text quads reuse
+texture storage. It supplies an isolated local HTTP fixture and uses no live account.
 
 ### Native guild/name interaction checks
 
@@ -283,3 +332,92 @@ handling and renamed credentials on reconnect. The scripted name scenarios
 check saved-account startup, name persistence and returning to character
 selection with the new login. These fixtures do not establish live-server
 purchase verification or representative whole-client performance.
+
+### Guild board
+
+The nearby Guild Board panel's View button opens the native board. Officers and
+higher ranks can Edit, Cancel or Save; other members can read and Close. The
+multiline editor supports selection, clipboard and scrolling. Loading/Saving
+run native HTTP asynchronously; request errors offer Retry and Close/Back.
+The game stays behind the source-style modal backdrop.
+
+```sh
+python3 tests/guild_board_reference_tests.py
+python3 tests/guild_board_gpu_tests.py
+python3 tests/guild_board_live_tests.py ../realm-server/bin/Release/net8.0/RotMG.dll
+```
+
+Evidence and source/native captures are documented in
+[the guild board handoff](docs/task-handoffs/02-guild-board.md).
+
+### Options
+
+O, or the wrench button at the top right of the character details (Nexus only; every
+other map shows the Nexus button), opens the Flash Options screen: Controls, Gameplay,
+Hot Keys, Chat, Graphics and Sound tabs of key mappers and choice boxes. Click a key
+box and press the new key (Escape cancels); binding a key unsets the action that had
+it. "reset to defaults" resets the visible tab, "back to home" leaves the game, and
+O or Escape closes the screen. Every change is applied immediately and saved to
+`settings.json` beside the account file (`--settings-file PATH` overrides it, and the
+development harness keeps the defaults unless it is given one). Game controls and
+chat keys are suppressed while the screen is open.
+
+### Guild chronicle
+
+The nearby Guild Chronicle panel's View button opens the native member screen.
+It shows current guild/member fame, stored member order, ranks and open slots.
+Officers and higher ranks see the actions their Flash rank permits. Each action
+requires confirmation; server chat replies drive refresh or an Error dialog.
+HTTP failures offer Retry/Close. Continue closes the screen; game controls are
+suppressed while it is open.
+
+The icon supplement is required beside the HUD pack; bake it with the command
+above. Runtime stays native and does not need AIR.
+
+```sh
+python3 tests/guild_members_reference_tests.py
+python3 tests/guild_members_gpu_tests.py
+python3 tests/guild_members_live_tests.py ../realm-server/bin/Release/net8.0/RotMG.dll
+```
+
+Evidence and comparison limits are recorded in
+[the guild members handoff](docs/task-handoffs/03-guild-members.md).
+
+### Combat particles
+
+The native scene renders SHOWEFFECT abilities, AOE, sprite flashes and camera
+jitter, blood/debris, projectile trails, level-up/healing particles and registered
+object emitters. Particles expire and map replacement/disconnect clears their
+state. Solid particles use one shader path without per-color texture allocation;
+textured particles share the bounded appearance caches.
+
+```sh
+python3 tests/particle_reference_tests.py
+python3 tests/particle_gpu_tests.py
+python3 tests/particle_live_tests.py ../realm-server/bin/Release/net8.0/RotMG.dll
+```
+
+Runtime stays native; the first command uses AIR only to capture actual Flash
+classes offline. Reference snapshots share randomized source geometry for visual
+comparison; independent CTest and network fixtures validate native simulation.
+See [the particle handoff](docs/task-handoffs/08-particles.md) for inventory,
+resource bounds, evidence and accepted visual differences.
+
+### Lighting, backgrounds and post effects
+
+Flash has no per-map lighting (model shading is the fixed task 09 rule), so this covers
+what it does draw around the world: the Drunk blur and Blind filters on the map view
+(HUD and overlays untouched), the low-breath red vignette, the 10 px sidebar gradient,
+and the MAPINFO star/Nexus-water backgrounds. The world is rendered offscreen only
+while a filter is active; sizes scale with the window like the HUD.
+
+```sh
+python3 tests/postfx_reference_tests.py
+python3 tests/postfx_live_tests.py ../realm-server/bin/Release/net8.0/RotMG.dll
+ctest --test-dir build -R postfx
+```
+
+The first command needs the AIR SDK and compares the real `BlurFilter`, `ColorMatrixFilter`,
+`HurtOverlay`, `GradientOverlay` and background classes against the native renderer.
+The viewer can force the fixtures with `--condition 64|256|320 --breath N --background 1|2
+--effect-time MS`. See [the lighting handoff](docs/task-handoffs/10-lighting.md).

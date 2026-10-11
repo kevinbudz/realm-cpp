@@ -13,6 +13,8 @@ public:
     void update(const World& world,std::int32_t time_ms);
     // ACCOUNTLIST id 0 stars accounts and id 1 replaces the ignore list.
     void receive(const net::incoming::AccountList& list);
+    // Local lock/unlock/ignore/unignore before the EDITACCOUNTLIST round trip.
+    void edit(std::int32_t account_id,std::int32_t object_id,bool ignore,bool add);
     [[nodiscard]] const std::array<std::int32_t,members_shown>& members() const { return members_; }
     // Player.starred_: set once a starred account is seen and never cleared
     // by later lists, as Party.update does.

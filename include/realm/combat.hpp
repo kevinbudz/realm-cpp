@@ -7,6 +7,7 @@ struct FlyingProjectile {
     std::int32_t entity_id{}, bullet_id{}, owner_id{}, start_time{};
     std::uint16_t container_type{};
     int bullet_type{}, damage{};
+    std::int32_t last_trail{};
     Vec2 start{};
     double angle{};
     const ProjectileDef* definition{};

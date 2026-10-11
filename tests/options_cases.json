@@ -1,0 +1,23 @@
+[
+ {"key":"controls","width":800,"height":600,"tab":0,"values":{}},
+ {"key":"gameplay","width":800,"height":600,"tab":1,"values":{}},
+ {"key":"hotkeys","width":800,"height":600,"tab":2,"values":{}},
+ {"key":"chat","width":800,"height":600,"tab":3,"values":{}},
+ {"key":"graphics","width":800,"height":600,"tab":4,"values":{}},
+ {"key":"sound","width":800,"height":600,"tab":5,"values":{}},
+ {"key":"rotation-on","width":800,"height":600,"tab":0,"values":{"allowRotation":true,"moveUp":45,"togglePerformanceStats":220}},
+ {"key":"graphics-changed","width":800,"height":600,"tab":4,"values":{"particles":false,"quality":false,"maxFPS":0,"vsync":false,"fullscreenMode":true,"allyShots":false}},
+ {"key":"hover-key","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"box","index":2}},
+ {"key":"hover-choice","width":800,"height":600,"tab":1,"values":{},"hover":{"kind":"box","index":3}},
+ {"key":"hover-tab","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"tab","index":3}},
+ {"key":"hover-continue","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"button","index":300}},
+ {"key":"hover-reset","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"button","index":301}},
+ {"key":"hover-home","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"button","index":302}},
+ {"key":"tooltip-short","width":800,"height":600,"tab":0,"values":{},"hover":{"kind":"label","index":0}},
+ {"key":"tooltip-long","width":800,"height":600,"tab":4,"values":{},"hover":{"kind":"label","index":3}},
+ {"key":"controls-1280x720","width":1280,"height":720,"tab":0,"values":{}},
+ {"key":"hotkeys-1600x1200","width":1600,"height":1200,"tab":2,"values":{}},
+ {"key":"graphics-1920x1080","width":1920,"height":1080,"tab":4,"values":{}},
+ {"key":"gameplay-1000x600","width":1000,"height":600,"tab":1,"values":{}},
+ {"key":"tooltip-1600x1200","width":1600,"height":1200,"tab":4,"values":{},"hover":{"kind":"label","index":1}}
+]

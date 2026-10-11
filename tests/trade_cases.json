@@ -1,0 +1,488 @@
+[
+ {
+  "id": "selecting",
+  "button": "countdown",
+  "sides": [
+   {
+    "name": "Viewer",
+    "message": 0,
+    "items": [
+     [
+      "Energy Staff",
+      17,
+      false,
+      false
+     ],
+     [
+      "Fire Spray Spell",
+      11,
+      false,
+      false
+     ],
+     [
+      "",
+      14,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Magic Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "Fire Dagger",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ]
+    ]
+   },
+   {
+    "name": "Friend",
+    "message": 3,
+    "items": [
+     [
+      "Short Sword",
+      1,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "Leather Armor",
+      6,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Magic Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "no-space",
+  "button": "disabled",
+  "sides": [
+   {
+    "name": "Viewer",
+    "message": 1,
+    "items": [
+     [
+      "Energy Staff",
+      17,
+      false,
+      false
+     ],
+     [
+      "Fire Spray Spell",
+      11,
+      false,
+      false
+     ],
+     [
+      "",
+      14,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      false
+     ]
+    ]
+   },
+   {
+    "name": "Friend",
+    "message": 3,
+    "items": [
+     [
+      "Short Sword",
+      1,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "Leather Armor",
+      6,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Magic Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ]
+    ]
+   }
+  ]
+ },
+ {
+  "id": "accepted",
+  "button": "waiting",
+  "sides": [
+   {
+    "name": "Viewer",
+    "message": 2,
+    "items": [
+     [
+      "Energy Staff",
+      17,
+      false,
+      false
+     ],
+     [
+      "Fire Spray Spell",
+      11,
+      false,
+      false
+     ],
+     [
+      "",
+      14,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Magic Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "Fire Dagger",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ]
+    ]
+   },
+   {
+    "name": "Friend",
+    "message": 2,
+    "items": [
+     [
+      "Short Sword",
+      1,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "Leather Armor",
+      6,
+      false,
+      false
+     ],
+     [
+      "",
+      9,
+      false,
+      false
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Health Potion",
+      0,
+      true,
+      true
+     ],
+     [
+      "Magic Potion",
+      0,
+      true,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ],
+     [
+      "",
+      0,
+      false,
+      false
+     ]
+    ]
+   }
+  ]
+ }
+]

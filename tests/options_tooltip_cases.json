@@ -1,0 +1,7 @@
+[
+ {"key":"tip-options","title":"Options","text":"Hotkey: O","background":3552822,"outline":10197915,"width":200},
+ {"key":"tip-nexus","title":"Nexus","text":"Hotkey: Insert","background":3552822,"outline":10197915,"width":200},
+ {"key":"tip-unset","title":"Options","text":"Hotkey: [Unset]","background":3552822,"outline":10197915,"width":200},
+ {"key":"tip-plain","title":"","text":"This toggles whether the player is centered or offset","background":2565927,"outline":8553090,"width":150},
+ {"key":"tip-plain-long","title":"","text":"Caps the frame rate. Unlimited renders as fast as possible (up to your display refresh with VSync on).","background":2565927,"outline":8553090,"width":150}
+]

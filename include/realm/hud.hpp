@@ -95,6 +95,7 @@ struct HudState {
         // int(|sin(t/200)|*10), otherwise -1.
         bool dark{};
         int pulse{-1};
+        std::int32_t object_id{-1};
         bool operator==(const PartyMember&) const = default;
     };
     struct Party {
@@ -104,6 +105,9 @@ struct HudState {
     } party;
     bool operator==(const HudState&) const = default;
     static HudState player(const World& world,const Entity& entity,const realm::Party* party=nullptr,std::int32_t time_ms=0);
+    // Refresh the displayed identities without retaining Entity pointers across updates.
+    void party_members(const World& world,const Entity& player,const realm::Party& party,
+                       const std::array<std::int32_t,6>& ids,std::int32_t time_ms);
 };
 // PotionInventoryView layout below the 84-pixel InventoryGrid.
 inline constexpr int potion_view_y=468;

@@ -119,16 +119,7 @@ HudState HudState::player(const World& world,const Entity& entity,const realm::P
     }
     if(party&&!target) {
         // InteractPanel falls back to PartyPanel; GameObjectListItem.draw and PartyPanel.draw.
-        result.party.shown=true;
-        for(std::size_t i=0;i<result.party.members.size();++i) {
-            const auto* member=world.entity(party->members()[i]);if(!member)continue;
-            const auto* member_def=world.catalog().object(member->type);
-            auto& shown=result.party.members[i].emplace();shown.type=member->type;
-            shown.name=member->name.empty()&&member_def ? member_def->display_id : member->name;
-            shown.color=!entity.guild.empty()&&entity.guild==member->guild ? 10944349U : 16572160U;
-            shown.dark=!party->starred(member->id);
-            if(member->hp<member->max_hp*0.2)shown.pulse=static_cast<int>(std::abs(std::sin(time/200.0))*10);
-        }
+        result.party_members(world,entity,*party,party->members(),time);
     }
     for(std::size_t i=0;i<inv.items.size();++i) {
         if(i>=container_slot&&inv.container<0)break;
@@ -144,6 +135,19 @@ HudState HudState::player(const World& world,const Entity& entity,const realm::P
     constexpr std::array boosts{S::ATTACK_BOOST_STAT,S::DEFENSE_BOOST_STAT,S::SPEED_BOOST_STAT,S::DEXTERITY_BOOST_STAT,S::VITALITY_BOOST_STAT,S::WISDOM_BOOST_STAT};
     for(std::size_t i=0;i<values.size();++i)result.stats[i]={stat(entity,values[i]),stat(entity,boosts[i]),def ? def->stat_caps[i] : 0};
     return result;
+}
+void HudState::party_members(const World& world,const Entity& player,const realm::Party& source,
+                             const std::array<std::int32_t,6>& ids,std::int32_t time) {
+    party.shown=true;party.members={};
+    for(std::size_t i=0;i<ids.size();++i) {
+        const auto* member=world.entity(ids[i]);if(!member||!member->player)continue;
+        const auto* definition=world.catalog().object(member->type);
+        auto& shown=party.members[i].emplace();shown.type=member->type;shown.object_id=member->id;
+        shown.name=member->name.empty()&&definition ? definition->display_id : member->name;
+        shown.color=!player.guild.empty()&&player.guild==member->guild ? 10944349U : 16572160U;
+        shown.dark=!source.starred(member->id);
+        if(member->hp<member->max_hp*0.2)shown.pulse=static_cast<int>(std::abs(std::sin(time/200.0))*10);
+    }
 }
 void HudState::retain(const HudState& previous) {
     const auto& before=previous.sellable;auto& now=sellable;

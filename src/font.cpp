@@ -206,6 +206,22 @@ TextBitmap FontBook::rasterize(std::string_view text,int size,bool bold,bool sha
     finish(result.image,shadow,shadow_strength);
     return result;
 }
+TextBitmap FontBook::rasterize_spans(std::span<const TextSpan> spans,int size,bool shadow,std::uint32_t color,double bold_vertical_phase) const {
+    TextRun combined;double advance{};
+    for(const auto& span:spans) {
+        if(span.text.empty())continue;
+        const auto run=layout(span.text,size,span.bold,false,advance-std::floor(advance),span.bold ? bold_vertical_phase : 0);
+        for(const auto& glyph:run.glyphs)combined.glyphs.push_back({glyph.image,{glyph.position.x+std::floor(advance),glyph.position.y}});
+        advance+=measure(span.text,size,span.bold);combined.height=std::max(combined.height,run.height);
+    }
+    combined.width=std::floor(advance+4);const int padding=shadow ? 8 : 0;
+    if(combined.width>8192||combined.height>8192)throw std::runtime_error("Text field exceeds size limit");
+    const int w=static_cast<int>(combined.width),h=static_cast<int>(combined.height);
+    TextBitmap result{{std::max(1,w+padding*2),std::max(1,h+padding*2),{}},{-static_cast<double>(padding),-static_cast<double>(padding)},combined.width,combined.height};
+    result.image.pixels.resize(static_cast<std::size_t>(result.image.width)*static_cast<std::size_t>(result.image.height)*4);
+    for(const auto& glyph:combined.glyphs)composite(result.image,image(glyph.image),static_cast<int>(glyph.position.x),static_cast<int>(glyph.position.y),padding,w-2,h-2,color);
+    finish(result.image,shadow,1);return result;
+}
 std::vector<std::string> FontBook::wrap(std::string_view text,int size,bool bold,int field_width) const {
     const double limit=field_width-4;std::vector<std::string> lines;std::string current;
     for(std::size_t at=0;at<=text.size();) {

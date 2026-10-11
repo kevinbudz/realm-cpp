@@ -43,7 +43,7 @@ def build(program, flash_root, sdk, java_home, output, mask_variant=None):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('program', choices=['TextureExporter', 'GroundExporter', 'BlendExporter', 'StageTextureExporter', 'FontExporter', 'HudExporter', 'MinimapExporter', 'BitmapColorExporter', 'InventoryExporter'])
+    p.add_argument('program', choices=['TextureExporter', 'GroundExporter', 'BlendExporter', 'StageTextureExporter', 'FontExporter', 'HudExporter', 'MinimapExporter', 'BitmapColorExporter', 'InventoryExporter', 'PlayerTooltipExporter'])
     p.add_argument('--flash-root', type=Path, default=Path(__file__).resolve().parents[2] / 'realm-client')
     p.add_argument('--sdk', type=Path, default=Path(os.environ.get('AIR_SDK', str(Path.home() / 'Desktop/AIRSDK_Linux'))))
     p.add_argument('--java-home', type=Path, default=Path(os.environ.get('JAVA_HOME', str(Path.home() / '.local/share/air-jdk'))))

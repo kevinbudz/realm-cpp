@@ -5,6 +5,7 @@
 #include "realm/hud.hpp"
 #include "realm/hud_input.hpp"
 #include "realm/tooltip.hpp"
+#include "realm/player_tooltip.hpp"
 #include "realm/interaction.hpp"
 #include "realm/minimap.hpp"
 #include "realm/startup.hpp"
@@ -209,6 +210,10 @@ int main(int argc, char** argv) {
         std::unique_ptr<realm::ItemTooltip> tooltip;
         const auto tooltip_index=atlas_images.size();
         if(hud&&hud_art) { tooltip=std::make_unique<realm::ItemTooltip>(catalog,fonts,*hud_art);atlas_images.push_back(tooltip->image()); }
+        realm::PartyHover party_hover;
+        std::unique_ptr<realm::PlayerTooltip> player_tooltip;
+        const auto player_tooltip_index=atlas_images.size();
+        if(hud&&hud_art) { player_tooltip=std::make_unique<realm::PlayerTooltip>(catalog,fonts,*hud_art);atlas_images.push_back(player_tooltip->image()); }
         realm::InteractionDialog interaction;
         const auto interaction_index=atlas_images.size();
         if(hud)atlas_images.push_back(interaction.image());
@@ -284,6 +289,9 @@ int main(int argc, char** argv) {
             if (game_session) {
                 game_session->poll(time); world.update(dt*1000);
                 for (const auto& message : game_session->take_events()) {
+                    if(message.id==realm::flash::PacketId::MAPINFO||message.id==realm::flash::PacketId::RECONNECT||message.id==realm::flash::PacketId::DEATH) {
+                        party_hover.reset();hud_view.party={};tooltip_pointer_valid=false;
+                    }
                     interaction.receive(message);
                     if(auto name=interaction.take_name();name&&startup)startup->renamed_account(*name);
                     if (message.id == realm::flash::PacketId::TEXT) std::cout << std::get<realm::net::incoming::Text>(message.data).text << '\n';
@@ -294,7 +302,7 @@ int main(int argc, char** argv) {
                     if (state == realm::SessionState::failed || state == realm::SessionState::disconnected || state == realm::SessionState::dead) {
                         std::string message = state == realm::SessionState::dead ? "Your character has died." : leaving_game ? "" : game_session->error();
                         if (message.empty() && state != realm::SessionState::dead && !leaving_game) message = "Disconnected from the game server.";
-                        game_session.reset();interaction.reset(); leaving_game = false; hud_input.cancel(); hud_container = -1;
+                        game_session.reset();interaction.reset();party_hover.reset();hud_view.party={};tooltip_pointer_valid=false; leaving_game = false; hud_input.cancel(); hud_container = -1;
                         startup->left_game(message); startup->load_background(world); background_world = true;
                     }
                 } else if (state == realm::SessionState::failed || state == realm::SessionState::disconnected) throw std::runtime_error(game_session->error());
@@ -565,6 +573,13 @@ int main(int argc, char** argv) {
             }
             if(hud&&o.world&&!menus)if(const auto* player=world.entity(world.player_id())) {
                 auto state=realm::HudState::player(world,*player,game_session ? &game_session->party() : nullptr,time);
+                const bool hover_enabled=tooltip_pointer_valid&&!hud_mouse_down&&!interaction.visible()&&game_session&&game_session->state()==realm::SessionState::playing;
+                if(game_session)party_hover.update(world,game_session->party(),state,hud_view,hud_input.pointer(),hover_enabled,time);
+                else party_hover.reset();
+                if(player_tooltip) {
+                    const auto target=hover_enabled ? realm::player_tooltip_target(world,party_hover.target()) : std::nullopt;
+                    if(player_tooltip->update(target))atlas.update_additional(player_tooltip_index,player_tooltip->image());
+                }
                 if(!state.inventory.backpack&&hud_input.selected()==2)hud_input.cancel(true);
                 if(state.inventory.container!=hud_container) { hud_input.container_changed();hud_container=state.inventory.container; }
                 state.inventory.selected=hud_input.selected();state.inventory.dragging=hud_input.dragging();
@@ -610,6 +625,14 @@ int main(int argc, char** argv) {
                     const auto at=realm::ItemTooltip::position(screen_pointer,width,height,tooltip->height(),scale);
                     auto region=atlas.additional(tooltip_index);region.height=tooltip->height();
                     auto tip=realm::sprite_quad(region,at,{realm::ItemTooltip::width*scale,0},{0,tooltip->height()*scale});tip.kind=5;
+                    overlay_storage[overlay.size()]=tip;overlay=std::span<const realm::Quad>(overlay_storage).first(overlay.size()+1);
+                }
+                if(player_tooltip&&player_tooltip->visible()) {
+                    const auto pointer=hud_input.pointer();const realm::Vec2 screen_pointer{width+(pointer.x-200)*ui_scale,pointer.y*ui_scale};
+                    const double scale=ui_scale;
+                    const auto at=realm::PlayerTooltip::position(screen_pointer,width,height,player_tooltip->draw_width(),player_tooltip->height(),scale);
+                    auto region=atlas.additional(player_tooltip_index);region.width=player_tooltip->draw_width();region.height=player_tooltip->height();
+                    auto tip=realm::sprite_quad(region,at,{player_tooltip->draw_width()*scale,0},{0,player_tooltip->height()*scale});tip.kind=5;
                     overlay_storage[overlay.size()]=tip;overlay=std::span<const realm::Quad>(overlay_storage).first(overlay.size()+1);
                 }
             }

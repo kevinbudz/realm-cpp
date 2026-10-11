@@ -1,5 +1,13 @@
 # Implementation progress
 
+Latest user direction (2026-10-10): the current player tooltip and all future
+elements must appear 1:1 with Flash. This supersedes the earlier approximation
+policy below. New and revised visuals require source-reference validation;
+native performance and memory improvements must preserve that appearance.
+Player hover/tooltip functionality is implemented and has passed native
+checks, but its widened draft presentation is being replaced with the source
+layout. Do not mark this tooltip's 1:1 visual work complete yet.
+
 The project goal is a complete, optimized native C++ client using Flash as its
 visual and functional shell. On 2026-10-10 the user clarified that UI/playfield
 should look basically the same, with performance and improvements over Flash

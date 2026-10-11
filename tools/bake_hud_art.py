@@ -19,9 +19,16 @@ descriptor = build('InventoryExporter', a.flash_root.resolve(), a.sdk.resolve(),
 raw = a.output / 'raw'; raw.mkdir(parents=True, exist_ok=True)
 tasks = a.output / 'tasks.json'; tasks.write_text(json.dumps(dict(output=str(raw), bake=True)))
 subprocess.run([str(a.sdk / 'bin/adl'), str(descriptor), '--', str(tasks)], check=True, timeout=180)
+keys=json.loads((raw / 'entries.json').read_text())
+# Finite decorations used by the original PlayerToolTip. Arbitrary player
+# names and status values remain native text, not pre-rendered fixture images.
+player_reference=a.build / 'flash-player-tooltip-reference'
+descriptor=build('PlayerTooltipExporter',a.flash_root.resolve(),a.sdk.resolve(),a.java_home.resolve(),player_reference)
+subprocess.run([str(a.sdk / 'bin/adl'),str(descriptor),'--',str(tasks)],check=True,timeout=180)
+keys+=json.loads((raw / 'entries.json').read_text())
 images = []
 with (a.output / 'images.bin').open('wb') as bundle:
-    for key in json.loads((raw / 'entries.json').read_text()):
+    for key in keys:
         data = (raw / (key + '.png')).read_bytes()
         images.append(dict(key=key, offset=bundle.tell(), length=len(data)))
         bundle.write(data)

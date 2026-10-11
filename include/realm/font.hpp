@@ -18,6 +18,7 @@ struct FontFace {
 struct GlyphPlacement { std::size_t image{};Vec2 position{}; };
 struct TextRun { double width{},height{};std::vector<GlyphPlacement> glyphs; };
 struct TextBitmap { Image image;Vec2 offset{};double width{},height{}; };
+struct TextSpan { std::string_view text;bool bold{}; };
 class FontBook {
 public:
     explicit FontBook(const std::filesystem::path& directory);
@@ -29,6 +30,8 @@ public:
     // Unrounded advance width of a single line, as TextLineMetrics.width.
     [[nodiscard]] double measure(std::string_view text,int size,bool bold=false) const;
     [[nodiscard]] TextBitmap rasterize(std::string_view text,int size,bool bold=false,bool shadow=false,std::uint32_t color=0xffffff,double phase=0,double vertical_phase=0,unsigned shadow_strength=1,int field_width=0,int field_height=0) const;
+    // One auto-sized single-line TextField with mixed bold/regular spans.
+    [[nodiscard]] TextBitmap rasterize_spans(std::span<const TextSpan> spans,int size,bool shadow,std::uint32_t color,double bold_vertical_phase=0) const;
     // TextField wordWrap lines, each keeping the spaces that follow its last word.
     [[nodiscard]] std::vector<std::string> wrap(std::string_view text,int size,bool bold,int field_width) const;
     // A wordWrap TextField of fixed width with centered paragraphs. The image

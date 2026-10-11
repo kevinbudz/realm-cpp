@@ -2,6 +2,15 @@
 
 ## Contract
 
+Latest direction, 2026-10-10: the player tooltip currently being implemented
+and all future elements must appear 1:1 with the original Flash client.
+Source layout, fonts, artwork, colors, alpha, shadows, layering and visual
+states are the acceptance reference. Native implementation and optimization
+remain appropriate, provided appearance matches. This supersedes the earlier
+approximation allowances and optional-comparison guidance below for new and
+revised elements. Historical evidence is retained; it does not certify newly
+implemented elements or waive their comparison differences.
+
 Scope clarified by the user on 2026-10-10: use the Flash client as the visual
 and functional shell for a better native C++ client. The UI and playfield
 should look basically the same, while performance, responsiveness, usability,

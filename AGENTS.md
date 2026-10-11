@@ -1,5 +1,18 @@
 # C++ client priorities
 
+Latest user instruction (2026-10-10): this player tooltip and all future
+elements must appear 1:1 with the original Flash client. This supersedes the
+earlier visual approximation policy below. Preserve original layout, sizing,
+fonts, art, colors, transparency, shadows, layering and visual states; validate
+new or revised elements against source captures. Do not introduce visual
+redesigns or accept appearance differences solely to simplify implementation.
+Native performance, bounded memory, protocol correctness and maintainability
+remain priorities within that visual contract. Record any remaining comparison
+differences honestly; do not describe incomplete matching as 1:1.
+
+The following records the earlier scope and remains applicable only where it
+does not conflict with the latest instruction.
+
 The user clarified the scope on 2026-10-10: Flash is the visual and functional
 shell for a better native client. UI and playfield rendering should look
 basically the same. Performance and improvements over Flash take priority

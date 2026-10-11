@@ -58,7 +58,7 @@ add_executable(realm_session src/session_main.cpp)
 target_link_libraries(realm_session PRIVATE realm_data)
 
 find_package(PNG REQUIRED)
-add_library(realm_assets src/image.cpp src/animation.cpp src/processed.cpp src/terrain.cpp src/font.cpp src/hud.cpp src/hud_art.cpp src/hud_input.cpp src/minimap.cpp src/tooltip.cpp src/interaction.cpp)
+add_library(realm_assets src/image.cpp src/animation.cpp src/processed.cpp src/terrain.cpp src/font.cpp src/hud.cpp src/hud_art.cpp src/hud_input.cpp src/minimap.cpp src/tooltip.cpp src/player_tooltip.cpp src/interaction.cpp)
 target_link_libraries(realm_assets PUBLIC realm_core realm_data PRIVATE PNG::PNG nlohmann_json::nlohmann_json)
 
 add_executable(realm_terrain_inputs tools/terrain_inputs.cpp)
@@ -73,6 +73,8 @@ target_link_libraries(realm_hud_inputs PRIVATE realm_assets nlohmann_json::nlohm
 
 add_executable(realm_minimap_inputs tools/minimap_inputs.cpp)
 target_link_libraries(realm_minimap_inputs PRIVATE realm_assets nlohmann_json::nlohmann_json)
+add_executable(realm_player_tooltip_inputs tools/player_tooltip_inputs.cpp)
+target_link_libraries(realm_player_tooltip_inputs PRIVATE realm_assets nlohmann_json::nlohmann_json)
 
 if(REALM_BUILD_VIEWER)
     find_package(SDL2 REQUIRED CONFIG)
@@ -117,6 +119,9 @@ if(BUILD_TESTING)
     add_executable(realm_tooltip_tests tests/tooltip_tests.cpp)
     target_link_libraries(realm_tooltip_tests PRIVATE realm_assets)
     add_test(NAME item_tooltips COMMAND realm_tooltip_tests)
+    add_executable(realm_player_tooltip_tests tests/player_tooltip_tests.cpp)
+    target_link_libraries(realm_player_tooltip_tests PRIVATE realm_assets)
+    add_test(NAME player_tooltips COMMAND realm_player_tooltip_tests)
     add_executable(realm_social_session_inputs tests/social_session_inputs.cpp)
     target_link_libraries(realm_social_session_inputs PRIVATE realm_data)
     add_test(NAME social_loopback COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tests/social_session_tests.py" "$<TARGET_FILE:realm_social_session_inputs>")

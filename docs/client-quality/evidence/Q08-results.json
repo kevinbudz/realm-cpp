@@ -4776,5 +4776,12 @@
     "created": false,
     "request": "docs/client-quality/handoffs/Q09-dispatch-request.md",
     "reason": "create_thread unavailable; list_projects dynamic tool reports native MCP server unavailable on this host"
+  },
+  "delivery": {
+    "pull_request": "https://github.com/kevinbudz/realm-cpp/pull/1",
+    "draft": true,
+    "branch": "codex/q08-boundaries",
+    "implementation_commit": "bbb6f78",
+    "merged": false
   }
 }

@@ -103,7 +103,7 @@ private:
     std::uint64_t protect_frames_{2};
     TextureResidency residency_;
     const Atlas* residency_atlas_{};
-    GLuint residency_texture_{};
+    std::uint32_t residency_texture_{};
     std::uint64_t next_resident_{1},fallbacks_{};
     std::unordered_map<Appearances::Key,ResidentAppearance,Appearances::KeyHash> resident_appearances_;
     std::unordered_map<const Image*,ResidentLabel> resident_labels_;

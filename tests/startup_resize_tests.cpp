@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include "realm/startup.hpp"
 #include "flash_assets.hpp"
 #include <SDL.h>

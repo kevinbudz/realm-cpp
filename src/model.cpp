@@ -67,7 +67,7 @@ Quad model_quad(std::uint32_t index, const Camera& camera, Vec2 position, double
     q.multiply = {static_cast<float>((color >> 16U) & 255U) / 255, static_cast<float>((color >> 8U) & 255U) / 255,
                   static_cast<float>(color & 255U) / 255, sprite ? 1.0F : 0.0F};
     if (sprite) {
-        constexpr float inv = 1.0F / Atlas::page_size;
+        constexpr float inv = 1.0F / sprite_page_size;
         q.uv = {static_cast<float>(sprite->x) * inv, static_cast<float>(sprite->y) * inv,
                 static_cast<float>(sprite->width) * inv, static_cast<float>(sprite->height) * inv};
         q.page = static_cast<float>(sprite->page);
@@ -111,7 +111,7 @@ std::shared_ptr<const MeshDraw> project_model(std::string_view name, const Camer
     }
     auto draw = std::make_shared<MeshDraw>();
     if (sprite) {
-        constexpr float inv = 1.0F / Atlas::page_size;
+        constexpr float inv = 1.0F / sprite_page_size;
         draw->bounds = {static_cast<float>(sprite->x) * inv, static_cast<float>(sprite->y) * inv,
                         static_cast<float>(sprite->width) * inv, static_cast<float>(sprite->height) * inv};
         draw->page = static_cast<float>(sprite->page);

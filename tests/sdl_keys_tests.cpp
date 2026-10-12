@@ -1,3 +1,4 @@
+#include <SDL.h>
 #include "realm/sdl_keys.hpp"
 #include "realm/settings.hpp"
 #include <iostream>
@@ -6,6 +7,11 @@
 namespace { int checks{};void check(bool ok,const std::string& why) { ++checks;if(!ok)throw std::runtime_error(why); } }
 using namespace realm;
 int main() {
+    // SDL 2.32 builds its key/scancode mapping when video is initialized.
+    // The application already does this; the standalone test must too.
+    SDL_SetMainReady();
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) { std::cerr << SDL_GetError() << '\n'; return 1; }
+    struct QuitSDL { ~QuitSDL() { SDL_Quit(); } } quit;
     try {
         check(sdl_keys::flash_code(SDLK_a)==65&&sdl_keys::flash_code(SDLK_z)==90&&sdl_keys::flash_code(SDLK_0)==48&&sdl_keys::flash_code(SDLK_9)==57,"letters and digits");
         check(sdl_keys::flash_code(SDLK_F1)==112&&sdl_keys::flash_code(SDLK_F12)==123&&sdl_keys::flash_code(SDLK_F15)==126,"function keys");

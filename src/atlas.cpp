@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include "realm/telemetry.hpp"
 #include "realm/atlas.hpp"
 #include "flash_assets.hpp"
@@ -8,6 +9,7 @@
 #include <stdexcept>
 
 namespace realm {
+bool Atlas::hardware_copy() { return !force_blit_copy && (GLEW_VERSION_4_3 || GLEW_ARB_copy_image); }
 Atlas::Atlas(const std::filesystem::path& root, std::span<const Image> additional, std::size_t raw_prefix, int dynamic_pages) {
     if(raw_prefix>additional.size()) throw std::invalid_argument("Invalid raw atlas prefix");
     if(dynamic_pages<0) throw std::invalid_argument("Invalid dynamic atlas page count");

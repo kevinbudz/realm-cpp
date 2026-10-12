@@ -1,4 +1,4 @@
-#include "realm/backdrop.hpp"
+#include "realm/backdrop_data.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>
@@ -52,7 +52,7 @@ std::vector<Star> star_field(std::uint32_t seed) {
     return stars;
 }
 Image nexus_water(std::uint32_t seed) {
-    constexpr int size = Backdrop::water_size, octaves = 8;
+    constexpr int size = nexus_water_size, octaves = 8;
     Image image{size, size, std::vector<unsigned char>(static_cast<std::size_t>(size) * size * 4, 255)};
     for (int y = 0; y < size; ++y)
         for (int x = 0; x < size; ++x) {

@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include "realm/renderer.hpp"
 #include "realm/atlas.hpp"
 #include "realm/backdrop.hpp"

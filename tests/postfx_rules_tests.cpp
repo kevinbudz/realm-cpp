@@ -1,4 +1,4 @@
-#include "realm/backdrop.hpp"
+#include "realm/backdrop_data.hpp"
 #include "realm/post_effects.hpp"
 #include "realm/world.hpp"
 #include "flash_assets.hpp"
@@ -50,7 +50,7 @@ void backgrounds() {
         check(stars.size()==star_field(seed).size(),"star field is deterministic");
     }
     check(star_field(1).front().x!=star_field(2).front().x,"seeds differ");
-    const auto water=nexus_water(7);constexpr int size=Backdrop::water_size;
+    const auto water=nexus_water(7);constexpr int size=nexus_water_size;
     check(water.width==size&&water.height==size&&water.pixels.size()==static_cast<std::size_t>(size)*size*4,"water is 1024x1024 RGBA");
     check(water.pixels==nexus_water(7).pixels&&water.pixels!=nexus_water(8).pixels,"water is seeded");
     double sum{},squares{};int minimum=255,maximum=0;

@@ -1,0 +1,4780 @@
+{
+  "task": "Q08",
+  "status": "complete; Q09 handoff prepared, undispatched",
+  "date": "2026-10-12",
+  "source_start": {
+    "source_commit": "62bf938f32aa87ccad048134bbb817529c5fa5b2",
+    "initial_status": "",
+    "cloud_snapshot_commit": "e093e05bdfe726023c6ee144166a9c95bb04907c",
+    "restored_from": "origin/main",
+    "siblings": {
+      "realm-client": "",
+      "realm-server": ""
+    },
+    "hardware_scope": "cloud, Mesa software; compare only same host, component/mixed; no capacity qualification"
+  },
+  "host": {
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "compiler": "c++ (Debian 14.2.0-19) 14.2.0",
+    "preset": "Release / ASan+UBSan Debug",
+    "graphics": "Mesa software (LIBGL_ALWAYS_SOFTWARE=1), requested GL3.3",
+    "quality": "Q00-v1 full quality, atlas defaults 2 initial / 12 cap, vsync0 cap0",
+    "source_head": "62bf938f32aa87ccad048134bbb817529c5fa5b2"
+  },
+  "architecture": {
+    "graphics_libraries": 11,
+    "headless_libraries": 7,
+    "library_sources": 61,
+    "audited_headers": 66,
+    "main_lines": 8,
+    "coordinator_lines": 1298,
+    "headless_no_sdk_discovery": true,
+    "poisoned_gl_sdl_headers_compile_passed": true
+  },
+  "checks": {
+    "release_full": {
+      "passed": 59,
+      "total": 60,
+      "preexisting_failure": "dynamic_atlas",
+      "log": "build/quality-Q08/release-ctest.log"
+    },
+    "release_final_changed_targets": {
+      "passed": 7,
+      "total": 8,
+      "preexisting_failure": "dynamic_atlas",
+      "log": "build/quality-Q08/release-changed-targets.log"
+    },
+    "sanitize_headless_debug": {
+      "passed": 51,
+      "total": 51,
+      "flags": "-g -fsanitize=address,undefined, assertions enabled",
+      "elapsed_seconds": 1747.94,
+      "known_ubsan": "src/appearance.cpp:23 world_dyes signed overflow from intentionally non-finite test positions; same source as Q07",
+      "log": "build/quality-Q08/sanitize-ctest.log"
+    },
+    "graphics_sanitize": {
+      "passed": 4,
+      "total": 4,
+      "precise_lsan_suppression": "leak:libGLX_mesa.so.0",
+      "before_driver_leak_bytes": 108124,
+      "before_driver_leak_allocations": 481,
+      "log": "build/quality-Q08/graphics-sanitize-ctest-scoped.log"
+    },
+    "resize_release_sanitize_before": {
+      "passed": true,
+      "pulse_frames_each": 720,
+      "max_drawable": [
+        3840,
+        2160
+      ],
+      "comparison": [
+        {
+          "name": "base.png",
+          "size": [
+            800,
+            600
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "fractional.png",
+          "size": [
+            1280,
+            720
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "login-2x.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            1600,
+            1200
+          ]
+        },
+        {
+          "name": "login-fractional.png",
+          "size": [
+            1280,
+            720
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            1280,
+            720
+          ]
+        },
+        {
+          "name": "login-typed.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            1600,
+            1200
+          ]
+        },
+        {
+          "name": "pulse-0.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "pulse-120.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "pulse-150.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "pulse-30.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "pulse-60.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "pulse-90.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "restored.png",
+          "size": [
+            800,
+            600
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "stats-2x.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "title-base.png",
+          "size": [
+            800,
+            600
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            800,
+            600
+          ]
+        },
+        {
+          "name": "title-fractional.png",
+          "size": [
+            1280,
+            720
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            1280,
+            720
+          ]
+        },
+        {
+          "name": "title-restored.png",
+          "size": [
+            800,
+            600
+          ],
+          "identical": false,
+          "difference_box": [
+            0,
+            0,
+            800,
+            600
+          ]
+        },
+        {
+          "name": "tooltip-2x.png",
+          "size": [
+            1600,
+            1200
+          ],
+          "identical": true,
+          "difference_box": null
+        },
+        {
+          "name": "tooltip-4k.png",
+          "size": [
+            3840,
+            2160
+          ],
+          "identical": true,
+          "difference_box": null
+        }
+      ],
+      "menu_variation": "unchanged Startup::load_background uses random_device to choose background_y; six menu captures differ in background, inspected UI equivalents"
+    },
+    "cli": [
+      {
+        "binary": "viewer",
+        "args": [
+          "--help"
+        ],
+        "code": 0,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--unknown"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--width",
+          "0"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--frames",
+          "-1"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--port",
+          "65536"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--projectile-angle",
+          "nan"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--hidden"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--stress",
+          "x.json",
+          "--frames",
+          "1"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--fixture-step-ms",
+          "10"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--map",
+          "x.jm",
+          "--connect",
+          "localhost"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "viewer",
+        "args": [
+          "--client",
+          "--map",
+          "x.jm"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--help"
+        ],
+        "code": 0,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--unknown"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--width",
+          "0"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--frames",
+          "-1"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--port",
+          "65536"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--projectile-angle",
+          "nan"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--hidden"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--stress",
+          "x.json",
+          "--frames",
+          "1"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--fixture-step-ms",
+          "10"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--map",
+          "x.jm",
+          "--connect",
+          "localhost"
+        ],
+        "code": 1,
+        "identical_output": true
+      },
+      {
+        "binary": "client",
+        "args": [
+          "--client",
+          "--map",
+          "x.jm"
+        ],
+        "code": 1,
+        "identical_output": true
+      }
+    ],
+    "headless_outcomes": [
+      {
+        "scenario": "S2-mixed-spread",
+        "ticks": 250,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "particles",
+          "optional_drops",
+          "named_players",
+          "actor_sizes",
+          "target_queries",
+          "target_examined",
+          "target_indexed"
+        ],
+        "signature": {
+          "state_checksum": "3071874340090710817",
+          "packet_checksum": "9004657585749807026",
+          "packets": {
+            "21": 1,
+            "28": 50,
+            "29": 126834,
+            "3": 1,
+            "31": 1089,
+            "4": 50
+          },
+          "hits": 126884,
+          "resident": [
+            1001,
+            1000,
+            1000,
+            9470,
+            0
+          ],
+          "simulated_entity_steps": 3250250,
+          "spawned": 121903,
+          "removed": 109434,
+          "resets": 0,
+          "particles": 7604,
+          "optional_drops": 1035445,
+          "named_players": 1001,
+          "actor_sizes": [
+            100,
+            125,
+            150,
+            400
+          ],
+          "target_queries": 2434553,
+          "target_examined": 2647208,
+          "target_indexed": 302250
+        }
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "ticks": 250,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "particles",
+          "optional_drops",
+          "named_players",
+          "actor_sizes",
+          "target_queries",
+          "target_examined",
+          "target_indexed"
+        ],
+        "signature": {
+          "state_checksum": "2504767064232353473",
+          "packet_checksum": "7071480309035023291",
+          "packets": {
+            "21": 1,
+            "3": 1,
+            "31": 39300,
+            "32": 50,
+            "4": 50
+          },
+          "hits": 0,
+          "resident": [
+            3001,
+            3000,
+            3000,
+            0,
+            0
+          ],
+          "simulated_entity_steps": 7250250,
+          "spawned": 5008999,
+          "removed": 5000000,
+          "resets": 0,
+          "particles": 7639,
+          "optional_drops": 14862280,
+          "named_players": 3001,
+          "actor_sizes": [
+            100,
+            125,
+            150,
+            400
+          ],
+          "target_queries": 0,
+          "target_examined": 0,
+          "target_indexed": 0
+        }
+      },
+      {
+        "scenario": "churn",
+        "ticks": 250,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "particles",
+          "optional_drops",
+          "named_players",
+          "actor_sizes",
+          "target_queries",
+          "target_examined",
+          "target_indexed"
+        ],
+        "signature": {
+          "state_checksum": "8563299813054199603",
+          "packet_checksum": "2710254557593241582",
+          "packets": {
+            "3": 3,
+            "31": 4050,
+            "32": 50
+          },
+          "hits": 0,
+          "resident": [
+            251,
+            250,
+            250,
+            0,
+            0
+          ],
+          "simulated_entity_steps": 687750,
+          "spawned": 506951,
+          "removed": 506206,
+          "resets": 2,
+          "particles": 8070,
+          "optional_drops": 267325,
+          "named_players": 251,
+          "actor_sizes": [
+            100,
+            125,
+            150,
+            400
+          ],
+          "target_queries": 0,
+          "target_examined": 0,
+          "target_indexed": 0
+        }
+      }
+    ],
+    "seeded_render_comparisons": [
+      {
+        "scenario": "nexus-idle",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "nexus-idle",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "nexus-idle",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "nexus-idle",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "nexus-idle",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "ui",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "ui",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "ui",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "ui",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "ui",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "churn",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "churn",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "churn",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "churn",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "churn",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S2-mixed-dense",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S2-mixed-dense",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S2-mixed-dense",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S2-mixed-dense",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S2-mixed-dense",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-dense",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-spread",
+        "repeat": 0,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-spread",
+        "repeat": 1,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-spread",
+        "repeat": 2,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-spread",
+        "repeat": 3,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      },
+      {
+        "scenario": "S3-mixed-spread",
+        "repeat": 4,
+        "equal_fields": [
+          "state_checksum",
+          "packet_checksum",
+          "packets",
+          "hits",
+          "resident",
+          "simulated_entity_steps",
+          "spawned",
+          "removed",
+          "resets",
+          "quad_stream_checksum",
+          "visible_last",
+          "submitted_last",
+          "submitted_quads_total",
+          "submitted_triangles_total",
+          "cache_peak",
+          "cache_last"
+        ],
+        "pixel_identical": true,
+        "capture_size": [
+          1920,
+          1080
+        ]
+      }
+    ]
+  },
+  "timing": {
+    "configuration": "same-host Release llvmpipe, 1920x1080, full quality, vsync0 cap0, default atlas 2 initial/12 cap, 150 fixed 20ms ticks, 50 warmup, capture excludes last frame, 5 shuffled paired repetitions",
+    "scenarios": {
+      "nexus-idle": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 1.243062,
+            "cpu_p95_repeat_median_ms": 2.173939,
+            "cpu_p95_repeat_range_ms": [
+              1.882086,
+              2.462683
+            ],
+            "draws_repeat_median": 7,
+            "measured_frames": 495,
+            "resident": [
+              1,
+              0,
+              8,
+              0,
+              734
+            ],
+            "rss_peak_mib_range": [
+              233.34375,
+              234.3046875
+            ],
+            "cache_peak": [
+              7,
+              101168,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 1.293779,
+            "cpu_p95_repeat_median_ms": 2.299032,
+            "cpu_p95_repeat_range_ms": [
+              2.209989,
+              6.175259
+            ],
+            "draws_repeat_median": 7,
+            "measured_frames": 495,
+            "resident": [
+              1,
+              0,
+              8,
+              0,
+              734
+            ],
+            "rss_peak_mib_range": [
+              233.35546875,
+              234.33203125
+            ],
+            "cache_peak": [
+              7,
+              101168,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 1.0575420929474102
+      },
+      "ui": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 2.76922,
+            "cpu_p95_repeat_median_ms": 12.604172,
+            "cpu_p95_repeat_range_ms": [
+              10.621682,
+              26.592767
+            ],
+            "draws_repeat_median": 4,
+            "measured_frames": 495,
+            "resident": [
+              17,
+              16,
+              0,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              271.4453125,
+              274.109375
+            ],
+            "cache_peak": [
+              104,
+              1958032,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 2.556367,
+            "cpu_p95_repeat_median_ms": 18.78999,
+            "cpu_p95_repeat_range_ms": [
+              11.914381,
+              28.261544
+            ],
+            "draws_repeat_median": 4,
+            "measured_frames": 495,
+            "resident": [
+              17,
+              16,
+              0,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              271.94921875,
+              274.6640625
+            ],
+            "cache_peak": [
+              104,
+              1958032,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 1.4907754353082454
+      },
+      "churn": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 15.954682,
+            "cpu_p95_repeat_median_ms": 52.047831,
+            "cpu_p95_repeat_range_ms": [
+              46.021034,
+              63.797174
+            ],
+            "draws_repeat_median": 374,
+            "measured_frames": 495,
+            "resident": [
+              251,
+              250,
+              250,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              300.79296875,
+              301.08984375
+            ],
+            "cache_peak": [
+              1360,
+              25712720,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 15.71384,
+            "cpu_p95_repeat_median_ms": 48.556398,
+            "cpu_p95_repeat_range_ms": [
+              44.824989,
+              54.370166
+            ],
+            "draws_repeat_median": 374,
+            "measured_frames": 495,
+            "resident": [
+              251,
+              250,
+              250,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              300.5546875,
+              301.1640625
+            ],
+            "cache_peak": [
+              1360,
+              25712720,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 0.9329187608221369
+      },
+      "S2-mixed-dense": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 34.523545,
+            "cpu_p95_repeat_median_ms": 211.229451,
+            "cpu_p95_repeat_range_ms": [
+              196.041292,
+              247.604823
+            ],
+            "draws_repeat_median": 1184,
+            "measured_frames": 495,
+            "resident": [
+              1001,
+              1000,
+              1000,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              804.90234375,
+              812.359375
+            ],
+            "cache_peak": [
+              3557,
+              67107592,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 38.931943,
+            "cpu_p95_repeat_median_ms": 202.58863,
+            "cpu_p95_repeat_range_ms": [
+              169.410278,
+              225.789931
+            ],
+            "draws_repeat_median": 1184,
+            "measured_frames": 495,
+            "resident": [
+              1001,
+              1000,
+              1000,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              805.16015625,
+              815.54296875
+            ],
+            "cache_peak": [
+              3557,
+              67107592,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 0.9590927261369437
+      },
+      "S3-mixed-dense": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 108.91722,
+            "cpu_p95_repeat_median_ms": 373.062156,
+            "cpu_p95_repeat_range_ms": [
+              349.780486,
+              515.788162
+            ],
+            "draws_repeat_median": 3169,
+            "measured_frames": 495,
+            "resident": [
+              3001,
+              3000,
+              3000,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              622.90234375,
+              624.5078125
+            ],
+            "cache_peak": [
+              3558,
+              67108720,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 110.222134,
+            "cpu_p95_repeat_median_ms": 389.244387,
+            "cpu_p95_repeat_range_ms": [
+              355.476896,
+              575.958936
+            ],
+            "draws_repeat_median": 3169,
+            "measured_frames": 495,
+            "resident": [
+              3001,
+              3000,
+              3000,
+              0,
+              0
+            ],
+            "rss_peak_mib_range": [
+              623.30859375,
+              639.4921875
+            ],
+            "cache_peak": [
+              3558,
+              67108720,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 1.0433767690979623
+      },
+      "S3-mixed-spread": {
+        "variants": {
+          "compare": {
+            "cpu_p50_repeat_median_ms": 102.082585,
+            "cpu_p95_repeat_median_ms": 329.834237,
+            "cpu_p95_repeat_range_ms": [
+              179.274088,
+              417.961786
+            ],
+            "draws_repeat_median": 884,
+            "measured_frames": 495,
+            "resident": [
+              3001,
+              3000,
+              3000,
+              18907,
+              0
+            ],
+            "rss_peak_mib_range": [
+              561.26171875,
+              584.0078125
+            ],
+            "cache_peak": [
+              3559,
+              67106144,
+              0,
+              0
+            ]
+          },
+          "current": {
+            "cpu_p50_repeat_median_ms": 99.689418,
+            "cpu_p95_repeat_median_ms": 217.576147,
+            "cpu_p95_repeat_range_ms": [
+              208.072309,
+              1040.720254
+            ],
+            "draws_repeat_median": 884,
+            "measured_frames": 495,
+            "resident": [
+              3001,
+              3000,
+              3000,
+              18907,
+              0
+            ],
+            "rss_peak_mib_range": [
+              558.88671875,
+              604.859375
+            ],
+            "cache_peak": [
+              3559,
+              67106144,
+              0,
+              0
+            ]
+          }
+        },
+        "cpu_p95_ratio": 0.6596530092781121
+      }
+    },
+    "raw_results": "build/quality-Q08/paired/results.json",
+    "qualification": false,
+    "complete_metrics": {
+      "runs": 60,
+      "raw_results": "build/quality-Q08/paired/results.json",
+      "scenarios": {
+        "nexus-idle": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 1.243062,
+                  "repeat_values": [
+                    1.226186,
+                    1.196795,
+                    1.243062,
+                    1.281734,
+                    1.262128
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 2.173939,
+                  "repeat_values": [
+                    1.882086,
+                    2.075699,
+                    2.462683,
+                    2.173939,
+                    2.372689
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 5.066863,
+                  "repeat_values": [
+                    3.071022,
+                    2.526746,
+                    7.160283,
+                    5.066863,
+                    31.509985
+                  ]
+                },
+                "max": {
+                  "repeat_median": 5.066863,
+                  "repeat_values": [
+                    3.071022,
+                    2.526746,
+                    7.160283,
+                    5.066863,
+                    31.509985
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.093458,
+                "p95": 27.148218,
+                "p99": 32.522443
+              },
+              "present_ms": {
+                "median": 19.642706,
+                "p95": 54.41845,
+                "p99": 58.952285
+              },
+              "frame_interval_ms": {
+                "median": 20.990666,
+                "p95": 55.602696,
+                "p99": 60.246301
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.0005600000000000001,
+                "fixture.tally": 0.002774,
+                "combat.update": 0.000224,
+                "fixture.timeline": 0.013233,
+                "events.poll_dispatch": 0.0075769999999999995,
+                "scene.terrain": 0.151839,
+                "scene.visibility": 0.008293,
+                "scene.sort_entities": 0.007681,
+                "scene.sort_painter_stream": 0.0057,
+                "scene.world_dyes": 0.000128,
+                "scene.build": 0.245448,
+                "world.interactive_target": 0.000521,
+                "minimap.markers": 0.001599,
+                "minimap.render": 0.0008900000000000001,
+                "minimap.update": 0.002895,
+                "ui.build": 0.016023,
+                "render.gpu_poll": 0.009069,
+                "render.quad_upload": 0.049468000000000005,
+                "render.model_submit": 0.065275,
+                "render.submit": 0.898322,
+                "frame.cpu": 1.243051,
+                "present.swap": 19.641409
+              },
+              "draws_repeat_median": 7,
+              "rss_peak_mib_range": [
+                233.34375,
+                234.3046875
+              ],
+              "cache_peak": [
+                7,
+                101168,
+                0,
+                0
+              ],
+              "resident": [
+                1,
+                0,
+                8,
+                0,
+                734
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 1.293779,
+                  "repeat_values": [
+                    1.224916,
+                    1.273037,
+                    1.419995,
+                    1.400008,
+                    1.293779
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 2.299032,
+                  "repeat_values": [
+                    2.209989,
+                    2.272703,
+                    6.175259,
+                    4.51554,
+                    2.299032
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 8.226724,
+                  "repeat_values": [
+                    7.296815,
+                    8.226724,
+                    16.201402,
+                    11.743423,
+                    4.324726
+                  ]
+                },
+                "max": {
+                  "repeat_median": 8.226724,
+                  "repeat_values": [
+                    7.296815,
+                    8.226724,
+                    16.201402,
+                    11.743423,
+                    4.324726
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.086231,
+                "p95": 18.648537,
+                "p99": 31.188056
+              },
+              "present_ms": {
+                "median": 19.159669,
+                "p95": 50.308239,
+                "p99": 58.313098
+              },
+              "frame_interval_ms": {
+                "median": 20.793401,
+                "p95": 52.186002,
+                "p99": 59.962775
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.000764,
+                "fixture.tally": 0.0028450000000000003,
+                "combat.update": 0.000388,
+                "fixture.timeline": 0.014627000000000001,
+                "events.poll_dispatch": 0.008199999999999999,
+                "scene.terrain": 0.158887,
+                "scene.visibility": 0.009066000000000001,
+                "scene.sort_entities": 0.007779,
+                "scene.sort_painter_stream": 0.005902,
+                "scene.world_dyes": 0.000132,
+                "scene.build": 0.264894,
+                "world.interactive_target": 0.0006820000000000001,
+                "minimap.markers": 0.0016719999999999999,
+                "minimap.render": 0.000894,
+                "minimap.update": 0.0030150000000000003,
+                "ui.build": 0.017838999999999997,
+                "render.gpu_poll": 0.009401999999999999,
+                "render.quad_upload": 0.050206,
+                "render.model_submit": 0.069654,
+                "render.submit": 0.9524360000000001,
+                "frame.cpu": 1.29377,
+                "present.swap": 19.158357
+              },
+              "draws_repeat_median": 7,
+              "rss_peak_mib_range": [
+                233.35546875,
+                234.33203125
+              ],
+              "cache_peak": [
+                7,
+                101168,
+                0,
+                0
+              ],
+              "resident": [
+                1,
+                0,
+                8,
+                0,
+                734
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.9989642680637357,
+                1.0637051458269795,
+                1.1423364240882594,
+                1.0922765566022279,
+                1.025077488178695
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.9989642680637357,
+                1.1423364240882594
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                1.1742231757741146,
+                1.0949097147515126,
+                2.5075330442448336,
+                2.077123599144226,
+                0.9689563191804742
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.9689563191804742,
+                2.5075330442448336
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                2.3760217282715654,
+                3.255857137994876,
+                2.26267620986489,
+                2.3176910447351746,
+                0.13724938301303538
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.13724938301303538,
+                3.255857137994876
+              ]
+            }
+          }
+        },
+        "ui": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 2.76922,
+                  "repeat_values": [
+                    2.643788,
+                    2.820942,
+                    2.519069,
+                    2.817242,
+                    2.76922
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 12.604172,
+                  "repeat_values": [
+                    11.474139,
+                    22.372016,
+                    10.621682,
+                    26.592767,
+                    12.604172
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 90.425291,
+                  "repeat_values": [
+                    94.991782,
+                    66.85152,
+                    123.966959,
+                    90.425291,
+                    79.329184
+                  ]
+                },
+                "max": {
+                  "repeat_median": 90.425291,
+                  "repeat_values": [
+                    94.991782,
+                    66.85152,
+                    123.966959,
+                    90.425291,
+                    79.329184
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.116109,
+                "p95": 25.259274,
+                "p99": 37.397168
+              },
+              "present_ms": {
+                "median": 25.2835,
+                "p95": 64.797186,
+                "p99": 80.141988
+              },
+              "frame_interval_ms": {
+                "median": 32.700219,
+                "p95": 71.4037,
+                "p99": 130.315781
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.001764,
+                "fixture.tally": 0.00018099999999999998,
+                "combat.update": 0.000256,
+                "fixture.timeline": 0.005490999999999999,
+                "world.interactive_target": 9.2e-05,
+                "fixture.ui_input": 0.004855000000000001,
+                "events.poll_dispatch": 0.008634000000000001,
+                "scene.terrain": 0.166396,
+                "scene.visibility": 0.001877,
+                "scene.sort_entities": 0.001803,
+                "scene.sort_painter_stream": 0.00054,
+                "appearance.compose": 0.20718199999999998,
+                "appearance.lookup": 0.215585,
+                "render.texture_upload": 0.348388,
+                "scene.world_dyes": 0.000103,
+                "scene.build": 0.26507200000000003,
+                "minimap.markers": 0.000671,
+                "minimap.render": 0.7792250000000001,
+                "minimap.update": 0.782106,
+                "ui.build": 1.207633,
+                "render.gpu_poll": 0.013417,
+                "render.quad_upload": 0.050307000000000004,
+                "render.submit": 0.821397,
+                "frame.cpu": 2.76922,
+                "present.swap": 25.282529999999998,
+                "text.rasterize": 1.545269
+              },
+              "draws_repeat_median": 4,
+              "rss_peak_mib_range": [
+                271.4453125,
+                274.109375
+              ],
+              "cache_peak": [
+                104,
+                1958032,
+                0,
+                0
+              ],
+              "resident": [
+                17,
+                16,
+                0,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 2.556367,
+                  "repeat_values": [
+                    2.463713,
+                    2.451303,
+                    3.081652,
+                    2.556367,
+                    2.625193
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 18.78999,
+                  "repeat_values": [
+                    28.261544,
+                    13.995415,
+                    18.78999,
+                    23.0085,
+                    11.914381
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 66.571949,
+                  "repeat_values": [
+                    66.571949,
+                    59.509988,
+                    70.859787,
+                    63.565013,
+                    88.640362
+                  ]
+                },
+                "max": {
+                  "repeat_median": 66.571949,
+                  "repeat_values": [
+                    66.571949,
+                    59.509988,
+                    70.859787,
+                    63.565013,
+                    88.640362
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.120205,
+                "p95": 18.546008,
+                "p99": 32.189148
+              },
+              "present_ms": {
+                "median": 28.600897,
+                "p95": 64.101464,
+                "p99": 72.296731
+              },
+              "frame_interval_ms": {
+                "median": 31.099198,
+                "p95": 70.041028,
+                "p99": 107.516322
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.0018839999999999998,
+                "fixture.tally": 0.000178,
+                "combat.update": 0.000437,
+                "fixture.timeline": 0.006014,
+                "world.interactive_target": 8.8e-05,
+                "fixture.ui_input": 0.005535999999999999,
+                "events.poll_dispatch": 0.009048,
+                "scene.terrain": 0.16643100000000002,
+                "scene.visibility": 0.002041,
+                "scene.sort_entities": 0.0018360000000000002,
+                "scene.sort_painter_stream": 0.000653,
+                "appearance.compose": 0.213981,
+                "appearance.lookup": 0.21765299999999999,
+                "render.texture_upload": 0.330962,
+                "scene.world_dyes": 0.00014299999999999998,
+                "scene.build": 0.270924,
+                "minimap.markers": 0.000606,
+                "minimap.render": 0.74019,
+                "minimap.update": 0.7411420000000001,
+                "ui.build": 1.1225370000000001,
+                "render.gpu_poll": 0.013293,
+                "render.quad_upload": 0.051255,
+                "render.submit": 0.7909769999999999,
+                "frame.cpu": 2.556352,
+                "present.swap": 28.598758999999998,
+                "text.rasterize": 1.4370530000000001
+              },
+              "draws_repeat_median": 4,
+              "rss_peak_mib_range": [
+                271.94921875,
+                274.6640625
+              ],
+              "cache_peak": [
+                104,
+                1958032,
+                0,
+                0
+              ],
+              "resident": [
+                17,
+                16,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.9318875038391883,
+                0.868966111320261,
+                1.2233297301503057,
+                0.9074005711969366,
+                0.9479900477390746
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.868966111320261,
+                1.2233297301503057
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                2.4630644617430555,
+                0.625576836705284,
+                1.7690220814368196,
+                0.8652164703281913,
+                0.9452728033225825
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.625576836705284,
+                2.4630644617430555
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                0.7008179823387248,
+                0.8901815246683995,
+                0.571602204100207,
+                0.7029561342523077,
+                1.1173739288683469
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.571602204100207,
+                1.1173739288683469
+              ]
+            }
+          }
+        },
+        "churn": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 15.954682,
+                  "repeat_values": [
+                    18.110767,
+                    15.954682,
+                    15.013666,
+                    15.445189,
+                    16.256042
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 52.047831,
+                  "repeat_values": [
+                    63.797174,
+                    47.029677,
+                    53.784561,
+                    46.021034,
+                    52.047831
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 88.559651,
+                  "repeat_values": [
+                    88.559651,
+                    79.55549,
+                    114.9764,
+                    61.70162,
+                    92.903847
+                  ]
+                },
+                "max": {
+                  "repeat_median": 88.559651,
+                  "repeat_values": [
+                    88.559651,
+                    79.55549,
+                    114.9764,
+                    61.70162,
+                    92.903847
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.100244,
+                "p95": 1.707164,
+                "p99": 30.350315
+              },
+              "present_ms": {
+                "median": 88.209007,
+                "p95": 131.040181,
+                "p99": 161.184862
+              },
+              "frame_interval_ms": {
+                "median": 105.278574,
+                "p95": 160.379713,
+                "p99": 186.044957
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.013893,
+                "fixture.tally": 0.014455,
+                "combat.update": 0.266294,
+                "fixture.timeline": 1.203967,
+                "events.poll_dispatch": 0.020437,
+                "scene.terrain": 0.17754,
+                "scene.visibility": 0.028937,
+                "scene.sort_entities": 0.044661,
+                "scene.sort_painter_stream": 0.718724,
+                "appearance.compose": 3.623983,
+                "appearance.lookup": 3.6858180000000003,
+                "render.texture_upload": 0.348205,
+                "scene.world_dyes": 0.00043599999999999997,
+                "scene.build": 2.932578,
+                "world.interactive_target": 0.001121,
+                "minimap.markers": 0.004814,
+                "minimap.render": 0.974014,
+                "minimap.update": 0.9795470000000001,
+                "ui.build": 1.3580409999999998,
+                "render.gpu_poll": 0.023469,
+                "render.quad_upload": 0.284525,
+                "render.model_submit": 2.5006120000000003,
+                "render.submit": 9.659754000000001,
+                "frame.cpu": 15.954754000000001,
+                "present.swap": 88.20763099999999
+              },
+              "draws_repeat_median": 374,
+              "rss_peak_mib_range": [
+                300.79296875,
+                301.08984375
+              ],
+              "cache_peak": [
+                1360,
+                25712720,
+                0,
+                0
+              ],
+              "resident": [
+                251,
+                250,
+                250,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 15.71384,
+                  "repeat_values": [
+                    15.172049,
+                    15.84859,
+                    15.335944,
+                    15.71384,
+                    16.803593
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 48.556398,
+                  "repeat_values": [
+                    52.593728,
+                    44.824989,
+                    46.82476,
+                    48.556398,
+                    54.370166
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 80.009997,
+                  "repeat_values": [
+                    99.929632,
+                    66.649914,
+                    70.888613,
+                    81.732598,
+                    80.009997
+                  ]
+                },
+                "max": {
+                  "repeat_median": 80.009997,
+                  "repeat_values": [
+                    99.929632,
+                    66.649914,
+                    70.888613,
+                    81.732598,
+                    80.009997
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.109582,
+                "p95": 1.738825,
+                "p99": 32.958389
+              },
+              "present_ms": {
+                "median": 87.843856,
+                "p95": 109.819788,
+                "p99": 152.098368
+              },
+              "frame_interval_ms": {
+                "median": 104.423989,
+                "p95": 147.503233,
+                "p99": 172.256726
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.013069,
+                "fixture.tally": 0.014698000000000001,
+                "combat.update": 0.269227,
+                "fixture.timeline": 1.180289,
+                "events.poll_dispatch": 0.020233,
+                "scene.terrain": 0.175007,
+                "scene.visibility": 0.029133,
+                "scene.sort_entities": 0.044467,
+                "scene.sort_painter_stream": 0.704022,
+                "appearance.compose": 3.297368,
+                "appearance.lookup": 3.34206,
+                "render.texture_upload": 0.362497,
+                "scene.world_dyes": 0.000437,
+                "scene.build": 2.870994,
+                "world.interactive_target": 0.0011870000000000001,
+                "minimap.markers": 0.004706,
+                "minimap.render": 0.9519249999999999,
+                "minimap.update": 0.960666,
+                "ui.build": 1.348018,
+                "render.gpu_poll": 0.023027000000000002,
+                "render.quad_upload": 0.284698,
+                "render.model_submit": 2.3774029999999997,
+                "render.submit": 9.297661,
+                "frame.cpu": 15.713831,
+                "present.swap": 87.84183
+              },
+              "draws_repeat_median": 374,
+              "rss_peak_mib_range": [
+                300.5546875,
+                301.1640625
+              ],
+              "cache_peak": [
+                1360,
+                25712720,
+                0,
+                0
+              ],
+              "resident": [
+                251,
+                250,
+                250,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.8377364139243799,
+                0.9933504158841899,
+                1.0214656433678488,
+                1.017393830531954,
+                1.0336829223251267
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8377364139243799,
+                1.0336829223251267
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                0.8243896195151215,
+                0.9531213450604817,
+                0.8705985347728319,
+                1.0550914175461594,
+                1.0446192464773412
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8243896195151215,
+                1.0550914175461594
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                1.128387825286258,
+                0.8377789389519188,
+                0.6165492483674911,
+                1.3246426593013279,
+                0.8612129592437652
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.6165492483674911,
+                1.3246426593013279
+              ]
+            }
+          }
+        },
+        "S2-mixed-dense": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 34.523545,
+                  "repeat_values": [
+                    34.047843,
+                    43.491047,
+                    33.590627,
+                    34.523545,
+                    48.18637
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 211.229451,
+                  "repeat_values": [
+                    211.229451,
+                    247.604823,
+                    196.041292,
+                    219.691463,
+                    200.797716
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 504.706384,
+                  "repeat_values": [
+                    400.970334,
+                    677.374804,
+                    383.728295,
+                    731.00522,
+                    504.706384
+                  ]
+                },
+                "max": {
+                  "repeat_median": 504.706384,
+                  "repeat_values": [
+                    400.970334,
+                    677.374804,
+                    383.728295,
+                    731.00522,
+                    504.706384
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.135213,
+                "p95": 34.871755,
+                "p99": 49.893825
+              },
+              "present_ms": {
+                "median": 275.873499,
+                "p95": 387.686133,
+                "p99": 540.195156
+              },
+              "frame_interval_ms": {
+                "median": 317.767467,
+                "p95": 508.245581,
+                "p99": 810.324369
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.06785200000000001,
+                "network.framing": 0.009851,
+                "network.decode_dispatch": 2.04226,
+                "fixture.framed_replay": 2.09146,
+                "world.update": 0.071471,
+                "fixture.tally": 0.174915,
+                "session.poll": 3.3e-05,
+                "party.update": 0.0874575,
+                "combat.update": 1.2453219999999998,
+                "fixture.timeline": 4.389226,
+                "world.interactive_target": 0.003322,
+                "fixture.ui_input": 0.009023999999999999,
+                "events.poll_dispatch": 0.023818000000000002,
+                "scene.terrain": 0.18340299999999998,
+                "scene.visibility": 0.100825,
+                "scene.sort_entities": 0.221607,
+                "scene.sort_painter_stream": 0.709566,
+                "appearance.compose": 10.655873,
+                "appearance.lookup": 10.9951205,
+                "render.texture_upload": 0.393078,
+                "scene.world_dyes": 0.0006450000000000001,
+                "scene.build": 6.473012,
+                "text.rasterize": 1.601349,
+                "minimap.markers": 0.019069,
+                "minimap.render": 1.658646,
+                "minimap.update": 1.682057,
+                "ui.build": 2.2071729999999996,
+                "render.gpu_poll": 0.02822,
+                "render.quad_upload": 0.59334,
+                "render.model_submit": 6.307162999999999,
+                "render.submit": 19.051334,
+                "frame.cpu": 34.522921000000004,
+                "present.swap": 275.870356
+              },
+              "draws_repeat_median": 1184,
+              "rss_peak_mib_range": [
+                804.90234375,
+                812.359375
+              ],
+              "cache_peak": [
+                3557,
+                67107592,
+                0,
+                0
+              ],
+              "resident": [
+                1001,
+                1000,
+                1000,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 38.931943,
+                  "repeat_values": [
+                    38.931943,
+                    35.028459,
+                    35.137587,
+                    41.837176,
+                    40.576622
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 202.58863,
+                  "repeat_values": [
+                    217.65452,
+                    169.410278,
+                    176.391442,
+                    225.789931,
+                    202.58863
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 555.73553,
+                  "repeat_values": [
+                    1212.209247,
+                    843.273198,
+                    405.063172,
+                    555.73553,
+                    473.511407
+                  ]
+                },
+                "max": {
+                  "repeat_median": 555.73553,
+                  "repeat_values": [
+                    1212.209247,
+                    843.273198,
+                    405.063172,
+                    555.73553,
+                    473.511407
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 0.123637,
+                "p95": 5.213771,
+                "p99": 36.99456
+              },
+              "present_ms": {
+                "median": 269.974163,
+                "p95": 338.824242,
+                "p99": 457.580391
+              },
+              "frame_interval_ms": {
+                "median": 311.961844,
+                "p95": 473.822625,
+                "p99": 822.786498
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.065661,
+                "network.framing": 0.009156000000000001,
+                "network.decode_dispatch": 2.100638,
+                "fixture.framed_replay": 2.23149,
+                "world.update": 0.071839,
+                "fixture.tally": 0.17565199999999997,
+                "session.poll": 3.3e-05,
+                "party.update": 0.098383,
+                "combat.update": 1.3267390000000001,
+                "fixture.timeline": 4.631339,
+                "world.interactive_target": 0.0032229999999999997,
+                "fixture.ui_input": 0.009368,
+                "events.poll_dispatch": 0.023485,
+                "scene.terrain": 0.18338,
+                "scene.visibility": 0.103003,
+                "scene.sort_entities": 0.21857400000000002,
+                "scene.sort_painter_stream": 0.744955,
+                "appearance.compose": 11.194174,
+                "appearance.lookup": 11.3976805,
+                "render.texture_upload": 0.384546,
+                "scene.world_dyes": 0.0006969999999999999,
+                "scene.build": 6.843891999999999,
+                "text.rasterize": 1.754691,
+                "minimap.markers": 0.018481,
+                "minimap.render": 1.793557,
+                "minimap.update": 1.816887,
+                "ui.build": 2.426139,
+                "render.gpu_poll": 0.027502,
+                "render.quad_upload": 0.5897380000000001,
+                "render.model_submit": 6.648749,
+                "render.submit": 20.182617999999998,
+                "frame.cpu": 38.931898999999994,
+                "present.swap": 269.97195400000004
+              },
+              "draws_repeat_median": 1184,
+              "rss_peak_mib_range": [
+                805.16015625,
+                815.54296875
+              ],
+              "cache_peak": [
+                3557,
+                67107592,
+                0,
+                0
+              ],
+              "resident": [
+                1001,
+                1000,
+                1000,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                1.1434481473613467,
+                0.8054176989576728,
+                1.0460533231487463,
+                1.2118447279965021,
+                0.8420767532395572
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8054176989576728,
+                1.2118447279965021
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                1.030417486622166,
+                0.6841961959682828,
+                0.8997667797455651,
+                1.027759239784388,
+                1.008918995871447
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.6841961959682828,
+                1.030417486622166
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                3.0231893589414525,
+                1.2449137361182392,
+                1.0555989153731808,
+                0.7602346943569022,
+                0.9381918319463937
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.7602346943569022,
+                3.0231893589414525
+              ]
+            }
+          }
+        },
+        "S3-mixed-dense": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 108.91722,
+                  "repeat_values": [
+                    119.029035,
+                    108.261893,
+                    112.537477,
+                    107.496715,
+                    108.91722
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 373.062156,
+                  "repeat_values": [
+                    368.540721,
+                    515.788162,
+                    388.602839,
+                    373.062156,
+                    349.780486
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 523.528594,
+                  "repeat_values": [
+                    785.38781,
+                    785.574918,
+                    522.552068,
+                    523.528594,
+                    495.317234
+                  ]
+                },
+                "max": {
+                  "repeat_median": 523.528594,
+                  "repeat_values": [
+                    785.38781,
+                    785.574918,
+                    522.552068,
+                    523.528594,
+                    495.317234
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 293.57959,
+                "p95": 423.518872,
+                "p99": 705.438969
+              },
+              "present_ms": {
+                "median": 801.895413,
+                "p95": 1194.631875,
+                "p99": 1607.280823
+              },
+              "frame_interval_ms": {
+                "median": 927.185253,
+                "p95": 1532.128267,
+                "p99": 1851.508988
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.13428299999999999,
+                "network.framing": 0.018695,
+                "network.decode_dispatch": 6.078553,
+                "fixture.framed_replay": 6.3236300000000005,
+                "world.update": 0.24588200000000002,
+                "fixture.tally": 0.48629500000000003,
+                "session.poll": 3.5000000000000004e-05,
+                "party.update": 0.27430449999999995,
+                "combat.update": 2.838492,
+                "fixture.timeline": 11.761731,
+                "world.interactive_target": 0.00709,
+                "fixture.ui_input": 0.011121,
+                "events.poll_dispatch": 0.025962,
+                "scene.terrain": 0.184675,
+                "scene.visibility": 0.35572699999999996,
+                "scene.sort_entities": 0.821016,
+                "scene.sort_painter_stream": 0.783601,
+                "appearance.compose": 25.5969025,
+                "appearance.lookup": 26.960055,
+                "render.texture_upload": 0.418889,
+                "scene.world_dyes": 0.001009,
+                "scene.build": 18.857572,
+                "text.rasterize": 1.775285,
+                "minimap.markers": 0.071453,
+                "minimap.render": 3.803701,
+                "minimap.update": 3.910556,
+                "ui.build": 4.782294,
+                "render.gpu_poll": 0.031489,
+                "render.quad_upload": 1.998378,
+                "render.model_submit": 25.800234,
+                "render.submit": 68.881519,
+                "frame.cpu": 108.916962,
+                "present.swap": 801.893034
+              },
+              "draws_repeat_median": 3169,
+              "rss_peak_mib_range": [
+                622.90234375,
+                624.5078125
+              ],
+              "cache_peak": [
+                3558,
+                67108720,
+                0,
+                0
+              ],
+              "resident": [
+                3001,
+                3000,
+                3000,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 110.222134,
+                  "repeat_values": [
+                    110.982454,
+                    110.222134,
+                    108.510041,
+                    110.09545,
+                    113.640539
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 389.244387,
+                  "repeat_values": [
+                    575.958936,
+                    389.244387,
+                    392.982591,
+                    355.476896,
+                    366.962717
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 754.807313,
+                  "repeat_values": [
+                    872.342168,
+                    544.367277,
+                    824.983068,
+                    741.431571,
+                    754.807313
+                  ]
+                },
+                "max": {
+                  "repeat_median": 754.807313,
+                  "repeat_values": [
+                    872.342168,
+                    544.367277,
+                    824.983068,
+                    741.431571,
+                    754.807313
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 289.73629,
+                "p95": 432.584711,
+                "p99": 777.035214
+              },
+              "present_ms": {
+                "median": 780.022722,
+                "p95": 1093.76255,
+                "p99": 1708.185177
+              },
+              "frame_interval_ms": {
+                "median": 899.977345,
+                "p95": 1399.717613,
+                "p99": 1963.490366
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.131436,
+                "network.framing": 0.01747,
+                "network.decode_dispatch": 5.665566,
+                "fixture.framed_replay": 5.850377000000001,
+                "world.update": 0.24657900000000002,
+                "fixture.tally": 0.47341300000000003,
+                "session.poll": 3.5000000000000004e-05,
+                "party.update": 0.2840995,
+                "combat.update": 2.847674,
+                "fixture.timeline": 10.742668,
+                "world.interactive_target": 0.006878,
+                "fixture.ui_input": 0.011080999999999999,
+                "events.poll_dispatch": 0.025783,
+                "scene.terrain": 0.191774,
+                "scene.visibility": 0.349206,
+                "scene.sort_entities": 0.7616860000000001,
+                "scene.sort_painter_stream": 0.78161,
+                "appearance.compose": 24.9796645,
+                "appearance.lookup": 25.532587499999998,
+                "render.texture_upload": 0.43467500000000003,
+                "scene.world_dyes": 0.001028,
+                "scene.build": 17.334137,
+                "text.rasterize": 1.568113,
+                "minimap.markers": 0.06570699999999999,
+                "minimap.render": 3.6406,
+                "minimap.update": 3.7057849999999997,
+                "ui.build": 4.418518,
+                "render.gpu_poll": 0.031446,
+                "render.quad_upload": 1.904844,
+                "render.model_submit": 26.535916,
+                "render.submit": 71.466997,
+                "frame.cpu": 110.221751,
+                "present.swap": 780.020334
+              },
+              "draws_repeat_median": 3169,
+              "rss_peak_mib_range": [
+                623.30859375,
+                639.4921875
+              ],
+              "cache_peak": [
+                3558,
+                67108720,
+                0,
+                0
+              ],
+              "resident": [
+                3001,
+                3000,
+                3000,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.9323981665481873,
+                1.018106472607125,
+                0.9642124907420841,
+                1.024175017813335,
+                1.0433661362271274
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.9323981665481873,
+                1.0433661362271274
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                1.5628094893752595,
+                0.7546594041450684,
+                1.011270509529139,
+                0.952862385752148,
+                1.0491228976107032
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.7546594041450684,
+                1.5628094893752595
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                1.110715186679559,
+                0.692953993981768,
+                1.5787576368370626,
+                1.4162198196952733,
+                1.5238866350448852
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.692953993981768,
+                1.5787576368370626
+              ]
+            }
+          }
+        },
+        "S3-mixed-spread": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 102.082585,
+                  "repeat_values": [
+                    103.234008,
+                    102.082585,
+                    95.595703,
+                    101.697851,
+                    114.66017
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 329.834237,
+                  "repeat_values": [
+                    328.623748,
+                    417.961786,
+                    179.274088,
+                    329.834237,
+                    383.731277
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 703.095934,
+                  "repeat_values": [
+                    581.716288,
+                    775.223752,
+                    337.891061,
+                    817.645008,
+                    703.095934
+                  ]
+                },
+                "max": {
+                  "repeat_median": 703.095934,
+                  "repeat_values": [
+                    581.716288,
+                    775.223752,
+                    337.891061,
+                    817.645008,
+                    703.095934
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 367.960423,
+                "p95": 738.407233,
+                "p99": 855.721552
+              },
+              "present_ms": {
+                "median": 459.633337,
+                "p95": 896.884877,
+                "p99": 1115.367979
+              },
+              "frame_interval_ms": {
+                "median": 578.139289,
+                "p95": 1172.9141,
+                "p99": 1420.03541
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.024623000000000003,
+                "network.framing": 0.003162,
+                "network.decode_dispatch": 0.75802,
+                "fixture.framed_replay": 0.78306,
+                "world.update": 0.318548,
+                "fixture.tally": 0.570356,
+                "session.poll": 3.5000000000000004e-05,
+                "party.update": 0.25377299999999997,
+                "combat.target_index": 0.145948,
+                "combat.target_query": 2.3526190000000002,
+                "combat.update": 9.625620000000001,
+                "fixture.timeline": 13.927615,
+                "world.interactive_target": 0.006581,
+                "fixture.ui_input": 0.010725,
+                "events.poll_dispatch": 0.026847000000000003,
+                "scene.terrain": 0.205144,
+                "scene.visibility": 1.0301040000000001,
+                "scene.sort_entities": 1.1477270000000002,
+                "scene.sort_painter_stream": 0.808104,
+                "appearance.compose": 5.124544,
+                "appearance.lookup": 5.232267,
+                "render.texture_upload": 0.784717,
+                "scene.world_dyes": 0.0017490000000000001,
+                "scene.build": 14.043348,
+                "text.rasterize": 1.526308,
+                "minimap.markers": 0.09981100000000001,
+                "minimap.render": 2.783751,
+                "minimap.update": 2.910282,
+                "ui.build": 4.245419,
+                "render.gpu_poll": 0.030849,
+                "render.quad_upload": 2.597893,
+                "render.model_submit": 9.758612999999999,
+                "render.submit": 65.995612,
+                "frame.cpu": 102.08233,
+                "present.swap": 459.631202
+              },
+              "draws_repeat_median": 884,
+              "rss_peak_mib_range": [
+                561.26171875,
+                584.0078125
+              ],
+              "cache_peak": [
+                3559,
+                67106144,
+                0,
+                0
+              ],
+              "resident": [
+                3001,
+                3000,
+                3000,
+                18907,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 99.689418,
+                  "repeat_values": [
+                    97.486524,
+                    104.430387,
+                    99.000535,
+                    99.689418,
+                    100.715981
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 217.576147,
+                  "repeat_values": [
+                    210.977948,
+                    1040.720254,
+                    208.072309,
+                    228.220814,
+                    217.576147
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 345.605524,
+                  "repeat_values": [
+                    345.605524,
+                    2104.922142,
+                    253.930252,
+                    502.94455,
+                    301.300339
+                  ]
+                },
+                "max": {
+                  "repeat_median": 345.605524,
+                  "repeat_values": [
+                    345.605524,
+                    2104.922142,
+                    253.930252,
+                    502.94455,
+                    301.300339
+                  ]
+                }
+              },
+              "measured_frames": 495,
+              "gpu_ms": {
+                "median": 353.021043,
+                "p95": 582.907949,
+                "p99": 798.666247
+              },
+              "present_ms": {
+                "median": 441.622946,
+                "p95": 670.543946,
+                "p99": 909.857351
+              },
+              "frame_interval_ms": {
+                "median": 567.941298,
+                "p95": 861.750577,
+                "p99": 1081.891508
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.025282,
+                "network.framing": 0.003323,
+                "network.decode_dispatch": 0.723914,
+                "fixture.framed_replay": 0.7404149999999999,
+                "world.update": 0.322906,
+                "fixture.tally": 0.546086,
+                "session.poll": 3.5999999999999994e-05,
+                "party.update": 0.24842050000000002,
+                "combat.target_index": 0.147073,
+                "combat.target_query": 2.303821,
+                "combat.update": 8.858773999999999,
+                "fixture.timeline": 13.328883,
+                "world.interactive_target": 0.006067,
+                "fixture.ui_input": 0.010771000000000001,
+                "events.poll_dispatch": 0.025981999999999998,
+                "scene.terrain": 0.204666,
+                "scene.visibility": 0.961444,
+                "scene.sort_entities": 1.09078,
+                "scene.sort_painter_stream": 0.778497,
+                "appearance.compose": 4.165245,
+                "appearance.lookup": 4.42979,
+                "render.texture_upload": 0.723854,
+                "scene.world_dyes": 0.001617,
+                "scene.build": 11.479843,
+                "text.rasterize": 1.567577,
+                "minimap.markers": 0.09192499999999999,
+                "minimap.render": 2.655857,
+                "minimap.update": 2.812134,
+                "ui.build": 3.8508899999999997,
+                "render.gpu_poll": 0.030232,
+                "render.quad_upload": 2.579069,
+                "render.model_submit": 9.186165,
+                "render.submit": 66.023914,
+                "frame.cpu": 99.68919199999999,
+                "present.swap": 441.62013199999996
+              },
+              "draws_repeat_median": 884,
+              "rss_peak_mib_range": [
+                558.88671875,
+                604.859375
+              ],
+              "cache_peak": [
+                3559,
+                67106144,
+                0,
+                0
+              ],
+              "resident": [
+                3001,
+                3000,
+                3000,
+                18907,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.9443256722145283,
+                1.0229990453317772,
+                1.0356169983916537,
+                0.9802509789513645,
+                0.8783868103457374
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8783868103457374,
+                1.0356169983916537
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                0.6420045699192745,
+                2.489989010622134,
+                1.1606379445087456,
+                0.6919257869521895,
+                0.5670013367192897
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.5670013367192897,
+                2.489989010622134
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                0.5941135414795193,
+                2.7152446459096624,
+                0.7515151518021367,
+                0.6151135823971178,
+                0.42853375255047343
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.42853375255047343,
+                2.7152446459096624
+              ]
+            }
+          }
+        }
+      }
+    },
+    "long_controls": {
+      "runs": 20,
+      "raw_results": "build/quality-Q08/control-long/results.json",
+      "scenarios": {
+        "ui": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 2.9392155,
+                  "repeat_values": [
+                    2.8372849999999996,
+                    3.0042795,
+                    3.012252,
+                    2.6642335,
+                    2.9392155
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 24.191724,
+                  "repeat_values": [
+                    22.549333,
+                    25.836631,
+                    24.842845,
+                    13.70838,
+                    24.191724
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 80.779661,
+                  "repeat_values": [
+                    64.193612,
+                    80.779661,
+                    86.750177,
+                    67.784156,
+                    81.12519
+                  ]
+                },
+                "max": {
+                  "repeat_median": 121.118423,
+                  "repeat_values": [
+                    121.118423,
+                    158.395303,
+                    195.645489,
+                    100.714147,
+                    109.502207
+                  ]
+                }
+              },
+              "measured_frames": 2000,
+              "gpu_ms": {
+                "median": 0.131049,
+                "p95": 6.211353,
+                "p99": 30.840758
+              },
+              "present_ms": {
+                "median": 30.6945325,
+                "p95": 69.099152,
+                "p99": 93.463473
+              },
+              "frame_interval_ms": {
+                "median": 41.317397,
+                "p95": 82.190954,
+                "p99": 127.720952
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.0019950000000000002,
+                "fixture.tally": 0.000183,
+                "combat.update": 0.0002745,
+                "fixture.timeline": 0.005913,
+                "world.interactive_target": 9.1e-05,
+                "fixture.ui_input": 0.005751,
+                "events.poll_dispatch": 0.009920000000000002,
+                "scene.terrain": 0.1693195,
+                "scene.visibility": 0.0019625,
+                "scene.sort_entities": 0.0019095000000000002,
+                "scene.sort_painter_stream": 0.000665,
+                "appearance.compose": 0.276572,
+                "appearance.lookup": 0.284651,
+                "render.texture_upload": 0.3526175,
+                "scene.world_dyes": 0.0001075,
+                "scene.build": 0.26727650000000003,
+                "text.rasterize": 2.400245,
+                "minimap.markers": 0.000563,
+                "minimap.render": 0.761239,
+                "minimap.update": 0.76329,
+                "ui.build": 1.2992185,
+                "render.gpu_poll": 0.015390500000000001,
+                "render.quad_upload": 0.0529915,
+                "render.submit": 0.8804225,
+                "frame.cpu": 2.9392435,
+                "present.swap": 30.693394499999997
+              },
+              "draws_repeat_median": 4.0,
+              "rss_peak_mib_range": [
+                274.421875,
+                275.4609375
+              ],
+              "cache_peak": [
+                132,
+                2448616,
+                0,
+                0
+              ],
+              "resident": [
+                17,
+                16,
+                0,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 2.4965275,
+                  "repeat_values": [
+                    2.4513255000000003,
+                    2.4770975,
+                    2.6611770000000003,
+                    2.580104,
+                    2.4965275
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 16.017114,
+                  "repeat_values": [
+                    11.890543,
+                    12.079283,
+                    16.017114,
+                    23.401398,
+                    27.590305
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 68.518199,
+                  "repeat_values": [
+                    60.327513,
+                    60.679263,
+                    71.715566,
+                    75.227055,
+                    68.518199
+                  ]
+                },
+                "max": {
+                  "repeat_median": 111.241503,
+                  "repeat_values": [
+                    111.241503,
+                    78.826998,
+                    86.439947,
+                    119.018886,
+                    172.05519
+                  ]
+                }
+              },
+              "measured_frames": 2000,
+              "gpu_ms": {
+                "median": 0.124673,
+                "p95": 2.598517,
+                "p99": 30.921825
+              },
+              "present_ms": {
+                "median": 28.935776500000003,
+                "p95": 66.122191,
+                "p99": 72.209094
+              },
+              "frame_interval_ms": {
+                "median": 36.642666500000004,
+                "p95": 71.075234,
+                "p99": 108.982877
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.0019045,
+                "fixture.tally": 0.00017999999999999998,
+                "combat.update": 0.00047599999999999997,
+                "fixture.timeline": 0.006392500000000001,
+                "world.interactive_target": 8.599999999999999e-05,
+                "fixture.ui_input": 0.0054884999999999995,
+                "events.poll_dispatch": 0.009257999999999999,
+                "scene.terrain": 0.1705685,
+                "scene.visibility": 0.0017695,
+                "scene.sort_entities": 0.0018700000000000001,
+                "scene.sort_painter_stream": 0.0005815,
+                "appearance.compose": 0.201643,
+                "appearance.lookup": 0.211754,
+                "render.texture_upload": 0.323361,
+                "scene.world_dyes": 8.5e-05,
+                "scene.build": 0.26370150000000003,
+                "text.rasterize": 2.2990150000000003,
+                "minimap.markers": 0.0005874999999999999,
+                "minimap.render": 0.7416585,
+                "minimap.update": 0.7435275,
+                "ui.build": 1.166062,
+                "render.gpu_poll": 0.013765,
+                "render.quad_upload": 0.052592,
+                "render.submit": 0.8169109999999999,
+                "frame.cpu": 2.496577,
+                "present.swap": 28.934102499999998
+              },
+              "draws_repeat_median": 4.0,
+              "rss_peak_mib_range": [
+                274.00390625,
+                276.12109375
+              ],
+              "cache_peak": [
+                132,
+                2448616,
+                0,
+                0
+              ],
+              "resident": [
+                17,
+                16,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                0.8639687236213495,
+                0.8245229846290933,
+                0.8834509861724716,
+                0.968422625119007,
+                0.849385660901693
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8245229846290933,
+                0.968422625119007
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                0.5273124043181232,
+                0.4675254680070323,
+                0.6447375089286271,
+                1.707087051861708,
+                1.140485275046954
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.4675254680070323,
+                1.707087051861708
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                0.9397743968667787,
+                0.751170062474018,
+                0.8266907167232639,
+                1.1098029309386104,
+                0.8445983177358352
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.751170062474018,
+                1.1098029309386104
+              ]
+            }
+          }
+        },
+        "nexus-idle": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 1.320011,
+                  "repeat_values": [
+                    1.337863,
+                    1.348363,
+                    1.320011,
+                    1.2585359999999999,
+                    1.24661
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 3.053501,
+                  "repeat_values": [
+                    3.946018,
+                    2.65718,
+                    3.081543,
+                    3.053501,
+                    1.962819
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 4.973746,
+                  "repeat_values": [
+                    6.05728,
+                    4.973746,
+                    5.663989,
+                    4.25841,
+                    4.510077
+                  ]
+                },
+                "max": {
+                  "repeat_median": 30.576388,
+                  "repeat_values": [
+                    31.678835,
+                    13.877858,
+                    35.599162,
+                    8.425569,
+                    30.576388
+                  ]
+                }
+              },
+              "measured_frames": 2000,
+              "gpu_ms": {
+                "median": 0.1039765,
+                "p95": 6.402818,
+                "p99": 31.913291
+              },
+              "present_ms": {
+                "median": 21.030620499999998,
+                "p95": 53.375268,
+                "p99": 59.444401
+              },
+              "frame_interval_ms": {
+                "median": 23.170887,
+                "p95": 55.018838,
+                "p99": 61.90998
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.000875,
+                "fixture.tally": 0.0029045,
+                "combat.update": 0.000206,
+                "fixture.timeline": 0.0149695,
+                "events.poll_dispatch": 0.008929,
+                "scene.terrain": 0.15498299999999998,
+                "scene.visibility": 0.0091545,
+                "scene.sort_entities": 0.00779,
+                "scene.sort_painter_stream": 0.005854,
+                "scene.world_dyes": 0.000124,
+                "scene.build": 0.255758,
+                "world.interactive_target": 0.0006810000000000001,
+                "minimap.markers": 0.0018265,
+                "minimap.render": 0.000874,
+                "minimap.update": 0.0029885,
+                "ui.build": 0.017849999999999998,
+                "render.gpu_poll": 0.009784000000000001,
+                "render.quad_upload": 0.0500825,
+                "render.model_submit": 0.06949849999999999,
+                "render.submit": 0.955659,
+                "frame.cpu": 1.3199999999999998,
+                "present.swap": 21.028608
+              },
+              "draws_repeat_median": 7.0,
+              "rss_peak_mib_range": [
+                225.30078125,
+                226.3125
+              ],
+              "cache_peak": [
+                7,
+                101168,
+                0,
+                0
+              ],
+              "resident": [
+                1,
+                0,
+                8,
+                0,
+                734
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 1.416333,
+                  "repeat_values": [
+                    1.4394535,
+                    1.533557,
+                    1.416333,
+                    1.2994515,
+                    1.2019045
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 2.909911,
+                  "repeat_values": [
+                    4.106755,
+                    5.487084,
+                    2.909911,
+                    2.318676,
+                    1.795315
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 6.905959,
+                  "repeat_values": [
+                    9.012487,
+                    9.080033,
+                    6.905959,
+                    5.173354,
+                    2.960235
+                  ]
+                },
+                "max": {
+                  "repeat_median": 32.112212,
+                  "repeat_values": [
+                    32.112212,
+                    34.437639,
+                    34.429997,
+                    6.319274,
+                    5.390802
+                  ]
+                }
+              },
+              "measured_frames": 2000,
+              "gpu_ms": {
+                "median": 0.115958,
+                "p95": 8.298086,
+                "p99": 32.0358
+              },
+              "present_ms": {
+                "median": 22.116046,
+                "p95": 55.648863,
+                "p99": 68.889743
+              },
+              "frame_interval_ms": {
+                "median": 24.305882500000003,
+                "p95": 57.961675,
+                "p99": 70.350781
+              },
+              "zones_cpu_p50_ms": {
+                "world.update": 0.0007615,
+                "fixture.tally": 0.0029485,
+                "combat.update": 0.00042500000000000003,
+                "fixture.timeline": 0.017009,
+                "events.poll_dispatch": 0.0095675,
+                "scene.terrain": 0.1602205,
+                "scene.visibility": 0.0097,
+                "scene.sort_entities": 0.0077930000000000004,
+                "scene.sort_painter_stream": 0.006119,
+                "scene.world_dyes": 0.000124,
+                "scene.build": 0.267209,
+                "world.interactive_target": 0.0007865000000000001,
+                "minimap.markers": 0.0019955,
+                "minimap.render": 0.0009135,
+                "minimap.update": 0.003254,
+                "ui.build": 0.0197045,
+                "render.gpu_poll": 0.010453,
+                "render.quad_upload": 0.0507165,
+                "render.model_submit": 0.07887949999999999,
+                "render.submit": 1.044975,
+                "frame.cpu": 1.4163795000000001,
+                "present.swap": 22.1144805
+              },
+              "draws_repeat_median": 7.0,
+              "rss_peak_mib_range": [
+                225.19140625,
+                226.3984375
+              ],
+              "cache_peak": [
+                7,
+                101168,
+                0,
+                0
+              ],
+              "resident": [
+                1,
+                0,
+                8,
+                0,
+                734
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                1.0759349051435012,
+                1.1373472870436225,
+                1.0729706040328453,
+                1.03251039302809,
+                0.9641383431867223
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.9641383431867223,
+                1.1373472870436225
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                1.040733975364532,
+                2.0650027472734256,
+                0.9443032273117721,
+                0.7593500051252644,
+                0.914661514892611
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.7593500051252644,
+                2.0650027472734256
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                1.4878769018437317,
+                1.8255924206825198,
+                1.219274790258244,
+                1.214855779504557,
+                0.656360190746189
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.656360190746189,
+                1.8255924206825198
+              ]
+            }
+          }
+        }
+      },
+      "configuration": "Same settings/binaries; 500 fixed ticks, 100 warmup, 400 measured, five paired repeats; no captures."
+    },
+    "s2_control": {
+      "runs": 10,
+      "raw_results": "build/quality-Q08/control-s2/results.json",
+      "scenarios": {
+        "S2-mixed-dense": {
+          "variants": {
+            "compare": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 39.156906,
+                  "repeat_values": [
+                    36.226937,
+                    39.156906,
+                    40.8124275,
+                    39.222794,
+                    35.6163725
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 193.00667,
+                  "repeat_values": [
+                    186.355591,
+                    193.00667,
+                    226.377867,
+                    187.033976,
+                    193.30628
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 353.342266,
+                  "repeat_values": [
+                    297.840215,
+                    253.418752,
+                    353.342266,
+                    660.307199,
+                    502.242614
+                  ]
+                },
+                "max": {
+                  "repeat_median": 811.483362,
+                  "repeat_values": [
+                    535.541174,
+                    776.540839,
+                    811.483362,
+                    1447.941229,
+                    1883.245275
+                  ]
+                }
+              },
+              "measured_frames": 1250,
+              "gpu_ms": {
+                "median": 0.1308625,
+                "p95": 5.325747,
+                "p99": 36.475445
+              },
+              "present_ms": {
+                "median": 270.449325,
+                "p95": 399.371059,
+                "p99": 784.236163
+              },
+              "frame_interval_ms": {
+                "median": 309.426959,
+                "p95": 485.508492,
+                "p99": 1009.862025
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.066773,
+                "network.framing": 0.009598,
+                "network.decode_dispatch": 2.235102,
+                "fixture.framed_replay": 2.3028365,
+                "world.update": 0.07108900000000001,
+                "fixture.tally": 0.172033,
+                "session.poll": 5.4e-05,
+                "party.update": 0.089027,
+                "combat.update": 1.3164595000000001,
+                "fixture.timeline": 4.7827079999999995,
+                "world.interactive_target": 0.003219,
+                "fixture.ui_input": 0.009267000000000001,
+                "events.poll_dispatch": 0.023335500000000002,
+                "scene.terrain": 0.181672,
+                "scene.visibility": 0.1004885,
+                "scene.sort_entities": 0.22426249999999998,
+                "scene.sort_painter_stream": 0.7319125,
+                "appearance.compose": 108.50167350000001,
+                "appearance.lookup": 111.0465425,
+                "render.texture_upload": 0.36651449999999997,
+                "scene.world_dyes": 0.0005924999999999999,
+                "scene.build": 6.820674,
+                "text.rasterize": 1.894549,
+                "minimap.markers": 0.018224,
+                "minimap.render": 1.731093,
+                "minimap.update": 1.7650075,
+                "ui.build": 2.287342,
+                "render.gpu_poll": 0.026609,
+                "render.quad_upload": 0.574265,
+                "render.model_submit": 6.473532,
+                "render.submit": 19.4526905,
+                "frame.cpu": 39.156603499999996,
+                "present.swap": 270.446635
+              },
+              "draws_repeat_median": 1184.0,
+              "rss_peak_mib_range": [
+                804.9921875,
+                823.1328125
+              ],
+              "cache_peak": [
+                3559,
+                67107592,
+                0,
+                0
+              ],
+              "resident": [
+                1001,
+                1000,
+                1000,
+                0,
+                0
+              ]
+            },
+            "current": {
+              "cpu_ms": {
+                "median": {
+                  "repeat_median": 38.827884999999995,
+                  "repeat_values": [
+                    36.738512,
+                    35.78269,
+                    38.827884999999995,
+                    41.220042,
+                    41.1925895
+                  ]
+                },
+                "p95": {
+                  "repeat_median": 189.416063,
+                  "repeat_values": [
+                    179.369299,
+                    179.772443,
+                    189.416063,
+                    239.36273,
+                    200.348136
+                  ]
+                },
+                "p99": {
+                  "repeat_median": 334.603839,
+                  "repeat_values": [
+                    342.586667,
+                    291.863529,
+                    242.485109,
+                    425.361442,
+                    334.603839
+                  ]
+                },
+                "max": {
+                  "repeat_median": 536.45036,
+                  "repeat_values": [
+                    1173.471762,
+                    522.367099,
+                    536.45036,
+                    625.374828,
+                    432.575566
+                  ]
+                }
+              },
+              "measured_frames": 1250,
+              "gpu_ms": {
+                "median": 0.140471,
+                "p95": 14.178373,
+                "p99": 35.936285
+              },
+              "present_ms": {
+                "median": 273.16517450000003,
+                "p95": 415.2222,
+                "p99": 546.144939
+              },
+              "frame_interval_ms": {
+                "median": 314.6596015,
+                "p95": 502.130815,
+                "p99": 790.821466
+              },
+              "zones_cpu_p50_ms": {
+                "fixture.encode": 0.06641349999999999,
+                "network.framing": 0.009512,
+                "network.decode_dispatch": 2.1732975,
+                "fixture.framed_replay": 2.2552000000000003,
+                "world.update": 0.07095,
+                "fixture.tally": 0.173614,
+                "session.poll": 3.3e-05,
+                "party.update": 0.0891735,
+                "combat.update": 1.354297,
+                "fixture.timeline": 4.690697,
+                "world.interactive_target": 0.003197,
+                "fixture.ui_input": 0.0093355,
+                "events.poll_dispatch": 0.022858500000000004,
+                "scene.terrain": 0.18759150000000002,
+                "scene.visibility": 0.10055700000000001,
+                "scene.sort_entities": 0.219332,
+                "scene.sort_painter_stream": 0.7312135,
+                "appearance.compose": 109.43690050000001,
+                "appearance.lookup": 111.504447,
+                "render.texture_upload": 0.3754035,
+                "scene.world_dyes": 0.0007075,
+                "scene.build": 6.730138,
+                "text.rasterize": 1.883387,
+                "minimap.markers": 0.018202,
+                "minimap.render": 1.706375,
+                "minimap.update": 1.7345160000000002,
+                "ui.build": 2.268196,
+                "render.gpu_poll": 0.026659,
+                "render.quad_upload": 0.6041544999999999,
+                "render.model_submit": 6.366502,
+                "render.submit": 19.4938875,
+                "frame.cpu": 38.8276715,
+                "present.swap": 273.162464
+              },
+              "draws_repeat_median": 1184.0,
+              "rss_peak_mib_range": [
+                809.3359375,
+                815.30078125
+              ],
+              "cache_peak": [
+                3559,
+                67107592,
+                0,
+                0
+              ],
+              "resident": [
+                1001,
+                1000,
+                1000,
+                0,
+                0
+              ]
+            }
+          },
+          "equal_signature_fields": [
+            "state_checksum",
+            "packet_checksum",
+            "packets",
+            "hits",
+            "ticks",
+            "resident",
+            "simulated_entity_steps",
+            "spawned",
+            "removed",
+            "resets",
+            "quad_stream_checksum",
+            "visible_last",
+            "submitted_last",
+            "submitted_quads_total",
+            "submitted_triangles_total",
+            "cache_peak",
+            "cache_last"
+          ],
+          "paired_variability": {
+            "median": {
+              "paired_repeat_ratios": [
+                1.0141213981187536,
+                0.913828329541665,
+                0.9513740636966521,
+                1.0509205947949551,
+                1.156563305260804
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.913828329541665,
+                1.156563305260804
+              ]
+            },
+            "p95": {
+              "paired_repeat_ratios": [
+                0.9625109611012422,
+                0.9314312453554067,
+                0.8367251865660524,
+                1.2797820755304907,
+                1.0364284905798198
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.8367251865660524,
+                1.2797820755304907
+              ]
+            },
+            "p99": {
+              "paired_repeat_ratios": [
+                1.150236434660108,
+                1.1517045471047067,
+                0.686261260915783,
+                0.6441871944515934,
+                0.6662195315031552
+              ],
+              "bootstrap_median_ratio_95_percentile_interval": [
+                0.6441871944515934,
+                1.1517045471047067
+              ]
+            }
+          }
+        }
+      },
+      "configuration": "Same settings/binaries; 300 fixed ticks, 50 warmup, 250 measured, five paired repeats; no captures."
+    },
+    "variability_method": "Five matched repeats; all 5^5 resamples of log paired ratios; median-ratio 2.5/97.5 percentiles. Descriptive intervals with small n, not proof of equivalence or sustained capacity.",
+    "input_provenance": {
+      "paired": {
+        "binaries_sha256": {
+          "/workspace/realm-cpp/build/realm_viewer": "370afafb18af8ba8d2e02c346a7200490293a8856a593530a7b8ebe2a4eb8442",
+          "/workspace/realm-cpp/build/quality-Q08/viewer-before": "1030a966b45d359d6a18abdbe769aee4ab8d8506269e5ad7b76a717b24ea0454"
+        },
+        "fixture_sha256": {
+          "nexus-idle": "fde61d40a9b55572fa1c5dfb5710f71016abe5e8b125ca72dcbbdfd5f22515a2",
+          "ui": "c1afa8472f59fca60e09013f722a223abd8c5af2c0f0c4f0823dd30a08c22949",
+          "churn": "14a228c556d7a83c7723b55d8d61579c5cdab1b91a05655cc38215c96528c6c1",
+          "S2-mixed-dense": "2ee37584e8c93b8f25baeb2a240f462f97c521d3bcc16b87866143c010460799",
+          "S3-mixed-dense": "abf535f8e31e304e1eca3a2bf79edd41a56406a284d2d659f4073fdb01a66910",
+          "S3-mixed-spread": "c5e36d7c4ae94268dfcc8efb9fe97b8bfd3318be2e42aec8d0c34f2a26b39be4"
+        },
+        "nexus_map_sha256": "17f01c2e4f910b3329ba7bc999f4e2b575cc628aa9ffde938f26c83542e46716",
+        "assets_inventory_sha256": "426c986aa6d0dc96810b3d6fde9879cabd90721a577b4c44b81892c33150c217",
+        "measured_ticks": 100,
+        "warmup_ticks": 50
+      },
+      "control-long": {
+        "binaries_sha256": {
+          "/workspace/realm-cpp/build/realm_viewer": "370afafb18af8ba8d2e02c346a7200490293a8856a593530a7b8ebe2a4eb8442",
+          "/workspace/realm-cpp/build/quality-Q08/viewer-before": "1030a966b45d359d6a18abdbe769aee4ab8d8506269e5ad7b76a717b24ea0454"
+        },
+        "fixture_sha256": {
+          "ui": "c1afa8472f59fca60e09013f722a223abd8c5af2c0f0c4f0823dd30a08c22949",
+          "nexus-idle": "fde61d40a9b55572fa1c5dfb5710f71016abe5e8b125ca72dcbbdfd5f22515a2"
+        },
+        "nexus_map_sha256": "17f01c2e4f910b3329ba7bc999f4e2b575cc628aa9ffde938f26c83542e46716",
+        "assets_inventory_sha256": "426c986aa6d0dc96810b3d6fde9879cabd90721a577b4c44b81892c33150c217",
+        "measured_ticks": 400,
+        "warmup_ticks": 100
+      },
+      "control-s2": {
+        "binaries_sha256": {
+          "/workspace/realm-cpp/build/realm_viewer": "370afafb18af8ba8d2e02c346a7200490293a8856a593530a7b8ebe2a4eb8442",
+          "/workspace/realm-cpp/build/quality-Q08/viewer-before": "1030a966b45d359d6a18abdbe769aee4ab8d8506269e5ad7b76a717b24ea0454"
+        },
+        "fixture_sha256": {
+          "S2-mixed-dense": "2ee37584e8c93b8f25baeb2a240f462f97c521d3bcc16b87866143c010460799"
+        },
+        "nexus_map_sha256": "17f01c2e4f910b3329ba7bc999f4e2b575cc628aa9ffde938f26c83542e46716",
+        "assets_inventory_sha256": "426c986aa6d0dc96810b3d6fde9879cabd90721a577b4c44b81892c33150c217",
+        "measured_ticks": 250,
+        "warmup_ticks": 50
+      }
+    },
+    "conclusion": "No consistent MIXED regression isolated beyond observed repeat variability. Longer S2 median/p95/p99 are 39.157->38.828 / 193.007->189.416 / 353.342->334.604 ms. Short-run UI p95 increase reverses in longer controls; large software-renderer p99 tails remain visible and unqualified. Organization-only acceptance satisfied with limited precision; no speedup/capacity claim."
+  },
+  "baseline_atlas_failure": {
+    "source": "original 62bf938 tree, independently configured/built original dynamic_atlas test + renderer/atlas/scene",
+    "first_pixel": "roomy frame 3 (409,14), dynamic 70,40,49 surface 71,40,50",
+    "same_first_pixel": true,
+    "before_exit": 1,
+    "logs": [
+      "build/quality-Q08/baseline-atlas.log",
+      "build/quality-Q08/release-changed-targets.log"
+    ]
+  },
+  "unchanged_baseline_sources": {
+    "src/appearance.cpp": true,
+    "src/startup.cpp": true,
+    "tests/texture_residency_tests.cpp": true
+  },
+  "source_sha256": {
+    "src/account.cpp": "d78349c6394cf3ebfa0669b4ce91a130d3689587f3ab305f1a6d9c40b386a017",
+    "src/animation.cpp": "f63dbeb1ff5760a23261c5eba097e56ea68b85497c85bde28b3eede695b16973",
+    "src/appearance.cpp": "59365d8c10d18b1232fe397bb72a0cb50b30fbba7bfd8676f72c8ff856336ff4",
+    "src/atlas.cpp": "bc8dd35c38dfefa2a7431fb173d783e205bcb084a6d05036fb5ee91f26cd450f",
+    "src/backdrop.cpp": "359f39dfcd879b2ce3ac778f8119bcb170ac9588487d8f4c93f1c44d096eaddf",
+    "src/backdrop_data.cpp": "b091d4200cf625b4ae9ffe022c1aaf4b21b1faf025992bd8e1266adb2396f263",
+    "src/camera.cpp": "6020109f62db62cdb9ce47186d1a42ac9c1e6f03187baf7a51fc2713e07a9c79",
+    "src/catalog.cpp": "1e02060a254b9d69bddd4af1458afba8586f10f3f9a1ba801dce954d94b489e3",
+    "src/chat.cpp": "b510c2a6e76a528d094273b22760228153be77bd6aeb713b3d273e6c57e0b4ac",
+    "src/combat.cpp": "9adedaa4f971ad66e3b9639a4494e2fa3cfc30aeeefdd86ba89fdb5bd0293458",
+    "src/dialog.cpp": "a95ffb11136ee6d29a2786c0d4bafc954d49c964caf07536dd3eb53f315095f5",
+    "src/font.cpp": "7ad11c0005fb39cd332003e554db6dca85f65cf4b42ab6694f6d8b55a367db99",
+    "src/guild_board.cpp": "b4e76cef627af912ed8bbfd8cdba75e154bc1dd4e61f6e89d32d860cca95da33",
+    "src/guild_members.cpp": "7507e53e8af0cd296da22ae385b71f498c02b15281cf176851f5091fdd167d3f",
+    "src/http.cpp": "af76563669e556f196c0f84ea36e6fbeb52373525ec281ed8aaf2ee3e6bb7121",
+    "src/hud.cpp": "5a2b36640cc77132d34e2f7c8cbdc3b407baf54f688444a73f181fb96170d376",
+    "src/hud_art.cpp": "69e42b6bc804275dc45ff013edc131b043677111483eb2a74db52c88438793d2",
+    "src/hud_input.cpp": "e90aee84ef4847de1cebc663267c2dd8e38f2e5a1a22af41de3e74a14dcc3c17",
+    "src/image.cpp": "11412d9e3ede4dd963e30fa788296706e26e4697d65edf6877148b0d5154a434",
+    "src/interaction.cpp": "c3717f84da9ac78d79e1c51f5c9298ffa4575e750eab9a6f16db25ffac886cc4",
+    "src/inventory.cpp": "bb8f501b4eb271b87dc3b8bbd61939998d0684a3da1f6cec386965b57537dfcc",
+    "src/main.cpp": "a54b75123d0a1fef1bcd50b6fba67f406f8fd549de6d79787be144cf6124a7c7",
+    "src/messages.cpp": "318189fce362e984656b8275df840ab1549b1abbf62d72a38d62e876b27f4481",
+    "src/minimap.cpp": "ab61a1f1709ce15bdbfa793439891e0b5a0bf9e02ec785b47ad81a59f119d43c",
+    "src/model.cpp": "ab44ad590e0df3d72ffefd29d868c19a99dfee807a4c1d5c0ac5988c7f28b6ee",
+    "src/movement.cpp": "21ca8d447d5c3e90fdd9cd12f86cf597dad0143ad3db54811af3a1e20edaba20",
+    "src/options.cpp": "a1012838ce97f7f583d70bd9b49b8458cd86e20141617e101bfbb8f1cf9e5719",
+    "src/particles.cpp": "47c209b9b255503ec3055710ac09fced5c81f5d41d128f786b95a860bfc56b0c",
+    "src/party.cpp": "98bf30bba6aff728cffcc939145cae3b29063560bb3cd2be9531c61586dfaa3f",
+    "src/party_arrows.cpp": "a33979cedab2d2b3b632eaf9d7023debaa4b56572ed79c0805ef5d8fb8a55459",
+    "src/player_group.cpp": "ca471b8edff13a4f727ba9a3762e5f67c012be56d702de9cd54945df6383dd4e",
+    "src/player_menu.cpp": "e457e2d371bb53cdef906424a8184762e6338120677c4c15b428b191910bca8c",
+    "src/player_tooltip.cpp": "ad5b688bf72a0e01860fff0200d1ef42b247f5381d93bfa8b92a776a3d42f0f9",
+    "src/post_effects.cpp": "15cc28272fab7165177a277f8aee29f8accb439b9d533a635af652d053b896ae",
+    "src/processed.cpp": "91777ffe1c24c485bf8c17b7ac744f42b9e66cf7c6d8f8d10cb65c859b1c904b",
+    "src/projectile.cpp": "4780c2e40e1ca73300f09641aa30095574ea5b531f4605b76b36464892f90fe2",
+    "src/protocol.cpp": "d1fc9701567b6145290446d06ff434f59336335428e0fbb6ff0f482172b1c116",
+    "src/renderer.cpp": "ca73042b4494ed5192818c3c4e78e25eda92d1a7a0f9ee651933358ed08307e5",
+    "src/scene.cpp": "0229e582e7ce8169f4e69cc381ec3e833941c63998aca6943c73ebe41d496547",
+    "src/scrollbar.cpp": "895bd64066a3d40a6daff4f7db64bbb3a4472f32778414fa18af4dea9512c82f",
+    "src/session.cpp": "5c2f3720e2148e9cac145ffcd8853dc8fc6b15b2d84a5f862d6e00bff97e87f4",
+    "src/session_main.cpp": "8ff5430a95d337e99919574fd7eab3273af1a5449de0e3bbeb1d8a9ee7b0969b",
+    "src/settings.cpp": "fb5203a9c86127acc1646ac8b6c730c9eaa06d37bd302916f0e8df01e2dd3216",
+    "src/skins.cpp": "5ea355a552ba78b23cd2b2559cdc50f01cc661db5295abe9ba82bb4749049ccd",
+    "src/startup.cpp": "657f4c7492b4e76cee2bc616c75f8029c4e7121969155948e427a4331feceb03",
+    "src/status_effects.cpp": "444ef1db8215037925da2759f3200bb3e740d0e50cb49a62a0b7d3bcbaeb968f",
+    "src/terrain.cpp": "f04d1833360be43f75b4aeef7897dfd6e5eee8fbd9a8445062375e10423aa869",
+    "src/text_tooltip.cpp": "4c7c3172cbd85544c27a6336966b5ec32cd78c89a2764be8e49bd415a754bc27",
+    "src/tooltip.cpp": "42d7c2baf0bbe976bc31b07f3e85cc722defed292bed122425fedfbfde98c126",
+    "src/trade.cpp": "7bf21bd1489b33600a8509cc6dba8207942535e33d9fa4d2245458d7cbacc877",
+    "src/transport.cpp": "39ef1f40e0fb5010d3d9efea0d8761ec2aa030c111d4ce65a57de2a6c3333aac",
+    "src/ui_draw.cpp": "52d3f76e767e56a1e7e88f8727b959b8d00c0f3d57bdee715b76fdde4b3a2e33",
+    "src/world.cpp": "4f6ee62f5db0353e9030c4e002cba127d7d42ea105aaac73c700a21857ab6503",
+    "src/application_script.hpp": "415a436b3505350b1a9537ed43847eea8583704864ab32d32b0db5f97caf6cda",
+    "src/application_options.hpp": "2590ad4d529c0bd0c18f9ca59f669af50bff36870caa4e273f4190be3dbd802f",
+    "src/application_script.cpp": "25fa25c36dc47ef51cf43374b4f8bad774927879a57106ce15b9850ce387e33f",
+    "src/application_options.cpp": "173d52df483d9b5130f342b7a5b870e62811fa162ab492fb12b77e46b5df1bc4",
+    "src/telemetry.cpp": "5426b6b92eec05bdeafc1e7fa94d382c5c4f791a9b44fe15ca0eae9db29a6310",
+    "src/platform_sdl.cpp": "c594f239494cd20c6a3afda819559d1285862a9110309dbe70d984603cfb66c0",
+    "src/allocation_tracking.cpp": "dbf6d955041115ab0617a38095123c37c40d3581d4ad09cfe8cdebd2ca2bec8b",
+    "src/platform.cpp": "dce576f00b5ddcc4faf564efafd11a2917d7bf65ce2d9ffebf4c3c23b48c5c38",
+    "src/residency.cpp": "abf151adfbc4d7fa74cf9bbc8e72822194dd8d9cf2f6c8aa1b458d3557502d93",
+    "src/application_fixtures.cpp": "93d9cfc090f3d90dbfe85913e8bdb76dd07b7d29cdc376f01415c65c74443e31",
+    "src/stress.cpp": "ac9e298c2cc23cff6ed10b60641e91aff2213679fa0d6940f8f76bd7c8f8cb5a",
+    "src/application.cpp": "da1c573da51feaab23370369b8a58b7ae1b62c485605768f9a103f7f748185d6",
+    "src/draw_types.cpp": "c6c50ccf5d6f1d03aa58cc6c30822f6f735b8744276f6072a1a9dc00f02cb8c1",
+    "include/realm/account.hpp": "77f01bafd2db15325cd01e906dea7be6d7c544fc7d4cb394107a6914cd2acd3e",
+    "include/realm/animation.hpp": "c49be6f450bab963d3a7659152025797d64da76828c2338819fe7dfae8c3d1af",
+    "include/realm/appearance.hpp": "68943c4bf00dc758f6cec999300c842b3efb147e9936e5c9c6f8c264e53c62a2",
+    "include/realm/atlas.hpp": "5c70168983d049a3dd60c95ae51441a64ff653f40f7081d3c1915a2b66c7dda5",
+    "include/realm/backdrop.hpp": "73290bb748ac9ce288c26560467e5b320d7274d986dc9d278f3bc1be4be0b794",
+    "include/realm/camera.hpp": "5899c9bde57375a174a912a4292fc0cf0fe398676615ae6e8df14d61bbafb6f1",
+    "include/realm/catalog.hpp": "8d088eb8eba68e2b3fa1c38ba9c771b58048426fc97199030fb787a490c53765",
+    "include/realm/chat.hpp": "b9c8db508788e38552a74eaa8b452513b3f146b7f52aa9d52f799717ad86b958",
+    "include/realm/combat.hpp": "feca196545a39a474fc610c546c7d1c9aead024120d8e35874a62b40c3f54c23",
+    "include/realm/conditions.hpp": "e39cfc4b52099692dfce9441ea54718784190f153b0e69794d979276a2266382",
+    "include/realm/dialog.hpp": "26b9e222086a544478bfe7d35ae242342873ea58fe3bccf1c0b21d0ac594d10a",
+    "include/realm/font.hpp": "eeb1a08e6efc0c231fc82a1fda69d463aed8f41d62cfa4bd0e45859aa6da0228",
+    "include/realm/guild_board.hpp": "dd5e272e20674a30a5712272b99f7748d131f26f0c69ff2c7d179a9664c93b94",
+    "include/realm/guild_members.hpp": "e5b31d61165a352af30917643441cfe59173d6332514bba6f89a0d292b24b903",
+    "include/realm/http.hpp": "21af35b17f78850a929875137f7afd12890967e039d18a4303a548ed47523a56",
+    "include/realm/hud.hpp": "e00ae96766fb96f71d21b166f371702bff6313a2a39af8fee1bba9c7370b3f4a",
+    "include/realm/hud_art.hpp": "310a855228d7478e79508e371cb888f5f9efb9de3abc07d1ee094d7deee87200",
+    "include/realm/hud_input.hpp": "cf1a9fbe9c91f8e9463d23e6f57ce0230668aeee1272940dbc738694e4ae92c4",
+    "include/realm/image.hpp": "937cd6e11444d6b21c37e58571cbeeca3e81d91c4df4be48ff01e7a5a888f37a",
+    "include/realm/interaction.hpp": "e2dad01f676abb40f83e02d1d74816e5190b8ed0c8461d616e43c9e360f65cc0",
+    "include/realm/inventory.hpp": "e39a59870c8e035dba9e55617cdb7eb911d6ec52a387b6e25c01f7de2624d34a",
+    "include/realm/item_data.hpp": "978ed7837405c7a7cbb2a1f57a8ada4b1cbbbef64d143e602cbb8175fc9cf911",
+    "include/realm/messages.hpp": "25a1fef1f51c8a1bffd83d8524326201d59fe1920901596f5a7f879a58f10ece",
+    "include/realm/minimap.hpp": "a224f3db7995fca3863824a60dcb5bccdafeae41134fba7c50ccc7464203fb90",
+    "include/realm/model.hpp": "65638eb36f0a495021dfde325d68f78cf7e370ef2772715b5941058cef66acfb",
+    "include/realm/movement.hpp": "1130703b759d5394fa08062eec5ef9719da0c9be9c15cf6fddd0fd598084eb9c",
+    "include/realm/options.hpp": "924a453282c08665d21fe0766eb4130dc858e357ac3812d3f7eb5fe6b56ff3d3",
+    "include/realm/particles.hpp": "263117c256dfdbc52e4e8336d42b7fe1a152ee17f4df1101a91caa855f402cfa",
+    "include/realm/party.hpp": "c5a1c77fe92b52b2826d415066f3e73ca54f927df7bc3293e6cd450f21f678e1",
+    "include/realm/party_arrows.hpp": "89a43aa87256f59616bcae550b45d3e065f633e4919345ec3a9e1bca293c89ac",
+    "include/realm/player_group.hpp": "af8726c96474d51a7e00f6230a0596466076ceeda8bd6e3e14324c268fa8fe4c",
+    "include/realm/player_menu.hpp": "a342027304f6d69dfa88492cdd92e1e9b1e49446eded65ef61c66a4cdb36698e",
+    "include/realm/player_tooltip.hpp": "0c45787a2e604a17a3572a06d5dcfd3f6aaa9a9f137be2250917416a5d888487",
+    "include/realm/post_effects.hpp": "580b47b8ea891a2b573d942697855ba13031278b6a6482bfa2a6dc4c967e37a0",
+    "include/realm/processed.hpp": "bd180bd782bf642419a7c7f8d3e89b0de0a366444c3c64528baf5160a0ff71c6",
+    "include/realm/projectile.hpp": "5d7fdde15eda8a29c19a8598bb7dc46533e441b449b2f223ef1f062e2ad095a9",
+    "include/realm/protocol.hpp": "6f3fdcc34170f0d59a912467d3758b9ec13999b77beec8e8c652449ce40565a5",
+    "include/realm/renderer.hpp": "32f7d37ddc4c7a7bcab3d3ba090fb483ca1008f57e145d2eeaa93e7c581ba915",
+    "include/realm/scene.hpp": "165b8938a53de3ba106e3fabca45b1c4294da869127e2564d43efd3076499200",
+    "include/realm/scrollbar.hpp": "f829249b4fa043a21b30ad0f64bc2fb6d6177a486c9d54fbc6e7b546cada27aa",
+    "include/realm/sdl_keys.hpp": "7761ddfbaa28eeb2b6b6a9993d8d24176ed5bec386fb0c29d521100ccb66ad64",
+    "include/realm/session.hpp": "f0c78fe543d5ff3de0439056440774fce933cd7be2cc89bf827243b7f4fc257f",
+    "include/realm/settings.hpp": "cb7f062a7a141532adefeddaf26406606528ffd4df77b0327ee33bb2d4a787cb",
+    "include/realm/skins.hpp": "0126459e0e14626bf3aa2b6e8b0671f713451764075c9645b3a627a71fba865c",
+    "include/realm/startup.hpp": "607e7a44b0969a20920db1742308fba71a75e0ab9b5a102ac53729dcb58f7ca1",
+    "include/realm/status_effects.hpp": "94f45c644de54802ca20dbdde0d70e75ba722f87ad1520db97fbccc452713029",
+    "include/realm/terrain.hpp": "1d3ebd21f418579af312a1f628748b689cf547cab83629896c3c8770abe779a2",
+    "include/realm/text_tooltip.hpp": "61ff9ac09abeb07dfcbb2dcb3e0e827df5b9488095e50d28d86f33a937a7e5c2",
+    "include/realm/tooltip.hpp": "44c3e0b4583e0b6c274dbd6e0ff4a51bf9082eae67598cb9f3fb862c86a68716",
+    "include/realm/trade.hpp": "0f5d9f4ff748a2f5bec7a8d996c48fb6279510b4832e66fde24e8665c4e6de99",
+    "include/realm/transport.hpp": "1b120b5f9ea2a9b0927f062986576b9c121931afa4c9f1c72fc4a39be9b86170",
+    "include/realm/ui_draw.hpp": "e07adc8974080ab9aadac942f4ed8017b9c4b2fe40b888ec1de71034b68fcb3c",
+    "include/realm/world.hpp": "c2dfc3110a48ac7611429650a66248526b1a3e55df626b0eeb7d68d44cccd69f",
+    "include/realm/platform.hpp": "a4aced0ba9ef7d1c90e17a022ce39a66247c5741e4480d07bea9ef908c09ce4a",
+    "include/realm/draw_types.hpp": "0fe48d75527f849a6c3ed04030682b1f3af5566883555317a75f7d5cb1592fb8",
+    "include/realm/telemetry.hpp": "36a0285e7b5925ae7bb0dc4d48923bb5b59d130d4d7ebf428fc0771267b90ad5",
+    "include/realm/entity_index.hpp": "a5078492c2d862c3cfe8ea94538d0cef3efcc369994f5e34e317138593b0106d",
+    "include/realm/platform_sdl.hpp": "c69422b4e1c9dc23b451ca0d531b9d3d8f8a50d4ceb52e8c6f8475a252f05e3d",
+    "include/realm/application.hpp": "afc4f29869d080280b0660ea55651a23c5aeffc20a44cbd46d7374dfea0055a5",
+    "include/realm/stress.hpp": "a8b9459250030a2975f578ff5b0048d9981aaceeb7f6fb0681bb8f8fc5bad9d4",
+    "include/realm/entity_sets.hpp": "7c82d14c2987dec2a9812dec14513045a7ed55d8094c275db543d3e2b1583511",
+    "include/realm/residency.hpp": "e0e045c44308f68e2699bab779b411d9ea5672ebb9ea704629e94a5b5a7690dd",
+    "include/realm/backdrop_data.hpp": "d4b99701ac2b1228aaf87b810f743b8510f3b6e1d53c8938630af37d61b3223a",
+    "include/realm/stat_map.hpp": "397ec353acb29d268c9afb206f24c4cfc6b97a775fabb58b39f3f60426978ac9",
+    "cmake/ClientTargets.cmake": "7f315a986583a8e150531e65138bbadcfb6f5602e261b3ebef2c7dc4a68d8ac0",
+    "cmake/ClientBoundaries.cmake": "96bc09b719b04675b37ddf1cc97aa360d22fdb584bc1b0741eefff44357dc92e",
+    "cmake/header-owners.json": "1ea6586764aa8dc89823e58e8d44d8b7fe76256c8ab84db28f5532ae9e026c8a",
+    "tests/animated_terrain_tests.py": "6910d273e9e44f980d89dab841c5e4de97a30354fca04090ec129a2824888a9a",
+    "tests/animation_tests.cpp": "b4483d53e40fa380010c93962cb4ae30adcd2f8eb333f9d431858557e8371e48",
+    "tests/balloon_cases.json": "9b81096482f970b33cce959ccd8984991da980ec91af262a5847bdb7336e5c53",
+    "tests/button_hud_tests.py": "36c6d162eb4e864744e7fcd16a129b41b5977e8cf35a68aa48ff1a13630d1508",
+    "tests/chat_cases.json": "058a17011505e4a6aba326d0e00ec64355c8b77cc474a8d7b79cebfbf5bd2cd9",
+    "tests/chat_tests.cpp": "55b8203bca2f12d3396af8f94a3122993b2d2e72113013c697b61b19cbe2975f",
+    "tests/combat_tests.cpp": "e382970befd47386a4fa0ecef3b65223cf53f948e39aea5fee61c0fdcc44ae83",
+    "tests/container_hud_tests.py": "3e5534b647b45d6798abd75e532607d931cc30d1c5853e98899d1c89e0d2daeb",
+    "tests/core_tests.cpp": "db8dde4d0d51739ee9634a1caef708d071f90bcc4149773931136d0229f971a5",
+    "tests/data_tests.cpp": "88519c15d17d8161f84ddca96e23a80e1375b21dcb2ba1e4a8e8f3ebdbad1c58",
+    "tests/dialog_cases.json": "0dcb27a5e74c6c68c30e3fa56b9a99332a7139b8dd34caf0e64f7b45529f7bb9",
+    "tests/dialog_gpu_tests.py": "4de31ee22744bed93a04629670f8d05a152652f8a00e079dfac1cd1ac507063f",
+    "tests/dialog_reference_tests.py": "c3c1b7bc2792c79c5fdb937a7c54eb687147f63895489fb0e98339f91e2a4d61",
+    "tests/dialog_tests.cpp": "5a987bcb4f9aa43ab5f940dfd3b73a2650eeb237bb7465cca2d9e55cd9c13d69",
+    "tests/dye_gpu_tests.py": "1a16534c368c219133fdd510b9f2ce2b37c96ad440785d2d207dfe0b643c8cbc",
+    "tests/dye_live_tests.py": "487857c46ddcff21b813f5c5aefc6fbfd9a70b2bedc9fdf364f831aecadb3066",
+    "tests/dye_reference_tests.py": "944ebc6edbad24ac7e44de480439d0441fa03d2d0f79b6c07673267adf820b22",
+    "tests/dye_session_inputs.cpp": "9f307c268a534d1651d69290b6c7cb162839d9023688c609f89367377dee177c",
+    "tests/dye_tests.cpp": "fa14bb1bb1a87a726ac9e6ab31e2f68f9e17b372ef02ede1c036d3b848c27964",
+    "tests/dye_ui_reference_tests.py": "d919185071df6c134e89d39ce9e80bc4753f4a70c4554fc2733eda73d04c01df",
+    "tests/flash_gpu_tests.py": "c603d398e359cc242e7952f0754528253b621a06844771853d717957be5b783e",
+    "tests/font_cpu_tests.py": "5e245a4625524e24e3d3c106ddb5f23433074e3198bca0749994a3ecf8805545",
+    "tests/font_gpu_tests.py": "32ca6a424451779a0b6fd6ed13f7d59999373b3af4a480b26742e3085a0ae6d4",
+    "tests/guild_board_cases.json": "9238a08e10b53eadc072daad49f881e4c90ef43a3510c989e33646034e824b87",
+    "tests/guild_board_gpu_tests.py": "e0e7d90276871c605eddf647c999022c5d791c71190315fc694fdf281a615e17",
+    "tests/guild_board_http_tests.py": "5d4a14c98edd062183558cdfdccf125b75ea202e47d12e1ff0e295faf756bb2d",
+    "tests/guild_board_live_tests.py": "3a961cdf161be7f2b23b9b52020ff1b43a3ce57c2220f4930a9c94647a9a7267",
+    "tests/guild_board_reference_tests.py": "930b6c874ec09aaa24f0e89daff074d0e367cfc8bfdf00e06a258cc761e9db54",
+    "tests/guild_board_tests.cpp": "8d8d4ee285a702d8f2856a19bd58268225d2402072b7c64231923eac0d761232",
+    "tests/guild_members_cases.json": "72e8a0cc67ebd45eec97c5711e03a81f6b743a2d8e4963e0acd42f7faafd6d2d",
+    "tests/guild_members_gpu_tests.py": "40599ec66f4f8ae4c1226cee4c046647414b431afab9cd57ed5790f01db4356b",
+    "tests/guild_members_http_tests.py": "3cfa475bece2428774942d80c9682e8ea8b1fb968a8f311d3ff4dd2eac75d172",
+    "tests/guild_members_live_tests.py": "1f9e0364044aa594ef1f732936294b328da4edea7d6c3b8b5566c1fd8cf576d5",
+    "tests/guild_members_reference_tests.py": "80117ad4e6bafbf8933431f23460fba4ccdcc8f47167e1dfc62a3a3ef464370b",
+    "tests/guild_members_tests.cpp": "d508281ebbb1a8023a3c47eccf7a733cd146539151cbc46efc996bf134d04903",
+    "tests/hud_tests.py": "7363c836836a9e36dcd40fed93431b971f385d5509b2bf2be970cd1154109fc7",
+    "tests/import_tests.py": "344cde705391a9b22d82a9c7cf29c81ec51b98dee9a3ace21c99c37a60a15962",
+    "tests/interaction_tests.cpp": "6b0d4780b5c8a3dae39ea6b2b95baebb96d05be3446f13993bd8ba04d6c30ed3",
+    "tests/inventory_hud_tests.py": "0a3489fc0718ec1d1efc5eeb2fea8dab0b4a944d8645d8943b0b3cc53401e77c",
+    "tests/inventory_session_inputs.cpp": "d22a2975f87722a217abe53d0cc6ea36b08c6aa23e63f6081f985d219be42b76",
+    "tests/inventory_session_tests.py": "f61866195cdf8b5c70dbf3a5cc393a563957a7b4ebc07ac32b693d25fc519b17",
+    "tests/inventory_tests.cpp": "66395b1daa30da147da7b7553849b7ec2ae514a05b78ef19acfbf36174ab95c2",
+    "tests/live_server_tests.py": "19195b27480b810e6fcc19d40d547b744b6f10cae5362e60b7a2cda980a4824a",
+    "tests/minimap_cache_tests.cpp": "d71c51f9ee3b8dc3cf9e2de5d37c4c4399c721a4d4c4bf9b10a4fb7705a49e1c",
+    "tests/minimap_tests.py": "35020cb6767b1ffa7c711192559b05d362ad2d6fa7055a908593b98138792dd1",
+    "tests/model_live_tests.py": "2ece97b8a6cef219d32f0c2439a94b33c40382f6517d442a5e28557d6d759428",
+    "tests/model_reference_tests.py": "b5d3832bd82342d25e24d6becd485119bec47b1d1a1dede9c37d758d0cf8ca81",
+    "tests/model_session_inputs.cpp": "13a8f8978ff63279b855cd63eead6ad1bc610c6b7711341f94c42cb10c84f321",
+    "tests/model_tests.cpp": "50f92ff81d1437f33deee98f0aa74649070e3d3c94e569a37be5af82ce91307f",
+    "tests/movement_tests.cpp": "56c8e33da03926e3414236bd6b9de6a1c2c19367d999befdb7be23c94cbf9dee",
+    "tests/options_cases.json": "fb693e2178c5c230d25109f9f030aa591eda011bc1b5c83a5ddd0e2e143a71c2",
+    "tests/options_gpu_tests.py": "ce032eb7cf3e6e93ae36126535b71cc442d18334b5ba986fac0f47078bb5d493",
+    "tests/options_live_tests.py": "9e743b57f461a22e47ec47705bfbef4a1f1cda2dae9bb3ec0062e282ddf30272",
+    "tests/options_reference_tests.py": "ea56392d08b59b2ad4a65b6e6e2ef2003ab12503984678a7d8e579d8602c6509",
+    "tests/options_source_tests.py": "aafaa3f3466081842ee1c77a2c0839e7b03487bcd5beac51d6b8711276f5343d",
+    "tests/options_tests.cpp": "bfeb11ddb06d7e41f21e5303aee85c598a23b7f72b089a654cbd3bebf99f1563",
+    "tests/options_tooltip_cases.json": "42b90f1252b765bb44d3676ab66a1e80242c12f9b6ffd03dbd3ae399e22a4f62",
+    "tests/particle_gpu_tests.py": "18fd7c221a7f00b4037c180a66ff07ddd0b3366a9e09f1cbe7b0ea4ee1bf436b",
+    "tests/particle_live_tests.py": "fa55f9d06e25ac7cf9c3c20653fdb1a18cdc714128bc0dd7da0424ddf9d14ad9",
+    "tests/particle_reference_tests.py": "ce9957c8f60c381910494af6b170b0182ace16b8aaba389d53b899aa0fbfec4e",
+    "tests/particle_session_inputs.cpp": "221a81a1356fc6e4bdc7a0b6951537989f4ecc438d9dd06e8d2e1632dd7d4778",
+    "tests/particle_tests.cpp": "245db2ff1e92311a32f75d14b6ffea2a982d2ea768c26289e92418d10c7f7bd2",
+    "tests/party_arrow_cases.json": "1d68dd32a5b4089529a4c3214ce1ff512d3a5a2f003b4ddfda8bf04b0b105922",
+    "tests/party_arrow_gpu_tests.py": "16ed0c398aed3ce0bc7714d694ef55e2c0e630d13197af3abc72896705508d34",
+    "tests/party_arrow_live_tests.py": "350a715f40527dfec94072285fd0487a3b5985b165f33414d5cd6ad43562bb4a",
+    "tests/party_arrow_reference_tests.py": "b973b10d8ee0b9b1d2029fc30db935fcfe9e029ccf4f93d7443c7c8040cf6da3",
+    "tests/party_arrow_session_inputs.cpp": "6350fbd79703cc68f5aa701965d25e90448c77884eed69203758c3619ecbf4c9",
+    "tests/party_arrow_tests.cpp": "9181b6d0a61692e056da60727dc8af5c2fd497f133ba8685d6a57567a67aee69",
+    "tests/party_hud_tests.py": "0b01df951f585706e0da8564e41535745674935dbbc058de1a4e103b071324dc",
+    "tests/party_tests.cpp": "56224a166b54f9be015eba85bc1425aed4cd0b25afcb1727e3b5ae4889788711",
+    "tests/player_group_cases.json": "d7d42aba21616b5daa745c29f24976839106afdb6dbf867f67d956b94f0d5602",
+    "tests/player_group_gpu_tests.py": "d3af39dc8c865157605c43b93efacebaca92367c7090dfb93917be1726f2c122",
+    "tests/player_group_live_tests.py": "da79db0312bdd0f57bb168ffa8fc21e13b6305691f17ef3b9d263ed4068f49d7",
+    "tests/player_group_reference_tests.py": "08bad260ed0913df2d1220c06baf6937fdb9d6b6db3fae5580d68e89a9a2eb6c",
+    "tests/player_group_tests.cpp": "409c54e79fa3831df4b22975c59ced4dd89b6c4b0c02de9a73d305f0d03a7a93",
+    "tests/player_menu_cases.json": "82d827600848144d1c9abb537d6f584854a68c02087b90fe7830c1400f7233cb",
+    "tests/player_menu_tests.cpp": "53ae783fb128deee0cad3a64c103d6ab82c8a56d0445469ba701a1554979fa76",
+    "tests/player_tooltip_hud_tests.py": "327547fb1493704c63f380f1b4df496573db7ef83c163fd92d4d2a2cc59c0b6d",
+    "tests/player_tooltip_reference_tests.py": "644c31ca93ddee677ea461f66eeff393dce5720d49cc3cce8f051a3dcb263cd0",
+    "tests/player_tooltip_tests.cpp": "3f4aa606108442a434d268956b29941d6ef4a2c67d81ba23f7279648e43548a6",
+    "tests/portal_hud_tests.py": "dfeb2314eec2d93fa112cfb37c50161a7dbd7381f4cc0789cd711107d503fc84",
+    "tests/postfx_live_tests.py": "d40c4216a36c707bea52daccd9cac2bb1138a53e0fdde205572f5d522cb1908c",
+    "tests/postfx_reference_tests.py": "74033d9fefcc28697e784cf82ee00b4f53c2ecfbb89f04d4c9810eb59a193c83",
+    "tests/postfx_rules_tests.cpp": "d0adb7f0d5c7481d30d8479cfc38dae87d5d7257175a1b771a6d984931c6d0e7",
+    "tests/postfx_session_inputs.cpp": "d92c166c138d144be86c4daffc6de03a6a8f26876a74292b16b3f8e083592be1",
+    "tests/postfx_tests.cpp": "8cf90db9c769552e33e2ceb9163a0902c2f490ed6c06d42434b86aaa07ef132b",
+    "tests/potion_hud_tests.py": "1f6e2ada87bfbc0cd02b1fdc1c7b49f37933d42b3ef8ee95c33350a3e5a01be1",
+    "tests/preferences_tests.cpp": "08dbe4fe6b7139c739e2972ce52bc7e9c716630c8da2bd8882a318c938cc1712",
+    "tests/projectile_gpu_tests.py": "5ac43a64aa9d0a67630961ca286079bf8ee074fbc7f0930145d10b4a7474728c",
+    "tests/render_tests.py": "1c96cd6e67f91e5e6626fd0c7a137bbbfd1508fa377363a8e0db9937d7a99cd9",
+    "tests/sdl_keys_tests.cpp": "fad2a7ef42b77b074dfeead7e1cd23b20be99c196def3898eadcedac1ab9c48c",
+    "tests/sellable_hud_tests.py": "3d3abc768ec6ffb503046e3f4c538823d00a09dd6ab980e101a0cf9f97dd76f7",
+    "tests/session_tests.py": "ffc07429d617d22a1e180e80b373994a3d370f1d73964fa4d519eff4ee0513dd",
+    "tests/skin_cases.json": "05554c89a67cdf37d0db2f12d4e01af02fcc5b2dace5a0108a16a83229f6f6fa",
+    "tests/skin_gpu_tests.py": "775642a323ac46d5753db5b7bf512e324f74162aad3a18998438554d2c605ada",
+    "tests/skin_http_inputs.cpp": "a8ab08992d8feb84f42ba8f4342c7df62e2a01a3d8434d4b878fa1025d65ac95",
+    "tests/skin_http_tests.py": "915dd9d1e7f680406c16209ebfcbb741a46bbf2a009d054cbd38f73dd25a055f",
+    "tests/skin_live_tests.py": "13db8000668361445395611aa7b9ddfbadae715a2d952340e03a998a42568d4b",
+    "tests/skin_reference_tests.py": "b12f9530ef6502f5157fc2b1a31ebec29a3d5aa45a4102d7904050e2a7b22b1b",
+    "tests/skin_session_inputs.cpp": "141ba126ffe7dce88172c0176b9c729f1f9b9be4206e1da860f97b56951dfe56",
+    "tests/skin_tests.cpp": "e76269d023c17df9a474adb4de0fd9c264928e62387a43b6e75a049ec0ed0575",
+    "tests/social_hud_tests.py": "497d64ccb44e23db2d5203321a7f1a83b6ec077b2cb019030610176dc420fd7b",
+    "tests/social_session_inputs.cpp": "c26fd01285f2ca39e58d2962ca445cb77668d5585324a77d3cf2721d706dc578",
+    "tests/social_session_tests.py": "322f62ca62e590f13d25059351fb0488595cf99103b5908e67f67f85fb6c4f09",
+    "tests/startup_resize_tests.cpp": "e44c5a789f11c640b715fceac318d5e77d456aa5d86fab83960ded8f4ea2583c",
+    "tests/stats_hud_tests.py": "c982d33bce7682619566310be5a76eaa09d2c8492228399486c7fb11258ce1de",
+    "tests/status_gpu_tests.py": "818d7985aa07f6546ec414d19095c5d968775777c200def0d66005ecb0492bdd",
+    "tests/status_live_tests.py": "1d07587af15904ba976e139a29693c05f66bc05864edf0a0e78f01ccd7eb4bee",
+    "tests/status_reference_tests.py": "8eb53002166ab50075320415f26a630842f5f3e2722bce2dace21670d1db825b",
+    "tests/status_rules_tests.cpp": "e7729a8645ab1486b2bf33bf48895db5937f00fa4323ec66eaff45eeb686b126",
+    "tests/status_session_inputs.cpp": "c52b3468c5ebf4f6dc9d41832a847f19e9a60addf215f5faca152ffcebad8531",
+    "tests/teleport_session_inputs.cpp": "3929468fae72e5f210224b31ac5eef7601c2fa29a74b7d4713791688d0641938",
+    "tests/teleport_session_tests.py": "84a1062a40504424fe68a9c3664f7abcb35570e6f4b74856f54035af4ca6f718",
+    "tests/terrain_tests.cpp": "9b36022f74cd8c51d5284163a62912f251ae246c4bba4cc0547d1458b0efbe1f",
+    "tests/tooltip_tests.cpp": "09a912df9922aac19fceea48cc8ff83044b21a37cec1444d57df643f90336cd5",
+    "tests/trade_cases.json": "9940559d00a38924c27224473c8cbf0382f30c391fece2d5bb56fde91b670a16",
+    "tests/trade_tests.cpp": "79534f2fd44c9306e5c009125c48161616e4502f248239e19f905e5e3b0293b8",
+    "tests/ui_resize_gpu_tests.py": "7df3825655053eaf2ab8c9e04fe307504019d23b3d69e73fcccffa28464f1b30",
+    "tests/ui_resize_tests.cpp": "b73a0392f1f109b200e5077c960504eec5d987c7b912dcd8b777699765b233e7",
+    "tests/stress_packets_tests.py": "4a5717f7897d206cdc54b115af00ab4320e3361ca06b9397e46c577dc9fb971e",
+    "tests/allocation_tracking_tests.cpp": "b79fa80771b37f094b685b498a877dfebfb499826375ecb27763636b77835e78",
+    "tests/compose_tests.cpp": "3731ead0cdfb71c169c9c380006f50bfb7d595358c2a3cf5a2a03d5762c87ac4",
+    "tests/combat_target_tests.cpp": "ee8dd7a146c9cc0b34d97614e19b1b0a2266be96912ca4b4158cfefda48b8775",
+    "tests/model_instance_tests.cpp": "5bb2b5581de518cbfe5a2edbc5c985cd56eff478b0c320c8e22cd7f1b209390d",
+    "tests/client_boundaries_tests.py": "618139aa93f4e422b249af3bae7c80362691ee0b22f32c08162f3819364dfd25",
+    "tests/world_storage_tests.cpp": "a8adbb673a915cec1bf8276f655618395c8fbd0228cbd6702e3aa7a3540ead63",
+    "tests/telemetry_tests.cpp": "c783db0561feab292c602d28f0529dd0969cfa5176be34db1ba162bd2d382fae",
+    "tests/texture_residency_tests.cpp": "fbac9108f2ca0f78afd018a26369a1419b602bf1d6cea2711fdfed7e0dd0e48f",
+    "tests/world_query_tests.cpp": "6ae490108e394f7ad8881e4849eda580a90876f5e79ed2dad6ce6c36315404c9",
+    "tests/ui_rectangle_tests.cpp": "18c499d079e72a6e8a9bfd35ff4167f788097b77348015c524105e29bd05d481",
+    "tests/stress_tests.py": "dbfa15a4e88d5cebe653bbd5109d9c1eb39280a59eff566f1f1533dfa3ba2e71",
+    "tests/visibility_tests.cpp": "4b76ed450cccdc679a4c2c74cc5bd0e552cdd6791522826369ea57ed5e3a9af0",
+    "tests/dynamic_atlas_tests.cpp": "6d8ce287c4f16d8c32f87bf4ce3b29aa207d110f34448f84c38942d88369f308",
+    "tests/telemetry_gpu_tests.py": "0cc6ba3be67aadf7da270dc38cb1d180b756ff196ada7e5a70fe21986c38067f",
+    "tools/bake_bitmap_colors.py": "a4e6244394f742e473d4e7124cb1eecabc3a3c450e3b7a73bf44b697f8ce52d2",
+    "tools/bake_fonts.py": "2247b016d9a64ee205f0c3ab302ead75aae59b0baf9f11184d12f743e8452d14",
+    "tools/bake_guild_members_art.py": "02b5c1d5651b22747eb60e847c4ed15aa6d0eb0053d6c443a24572609cd52c68",
+    "tools/bake_hud_art.py": "030323b3a7c2aac869c6062821be0dbb8826de54d7b95766b17fd71326d5ae89",
+    "tools/bake_inputs.cpp": "b221b3540f8d47db916b401b0a5ca852fb1f47cd73d36369447df89e479d85e6",
+    "tools/bake_party_transforms.py": "e80dc85a4a8b1307923f8ee0767399bcf91acd910dde43e653b6fbbd0c0d94d6",
+    "tools/bake_skin_art.py": "c501f703a13c0ccd60917e21583b935900aaae3ca8fc5d3653931360a03a6aa8",
+    "tools/bake_textures.py": "5fa10f73f8cc24b5ec553587ef74ca8b4526dfff29a8374321cdefd895b60b1b",
+    "tools/build_flash_reference.py": "9cf12ec14b4ed901702a6d0819335b330661ce7c4e51a3586bfadfb9c0f43100",
+    "tools/chat_inputs.cpp": "663f35fc91fe63b690b4f2cf5b401d2f9135635e3b248b1d189bca16fcb9b44a",
+    "tools/compare_frames.py": "395833501fce97142133b3ce92f18c880ce0a400597ebf900c09471f63ffad78",
+    "tools/compile_bitmap_colors.py": "426ec3842ee83b2d7da4b302e5bb8ff74a94966cfb47fc4390cf5edd90e477d0",
+    "tools/compile_fonts.py": "6610663be8b1eb47fbfbd43de4463ce0c7ada1cd42ccc5b472b9d3d86b29005b",
+    "tools/compile_models.py": "dd1c157ebc5d21cd9bd94a8f98548afa4e772ddbe4f660dc00a9a8427326b159",
+    "tools/compile_particle_palettes.py": "f51d18cf9c9e8c0b352cc086a0a587d7da48c130fac296ac7542465fa73bd16f",
+    "tools/compile_party_transforms.py": "cae6833ae44bbf49ef8d1bdcf87d30a9f583ad041b4b85a83b774927305bf46e",
+    "tools/dialog_inputs.cpp": "e6e55038235485defc10fc2af74d318a60adabbaf715faaa12794ad066ceca46",
+    "tools/dye_inputs.cpp": "94f7d1c5c85d665106b92e0cbc9074fa584effc514df082b63bd9b2515de6efa",
+    "tools/font_inputs.cpp": "aaf136d07605412fe239356b283018df500154f08df4601b2e2cefd175abe885",
+    "tools/generate_messages.py": "714795c343d62f308f82b52d9de6303f85698e4cc2bc5fd06b1c81fec81d7c4e",
+    "tools/guild_board_inputs.cpp": "354b80608215f5dc716e95d442794514d1d161b50febbfc314441d657d64f5e9",
+    "tools/guild_members_inputs.cpp": "c293655bb8a3a81b0991d818ad1e48d5106939e1ce72c9cfd15349bf4ed39b5d",
+    "tools/hud_fixture.hpp": "2ae023b4e6532dcaaecd3713b42495d9384f5ed668d3257e4e8ebd2cb7f43f85",
+    "tools/hud_gpu_inputs.cpp": "3cd0c0cbfcfff755ae2eaa03c7f1e884c26037b981bc21889e875981a3d0f948",
+    "tools/hud_inputs.cpp": "17f052c1022adb3750a1c6ff9dc634054963d49efb3aaae5a467784daf432d3b",
+    "tools/import_flash.py": "be4463d32684a1ed8540835af8ac51c39c74f16c38a67da0afb5169c7dc9b624",
+    "tools/minimap_inputs.cpp": "df2f592a30c279e4b957dbffc26aad66152539bbf8d5cc2a41740da4cfc0e1d8",
+    "tools/model_inputs.cpp": "05809b4dd8e385e0e5b984658015a37fcf830c245cae29db62481b8fe8bc97ec",
+    "tools/options_inputs.cpp": "058248229da08749d20dda202f2550e49f126b62d13e55d555827c81dbfc9f97",
+    "tools/particle_inputs.cpp": "7f6786d9dff8017c8a67b6430998cb12acb8bebf401988b5802e6b01bd8e6bdb",
+    "tools/party_arrow_inputs.cpp": "cf7374417c3309410d16ab976cb0f20b76b8a5a57a37f998f13c2aff97f4994b",
+    "tools/player_group_inputs.cpp": "1479cdc20483552fad3dd645c459a2badfa73b6fc7fca2d09a88802b038d0254",
+    "tools/player_menu_inputs.cpp": "7471a8af2c31888b7a98fa5a281c2d2dc3fcf5ef0b7534f362c95d6265a84c23",
+    "tools/player_tooltip_inputs.cpp": "92ce5f343ddf8831b8343fa71355e66853275dab456e4d230284978be616de2c",
+    "tools/postfx_inputs.cpp": "f95ad98fcb74d325feee02de0f5a2133a96c6907077377ac5537e3de0f9236c1",
+    "tools/skin_inputs.cpp": "7e72001fb9b17ed50afb896e7f8cffec38a0640968b56cef9af45237682e24a4",
+    "tools/stats_clip_probe.py": "a58f8687794ee20983e7902e57e55386ca6d07006d0d7f89fd3650ae7be35102",
+    "tools/status_inputs.cpp": "5070a9c95ca8ac38156b1690f0b28285ed5bdeb7fc1910a63067fae83ee72466",
+    "tools/terrain_inputs.cpp": "cc5ac4423e188f0697161d0bb1f00f9fe90d0753ed8259500398ae4680d8d61a",
+    "tools/trade_inputs.cpp": "b47cca9348bdc8f891772171d0b5120a36ace563f63026346504540fcc174a35",
+    "tools/telemetry_report.py": "b612a30648569463d3b5233b9e0e71543f0646cee46e845d5bb6dac7b324e4f5",
+    "tools/quality_zones.py": "34f889f427133b30321cad34edcfb6f864b3790e125907530c43349853538783",
+    "tools/quality_pair.py": "daa283a315dacec6125cf1e6c60d281efadc72729d6b81c073e11a9f98a2a03e",
+    "tools/quality_stress.py": "b2bf54f47e7ee647a64385a4e3f1f579b22a00a04a988fb17197071324503e04",
+    "tools/stress_inputs.cpp": "79f6e87daa8ab97e0d4ba2b0f9cd7aec86240698bdf5ef73a1c6979a862d0e5c",
+    "tools/quality_baseline.py": "7ac8c00e90fd31bd9ddfa8b1b6127ff451a619f79b6243cdc043f4aa330b7ebf",
+    "CMakeLists.txt": "6373c920536c53a9327b8214bc2d48824bb81fa1219cc8b3ff2aea2a46c56c29"
+  },
+  "logs_sha256": {
+    "build/quality-Q08/release-build-final.log": "3b0e7b595b73f690de4c9ef4701a2b16198b327ea123252d8536927fc454c72c",
+    "build/quality-Q08/release-configure.log": "8edd701f1d442ea22aa6cecb5f98618d3e1b44327934a9c8b2289e4974a1107b",
+    "build/quality-Q08/graphics-sanitize-configure.log": "beee9416edf47ea876408340ba9badb2c8313f9a4736022ba8ad99e435eb7c46",
+    "build/quality-Q08/baseline-build-focused.log": "0e84d4de0c28c797b32d802e50e09175df5b7fe89f95122d82bb4e27284bb6f3",
+    "build/quality-Q08/release-build.log": "0013f7c1a06725fc5870ef93d4b6b6492e7dfdf1e847649e06e579be427823b3",
+    "build/quality-Q08/baseline-configure.log": "e3834f5f124860e50759f11e7a69b63738679e8d027737e05f4efcf326aa7ab3",
+    "build/quality-Q08/sanitize-ctest.log": "d45accffdf16d1f90b90be2adcb253a11e08341d422f1180477c13ff9d471e85",
+    "build/quality-Q08/baseline-atlas.log": "f75b7d95e0d1452f0c9021e0e341a3777a85ed3312058af9ede43f81deafda80",
+    "build/quality-Q08/control-long.log": "af4084e2fa0064275ddb138dc5f74e2d0db508ac9a31a5958ae16e845643a405",
+    "build/quality-Q08/headless-final-configure.log": "01da488efb435d28c94633815c82bf3ff34e7d294df47be0f5bdd0d9c1883a81",
+    "build/quality-Q08/paired.log": "3a76ead0d63fa63ebf4a67a00c993b3c0e374c642c59248cce92603447a470cc",
+    "build/quality-Q08/baseline-check-configure.log": "f0f9bd5a0130380ec85ade8ac617b2d6d64a669b562d8e25c6539ac3d6aed68b",
+    "build/quality-Q08/sanitize-build.log": "8f5c4a1f8cf7d8ee864f17e9ca10ec32e5cf91ad600c47d8eea70d85e0d69ae0",
+    "build/quality-Q08/graphics-sanitize-build.log": "014065c0e25fd5004f76d82fc507508bbf3007904c6b333e74426ce580b3d4fd",
+    "build/quality-Q08/graphics-sanitize-ctest-scoped.log": "6f07ed273c6c29eda48f7b53c08aceff9424237c18756bccfc3754f7fe12d1d1",
+    "build/quality-Q08/resize-release.log": "f43fee2eb98d34b5d155f6af7e9e1c0b8c8577f3b57c595b797cc140b04f26a7",
+    "build/quality-Q08/sanitize-configure.log": "369ffcf7ca77211acdaf1b21d0698d7ddea6a7b1b673ac3cec042d35a387a106",
+    "build/quality-Q08/control-s2.log": "762531fd6a8f9b2be17db5e29d91ade6fb8dad040f8a99a5f53a80f0ac18786b",
+    "build/quality-Q08/headless-headers.log": "88340e3683b21ae6fcfbc7421f8bc229c6a8063c6e8b0d9cba5612c13ad9ed6c",
+    "build/quality-Q08/release-changed-targets.log": "2f899e3d6247930704e25c3baa0ea4acfef7a95abce7b79f08e33371f196fdb2",
+    "build/quality-Q08/sanitize-build-final.log": "11bacfd1d2cc415aaa09b7fd06c820a330aa1e450c71538a109c7e359db46f51",
+    "build/quality-Q08/baseline-build.log": "005dde34c678b6df6bcf9d2de94ca66f245c28cf19d8e6bb520d04cba24c6076",
+    "build/quality-Q08/baseline-check-build.log": "7ebcd2b5f42af6e25a555440e0eb9b6d8cdb3bdd1a86debddb11a0bbba0e476b",
+    "build/quality-Q08/resize-before.log": "b9199d1ea919a4faad519e18f550c4bedd192cef745d3f298e8d09274a5e4c7c",
+    "build/quality-Q08/headless-configure.log": "a2e075188870e16c0175b38aee34fd1b7e7b7127e068aa44df359279de82018c",
+    "build/quality-Q08/resize-sanitize.log": "9f28cdfe80cfeecd84ed77c9243b9f67474a4382c4876226d133949bd9f5ebad",
+    "build/quality-Q08/graphics-sanitize-ctest.log": "0ce3536e5d5b1692ac9092f4b04770142f9b26afce4bf39ab0d8009f8fd6450c",
+    "build/quality-Q08/release-ctest.log": "db554a3a26e685f35074319a7c89f4908290a39ecd3d1ff37970a4b1d05e019f",
+    "build/quality-Q08/baseline-glx-leaks.log": "dfbdbbcce24a35a9203f3d0998c4d1a8a8aa81987128f2e0a45e1456135acfbb",
+    "build/quality-Q08/baseline-sdl-keys.log": "8c3117a149cd790245184d15e0faed90e6e1cb68ebf56c5ace762b09ca79b316"
+  },
+  "dispatch": {
+    "successor": "Q09",
+    "created": false,
+    "request": "docs/client-quality/handoffs/Q09-dispatch-request.md",
+    "reason": "create_thread unavailable; list_projects dynamic tool reports native MCP server unavailable on this host"
+  }
+}

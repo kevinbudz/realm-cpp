@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include "realm/renderer.hpp"
 #include "realm/model.hpp"
 #include <algorithm>
@@ -9,6 +10,15 @@
 #include <string>
 
 namespace realm {
+GraphicsInfo graphics_info() {
+    return {reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
+            reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+            reinterpret_cast<const char*>(glGetString(GL_VERSION))};
+}
+void check_graphics_error() {
+    if (glGetError() != GL_NO_ERROR) throw std::runtime_error("OpenGL error during frame");
+}
+
 namespace {
 constexpr auto vertex_shader = R"glsl(#version 330 core
 layout(location=0) in vec2 origin;
@@ -234,13 +244,6 @@ GLuint shader(GLenum type, const char* source) {
 }
 std::array<float, 2> floats(Vec2 p) { return {static_cast<float>(p.x), static_cast<float>(p.y)}; }
 }
-Quad sprite_quad(SpriteRegion s, Vec2 origin, Vec2 axis_x, Vec2 axis_y) {
-    constexpr float inv = 1.0F / Atlas::page_size;
-    Quad q; q.origin = floats(origin); q.axis_x = floats(axis_x); q.axis_y = floats(axis_y);
-    q.uv = {static_cast<float>(s.x) * inv, static_cast<float>(s.y) * inv,
-            static_cast<float>(s.width) * inv, static_cast<float>(s.height) * inv};
-    q.page = static_cast<float>(s.page); return q;
-}
 SurfaceTexture::~SurfaceTexture() { if(texture_)glDeleteTextures(1,&texture_); }
 void SurfaceTexture::update(const Image& image) { update_region(image,0,0,image.width,image.height); }
 void SurfaceTexture::update_region(const Image& image,int x,int y,int w,int h) {
@@ -276,29 +279,6 @@ Quad SurfaceTexture::quad(Vec2 origin,Vec2 ax,Vec2 ay,int x,int y,int w,int h) c
     Quad q;q.origin=floats(origin);q.axis_x=floats(ax);q.axis_y=floats(ay);q.texture=texture_;q.kind=5;
     const auto fw=static_cast<float>(storage_width_),fh=static_cast<float>(storage_height_);
     q.uv={static_cast<float>(x)/fw,static_cast<float>(y)/fh,static_cast<float>(w)/fw,static_cast<float>(h)/fh};return q;
-}
-Quad projectile_quad(SpriteRegion sprite, Vec2 center, double angle, int size, double zoom, bool outline) {
-    // Point3D.as: the path is a rotated square; outlined textures retain their
-    // pixel scale and are clipped by the square instead of fitting inside it.
-    const double radius = 8.0 * size / 100 / std::sin(24.0 * std::numbers::pi / 180);
-    const double c = std::cos(angle), s = std::sin(angle), extent = radius * zoom;
-    auto q = sprite_quad(sprite, {center.x + (s-c)*extent, center.y - (s+c)*extent},
-                         {2*c*extent,2*s*extent}, {-2*s*extent,2*c*extent});
-    if (outline) {
-        constexpr double inv = 1.0 / Atlas::page_size;
-        q.uv = {static_cast<float>((sprite.x + sprite.width*.5-radius)*inv),
-                static_cast<float>((sprite.y + sprite.height*.5-radius)*inv),
-                static_cast<float>(2*radius*inv),static_cast<float>(2*radius*inv)};
-        q.kind = 4;
-    }
-    return q;
-}
-Quad mesh_quad(std::shared_ptr<const MeshDraw> mesh) {
-    Quad q; q.kind = 9; q.owner = std::move(mesh); return q;
-}
-Quad radial_shadow(Vec2 origin, Vec2 x, Vec2 y, std::array<float, 3> color, float center, float edge) {
-    Quad q; q.origin = floats(origin); q.axis_x = floats(x); q.axis_y = floats(y);
-    q.kind = 1; q.multiply = {color[0], color[1], color[2], center}; q.offset[3] = edge; return q;
 }
 Renderer::Renderer(std::size_t capacity) : capacity_(capacity) {
     if (!capacity || capacity > 1000000) throw std::invalid_argument("Invalid quad capacity");

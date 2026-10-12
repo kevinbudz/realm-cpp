@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 // Differential checks of instanced model rendering (model_quad + persistent model_geometry,
 // projected, culled and shaded on the GPU) against the CPU reference path (project_model).
 // CPU part: the instance transform reproduces every reference vertex, the kept-face set and
@@ -7,6 +8,7 @@
 #include "realm/animation.hpp"
 #include "realm/catalog.hpp"
 #include "realm/model.hpp"
+#include "realm/renderer.hpp"
 #include "flash_assets.hpp"
 #include <SDL.h>
 #include <algorithm>

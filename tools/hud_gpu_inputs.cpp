@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #define SDL_MAIN_HANDLED
 #include "realm/hud.hpp"
 #include "hud_fixture.hpp"

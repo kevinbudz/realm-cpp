@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/session.hpp"
-#include "realm/renderer.hpp"
+#include "realm/draw_types.hpp"
 #include <filesystem>
 #include <map>
 namespace realm::quality {

@@ -5,6 +5,7 @@ Requires built clients, the original font/HUD packs, Pillow and an OpenGL displa
 Uses an offline map and a local HTTP fixture; no live account or game server.
 """
 from pathlib import Path
+import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import subprocess
 import tempfile
@@ -12,16 +13,22 @@ import threading
 from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / 'build/ui-resize-reference'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
+parser.add_argument('--timeout', type=float, default=20)
+parser.add_argument('--output', type=Path, default=ROOT / 'build/ui-resize-reference')
+args = parser.parse_args()
+BINARIES = args.binary_dir.resolve()
+OUTPUT = args.output.resolve()
 OUTPUT.mkdir(parents=True, exist_ok=True)
 
 def run(binary, lines, extra=()):
     with tempfile.TemporaryDirectory() as directory:
         script = Path(directory) / 'resize.txt'
         script.write_text('\n'.join(lines) + '\n')
-        result = subprocess.run([str(ROOT / 'build' / binary), '--fonts', str(ROOT / 'build/fonts-client'),
+        result = subprocess.run([str(BINARIES / binary), '--fonts', str(ROOT / 'build/fonts-client'),
             '--hud-art', str(ROOT / 'build/hud-art'), '--hidden', '--benchmark', '--frames', '100000',
-            '--script', str(script), *extra], cwd=ROOT, capture_output=True, text=True, timeout=20)
+            '--script', str(script), '--fixture-step-ms', '20', *extra], cwd=ROOT, capture_output=True, text=True, timeout=args.timeout)
         assert result.returncode == 0, result.stdout + result.stderr
         return result.stdout
 
@@ -57,9 +64,9 @@ with tempfile.TemporaryDirectory() as directory:
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
-        pulse = subprocess.run([str(ROOT / 'build/realm_startup_resize_tests'), str(ROOT / 'build/fonts-client'),
+        pulse = subprocess.run([str(BINARIES / 'realm_startup_resize_tests'), str(ROOT / 'build/fonts-client'),
             str(ROOT / 'build/hud-art'), str(server.server_port), str(OUTPUT)], cwd=ROOT,
-            capture_output=True, text=True, timeout=20)
+            capture_output=True, text=True, timeout=args.timeout)
         assert pulse.returncode == 0, pulse.stdout + pulse.stderr
         print(pulse.stdout.strip())
         menus = [capture(250, 'title-base'), '450 resize 1280 720', capture(650, 'title-fractional'),

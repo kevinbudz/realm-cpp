@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 // Q07: composed world bitmaps (appearances, names, condition icons, floating status text) packed into the atlas' dynamic pages
 // must render exactly like the per-image SurfaceTexture path they replace. A real scene (players with dyes, names and conditions,
 // enemies, rotated projectiles, textured and thrown particles, floating status text) is built twice per frame, with the dynamic

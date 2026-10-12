@@ -1,17 +1,16 @@
 #pragma once
 #include "realm/image.hpp"
-#include <GL/glew.h>
+#include "realm/draw_types.hpp"
 #include <span>
 #include <filesystem>
 #include <vector>
 #include <string_view>
 
 namespace realm {
-struct SpriteRegion { int page{}, x{}, y{}, width{}, height{}; };
 
 class Atlas {
 public:
-    static constexpr int page_size = 2048;
+    static constexpr int page_size = sprite_page_size;
     // `dynamic_pages` extra zero-filled layers follow the static pages (same layer indices); Scene packs composed bitmaps into them.
     explicit Atlas(const std::filesystem::path& flash_root, std::span<const Image> additional = {}, std::size_t raw_prefix = 0, int dynamic_pages = 0);
     ~Atlas();
@@ -20,7 +19,7 @@ public:
     [[nodiscard]] SpriteRegion sprite(std::size_t sheet, int index) const;
     [[nodiscard]] SpriteRegion image(std::size_t asset) const { return regions_.at(asset); }
     [[nodiscard]] SpriteRegion additional(std::size_t index) const { return regions_.at(asset_count_ + index); }
-    [[nodiscard]] GLuint texture() const { return texture_; }
+    [[nodiscard]] std::uint32_t texture() const { return texture_; }
     void update_additional(std::size_t index, const Image& image);
     void update_additional_region(std::size_t index,const Image& image,int x,int y,int width,int height);
     // Premultiplies a copy of `image` exactly as SurfaceTexture does and writes it at (x, y) of dynamic page `page`
@@ -30,7 +29,7 @@ public:
     // (glCopyImageSubData, or per-layer framebuffer blits without GL 4.3 / ARB_copy_image), the rest start zeroed. Layer indices and page
     // size do not change, so quads already built against the old texture stay valid. Replaces `texture()`.
     void resize_dynamic(int pages);
-    [[nodiscard]] static bool hardware_copy() { return !force_blit_copy && (GLEW_VERSION_4_3 || GLEW_ARB_copy_image); }
+    [[nodiscard]] static bool hardware_copy();
     // Tests: exercise the framebuffer-blit resize path on drivers that also offer glCopyImageSubData.
     static inline bool force_blit_copy = false;
     [[nodiscard]] std::uint64_t resizes() const { return resizes_; }
@@ -42,7 +41,7 @@ public:
 private:
     std::vector<SpriteRegion> regions_;
     std::size_t asset_count_{};
-    GLuint texture_{};
+    std::uint32_t texture_{};
     int pages_{}, dynamic_pages_{};
     std::uint64_t resizes_{};
 };

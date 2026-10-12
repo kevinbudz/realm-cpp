@@ -1,46 +1,20 @@
 #pragma once
 #include "realm/atlas.hpp"
 #include "realm/telemetry.hpp"
-#include "realm/camera.hpp"
+#include "realm/draw_types.hpp"
 #include "realm/post_effects.hpp"
 #include <array>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <memory>
 #include <vector>
 
 namespace realm {
-// Affine quads support billboards, rotated terrain, shadows, and HUD rectangles.
-// Stream order is painter order. Atlas pages, tints, and shadows do not reorder it.
-struct Quad {
-    std::array<float, 2> origin{}, axis_x{}, axis_y{};
-    std::array<float, 4> uv{};
-    float page{};
-    std::array<float, 4> multiply{1, 1, 1, 1}, offset{};
-    float kind{}; // 0 sprite, 1 shadow, 2 solid, 3 repeat, 4 crop, 5 UI bitmap, 6 world bitmap, 7 particle square, 8 thrown fill,
-                  // 9 model: an instance from model_quad (no owner), or a prepared reference MeshDraw owner
-    std::array<float, 2> uv_offset{};
-    std::shared_ptr<const void> owner; // Keeps lazy GPU storage alive through submission.
-    GLuint texture{}; // zero: shared sprite atlas (static sprites or dynamic-page bitmaps, kinds 5/6/8 clamp to uv); otherwise a retained UI surface
-};
-// A model already projected to screen pixels, with back faces removed. Triangles
-// are grouped by material; vertices are expanded three per triangle.
-struct MeshVertex { float x, y, u, v, shade; };
-struct MeshGroup { bool solid{}; std::uint32_t first{}, count{}; };
-struct MeshDraw {
-    std::vector<MeshVertex> vertices;
-    std::vector<MeshGroup> groups;
-    std::array<float, 4> bounds{}; // sprite UV rectangle in its atlas page; zero size without a sprite
-    float page{};
-    std::array<float, 3> color{1, 1, 1}; // flat color for Solid* groups and sprite-less models
-};
-// Takes its place in the painter-ordered stream at the model's depth.
-[[nodiscard]] Quad mesh_quad(std::shared_ptr<const MeshDraw> mesh);
-[[nodiscard]] Quad sprite_quad(SpriteRegion sprite, Vec2 origin, Vec2 axis_x, Vec2 axis_y);
-[[nodiscard]] Quad projectile_quad(SpriteRegion sprite, Vec2 center, double angle,
-                                   int size, double zoom, bool outline);
-[[nodiscard]] Quad radial_shadow(Vec2 origin, Vec2 axis_x, Vec2 axis_y,
-                                 std::array<float, 3> color, float alpha_center, float alpha_edge = 0);
+// Queried once after the platform adapter has made a GL context current.
+struct GraphicsInfo { std::string vendor, renderer, version; };
+[[nodiscard]] GraphicsInfo graphics_info();
+void check_graphics_error();
 
 // Resizing a surface replaces only its own storage, never the world atlas.
 class SurfaceTexture {
@@ -55,7 +29,7 @@ public:
     void update_region(const Image& image,int x,int y,int width,int height);
     [[nodiscard]] Quad quad(Vec2 origin,Vec2 axis_x,Vec2 axis_y,int x=0,int y=0,int width=0,int height=0) const;
 private:
-    GLuint texture_{};
+    std::uint32_t texture_{};
     int width_{},height_{},storage_width_{},storage_height_{};
     int reserved_width_{},reserved_height_{};
     bool retain_capacity_{};
@@ -80,11 +54,11 @@ public:
     [[nodiscard]] Image capture(int width, int height) const;
 private:
     std::array<float,4> clear_color_{0,0,0,1};
-    GLuint program_{}, vao_{}, mesh_program_{}, mesh_vao_{}, mesh_buffer_{}, model_program_{}, model_vao_{}, model_geometry_{};
-    std::array<GLuint, 3> buffers_{};
+    std::uint32_t program_{}, vao_{}, mesh_program_{}, mesh_vao_{}, mesh_buffer_{}, model_program_{}, model_vao_{}, model_geometry_{};
+    std::array<std::uint32_t, 3> buffers_{};
     // Five phase boundaries and 32 model draw start/end pairs per slot.
     static constexpr std::size_t model_query_limit=32, timestamps=5+2*model_query_limit;
-    struct Timer { std::array<GLuint,timestamps> ids{};bool pending{},normal{};std::uint64_t frame_id{};std::size_t models{},models_total{}; };
+    struct Timer { std::array<std::uint32_t,timestamps> ids{};bool pending{},normal{};std::uint64_t frame_id{};std::size_t models{},models_total{}; };
     std::array<Timer,8> timers_{};
     telemetry::Recorder* recorder_{};
     std::uint64_t sample_frame_{};
@@ -92,13 +66,13 @@ private:
     std::size_t skipped_gpu_{};
     std::size_t frame_{}, capacity_{}, draw_calls_{};
     double gpu_ms_{-1};
-    GLuint post_program_{}, post_vao_{};
-    std::array<GLuint, 2> post_textures_{}, post_buffers_{};
+    std::uint32_t post_program_{}, post_vao_{};
+    std::array<std::uint32_t, 2> post_textures_{}, post_buffers_{};
     int post_width_{}, post_height_{};
-    GLint post_rect_{}, post_viewport_{}, post_mode_{}, post_axis_{}, post_blur_{}, post_blind_{}, post_region_{}, post_alpha_{}, post_sidebar_{};
+    int post_rect_{}, post_viewport_{}, post_mode_{}, post_axis_{}, post_blur_{}, post_blind_{}, post_region_{}, post_alpha_{}, post_sidebar_{};
     void ensure_post_targets(int width, int height);
     void run_post(int width, int height, int clip_width, const ScreenEffects& effects);
     void run_screen_overlays(int width, int height, int clip_width, const ScreenEffects& effects);
-    GLint viewport_location_{}, model_viewport_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{}, mesh_textured_{};
+    int viewport_location_{}, model_viewport_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{}, mesh_textured_{};
 };
 }

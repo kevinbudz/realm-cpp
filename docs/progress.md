@@ -12,6 +12,15 @@ missing features, correctness problems, and measured performance bottlenecks.
 
 ## Current evidence
 
+- Q08 codebase boundaries completed on 2026-10-12: CPU assets, UI and fixtures now have separate owners, headless model/background/draw interfaces no longer pull GL, and
+  viewer/client share one compiled application coordinator. Eleven graphics / seven headless libraries have configure-time link and include/source ownership checks (66 headers).
+  `main.cpp` is eight lines; option/script/offline-map setup and SDL/RSS lifetimes have concrete owners. Headless SDK discovery is disabled and poisoned GL/SDL public-header builds pass.
+  All 30 seeded full-quality paired captures and painter/work/cache signatures match Q07 exactly; 22 CLI results and three headless workload outcomes match. Real SDL input/resize
+  and 720 title-pulse frames pass on Q07, Q08 Release and graphics sanitizers. Release **59/60** (the strict atlas differential fails on independently built Q07 at the identical first
+  pixel), headless ASan/UBSan **51/51** (the existing non-finite-position `world_dyes` overflow remains reported), graphics sanitizers **4/4** with only reproduced GLX driver exit
+  allocations suppressed. No whole-client clean certification or speedup claim: software-renderer timing repeats have broad tails; dense S3 p95 changes +4.3%, and S3/144 Hz remains
+  unqualified. Longer UI/idle/S2 controls and complete percentiles are in [Q08 evidence](client-quality/evidence/Q08-results.json); see [architecture](client-quality/architecture.md)
+  and [handoff](client-quality/handoffs/Q08.md). Q09 is pending: its [exact request](client-quality/handoffs/Q09-dispatch-request.md) is prepared, but this cloud host exposes no chat-creation tool.
 - Q07 texture residency and batching completed on 2026-10-12: every composed appearance, name, condition icon and floating status text used to be its own GL texture, so dense
   scenes broke the instanced batch at each one (S3 combat 15,080 draws/frame, `render.submit` 7.4 ms) and the 64 MiB per-image GPU cache sat at its cap with deterministic miss bursts.
   They now live in dynamic layers of the sprite atlas array: a headless shelf allocator with LRU and a 2-frame protection window (`TextureResidency`), appearances keyed by content

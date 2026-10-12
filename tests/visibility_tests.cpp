@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 // Differential camera-visibility check. Scene::build culls entities and particles by their ground point with fixed pixel
 // margins. With culling disabled (the oracle) every object is built; every quad or mesh the oracle produces that reaches the
 // viewport must also be produced, identically and in the same painter order, by the culled build. Covers every catalog

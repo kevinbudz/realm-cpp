@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include "realm/model.hpp"
 #include "realm/scene.hpp"
 #include "flash_assets.hpp"

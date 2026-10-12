@@ -16,8 +16,8 @@ namespace realm {
 // Labels are rasterized at the font book's current density and kept in a bounded LRU.
 class StatusArt {
 public:
-    static constexpr std::size_t maximum_labels = 160;
-    static constexpr std::size_t maximum_bytes = 8 * 1024 * 1024;
+    static constexpr std::size_t maximum_labels = 4096;
+    static constexpr std::size_t maximum_bytes = 64 * 1024 * 1024;
     struct Label {
         std::shared_ptr<const Image> image;
         // Text field size in map pixels, and where the image starts relative to the field origin.

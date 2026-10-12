@@ -1,0 +1,6783 @@
+{
+  "task": "Q01",
+  "status": "complete",
+  "date": "2026-10-11",
+  "native_head": "e093e05bdfe726023c6ee144166a9c95bb04907c",
+  "source_sha256": {
+    "src/telemetry.cpp": "6174f7085fa027fe87abca56804702943b028551a7caf55c0fe92e6b72316cf2",
+    "src/allocation_tracking.cpp": "dbf6d955041115ab0617a38095123c37c40d3581d4ad09cfe8cdebd2ca2bec8b",
+    "include/realm/telemetry.hpp": "0131adee99cdb640c7a945a9862c67d1d20ae24d65e829da336134f10ac321f4",
+    "src/main.cpp": "f74a9cdcabdd789c3bde040158d640e39953e502e33cbe765f1b3177eff912f8",
+    "src/renderer.cpp": "bddf88c9436f7d5ed0a654798e9db6a83cc909ac73a59a9d9da403d701aac0ee",
+    "src/scene.cpp": "48110468974b4373174328d9f434c1e3d6fabe0900c5c7b7cdfc13c95cf694be",
+    "src/atlas.cpp": "33b70b0e750f5b7a15fc6bda028bafc3b295b87beadba43755665a3ac5df920e",
+    "src/appearance.cpp": "ae2de67d43b81495f3c8b40612a6d09e8395af9be6c96dee44a8a1949cef1272",
+    "src/font.cpp": "7ad11c0005fb39cd332003e554db6dca85f65cf4b42ab6694f6d8b55a367db99",
+    "src/model.cpp": "11f4a10ae1297ebb8a2fa4862435edfa2bb2a06f8ca6f7ed007918736fe72266",
+    "src/session.cpp": "f34ca158e1156aa8d54d689068135fc6d39bce0ac4f04dbfff69abada4c8e3d5",
+    "src/world.cpp": "6154e61a756e3c62fbb489835d4524d11393d380da218b385f6f5a0fc39ff12d",
+    "src/combat.cpp": "4e72005349d28816f42dd13de3599b43afc12e038793d54dd48654773444b56c",
+    "src/transport.cpp": "39ef1f40e0fb5010d3d9efea0d8761ec2aa030c111d4ce65a57de2a6c3333aac",
+    "src/protocol.cpp": "d1fc9701567b6145290446d06ff434f59336335428e0fbb6ff0f482172b1c116",
+    "include/realm/session.hpp": "2bc325ed5a0674045028f0c3be7b897ef4a4af5d5cef0898562ec59366842f25",
+    "include/realm/transport.hpp": "1b120b5f9ea2a9b0927f062986576b9c121931afa4c9f1c72fc4a39be9b86170",
+    "include/realm/renderer.hpp": "d4b8eeb0776cc15fb57fda13d5228f7c7f4284c9e466c848fe227a5ecc0fe49a",
+    "CMakeLists.txt": "ce8513bf4b14ad08a36c2c5159feb8da041ad9ae4947de9dbff1f2c40c8e641e",
+    "tests/telemetry_tests.cpp": "328f95e29829a999d96f3ef7e538baf7e4fdf8c704c10d2f152aa123c267f4a4",
+    "tests/telemetry_gpu_tests.py": "34a53db624f978ce6f79696de5eb275fc97260357385bbf135ce7180890f9d70",
+    "tests/allocation_tracking_tests.cpp": "b79fa80771b37f094b685b498a877dfebfb499826375ecb27763636b77835e78",
+    "tools/telemetry_report.py": "b612a30648569463d3b5233b9e0e71543f0646cee46e845d5bb6dac7b324e4f5"
+  },
+  "starting_inventory": "build/quality-Q01/starting-files.json",
+  "profile": "Q00-v1 hardware, actual GL renderer in raw metadata; short component evidence only; S3/144 Hz unqualified",
+  "tests": {
+    "release": {
+      "passed": 44,
+      "total": 44,
+      "seconds": 91.74,
+      "log": "build/quality-Q01/release-ctest-final.log"
+    },
+    "sanitize": {
+      "passed": 39,
+      "total": 39,
+      "log": "build/quality-Q01/sanitize-ctest-final.log",
+      "viewer": false,
+      "seconds": 79.92
+    },
+    "graphics_sanitize": {
+      "passed": 4,
+      "total": 4,
+      "seconds": 8.99,
+      "log": "build/quality-Q01/graphics-sanitize-ctest.log",
+      "allocation_tracking": true,
+      "leak_detection": "default, not disabled"
+    },
+    "expanded_40_model_gpu": {
+      "release": "build/quality-Q01/telemetry-gpu-expanded-final.log",
+      "sanitize": "build/quality-Q01/telemetry-gpu-expanded-sanitize-final.log",
+      "submitted_models": 40,
+      "measured_models": 32
+    }
+  },
+  "raw_nexus_report": {
+    "source": "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/alloc-on-0.jsonl",
+    "metadata": {
+      "schema": "realm-frame-v1; durations ms; trace/zone durations us; bytes bytes; counters per-frame unless gauge",
+      "allocations": "main-thread C++ new/new[] including aligned; excludes malloc, worker threads and export; includes foreign C++ new if interposed",
+      "profiler": "Tracy disabled; bounded native trace/export when requested",
+      "GL_vendor": "AMD",
+      "GL_renderer": "AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)",
+      "GL_version": "4.6 (Core Profile) Mesa 26.2.4-arch3.1",
+      "workload": "../realm-server/Resources/Worlds/Nexus/0.jm",
+      "window": "hidden",
+      "gpu_pending_at_exit": "1",
+      "gpu_skipped_busy_slots": "0"
+    },
+    "frames": 3000,
+    "normal_frames": 2970,
+    "capture_frames": [],
+    "dropped_zones": 0,
+    "cpu_ms": {
+      "interval_ms": {
+        "samples": 2970,
+        "median": 0.26579850000000005,
+        "p95": 0.390562,
+        "p99": 0.532442,
+        "max": 0.980625
+      },
+      "cpu_ms": {
+        "samples": 2970,
+        "median": 0.088842,
+        "p95": 0.137715,
+        "p99": 0.203175,
+        "max": 0.353595
+      },
+      "present_ms": {
+        "samples": 2970,
+        "median": 0.0868905,
+        "p95": 0.179573,
+        "p99": 0.2517,
+        "max": 0.792908
+      },
+      "paced_ms": {
+        "samples": 2970,
+        "median": 0.00011,
+        "p95": 0.000488,
+        "p99": 0.002239,
+        "max": 0.036069
+      },
+      "input_to_submit_ms": {
+        "samples": 0
+      }
+    },
+    "gpu_ms": {
+      "total_ms": {
+        "samples": 2969,
+        "median": 0.16088,
+        "p95": 0.198,
+        "p99": 0.20152,
+        "max": 0.32924
+      },
+      "upload_ms": {
+        "samples": 2969,
+        "median": 0.0066,
+        "p95": 0.00812,
+        "p99": 0.00972,
+        "max": 0.15032
+      },
+      "world_ms": {
+        "samples": 2969,
+        "median": 0.13044,
+        "p95": 0.15944,
+        "p99": 0.163,
+        "max": 0.16644
+      },
+      "effects_ms": {
+        "samples": 2969,
+        "median": 0.00116,
+        "p95": 0.00148,
+        "p99": 0.00176,
+        "max": 0.00464
+      },
+      "ui_ms": {
+        "samples": 2969,
+        "median": 0.02264,
+        "p95": 0.02804,
+        "p99": 0.02932,
+        "max": 0.03068
+      },
+      "models_ms": {
+        "samples": 2969,
+        "median": 0.00032,
+        "p95": 0.00064,
+        "p99": 0.00084,
+        "max": 0.00128
+      }
+    },
+    "gpu_frames": 2999,
+    "gpu_missing_frames": [
+      2999
+    ],
+    "partial_model_frames": 0,
+    "zones": {
+      "events.poll_dispatch": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 2.11,
+          "p95": 5.728,
+          "p99": 26.413,
+          "max": 48.788
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.00211,
+          "p95": 0.005728,
+          "p99": 0.026413,
+          "max": 0.048788
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.terrain": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 25.4195,
+          "p95": 28.978,
+          "p99": 49.209,
+          "max": 56.645
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0254195,
+          "p95": 0.028978,
+          "p99": 0.049209,
+          "max": 0.056645
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.visibility": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 2.639,
+          "p95": 4.072,
+          "p99": 5.542,
+          "max": 8.716
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.002639,
+          "p95": 0.004072,
+          "p99": 0.005542,
+          "max": 0.008716
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.sort_entities": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.31,
+          "p95": 10.071,
+          "p99": 13.894,
+          "max": 19.309
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.00331,
+          "p95": 0.010071,
+          "p99": 0.013894,
+          "max": 0.019309
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.sort_painter_stream": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 1.55,
+          "p95": 3.803,
+          "p99": 5.842,
+          "max": 7.196
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.00155,
+          "p95": 0.003803,
+          "p99": 0.005842,
+          "max": 0.007196
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "appearance.lookup": {
+        "invocations": 65340,
+        "per_invocation_us": {
+          "samples": 65340,
+          "median": 0.09,
+          "p95": 0.214,
+          "p99": 0.356,
+          "max": 10.847
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.002268,
+          "p95": 0.003267,
+          "p99": 0.004068,
+          "max": 0.013967999999999996
+        },
+        "allocations_inclusive": 35640,
+        "allocation_bytes_inclusive": 1104840
+      },
+      "appearance.gpu_cache": {
+        "invocations": 65340,
+        "per_invocation_us": {
+          "samples": 65340,
+          "median": 0.045,
+          "p95": 0.126,
+          "p99": 0.174,
+          "max": 3.979
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0013640000000000004,
+          "p95": 0.0016330000000000006,
+          "p99": 0.002184,
+          "max": 0.005239
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "model.prepare": {
+        "invocations": 14850,
+        "per_invocation_us": {
+          "samples": 14850,
+          "median": 0.27,
+          "p95": 0.455,
+          "p99": 0.77,
+          "max": 3.041
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.001452,
+          "p95": 0.002222,
+          "p99": 0.00283,
+          "max": 0.00423
+        },
+        "allocations_inclusive": 133650,
+        "allocation_bytes_inclusive": 25066800
+      },
+      "scene.build": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 66.973,
+          "p95": 91.919,
+          "p99": 138.135,
+          "max": 182.93
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.066973,
+          "p95": 0.091919,
+          "p99": 0.13813499999999998,
+          "max": 0.18293
+        },
+        "allocations_inclusive": 201960,
+        "allocation_bytes_inclusive": 34535160
+      },
+      "ui.build": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.715,
+          "p95": 7.027,
+          "p99": 10.142,
+          "max": 22.786
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.003715,
+          "p95": 0.007027,
+          "p99": 0.010142,
+          "max": 0.022786
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.gpu_poll": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.889,
+          "p95": 7.7,
+          "p99": 11.482,
+          "max": 18.992
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0038889999999999997,
+          "p95": 0.0077,
+          "p99": 0.011482,
+          "max": 0.018992000000000002
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.quad_upload": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 5.323,
+          "p95": 9.825,
+          "p99": 19.794,
+          "max": 264.91
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0053230000000000005,
+          "p95": 0.009824999999999999,
+          "p99": 0.019794,
+          "max": 0.26491000000000003
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.model_upload_submit": {
+        "invocations": 14850,
+        "per_invocation_us": {
+          "samples": 14850,
+          "median": 0.085,
+          "p95": 0.813,
+          "p99": 1.237,
+          "max": 26.394
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.001045,
+          "p95": 0.0019010000000000001,
+          "p99": 0.003082,
+          "max": 0.026934999999999997
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.submit": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 13.5095,
+          "p95": 25.95,
+          "p99": 41.317,
+          "max": 278.822
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0135095,
+          "p95": 0.02595,
+          "p99": 0.041317,
+          "max": 0.278822
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "frame.cpu": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 88.8125,
+          "p95": 137.68,
+          "p99": 203.154,
+          "max": 353.588
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.08881249999999999,
+          "p95": 0.13768,
+          "p99": 0.203154,
+          "max": 0.353588
+        },
+        "allocations_inclusive": 201960,
+        "allocation_bytes_inclusive": 34535160
+      },
+      "present.swap": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 86.82400000000001,
+          "p95": 179.506,
+          "p99": 251.612,
+          "max": 792.787
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.08682400000000001,
+          "p95": 0.179506,
+          "p99": 0.251612,
+          "max": 0.792787
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      }
+    },
+    "counters": {
+      "allocations": {
+        "sum": 202058,
+        "max": 70,
+        "last": 68
+      },
+      "allocation_bytes": {
+        "sum": 34540403,
+        "max": 11735,
+        "last": 11628
+      },
+      "texture_upload_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "texture_storage_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "mesh_upload_bytes": {
+        "sum": 5346000,
+        "max": 1800,
+        "last": 1800
+      },
+      "quad_upload_bytes": {
+        "sum": 364830816,
+        "max": 126672,
+        "last": 126672
+      },
+      "draw_calls": {
+        "sum": 130680,
+        "max": 44,
+        "last": 44
+      },
+      "triangles": {
+        "sum": 6574236,
+        "max": 2282,
+        "last": 2282
+      },
+      "quads": {
+        "sum": 3242568,
+        "max": 1126,
+        "last": 1126
+      },
+      "models": {
+        "sum": 14850,
+        "max": 5,
+        "last": 5
+      },
+      "appearance_hits": {
+        "sum": 65340,
+        "max": 22,
+        "last": 22
+      },
+      "appearance_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "appearance_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "gpu_appearance_hits": {
+        "sum": 65340,
+        "max": 22,
+        "last": 22
+      },
+      "gpu_appearance_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "gpu_appearance_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_hits": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packet_rx_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packet_tx_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packets_decoded": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "outgoing_queue_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "framing_queue_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "optional_drops": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "resident_entities": {
+        "sum": 2206710,
+        "max": 743,
+        "last": 743
+      },
+      "visible_entities": {
+        "sum": 433620,
+        "max": 146,
+        "last": 146
+      },
+      "resident_projectiles": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "particles": {
+        "sum": 200616,
+        "max": 136,
+        "last": 136
+      },
+      "appearance_cpu_bytes": {
+        "sum": 300468960,
+        "max": 101168,
+        "last": 101168
+      },
+      "appearance_gpu_bytes": {
+        "sum": 300468960,
+        "max": 101168,
+        "last": 101168
+      },
+      "glyph_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      }
+    }
+  },
+  "static_control_report": {
+    "source": "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-0.jsonl",
+    "metadata": {
+      "schema": "realm-frame-v1; durations ms; trace/zone durations us; bytes bytes; counters per-frame unless gauge",
+      "allocations": "main-thread C++ new/new[] including aligned; excludes malloc, worker threads and export; includes foreign C++ new if interposed",
+      "profiler": "Tracy disabled; bounded native trace/export when requested",
+      "GL_vendor": "AMD",
+      "GL_renderer": "AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)",
+      "GL_version": "4.6 (Core Profile) Mesa 26.2.4-arch3.1",
+      "workload": "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+      "window": "hidden",
+      "gpu_pending_at_exit": "1",
+      "gpu_skipped_busy_slots": "0"
+    },
+    "frames": 3000,
+    "normal_frames": 2970,
+    "capture_frames": [],
+    "dropped_zones": 0,
+    "cpu_ms": {
+      "interval_ms": {
+        "samples": 2970,
+        "median": 0.2657545,
+        "p95": 0.446105,
+        "p99": 0.519508,
+        "max": 4.771785
+      },
+      "cpu_ms": {
+        "samples": 2970,
+        "median": 0.088476,
+        "p95": 0.179552,
+        "p99": 0.209576,
+        "max": 0.265428
+      },
+      "present_ms": {
+        "samples": 2970,
+        "median": 0.087832,
+        "p95": 0.178891,
+        "p99": 0.272443,
+        "max": 0.746115
+      },
+      "paced_ms": {
+        "samples": 2970,
+        "median": 9.8e-05,
+        "p95": 0.000571,
+        "p99": 0.00271,
+        "max": 0.015291
+      },
+      "input_to_submit_ms": {
+        "samples": 0
+      }
+    },
+    "gpu_ms": {
+      "total_ms": {
+        "samples": 2969,
+        "median": 0.1698,
+        "p95": 0.19928,
+        "p99": 0.20088,
+        "max": 0.20428
+      },
+      "upload_ms": {
+        "samples": 2969,
+        "median": 0.00696,
+        "p95": 0.00816,
+        "p99": 0.00836,
+        "max": 0.0134
+      },
+      "world_ms": {
+        "samples": 2969,
+        "median": 0.13772,
+        "p95": 0.16164,
+        "p99": 0.16312,
+        "max": 0.16636
+      },
+      "effects_ms": {
+        "samples": 2969,
+        "median": 0.00128,
+        "p95": 0.00156,
+        "p99": 0.00168,
+        "max": 0.00248
+      },
+      "ui_ms": {
+        "samples": 2969,
+        "median": 0.02372,
+        "p95": 0.0286,
+        "p99": 0.02952,
+        "max": 0.03076
+      },
+      "models_ms": {
+        "samples": 2969,
+        "median": 0.00072,
+        "p95": 0.00104,
+        "p99": 0.00124,
+        "max": 0.00168
+      }
+    },
+    "gpu_frames": 2999,
+    "gpu_missing_frames": [
+      2999
+    ],
+    "partial_model_frames": 0,
+    "zones": {
+      "events.poll_dispatch": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 2.171,
+          "p95": 6.707,
+          "p99": 26.273,
+          "max": 46.749
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0021709999999999998,
+          "p95": 0.006706999999999999,
+          "p99": 0.026273,
+          "max": 0.046749
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.terrain": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 25.9025,
+          "p95": 48.315,
+          "p99": 51.435,
+          "max": 86.573
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.025902500000000002,
+          "p95": 0.048315,
+          "p99": 0.051435,
+          "max": 0.086573
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.visibility": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 2.766,
+          "p95": 5.318,
+          "p99": 6.536,
+          "max": 19.058
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0027660000000000002,
+          "p95": 0.005318,
+          "p99": 0.006535999999999999,
+          "max": 0.019058
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.sort_entities": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.4695,
+          "p95": 11.583,
+          "p99": 13.983,
+          "max": 47.114
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0034695,
+          "p95": 0.011583,
+          "p99": 0.013983,
+          "max": 0.047113999999999996
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "scene.sort_painter_stream": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 0.749,
+          "p95": 2.033,
+          "p99": 2.91,
+          "max": 10.597
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.000749,
+          "p95": 0.002033,
+          "p99": 0.0029100000000000003,
+          "max": 0.010596999999999999
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "appearance.lookup": {
+        "invocations": 65340,
+        "per_invocation_us": {
+          "samples": 65340,
+          "median": 0.088,
+          "p95": 0.213,
+          "p99": 0.347,
+          "max": 21.664
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0021609999999999997,
+          "p95": 0.003607,
+          "p99": 0.004049,
+          "max": 0.023958
+        },
+        "allocations_inclusive": 35640,
+        "allocation_bytes_inclusive": 1104840
+      },
+      "appearance.gpu_cache": {
+        "invocations": 65340,
+        "per_invocation_us": {
+          "samples": 65340,
+          "median": 0.046,
+          "p95": 0.125,
+          "p99": 0.172,
+          "max": 6.49
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0013439999999999997,
+          "p95": 0.0019420000000000001,
+          "p99": 0.002206,
+          "max": 0.007755000000000001
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "model.prepare": {
+        "invocations": 14850,
+        "per_invocation_us": {
+          "samples": 14850,
+          "median": 0.263,
+          "p95": 0.452,
+          "p99": 0.805,
+          "max": 6.955
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0013875,
+          "p95": 0.002358,
+          "p99": 0.002793,
+          "max": 0.008341000000000001
+        },
+        "allocations_inclusive": 133650,
+        "allocation_bytes_inclusive": 26017200
+      },
+      "scene.build": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 66.321,
+          "p95": 124.354,
+          "p99": 139.529,
+          "max": 161.472
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.06632099999999999,
+          "p95": 0.12435399999999999,
+          "p99": 0.139529,
+          "max": 0.161472
+        },
+        "allocations_inclusive": 201960,
+        "allocation_bytes_inclusive": 35485560
+      },
+      "ui.build": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.693,
+          "p95": 9.073,
+          "p99": 11.357,
+          "max": 34.19
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.003693,
+          "p95": 0.009073000000000001,
+          "p99": 0.011356999999999999,
+          "max": 0.03419
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.gpu_poll": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 3.995,
+          "p95": 8.854,
+          "p99": 14.522,
+          "max": 54.048
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.003995,
+          "p95": 0.008853999999999999,
+          "p99": 0.014522,
+          "max": 0.054048
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.quad_upload": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 5.3845,
+          "p95": 17.712,
+          "p99": 21.472,
+          "max": 47.673
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0053845,
+          "p95": 0.017712,
+          "p99": 0.021472,
+          "max": 0.047673
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.model_upload_submit": {
+        "invocations": 14850,
+        "per_invocation_us": {
+          "samples": 14850,
+          "median": 0.087,
+          "p95": 0.874,
+          "p99": 1.501,
+          "max": 10.03
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.001088,
+          "p95": 0.002445,
+          "p99": 0.0035130000000000005,
+          "max": 0.010365
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "render.submit": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 13.715499999999999,
+          "p95": 34.961,
+          "p99": 47.741,
+          "max": 68.739
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.013715499999999999,
+          "p95": 0.034961,
+          "p99": 0.047741,
+          "max": 0.06873900000000001
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      },
+      "frame.cpu": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 88.455,
+          "p95": 179.528,
+          "p99": 209.543,
+          "max": 265.384
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.08845499999999999,
+          "p95": 0.179528,
+          "p99": 0.209543,
+          "max": 0.265384
+        },
+        "allocations_inclusive": 201960,
+        "allocation_bytes_inclusive": 35485560
+      },
+      "present.swap": {
+        "invocations": 2970,
+        "per_invocation_us": {
+          "samples": 2970,
+          "median": 87.79650000000001,
+          "p95": 178.827,
+          "p99": 272.407,
+          "max": 745.991
+        },
+        "per_frame_ms": {
+          "samples": 2970,
+          "median": 0.0877965,
+          "p95": 0.17882699999999999,
+          "p99": 0.27240699999999995,
+          "max": 0.745991
+        },
+        "allocations_inclusive": 0,
+        "allocation_bytes_inclusive": 0
+      }
+    },
+    "counters": {
+      "allocations": {
+        "sum": 202058,
+        "max": 70,
+        "last": 68
+      },
+      "allocation_bytes": {
+        "sum": 35490803,
+        "max": 12055,
+        "last": 11948
+      },
+      "texture_upload_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "texture_storage_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "mesh_upload_bytes": {
+        "sum": 5346000,
+        "max": 1800,
+        "last": 1800
+      },
+      "quad_upload_bytes": {
+        "sum": 353596320,
+        "max": 119056,
+        "last": 119056
+      },
+      "draw_calls": {
+        "sum": 130680,
+        "max": 44,
+        "last": 44
+      },
+      "triangles": {
+        "sum": 6373620,
+        "max": 2146,
+        "last": 2146
+      },
+      "quads": {
+        "sum": 3142260,
+        "max": 1058,
+        "last": 1058
+      },
+      "models": {
+        "sum": 14850,
+        "max": 5,
+        "last": 5
+      },
+      "appearance_hits": {
+        "sum": 65340,
+        "max": 22,
+        "last": 22
+      },
+      "appearance_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "appearance_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "gpu_appearance_hits": {
+        "sum": 65340,
+        "max": 22,
+        "last": 22
+      },
+      "gpu_appearance_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "gpu_appearance_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_hits": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_misses": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "glyph_evictions": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packet_rx_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packet_tx_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "packets_decoded": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "outgoing_queue_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "framing_queue_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "optional_drops": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "resident_entities": {
+        "sum": 2206710,
+        "max": 743,
+        "last": 743
+      },
+      "visible_entities": {
+        "sum": 433620,
+        "max": 146,
+        "last": 146
+      },
+      "resident_projectiles": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "particles": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      },
+      "appearance_cpu_bytes": {
+        "sum": 300468960,
+        "max": 101168,
+        "last": 101168
+      },
+      "appearance_gpu_bytes": {
+        "sum": 300468960,
+        "max": 101168,
+        "last": 101168
+      },
+      "glyph_bytes": {
+        "sum": 0,
+        "max": 0,
+        "last": 0
+      }
+    }
+  },
+  "static_control_summary": {
+    "before-off": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1664,
+        "min": 0.0945,
+        "max": 0.1724
+      },
+      "cpu_mean_ms_median": 0.0904
+    },
+    "native-off": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1658,
+        "min": 0.1183,
+        "max": 0.1738
+      },
+      "cpu_mean_ms_median": 0.0921
+    },
+    "native-on": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1828,
+        "min": 0.1442,
+        "max": 0.1963
+      },
+      "cpu_mean_ms_median": 0.0977
+    },
+    "alloc-off": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1698,
+        "min": 0.1597,
+        "max": 0.1769
+      },
+      "cpu_mean_ms_median": 0.0946
+    },
+    "alloc-on": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.142,
+        "min": 0.1278,
+        "max": 0.1874
+      },
+      "cpu_mean_ms_median": 0.0952
+    },
+    "tracy-off": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1833,
+        "min": 0.153,
+        "max": 0.1908
+      },
+      "cpu_mean_ms_median": 0.093
+    },
+    "tracy-on": {
+      "repeats": 5,
+      "cpu_p95_ms": {
+        "median": 0.1907,
+        "min": 0.1324,
+        "max": 0.217
+      },
+      "cpu_mean_ms_median": 0.105
+    }
+  },
+  "static_control_runs": {
+    "protocol": "five paired static COMPONENT repetitions; all White Fountain dictionary records explicitly replaced with legal Cube to remove real-time emitters; original Nexus unmodified; rotated order; 3000 frames / 30-frame warmup; no captures; no concurrent builds/tests; Tracy off means on-demand client disconnected",
+    "runs": [
+      {
+        "name": "before-off-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7133588409997174,
+        "max_rss_kib": 151948,
+        "stdout": "build/quality-Q01/emitter-free-control/before-off-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0904,
+            "p95_ms": 0.1664,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0877,
+            "p95_ms": 0.1381,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-off-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7038182270007383,
+        "max_rss_kib": 151860,
+        "stdout": "build/quality-Q01/emitter-free-control/native-off-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0921,
+            "p95_ms": 0.1658,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0833,
+            "p95_ms": 0.1304,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-on-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/native-on-0.jsonl"
+        ],
+        "elapsed_seconds": 0.9024033369969402,
+        "max_rss_kib": 151236,
+        "stdout": "build/quality-Q01/emitter-free-control/native-on-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0979,
+            "p95_ms": 0.1828,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0951,
+            "p95_ms": 0.1703,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.22098800000000002,
+            "p95": 0.411196,
+            "p99": 0.466557,
+            "max": 1.243187
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.08578749999999999,
+            "p95": 0.182815,
+            "p99": 0.208297,
+            "max": 0.249354
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.0832495,
+            "p95": 0.170278,
+            "p99": 0.213454,
+            "max": 1.074719
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.000121,
+            "p95": 0.000562,
+            "p99": 0.001989,
+            "max": 0.004191
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13344,
+            "p95": 0.19996,
+            "p99": 0.2012,
+            "max": 0.20268
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00552,
+            "p95": 0.00816,
+            "p99": 0.00828,
+            "max": 0.0092
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.10864,
+            "p95": 0.162,
+            "p99": 0.1634,
+            "max": 0.16436
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.001,
+            "p95": 0.00152,
+            "p99": 0.00168,
+            "max": 0.00292
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01828,
+            "p95": 0.028,
+            "p99": 0.02948,
+            "max": 0.03036
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00056,
+            "p95": 0.00092,
+            "p99": 0.00116,
+            "max": 0.00268
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "allocation_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "alloc-off-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7645300930016674,
+        "max_rss_kib": 220500,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-off-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0988,
+            "p95_ms": 0.1769,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0923,
+            "p95_ms": 0.1457,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "alloc-on-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-0.jsonl",
+          "--trace",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/nexus-trace.json"
+        ],
+        "elapsed_seconds": 1.038362851999409,
+        "max_rss_kib": 220500,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-on-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0984,
+            "p95_ms": 0.1796,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1011,
+            "p95_ms": 0.1789,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2657545,
+            "p95": 0.446105,
+            "p99": 0.519508,
+            "max": 4.771785
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.088476,
+            "p95": 0.179552,
+            "p99": 0.209576,
+            "max": 0.265428
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.087832,
+            "p95": 0.178891,
+            "p99": 0.272443,
+            "max": 0.746115
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 9.8e-05,
+            "p95": 0.000571,
+            "p99": 0.00271,
+            "max": 0.015291
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.1698,
+            "p95": 0.19928,
+            "p99": 0.20088,
+            "max": 0.20428
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00696,
+            "p95": 0.00816,
+            "p99": 0.00836,
+            "max": 0.0134
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.13772,
+            "p95": 0.16164,
+            "p99": 0.16312,
+            "max": 0.16636
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00128,
+            "p95": 0.00156,
+            "p99": 0.00168,
+            "max": 0.00248
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.02372,
+            "p95": 0.0286,
+            "p99": 0.02952,
+            "max": 0.03076
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00072,
+            "p95": 0.00104,
+            "p99": 0.00124,
+            "max": 0.00168
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "tracy-off-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 1.0197306709997065,
+        "max_rss_kib": 221412,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-off-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.093,
+            "p95_ms": 0.1833,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0989,
+            "p95_ms": 0.1594,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "tracy-on-0",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/tracy-on-0.jsonl"
+        ],
+        "elapsed_seconds": 1.2146639370002958,
+        "max_rss_kib": 221412,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-on-0.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0995,
+            "p95_ms": 0.1529,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1174,
+            "p95_ms": 0.189,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.249555,
+            "p95": 0.390315,
+            "p99": 0.504536,
+            "max": 1.031918
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.090765,
+            "p95": 0.152911,
+            "p99": 0.225782,
+            "max": 0.287325
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.109275,
+            "p95": 0.188974,
+            "p99": 0.249001,
+            "max": 0.881068
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.0001,
+            "p95": 0.000606,
+            "p99": 0.002473,
+            "max": 0.008711
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.1548,
+            "p95": 0.19828,
+            "p99": 0.20076,
+            "max": 0.21364
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00636,
+            "p95": 0.00804,
+            "p99": 0.00832,
+            "max": 0.0148
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.12584,
+            "p95": 0.16036,
+            "p99": 0.16284,
+            "max": 0.16936
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.0012,
+            "p95": 0.00156,
+            "p99": 0.00172,
+            "max": 0.00228
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.02164,
+            "p95": 0.02776,
+            "p99": 0.0292,
+            "max": 0.03036
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00064,
+            "p95": 0.00096,
+            "p99": 0.0012,
+            "max": 0.00328
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "native-off-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.6489484480007377,
+        "max_rss_kib": 221612,
+        "stdout": "build/quality-Q01/emitter-free-control/native-off-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0829,
+            "p95_ms": 0.1183,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0732,
+            "p95_ms": 0.1222,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-on-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/native-on-1.jsonl"
+        ],
+        "elapsed_seconds": 0.8897246199994697,
+        "max_rss_kib": 221612,
+        "stdout": "build/quality-Q01/emitter-free-control/native-on-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0982,
+            "p95_ms": 0.1963,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0935,
+            "p95_ms": 0.1643,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2199395,
+            "p95": 0.405153,
+            "p99": 0.475223,
+            "max": 1.381513
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.085617,
+            "p95": 0.196325,
+            "p99": 0.224084,
+            "max": 0.667679
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.0811375,
+            "p95": 0.164265,
+            "p99": 0.216216,
+            "max": 1.236321
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.000104,
+            "p95": 0.000643,
+            "p99": 0.001701,
+            "max": 0.003824
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13856,
+            "p95": 0.2004,
+            "p99": 0.20184,
+            "max": 0.20972
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00572,
+            "p95": 0.00816,
+            "p99": 0.00832,
+            "max": 0.01212
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.11256,
+            "p95": 0.16252,
+            "p99": 0.16408,
+            "max": 0.1666
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00104,
+            "p95": 0.00156,
+            "p99": 0.00168,
+            "max": 0.00232
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.019,
+            "p95": 0.02808,
+            "p99": 0.02952,
+            "max": 0.03132
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00056,
+            "p95": 0.00092,
+            "p99": 0.00116,
+            "max": 0.00148
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "allocation_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "alloc-off-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.6716709980028099,
+        "max_rss_kib": 221612,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-off-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0858,
+            "p95_ms": 0.1602,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0786,
+            "p95_ms": 0.1256,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "alloc-on-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-1.jsonl"
+        ],
+        "elapsed_seconds": 0.8457155590003822,
+        "max_rss_kib": 221612,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-on-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.093,
+            "p95_ms": 0.1389,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0823,
+            "p95_ms": 0.1352,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.206573,
+            "p95": 0.308713,
+            "p99": 0.407368,
+            "max": 9.999301
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.086552,
+            "p95": 0.138942,
+            "p99": 0.198009,
+            "max": 0.248187
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.0720205,
+            "p95": 0.135204,
+            "p99": 0.178176,
+            "max": 0.297158
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 8.8e-05,
+            "p95": 0.000476,
+            "p99": 0.00168,
+            "max": 0.007765
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13056,
+            "p95": 0.19528,
+            "p99": 0.2006,
+            "max": 0.20228
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.0054,
+            "p95": 0.00776,
+            "p99": 0.00824,
+            "max": 0.01072
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.10632,
+            "p95": 0.15724,
+            "p99": 0.16264,
+            "max": 0.16396
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00096,
+            "p95": 0.00148,
+            "p99": 0.0016,
+            "max": 0.00212
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01788,
+            "p95": 0.02736,
+            "p99": 0.0292,
+            "max": 0.03096
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00056,
+            "p95": 0.00092,
+            "p99": 0.00112,
+            "max": 0.00176
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "tracy-off-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.9768228889988677,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-off-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0908,
+            "p95_ms": 0.1731,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0918,
+            "p95_ms": 0.1364,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "tracy-on-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/tracy-on-1.jsonl"
+        ],
+        "elapsed_seconds": 1.194186342003377,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-on-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0981,
+            "p95_ms": 0.1324,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1083,
+            "p95_ms": 0.1753,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.24180849999999998,
+            "p95": 0.349134,
+            "p99": 0.476444,
+            "max": 2.400518
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.09193799999999999,
+            "p95": 0.132394,
+            "p99": 0.209712,
+            "max": 0.311557
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.10130349999999999,
+            "p95": 0.175309,
+            "p99": 0.216555,
+            "max": 1.075249
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.000118,
+            "p95": 0.000501,
+            "p99": 0.001605,
+            "max": 0.007504
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.15272,
+            "p95": 0.19864,
+            "p99": 0.20068,
+            "max": 0.20232
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00628,
+            "p95": 0.00804,
+            "p99": 0.00824,
+            "max": 0.00852
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.12396,
+            "p95": 0.1604,
+            "p99": 0.16304,
+            "max": 0.16472
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00116,
+            "p95": 0.00152,
+            "p99": 0.0016,
+            "max": 0.002
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.02112,
+            "p95": 0.0278,
+            "p99": 0.02928,
+            "max": 0.03056
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00064,
+            "p95": 0.001,
+            "p99": 0.0012,
+            "max": 0.00148
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "before-off-1",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.6702862940001069,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/before-off-1.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0848,
+            "p95_ms": 0.1492,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0802,
+            "p95_ms": 0.1225,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-on-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/native-on-2.jsonl"
+        ],
+        "elapsed_seconds": 0.8542397409983096,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/native-on-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0924,
+            "p95_ms": 0.1442,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0882,
+            "p95_ms": 0.1447,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2126845,
+            "p95": 0.331582,
+            "p99": 0.42222,
+            "max": 0.519046
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.085298,
+            "p95": 0.144219,
+            "p99": 0.200139,
+            "max": 0.23427
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.07765549999999999,
+            "p95": 0.144701,
+            "p99": 0.18892,
+            "max": 0.262325
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 9.3e-05,
+            "p95": 0.000499,
+            "p99": 0.001493,
+            "max": 0.005121
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13316,
+            "p95": 0.18952,
+            "p99": 0.20068,
+            "max": 0.20224
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00552,
+            "p95": 0.0076,
+            "p99": 0.0082,
+            "max": 0.00848
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.10848,
+            "p95": 0.15296,
+            "p99": 0.16312,
+            "max": 0.1644
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.001,
+            "p95": 0.00144,
+            "p99": 0.00164,
+            "max": 0.00204
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01824,
+            "p95": 0.027,
+            "p99": 0.02908,
+            "max": 0.03024
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00056,
+            "p95": 0.00092,
+            "p99": 0.00112,
+            "max": 0.0016
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "allocation_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "alloc-off-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.677606602999731,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-off-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0878,
+            "p95_ms": 0.1597,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0781,
+            "p95_ms": 0.1345,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "alloc-on-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-2.jsonl"
+        ],
+        "elapsed_seconds": 0.8911621470033424,
+        "max_rss_kib": 221908,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-on-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0926,
+            "p95_ms": 0.1278,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0998,
+            "p95_ms": 0.1462,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.23116150000000002,
+            "p95": 0.311891,
+            "p99": 0.412748,
+            "max": 0.575932
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.086344,
+            "p95": 0.127759,
+            "p99": 0.197107,
+            "max": 0.249063
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.0990435,
+            "p95": 0.146222,
+            "p99": 0.187153,
+            "max": 0.411046
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.0001,
+            "p95": 0.000488,
+            "p99": 0.001661,
+            "max": 0.003726
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.14256,
+            "p95": 0.17992,
+            "p99": 0.19804,
+            "max": 0.20228
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00588,
+            "p95": 0.00736,
+            "p99": 0.00808,
+            "max": 0.00848
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.1158,
+            "p95": 0.146,
+            "p99": 0.16056,
+            "max": 0.16388
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00108,
+            "p95": 0.00144,
+            "p99": 0.0016,
+            "max": 0.002
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.0196,
+            "p95": 0.02552,
+            "p99": 0.0282,
+            "max": 0.03032
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.0006,
+            "p95": 0.00096,
+            "p99": 0.00116,
+            "max": 0.00156
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "tracy-off-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 1.0019663240018417,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-off-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0912,
+            "p95_ms": 0.153,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0995,
+            "p95_ms": 0.1575,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "tracy-on-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/tracy-on-2.jsonl"
+        ],
+        "elapsed_seconds": 1.2537196039993432,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-on-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.105,
+            "p95_ms": 0.1907,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1192,
+            "p95_ms": 0.1946,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.25696850000000004,
+            "p95": 0.434134,
+            "p99": 0.513747,
+            "max": 1.626068
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.093981,
+            "p95": 0.190721,
+            "p99": 0.2398,
+            "max": 0.303808
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.111723,
+            "p95": 0.194551,
+            "p99": 0.246959,
+            "max": 0.583126
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.000119,
+            "p95": 0.000706,
+            "p99": 0.00264,
+            "max": 0.005463
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.15892,
+            "p95": 0.2002,
+            "p99": 0.20152,
+            "max": 0.21724
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00656,
+            "p95": 0.0082,
+            "p99": 0.00844,
+            "max": 0.01352
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.12892,
+            "p95": 0.1622,
+            "p99": 0.1638,
+            "max": 0.17332
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.0012,
+            "p95": 0.00156,
+            "p99": 0.00168,
+            "max": 0.00232
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.02224,
+            "p95": 0.0284,
+            "p99": 0.02964,
+            "max": 0.03316
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00072,
+            "p95": 0.00108,
+            "p99": 0.00128,
+            "max": 0.00176
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "before-off-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.6507354590030445,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/before-off-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0813,
+            "p95_ms": 0.0945,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0758,
+            "p95_ms": 0.1235,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-off-2",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.730888807996962,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/native-off-2.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0959,
+            "p95_ms": 0.1713,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0853,
+            "p95_ms": 0.141,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "alloc-off-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7404131639996194,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-off-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0954,
+            "p95_ms": 0.1698,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0932,
+            "p95_ms": 0.1449,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "alloc-on-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-3.jsonl"
+        ],
+        "elapsed_seconds": 0.914783542000805,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-on-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.1028,
+            "p95_ms": 0.1874,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0965,
+            "p95_ms": 0.1666,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.228664,
+            "p95": 0.39801,
+            "p99": 0.469343,
+            "max": 0.852489
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.0886015,
+            "p95": 0.187405,
+            "p99": 0.216754,
+            "max": 0.358765
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.08755299999999999,
+            "p95": 0.166572,
+            "p99": 0.225759,
+            "max": 0.553981
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 9.9e-05,
+            "p95": 0.000573,
+            "p99": 0.002394,
+            "max": 0.0046
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13616,
+            "p95": 0.19804,
+            "p99": 0.21032,
+            "max": 0.3374
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00568,
+            "p95": 0.00812,
+            "p99": 0.01132,
+            "max": 0.10576
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.11064,
+            "p95": 0.15992,
+            "p99": 0.16324,
+            "max": 0.302
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.001,
+            "p95": 0.00152,
+            "p99": 0.00232,
+            "max": 0.006
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01868,
+            "p95": 0.02748,
+            "p99": 0.02924,
+            "max": 0.03572
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.0006,
+            "p95": 0.00096,
+            "p99": 0.00164,
+            "max": 0.0134
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "tracy-off-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 1.0512286670018511,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-off-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0974,
+            "p95_ms": 0.1891,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1064,
+            "p95_ms": 0.1734,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "tracy-on-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/tracy-on-3.jsonl"
+        ],
+        "elapsed_seconds": 1.2628520369980833,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-on-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.1057,
+            "p95_ms": 0.203,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1167,
+            "p95_ms": 0.1991,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2498445,
+            "p95": 0.443845,
+            "p99": 0.523748,
+            "max": 2.395146
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.09277350000000001,
+            "p95": 0.20301,
+            "p99": 0.237754,
+            "max": 0.444779
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.10796,
+            "p95": 0.199116,
+            "p99": 0.256205,
+            "max": 0.892486
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 8.3e-05,
+            "p95": 0.000633,
+            "p99": 0.002512,
+            "max": 0.004328
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.14928,
+            "p95": 0.1998,
+            "p99": 0.20856,
+            "max": 0.34868
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00616,
+            "p95": 0.00824,
+            "p99": 0.00992,
+            "max": 0.15612
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.1212,
+            "p95": 0.16164,
+            "p99": 0.164,
+            "max": 0.28984
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00112,
+            "p95": 0.00156,
+            "p99": 0.00188,
+            "max": 0.00584
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.0206,
+            "p95": 0.02792,
+            "p99": 0.02952,
+            "max": 0.03476
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00068,
+            "p95": 0.00104,
+            "p99": 0.00128,
+            "max": 0.00976
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "before-off-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7271364580010413,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/before-off-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0935,
+            "p95_ms": 0.1711,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0904,
+            "p95_ms": 0.1446,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-off-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7381944739972823,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/native-off-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0966,
+            "p95_ms": 0.1738,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0907,
+            "p95_ms": 0.1434,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-on-3",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/native-on-3.jsonl"
+        ],
+        "elapsed_seconds": 0.8930980989971431,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/native-on-3.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0977,
+            "p95_ms": 0.1838,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0954,
+            "p95_ms": 0.1616,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2225975,
+            "p95": 0.396493,
+            "p99": 0.469413,
+            "max": 1.100309
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.086474,
+            "p95": 0.183799,
+            "p99": 0.212003,
+            "max": 0.519377
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.087408,
+            "p95": 0.161569,
+            "p99": 0.211559,
+            "max": 0.945381
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 8.7e-05,
+            "p95": 0.000531,
+            "p99": 0.002192,
+            "max": 0.005432
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13656,
+            "p95": 0.19892,
+            "p99": 0.20168,
+            "max": 0.34992
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00564,
+            "p95": 0.00804,
+            "p99": 0.0086,
+            "max": 0.15352
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.11096,
+            "p95": 0.15964,
+            "p99": 0.16336,
+            "max": 0.31012
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.001,
+            "p95": 0.00148,
+            "p99": 0.00164,
+            "max": 0.00512
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01872,
+            "p95": 0.02744,
+            "p99": 0.0294,
+            "max": 0.03196
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00056,
+            "p95": 0.00092,
+            "p99": 0.00108,
+            "max": 0.00168
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "allocation_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "alloc-on-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/alloc-on-4.jsonl"
+        ],
+        "elapsed_seconds": 0.8853891340004338,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-on-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0952,
+            "p95_ms": 0.142,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0947,
+            "p95_ms": 0.1507,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.223356,
+            "p95": 0.31822,
+            "p99": 0.432097,
+            "max": 2.450795
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.0868965,
+            "p95": 0.141964,
+            "p99": 0.213527,
+            "max": 0.285375
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.086227,
+            "p95": 0.150691,
+            "p99": 0.187114,
+            "max": 2.123341
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.00011,
+            "p95": 0.000584,
+            "p99": 0.002256,
+            "max": 0.008448
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13764,
+            "p95": 0.17864,
+            "p99": 0.19992,
+            "max": 0.22144
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00568,
+            "p95": 0.00744,
+            "p99": 0.0082,
+            "max": 0.08792
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.11196,
+            "p95": 0.14348,
+            "p99": 0.16172,
+            "max": 0.16504
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.00104,
+            "p95": 0.0014,
+            "p99": 0.00164,
+            "max": 0.00448
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01888,
+            "p95": 0.02496,
+            "p99": 0.02876,
+            "max": 0.03016
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.0006,
+            "p95": 0.00092,
+            "p99": 0.00112,
+            "max": 0.00272
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "tracy-off-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 1.0633423500003119,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-off-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0983,
+            "p95_ms": 0.1908,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1107,
+            "p95_ms": 0.1721,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "tracy-on-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/tracy-on-4.jsonl"
+        ],
+        "elapsed_seconds": 1.3474838879992603,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/tracy-on-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.1152,
+            "p95_ms": 0.217,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.1278,
+            "p95_ms": 0.2135,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2619055,
+            "p95": 0.479613,
+            "p99": 0.659763,
+            "max": 4.4233
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.0972225,
+            "p95": 0.217018,
+            "p99": 0.25217,
+            "max": 0.48676
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.1133725,
+            "p95": 0.213463,
+            "p99": 0.394913,
+            "max": 1.336011
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 0.000131,
+            "p95": 0.000726,
+            "p99": 0.002791,
+            "max": 0.017558
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.15984,
+            "p95": 0.20016,
+            "p99": 0.20768,
+            "max": 0.39788
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.0066,
+            "p95": 0.00824,
+            "p99": 0.01216,
+            "max": 0.1568
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.12916,
+            "p95": 0.162,
+            "p99": 0.16436,
+            "max": 0.28392
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.0012,
+            "p95": 0.0016,
+            "p99": 0.00228,
+            "max": 0.00812
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.02228,
+            "p95": 0.02832,
+            "p99": 0.0296,
+            "max": 0.03244
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.00072,
+            "p95": 0.00108,
+            "p99": 0.00136,
+            "max": 0.06332
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 202058,
+            "max": 70,
+            "last": 68
+          },
+          "allocation_bytes": {
+            "sum": 35490803,
+            "max": 12055,
+            "last": 11948
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "before-off-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7475617310010421,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/before-off-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0939,
+            "p95_ms": 0.1724,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.095,
+            "p95_ms": 0.1446,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-off-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.6798230360000161,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/native-off-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0865,
+            "p95_ms": 0.1602,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0798,
+            "p95_ms": 0.1308,
+            "samples": 2970
+          }
+        }
+      },
+      {
+        "name": "native-on-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--telemetry",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/native-on-4.jsonl"
+        ],
+        "elapsed_seconds": 0.876928264999151,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/native-on-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0948,
+            "p95_ms": 0.171,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0936,
+            "p95_ms": 0.1529,
+            "samples": 2970
+          }
+        },
+        "raw_metrics": {
+          "interval_ms": {
+            "samples": 2970,
+            "median": 0.2207585,
+            "p95": 0.365046,
+            "p99": 0.455394,
+            "max": 0.957023
+          },
+          "cpu_ms": {
+            "samples": 2970,
+            "median": 0.086237,
+            "p95": 0.170971,
+            "p99": 0.194911,
+            "max": 0.250542
+          },
+          "present_ms": {
+            "samples": 2970,
+            "median": 0.08156350000000001,
+            "p95": 0.152867,
+            "p99": 0.203727,
+            "max": 0.706435
+          },
+          "paced_ms": {
+            "samples": 2970,
+            "median": 9.4e-05,
+            "p95": 0.000486,
+            "p99": 0.001706,
+            "max": 0.003395
+          },
+          "input_to_submit_ms": {
+            "samples": 0
+          }
+        },
+        "gpu_metrics": {
+          "total_ms": {
+            "samples": 2969,
+            "median": 0.13632,
+            "p95": 0.1966,
+            "p99": 0.20056,
+            "max": 0.20444
+          },
+          "upload_ms": {
+            "samples": 2969,
+            "median": 0.00564,
+            "p95": 0.00792,
+            "p99": 0.00828,
+            "max": 0.01072
+          },
+          "world_ms": {
+            "samples": 2969,
+            "median": 0.11076,
+            "p95": 0.15856,
+            "p99": 0.1628,
+            "max": 0.16684
+          },
+          "effects_ms": {
+            "samples": 2969,
+            "median": 0.001,
+            "p95": 0.00148,
+            "p99": 0.0016,
+            "max": 0.00276
+          },
+          "ui_ms": {
+            "samples": 2969,
+            "median": 0.01872,
+            "p95": 0.02728,
+            "p99": 0.0292,
+            "max": 0.03028
+          },
+          "models_ms": {
+            "samples": 2969,
+            "median": 0.0006,
+            "p95": 0.00092,
+            "p99": 0.00116,
+            "max": 0.00344
+          }
+        },
+        "normal_frames": 2970,
+        "work_counters": {
+          "allocations": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "allocation_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_upload_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "texture_storage_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "mesh_upload_bytes": {
+            "sum": 5346000,
+            "max": 1800,
+            "last": 1800
+          },
+          "quad_upload_bytes": {
+            "sum": 353596320,
+            "max": 119056,
+            "last": 119056
+          },
+          "draw_calls": {
+            "sum": 130680,
+            "max": 44,
+            "last": 44
+          },
+          "triangles": {
+            "sum": 6373620,
+            "max": 2146,
+            "last": 2146
+          },
+          "quads": {
+            "sum": 3142260,
+            "max": 1058,
+            "last": 1058
+          },
+          "models": {
+            "sum": 14850,
+            "max": 5,
+            "last": 5
+          },
+          "appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_hits": {
+            "sum": 65340,
+            "max": 22,
+            "last": 22
+          },
+          "gpu_appearance_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "gpu_appearance_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_hits": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_misses": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "glyph_evictions": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_rx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packet_tx_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "packets_decoded": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "outgoing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "framing_queue_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "optional_drops": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "resident_entities": {
+            "sum": 2206710,
+            "max": 743,
+            "last": 743
+          },
+          "visible_entities": {
+            "sum": 433620,
+            "max": 146,
+            "last": 146
+          },
+          "resident_projectiles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "particles": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          },
+          "appearance_cpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "appearance_gpu_bytes": {
+            "sum": 300468960,
+            "max": 101168,
+            "last": 101168
+          },
+          "glyph_bytes": {
+            "sum": 0,
+            "max": 0,
+            "last": 0
+          }
+        },
+        "gpu_missing_frames": [
+          2999
+        ],
+        "dropped_zones": 0
+      },
+      {
+        "name": "alloc-off-4",
+        "command": [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/emitter-free-control/map.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "3000",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000"
+        ],
+        "elapsed_seconds": 0.7243760940000357,
+        "max_rss_kib": 222180,
+        "stdout": "build/quality-Q01/emitter-free-control/alloc-off-4.log",
+        "legacy_metrics": {
+          "CPU event/build/submit": {
+            "mean_ms": 0.0946,
+            "p95_ms": 0.1723,
+            "samples": 2970
+          },
+          "Present": {
+            "mean_ms": 0.0867,
+            "p95_ms": 0.1355,
+            "samples": 2970
+          }
+        }
+      }
+    ]
+  },
+  "tracy_connected_runs": [
+    {
+      "repeat": 0,
+      "client_log": "tracy-control-0-client.log",
+      "capture_log": "tracy-control-0-capture.log",
+      "cpu_mean_ms": 0.1032,
+      "cpu_p95_ms": 0.1903,
+      "trace": "tracy-control-0.tracy"
+    },
+    {
+      "repeat": 1,
+      "client_log": "tracy-control-1-client.log",
+      "capture_log": "tracy-control-1-capture.log",
+      "cpu_mean_ms": 0.0924,
+      "cpu_p95_ms": 0.1352,
+      "trace": "tracy-control-1.tracy"
+    },
+    {
+      "repeat": 2,
+      "client_log": "tracy-control-2-client.log",
+      "capture_log": "tracy-control-2-capture.log",
+      "cpu_mean_ms": 0.0926,
+      "cpu_p95_ms": 0.1541,
+      "trace": "tracy-control-2.tracy"
+    }
+  ],
+  "tracy_original_capture": {
+    "capture": [
+      "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/tracy-capture/tracy-capture",
+      "-a",
+      "127.0.0.1",
+      "-o",
+      "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/nexus.tracy",
+      "-m",
+      "256"
+    ],
+    "client": [
+      "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+      "--map",
+      "../realm-server/Resources/Worlds/Nexus/0.jm",
+      "--fonts",
+      "build/fonts-client",
+      "--hud-art",
+      "build/hud-art",
+      "--hidden",
+      "--benchmark",
+      "--frames",
+      "20000",
+      "--width",
+      "1920",
+      "--height",
+      "1080",
+      "--scene-time",
+      "1000",
+      "--effect-time",
+      "1000"
+    ],
+    "client_exit": 0,
+    "capture_exit": 0,
+    "trace_bytes": 5659110
+  },
+  "captures": [
+    {
+      "drawable": [
+        800,
+        600
+      ],
+      "commands": [
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "800",
+          "--height",
+          "600",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/before-800x600.png"
+        ],
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "800",
+          "--height",
+          "600",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/telemetry-800x600.png",
+          "--telemetry",
+          "build/quality-Q01/capture-800x600.jsonl"
+        ]
+      ],
+      "changed_pixels": 0,
+      "max_channel_difference": 0
+    },
+    {
+      "drawable": [
+        1280,
+        720
+      ],
+      "commands": [
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "1280",
+          "--height",
+          "720",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/before-1280x720.png"
+        ],
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "1280",
+          "--height",
+          "720",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/telemetry-1280x720.png",
+          "--telemetry",
+          "build/quality-Q01/capture-1280x720.jsonl"
+        ]
+      ],
+      "changed_pixels": 0,
+      "max_channel_difference": 0
+    },
+    {
+      "drawable": [
+        1920,
+        1080
+      ],
+      "commands": [
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/before-1920x1080.png"
+        ],
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "1920",
+          "--height",
+          "1080",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/telemetry-1920x1080.png",
+          "--telemetry",
+          "build/quality-Q01/capture-1920x1080.jsonl"
+        ]
+      ],
+      "changed_pixels": 0,
+      "max_channel_difference": 0
+    },
+    {
+      "drawable": [
+        3840,
+        2160
+      ],
+      "commands": [
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q01/viewer-before",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "3840",
+          "--height",
+          "2160",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/before-3840x2160.png"
+        ],
+        [
+          "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+          "--map",
+          "../realm-server/Resources/Worlds/Nexus/0.jm",
+          "--fonts",
+          "build/fonts-client",
+          "--hud-art",
+          "build/hud-art",
+          "--hidden",
+          "--benchmark",
+          "--frames",
+          "4",
+          "--width",
+          "3840",
+          "--height",
+          "2160",
+          "--scene-time",
+          "1000",
+          "--effect-time",
+          "1000",
+          "--capture",
+          "build/quality-Q01/telemetry-3840x2160.png",
+          "--telemetry",
+          "build/quality-Q01/capture-3840x2160.jsonl"
+        ]
+      ],
+      "changed_pixels": 0,
+      "max_channel_difference": 0
+    },
+    {
+      "visible_command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+        "--map",
+        "../realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "build/fonts-client",
+        "--hud-art",
+        "build/hud-art",
+        "--benchmark",
+        "--frames",
+        "120",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--telemetry",
+        "build/quality-Q01/visible.jsonl",
+        "--capture",
+        "build/quality-Q01/visible.png"
+      ],
+      "actual_drawable": [
+        1920,
+        1024
+      ]
+    }
+  ],
+  "cold_footprints": [
+    {
+      "label": "native",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--map",
+        "../realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "build/fonts-client",
+        "--hud-art",
+        "build/hud-art",
+        "--hidden",
+        "--benchmark",
+        "--frames",
+        "3000",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--scene-time",
+        "1000",
+        "--effect-time",
+        "1000"
+      ],
+      "exit": 0,
+      "rusage_maxrss_kib": 151500,
+      "binary_bytes": 4106352
+    },
+    {
+      "label": "alloc",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+        "--map",
+        "../realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "build/fonts-client",
+        "--hud-art",
+        "build/hud-art",
+        "--hidden",
+        "--benchmark",
+        "--frames",
+        "3000",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--scene-time",
+        "1000",
+        "--effect-time",
+        "1000"
+      ],
+      "exit": 0,
+      "rusage_maxrss_kib": 150976,
+      "binary_bytes": 4103648
+    },
+    {
+      "label": "tracy",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-tracy/realm_viewer",
+        "--map",
+        "../realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "build/fonts-client",
+        "--hud-art",
+        "build/hud-art",
+        "--hidden",
+        "--benchmark",
+        "--frames",
+        "3000",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--scene-time",
+        "1000",
+        "--effect-time",
+        "1000"
+      ],
+      "exit": 0,
+      "rusage_maxrss_kib": 163812,
+      "binary_bytes": 4608840
+    },
+    {
+      "label": "alloc-export",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build-quality-profile/realm_viewer",
+        "--map",
+        "../realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "build/fonts-client",
+        "--hud-art",
+        "build/hud-art",
+        "--hidden",
+        "--benchmark",
+        "--frames",
+        "3000",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--scene-time",
+        "1000",
+        "--effect-time",
+        "1000",
+        "--telemetry",
+        "build/quality-Q01/footprint.jsonl"
+      ],
+      "exit": 0,
+      "rusage_maxrss_kib": 151860,
+      "binary_bytes": 4103648
+    }
+  ],
+  "limits": {
+    "warmup": "30 frames, not 10 seconds",
+    "runs": "3000 frames, five rotated short repetitions, not 60-second protocol",
+    "gpu_models": "first 32 models; partial coverage explicit",
+    "allocations": "main-thread C++ traffic only; no malloc/free/live-heap/worker accounting",
+    "normal_samples": "warmup/readback excluded; following capture interval invalid",
+    "original_nexus_comparison": "realtime emitters vary work; exploratory only; static diagnostic Cube replacement is explicitly separate",
+    "input": "event-to-submit only, ~1ms timestamps; no physical input/display measurement",
+    "missing_metrics_document": "docs/client-quality/telemetry.md"
+  },
+  "preservation": {
+    "modified_readme_and_old_feature_ledger": "SHA256 unchanged from start",
+    "Q00_tools_handoff_evidence": "SHA256 unchanged from start",
+    "sibling_repositories": "clean",
+    "personal_settings_accounts": "not changed"
+  },
+  "commands_and_manifests": [
+    "build/quality-Q01/measure.py",
+    "build/quality-Q01/emitter-free-control/measure.py",
+    "build/quality-Q01/emitter-free-control/definition.json",
+    "build/quality-Q01/tracy-live.py",
+    "build/quality-Q01/verify-captures.py"
+  ]
+}

@@ -1,5 +1,6 @@
 #pragma once
 #include "realm/atlas.hpp"
+#include "realm/telemetry.hpp"
 #include "realm/camera.hpp"
 #include "realm/post_effects.hpp"
 #include <array>
@@ -16,10 +17,11 @@ struct Quad {
     std::array<float, 4> uv{};
     float page{};
     std::array<float, 4> multiply{1, 1, 1, 1}, offset{};
-    float kind{}; // 0 sprite, 1 shadow, 2 solid, 3 repeat, 4 crop, 5 UI bitmap, 6 world bitmap, 7 particle square, 8 thrown fill, 9 projected mesh (owner is a MeshDraw)
+    float kind{}; // 0 sprite, 1 shadow, 2 solid, 3 repeat, 4 crop, 5 UI bitmap, 6 world bitmap, 7 particle square, 8 thrown fill,
+                  // 9 model: an instance from model_quad (no owner), or a prepared reference MeshDraw owner
     std::array<float, 2> uv_offset{};
     std::shared_ptr<const void> owner; // Keeps lazy GPU storage alive through submission.
-    GLuint texture{}; // zero: shared sprite atlas; otherwise a retained UI surface
+    GLuint texture{}; // zero: shared sprite atlas (static sprites or dynamic-page bitmaps, kinds 5/6/8 clamp to uv); otherwise a retained UI surface
 };
 // A model already projected to screen pixels, with back faces removed. Triangles
 // are grouped by material; vertices are expanded three per triangle.
@@ -69,14 +71,25 @@ public:
     void draw(const Atlas& atlas, std::span<const Quad> quads, int width, int height, int clip_width,std::span<const Quad> overlay={},const ScreenEffects& effects={});
     // Resolves to the default framebuffer; the world is rendered offscreen only while a filter is active.
     [[nodiscard]] std::size_t draw_calls() const { return draw_calls_; }
+    // Timing is opt-in. The fixed query ring skips busy slots; never waits.
+    void timing(telemetry::Recorder* recorder,std::uint64_t frame_id,bool normal) { recorder_=recorder;sample_frame_=frame_id;sample_normal_=normal; }
+    void poll_gpu();
+    [[nodiscard]] std::size_t pending_gpu() const;
+    [[nodiscard]] std::size_t skipped_gpu() const { return skipped_gpu_; }
     [[nodiscard]] double gpu_ms() const { return gpu_ms_; }
     [[nodiscard]] Image capture(int width, int height) const;
 private:
     std::array<float,4> clear_color_{0,0,0,1};
-    GLuint program_{}, vao_{}, mesh_program_{}, mesh_vao_{}, mesh_buffer_{};
+    GLuint program_{}, vao_{}, mesh_program_{}, mesh_vao_{}, mesh_buffer_{}, model_program_{}, model_vao_{}, model_geometry_{};
     std::array<GLuint, 3> buffers_{};
-    std::array<GLuint, 8> timers_{};
-    std::array<bool, 8> timer_pending_{};
+    // Five phase boundaries and 32 model draw start/end pairs per slot.
+    static constexpr std::size_t model_query_limit=32, timestamps=5+2*model_query_limit;
+    struct Timer { std::array<GLuint,timestamps> ids{};bool pending{},normal{};std::uint64_t frame_id{};std::size_t models{},models_total{}; };
+    std::array<Timer,8> timers_{};
+    telemetry::Recorder* recorder_{};
+    std::uint64_t sample_frame_{};
+    bool sample_normal_{};
+    std::size_t skipped_gpu_{};
     std::size_t frame_{}, capacity_{}, draw_calls_{};
     double gpu_ms_{-1};
     GLuint post_program_{}, post_vao_{};
@@ -86,6 +99,6 @@ private:
     void ensure_post_targets(int width, int height);
     void run_post(int width, int height, int clip_width, const ScreenEffects& effects);
     void run_screen_overlays(int width, int height, int clip_width, const ScreenEffects& effects);
-    GLint viewport_location_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{}, mesh_textured_{};
+    GLint viewport_location_{}, model_viewport_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{}, mesh_textured_{};
 };
 }

@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/minimap.hpp"
 #include "flash_assets.hpp"
 #include "flash_bitmap_colors.hpp"
@@ -94,16 +95,21 @@ void Minimap::set_pixel_scale(double scale) {
 void Minimap::zoom_in() { zoom_index_=std::max(0,zoom_index_-1);button_zoom_=zoom_index_; }
 void Minimap::zoom_out() { if(!zoom_levels_.empty())zoom_index_=std::min(static_cast<int>(zoom_levels_.size())-1,zoom_index_+1);button_zoom_=zoom_index_; }
 bool Minimap::update(const World& world,const Entity& focus,double angle) {
+    REALM_ZONE("minimap.update");
     auto& view=pending_;view.focus=focus.position;view.angle=angle;view.markers.clear();view.markers.reserve(world.entities().size());
-    for(const auto& entity:world.entities()) {
-        const auto* def=catalog_.object(entity.type);if(!def||def->no_minimap||entity.id==focus.id||entity.projectile)continue;
+    { REALM_ZONE("minimap.markers");
+    // Marker kinds only, in dense order: markers blend, so they keep the order a full scan would draw them in.
+    world.each_marker_candidate([&](const Entity& entity) {
+        const auto* def=catalog_.object(entity.type);if(!def||def->no_minimap||entity.id==focus.id||entity.projectile)return;
         std::uint32_t color{};
         if(entity.player)color=!focus.guild.empty()&&focus.guild==entity.guild ? 65280U : 16776960U;
         else if(def->class_name=="Character")color=def->enemy ? 16711680U : object_color(entity.type,static_cast<std::uint32_t>(entity.id));
         else if(def->class_name=="Portal"||def->class_name=="GuildHallPortal")color=255;
-        else continue;
+        else return;
         view.markers.push_back({entity.position,color});
+    });
     }
+    REALM_ZONE("minimap.render");
     return render(world,view);
 }
 Vec2 Minimap::marker_position(const World& world,const Entity& focus,Vec2 position) const {
@@ -119,13 +125,13 @@ Vec2 Minimap::marker_position(const World& world,const Entity& focus,Vec2 positi
 std::vector<std::int32_t> Minimap::hover_players(const World& world,const Entity& focus,Vec2 pointer) const {
     std::vector<std::int32_t> result;
     if(pointer.x<0||pointer.y<0||pointer.x>=192||pointer.y>=192)return result;
-    for(const auto& entity:world.entities()) {
+    world.each_player([&](const Entity& entity) {
         const auto* def=catalog_.object(entity.type);
-        if(!entity.player||entity.id==focus.id||!def||def->no_minimap)continue;
+        if(!entity.player||entity.id==focus.id||!def||def->no_minimap)return;
         const auto p=marker_position(world,focus,entity.position);
         const double dx=pointer.x-p.x,dy=pointer.y-p.y;
         if(dx*dx+dy*dy<25)result.push_back(entity.id);
-    }
+    });
     return result;
 }
 void Minimap::rectangle(double x,double y,double width,double height,std::uint32_t color) {

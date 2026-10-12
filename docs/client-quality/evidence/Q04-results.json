@@ -1,0 +1,254 @@
+{
+ "task": "Q04",
+ "status": "complete",
+ "date": "2026-10-11",
+ "profile": "Q00-v1 hardware (AMD RX 6700 XT, Mesa radeonsi), Release, hidden 1920x1080 full quality, vsync0 cap0; short discovery windows (warmup 5 + measured 5 ticks, x5) paired against a before-binary (build/quality-Q04/viewer-before); component/mixed evidence only; S3/144 Hz remains UNQUALIFIED",
+ "source_sha256": {
+  "src/scene.cpp": "50f9ae5a875d1883071ab17b7dd922e6673038c75ef8d6acfea8d5e3432e0bf5",
+  "include/realm/scene.hpp": "f12c8df23eebce843054b80f622f757b34846c510a414d7d242314510f9c5b82",
+  "src/world.cpp": "abb6865ba6677ada4f09f6a072129a32a1d7481632ccb44a15dbf9fbe00da1b2",
+  "include/realm/world.hpp": "4182135d99253650aedfcc8eb17ce2144ca757bff44ffbab9c2a1fa3e53be5e1",
+  "src/appearance.cpp": "280db6cd73c4c1c6c69f264ea3e802f1e3595b64ef8f506db05a4d28376a772b",
+  "src/model.cpp": "eb93cc3dc888b9904c2a83d1af2974b95a1c82d17c097a24e2cdbb329eb64f6e",
+  "include/realm/model.hpp": "0e881743d3b4ac6d07f487ffc0986fb7ba52ed9e6db5df0e28b79e7036f588be",
+  "src/minimap.cpp": "e9dde02d6d87d1ffa26f2566a24a3fb43a53eda0c553f14a900d1cf2c10880af",
+  "src/party.cpp": "47d1522e6abb839de30c1c0f857f33673439feae31e3619936bb68d971b32399",
+  "src/stress.cpp": "05d2f8d7ba4d58b416b25c1bfd6cf2aa8646e36e114c43d6945b1c8cc5361371",
+  "include/realm/stress.hpp": "90f9cdb373bf3dd8aa36ff93839f660956375380bb8df383b8648f3ff4db7bbc",
+  "tests/visibility_tests.cpp": "ba18e75177406ec37df4498999d4f0aba9d1ff0a72f3ee7311976d4b7720f2ba",
+  "tests/world_query_tests.cpp": "99421bafe2623a33ce48383543ff4de4af63e176e21ee2088e2f022adc9af6db"
+ },
+ "tests": {
+  "release_ctest": "53/53 (new world_queries, visibility_culling)",
+  "sanitize_ctest": "46/46 ASan/UBSan, viewer disabled (new world_queries)",
+  "graphics_sanitizers": "19/19 incl. visibility_culling, world_queries, stress*, telemetry*, postfx, models, particles, status, projectile*",
+  "visibility_culling": "63 camera configurations x 3 rounds, ~28k viewport-reaching quads identical in content and painter order versus the cull-disabled oracle; 30 seeds pass; 3 mutations fail (model extent off 6/6, top margin 100->40 6/6, bottom margin 400->150 6/6)",
+  "world_queries": "17,683 checks vs verbatim original scans (6,000 random worlds, exact ties, 1.0 boundary, non-finite positions, removals)"
+ },
+ "paired_quad_stream": "59 scenarios x (before, after) with REALM_QUAD_CHECKSUM=1: 57 byte-identical painter streams, state/packet checksums and hits identical in all 59; the 2 differing (S4-models-spread, S4-mixed-spread) draw 2 more model objects (+9 quads) at the screen edge: the model-extent fix",
+ "zone_medians_ms_before_after": [
+  {
+   "scenario": "S3-combat-cluster",
+   "before": {
+    "scene.visibility": 0.311,
+    "scene.sort_entities": 2.229,
+    "scene.sort_painter_stream": 1.255,
+    "world.interactive_target": 0.158,
+    "scene.world_dyes": 0.436,
+    "scene.build": 203.593,
+    "cpu_p95_median_min_max": [
+     340.04,
+     334.15,
+     344.08
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.379,
+    "scene.sort_entities": 0.839,
+    "scene.sort_painter_stream": 0.288,
+    "world.interactive_target": 0.0,
+    "scene.world_dyes": 0.201,
+    "scene.build": 200.239,
+    "cpu_p95_median_min_max": [
+     336.07,
+     332.41,
+     338.53
+    ]
+   }
+  },
+  {
+   "scenario": "S3-mixed-dense",
+   "before": {
+    "scene.visibility": 0.12,
+    "scene.sort_entities": 1.145,
+    "scene.sort_painter_stream": 0.627,
+    "world.interactive_target": 0.137,
+    "scene.world_dyes": 0.103,
+    "scene.build": 724.782,
+    "cpu_p95_median_min_max": [
+     810.35,
+     791.04,
+     816.66
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.154,
+    "scene.sort_entities": 0.447,
+    "scene.sort_painter_stream": 0.478,
+    "world.interactive_target": 0.006,
+    "scene.world_dyes": 0.089,
+    "scene.build": 726.613,
+    "cpu_p95_median_min_max": [
+     811.12,
+     794.9,
+     870.91
+    ]
+   }
+  },
+  {
+   "scenario": "S3-mixed-spread",
+   "before": {
+    "scene.visibility": 0.217,
+    "scene.sort_entities": 1.2,
+    "scene.sort_painter_stream": 1.306,
+    "world.interactive_target": 0.279,
+    "scene.world_dyes": 0.442,
+    "scene.build": 142.365,
+    "cpu_p95_median_min_max": [
+     178.75,
+     176.97,
+     180.43
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.336,
+    "scene.sort_entities": 0.468,
+    "scene.sort_painter_stream": 0.464,
+    "world.interactive_target": 0.007,
+    "scene.world_dyes": 0.18,
+    "scene.build": 139.74,
+    "cpu_p95_median_min_max": [
+     177.28,
+     176.51,
+     178.98
+    ]
+   }
+  },
+  {
+   "scenario": "S3-models-dense",
+   "before": {
+    "scene.visibility": 0.021,
+    "scene.sort_entities": 0.352,
+    "scene.sort_painter_stream": 0.087,
+    "world.interactive_target": 0.009,
+    "scene.world_dyes": 0.017,
+    "scene.build": 2.592,
+    "cpu_p95_median_min_max": [
+     7.59,
+     6.77,
+     8.14
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.027,
+    "scene.sort_entities": 0.156,
+    "scene.sort_painter_stream": 0.011,
+    "world.interactive_target": 0.002,
+    "scene.world_dyes": 0.012,
+    "scene.build": 2.263,
+    "cpu_p95_median_min_max": [
+     7.26,
+     6.75,
+     7.89
+    ]
+   }
+  },
+  {
+   "scenario": "S3-players-dense",
+   "before": {
+    "scene.visibility": 0.024,
+    "scene.sort_entities": 0.357,
+    "scene.sort_painter_stream": 0.035,
+    "world.interactive_target": 0.023,
+    "scene.world_dyes": 0.032,
+    "scene.build": 193.54,
+    "cpu_p95_median_min_max": [
+     202.5,
+     199.79,
+     226.43
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.032,
+    "scene.sort_entities": 0.151,
+    "scene.sort_painter_stream": 0.008,
+    "world.interactive_target": 0.0,
+    "scene.world_dyes": 0.028,
+    "scene.build": 195.287,
+    "cpu_p95_median_min_max": [
+     206.27,
+     204.12,
+     223.51
+    ]
+   }
+  },
+  {
+   "scenario": "S4-mixed-spread",
+   "before": {
+    "scene.visibility": 0.551,
+    "scene.sort_entities": 1.674,
+    "scene.sort_painter_stream": 1.207,
+    "world.interactive_target": 0.571,
+    "scene.world_dyes": 0.72,
+    "scene.build": 288.913,
+    "cpu_p95_median_min_max": [
+     382.51,
+     382.06,
+     391.04
+    ]
+   },
+   "after": {
+    "scene.visibility": 0.663,
+    "scene.sort_entities": 0.671,
+    "scene.sort_painter_stream": 0.517,
+    "world.interactive_target": 0.012,
+    "scene.world_dyes": 0.255,
+    "scene.build": 285.067,
+    "cpu_p95_median_min_max": [
+     382.37,
+     377.94,
+     389.18
+    ]
+   }
+  }
+ ],
+ "controls_paired_p95": {
+  "S1-mixed-dense": {
+   "before_p95_median": 49.328,
+   "after_p95_median": 49.876,
+   "ratio": 1.0111
+  },
+  "S1-players-spread": {
+   "before_p95_median": 0.198,
+   "after_p95_median": 0.2,
+   "ratio": 1.0075
+  },
+  "S2-mixed-spread": {
+   "before_p95_median": 43.084,
+   "after_p95_median": 41.925,
+   "ratio": 0.9731
+  },
+  "determinism": {
+   "before_p95_median": 2.3,
+   "after_p95_median": 2.423,
+   "ratio": 1.0535
+  },
+  "models-varied-rotating": {
+   "before_p95_median": 3.458,
+   "after_p95_median": 3.106,
+   "ratio": 0.8983
+  },
+  "nexus-idle": {
+   "before_p95_median": 0.206,
+   "after_p95_median": 0.228,
+   "ratio": 1.1083
+  },
+  "nexus-rotate": {
+   "before_p95_median": 0.752,
+   "after_p95_median": 0.725,
+   "ratio": 0.9643
+  }
+ },
+ "controls_note": "nexus-idle 1.108 and determinism 1.0535 in the first 5-repeat run were noise: 9 repeats x 50 frames gave 0.9624 and 0.9998",
+ "minimap_finding": {
+  "S3-combat-cluster": {
+   "minimap.update_ms": 5.9,
+   "minimap.markers_ms": 0.1,
+   "minimap.render_ms": 5.7
+  },
+  "S4-mixed-spread": {
+   "minimap.update_ms": 7.9,
+   "minimap.render_ms": 7.6
+  }
+ }
+}

@@ -24,16 +24,20 @@ int main(int argc,char** argv) { try {
   SDL_SetWindowSize(window,w,h);SDL_PumpEvents();SDL_GL_SwapWindow(window);camera.configure({50,50},angle,w,h,scale,true);std::vector<Quad> quads;
   bool direct=false;for(const auto& item:c.at("items"))direct|=item.contains("rotation");
   if(direct) {
-   struct Placed { int depth;int id;std::shared_ptr<const MeshDraw> mesh; };std::vector<Placed> placed;int id=1;
+   struct Placed { int depth;int id;Quad quad; };std::vector<Placed> placed;int id=1;
    for(const auto& item:c.at("items")) {
     const auto* d=catalog.object(item.at("object").get<std::string>());if(!d)throw std::runtime_error("Unknown object "+item.at("object").get<std::string>());
     const Vec2 at{item.at("x"),item.at("y")};const auto& t=d->texture.select(0);std::optional<SpriteRegion> sprite;
     if(t.sheet>=0)sprite=atlas.sprite(static_cast<std::size_t>(t.sheet),t.index);
     const double rotation=item.contains("rotation")?item.at("rotation").get<double>():d->rotation;
-    placed.push_back({static_cast<int>(camera.world_to_screen(at).y/scale+camera.clip_rect().y),id++,project_model(d->model,camera,at,rotation,d->color,sprite)});++total;
+    const auto model=model_index(d->model);if(!model)throw std::runtime_error("Unregistered model "+d->model);
+    // REALM_MODEL_REFERENCE=1 draws the CPU-prepared reference meshes instead of GPU instances.
+    Quad quad=model_quad(*model,camera,at,rotation,d->color,sprite);
+    if(std::getenv("REALM_MODEL_REFERENCE")) { auto mesh=project_model(d->model,camera,at,rotation,d->color,sprite);quad=mesh?mesh_quad(std::move(mesh)):Quad{}; }
+    placed.push_back({static_cast<int>(camera.world_to_screen(at).y/scale+camera.clip_rect().y),id++,quad});++total;
    }
    std::sort(placed.begin(),placed.end(),[](const auto& a,const auto& b){return a.depth==b.depth?a.id<b.id:a.depth<b.depth;});
-   for(auto& p:placed)if(p.mesh)quads.push_back(mesh_quad(std::move(p.mesh)));
+   for(auto& p:placed)if(p.quad.kind==9)quads.push_back(std::move(p.quad));
   } else {
    int wall_id=900;for(const auto& wall:c.value("walls",nlohmann::json::array())) {
     const auto* d=catalog.object(wall.at("object").get<std::string>());if(!d)throw std::runtime_error("Unknown wall object");

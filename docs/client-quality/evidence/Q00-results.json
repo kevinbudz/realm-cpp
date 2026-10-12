@@ -1,0 +1,477 @@
+{
+  "schema": 1,
+  "date": "2026-10-11",
+  "native_head": "e093e05bdfe726023c6ee144166a9c95bb04907c",
+  "native_runtime_unchanged": true,
+  "fingerprint_algorithm": "SHA-256 of sorted compact JSON mapping workspace-relative path to file SHA-256",
+  "fingerprints": {
+    "native": {
+      "files": 108,
+      "sha256": "66af45da6b2c6345f8a3193ca156c3c3a4170081b491f9e18cb6545a82af5b2c"
+    },
+    "fonts": {
+      "files": 1544,
+      "sha256": "bd37ffab2dc1f62676de7ae15fba3068671327e1b310d8aaa5e848181a93665e"
+    },
+    "hud-art": {
+      "files": 2505,
+      "sha256": "0ba506a78f6d2fb01abbd7a31da234d552807c4bfe9057da59f433eb0a646a78"
+    },
+    "native-assets": {
+      "files": 4,
+      "sha256": "9f4ee05cbb31909fa98858773089f9f9c28e83ad1ef18e324f962ba920178700"
+    },
+    "flash": {
+      "files": 1119,
+      "sha256": "af4b51d481798849ba923e2f047dd7268181168d2f06618ffda9685ef9b91152"
+    },
+    "map": {
+      "files": 1,
+      "sha256": "60d44c64a5d51d575ee56c37ea1b232f8f10d643a916d628d1de9700b25f190f"
+    },
+    "generated": {
+      "files": 6,
+      "sha256": "e1d298a622baffb70341a786f1adbe59ddfc8f374aebaa81490ff3d0f10a3698"
+    }
+  },
+  "runs": [
+    {
+      "name": "nexus-1",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3014679099978821,
+      "measured": true,
+      "log": "nexus-1.log",
+      "memory": "nexus-1.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=1071 draws=44 GPU_last_ms=0.10112\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\nCPU event/build/submit mean=0.0834ms p95=0.1031ms samples=570\nPresent mean=0.0854ms p95=0.1402ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 151092,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.204621,
+        "system_seconds": 0.06987399999999999
+      }
+    },
+    {
+      "name": "extra-quads-1",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--sprites",
+        "10000",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3010304890012776,
+      "measured": true,
+      "log": "extra-quads-1.log",
+      "memory": "extra-quads-1.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=10256 draws=1 GPU_last_ms=0.20336\nAppearance CPU=0/0 GPU=0/0 evictions=0\nCPU event/build/submit mean=0.1790ms p95=0.2025ms samples=570\nPresent mean=0.0477ms p95=0.0810ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 133512,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.185496,
+        "system_seconds": 0.052272
+      }
+    },
+    {
+      "name": "nexus-2",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3011226560010982,
+      "measured": true,
+      "log": "nexus-2.log",
+      "memory": "nexus-2.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=1071 draws=44 GPU_last_ms=0.08404\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\nCPU event/build/submit mean=0.0808ms p95=0.0902ms samples=570\nPresent mean=0.0812ms p95=0.1338ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 151380,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.208313,
+        "system_seconds": 0.055604999999999995
+      }
+    },
+    {
+      "name": "extra-quads-2",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--sprites",
+        "10000",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3011656190028589,
+      "measured": true,
+      "log": "extra-quads-2.log",
+      "memory": "extra-quads-2.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=10256 draws=1 GPU_last_ms=0.21436\nAppearance CPU=0/0 GPU=0/0 evictions=0\nCPU event/build/submit mean=0.1823ms p95=0.2125ms samples=570\nPresent mean=0.0474ms p95=0.0838ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 133884,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.20626599999999998,
+        "system_seconds": 0.038452
+      }
+    },
+    {
+      "name": "nexus-3",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3010091910000483,
+      "measured": true,
+      "log": "nexus-3.log",
+      "memory": "nexus-3.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=1071 draws=44 GPU_last_ms=0.09624\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\nCPU event/build/submit mean=0.0919ms p95=0.1669ms samples=570\nPresent mean=0.0969ms p95=0.1308ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 151768,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.209332,
+        "system_seconds": 0.067725
+      }
+    },
+    {
+      "name": "extra-quads-3",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--sprites",
+        "10000",
+        "--hidden",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3009342929981358,
+      "measured": true,
+      "log": "extra-quads-3.log",
+      "memory": "extra-quads-3.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=10256 draws=1 GPU_last_ms=0.21604\nAppearance CPU=0/0 GPU=0/0 evictions=0\nCPU event/build/submit mean=0.1778ms p95=0.2068ms samples=570\nPresent mean=0.0502ms p95=0.0786ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 133796,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.188941,
+        "system_seconds": 0.044471
+      }
+    },
+    {
+      "name": "nexus-visible",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--frames",
+        "600",
+        "--width",
+        "1920",
+        "--height",
+        "1080"
+      ],
+      "exit": 0,
+      "seconds": 0.3511466650015791,
+      "measured": true,
+      "log": "nexus-visible.log",
+      "memory": "nexus-visible.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=1017 draws=44 GPU_last_ms=0.08224\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\nCPU event/build/submit mean=0.0862ms p95=0.1594ms samples=570\nPresent mean=0.0767ms p95=0.1388ms samples=570\n",
+      "memory_result": {
+        "max_rss_native_units": 150904,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.207613,
+        "system_seconds": 0.062481999999999996
+      }
+    },
+    {
+      "name": "nexus-capture-800x600",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "1",
+        "--scene-time",
+        "0",
+        "--effect-time",
+        "0",
+        "--width",
+        "800",
+        "--height",
+        "600",
+        "--capture",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q00/nexus-capture-800x600.png"
+      ],
+      "exit": 0,
+      "seconds": 0.2008176290000847,
+      "measured": false,
+      "log": "nexus-capture-800x600.log",
+      "memory": "nexus-capture-800x600.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=369 draws=28 GPU_last_ms=-1\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\n",
+      "memory_result": {
+        "max_rss_native_units": 151496,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.123458,
+        "system_seconds": 0.042491
+      },
+      "drawable": [
+        800,
+        600
+      ]
+    },
+    {
+      "name": "nexus-capture-1280x720",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "1",
+        "--scene-time",
+        "0",
+        "--effect-time",
+        "0",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+        "--capture",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q00/nexus-capture-1280x720.png"
+      ],
+      "exit": 0,
+      "seconds": 0.20072671199886827,
+      "measured": false,
+      "log": "nexus-capture-1280x720.log",
+      "memory": "nexus-capture-1280x720.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=574 draws=33 GPU_last_ms=-1\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\n",
+      "memory_result": {
+        "max_rss_native_units": 150876,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.14582399999999998,
+        "system_seconds": 0.039478
+      },
+      "drawable": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "nexus-capture-1920x1080",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "1",
+        "--scene-time",
+        "0",
+        "--effect-time",
+        "0",
+        "--width",
+        "1920",
+        "--height",
+        "1080",
+        "--capture",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q00/nexus-capture-1920x1080.png"
+      ],
+      "exit": 0,
+      "seconds": 0.2508867750002537,
+      "measured": false,
+      "log": "nexus-capture-1920x1080.log",
+      "memory": "nexus-capture-1920x1080.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=1063 draws=44 GPU_last_ms=-1\nAppearance CPU=7/101168 GPU=7/101168 evictions=0\n",
+      "memory_result": {
+        "max_rss_native_units": 151856,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.179468,
+        "system_seconds": 0.043848
+      },
+      "drawable": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "name": "nexus-capture-3840x2160",
+      "command": [
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/realm_viewer",
+        "--benchmark",
+        "--map",
+        "/home/kevin/Desktop/RotMG/realm-server/Resources/Worlds/Nexus/0.jm",
+        "--fonts",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/fonts-client",
+        "--hud-art",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/hud-art",
+        "--hidden",
+        "--frames",
+        "1",
+        "--scene-time",
+        "0",
+        "--effect-time",
+        "0",
+        "--width",
+        "3840",
+        "--height",
+        "2160",
+        "--capture",
+        "/home/kevin/Desktop/RotMG/realm-cpp/build/quality-Q00/nexus-capture-3840x2160.png"
+      ],
+      "exit": 0,
+      "seconds": 0.5014822439989075,
+      "measured": false,
+      "log": "nexus-capture-3840x2160.log",
+      "memory": "nexus-capture-3840x2160.memory.log",
+      "stdout": "Flash revision 17bdf079452a1c470b8895eae9cf108599e7addd\nGPU AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nGL 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nMap 0 142x130 objects=743 unresolved=0\nTerrain variants=222\nAtlas pages=1 bytes=16777216 PNGs=66\nLast frame quads=3493 draws=105 GPU_last_ms=-1\nAppearance CPU=9/145944 GPU=9/145944 evictions=0\n",
+      "memory_result": {
+        "max_rss_native_units": 179532,
+        "units": "KiB on Linux; bytes on macOS",
+        "user_seconds": 0.379728,
+        "system_seconds": 0.050681
+      },
+      "drawable": [
+        3840,
+        2160
+      ]
+    }
+  ],
+  "additional_commands": {
+    "visible-drawable": [
+      "build/realm_viewer",
+      "--map",
+      "../realm-server/Resources/Worlds/Nexus/0.jm",
+      "--fonts",
+      "build/fonts-client",
+      "--hud-art",
+      "build/hud-art",
+      "--benchmark",
+      "--frames",
+      "120",
+      "--width",
+      "1920",
+      "--height",
+      "1080",
+      "--capture",
+      "build/quality-Q00/visible-drawable.png"
+    ],
+    "extra-quads-800": [
+      "build/realm_viewer",
+      "--hidden",
+      "--benchmark",
+      "--frames",
+      "600",
+      "--sprites",
+      "10000"
+    ]
+  },
+  "visible_drawable": [
+    1920,
+    1024
+  ],
+  "population_probe": "map=0 dimensions=142x130 imported_entities=742 players=0 enemies=0 model_tag_objects=8 unresolved=0 spawn=76.5,72.5\n",
+  "display_probe": "SDL=2.32.74 driver=x11 logical=1920x1080 drawable=1920x1080 display=0 refresh=165 swap_request_result=0 actual_swap=0 GPU=AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nsizeof Entity=296 TileState=16 FlyingProjectile=128 Quad=112\n",
+  "checks": {
+    "release-config": "-- Configuring done (0.4s)\n-- Generating done (0.0s)\n-- Build files have been written to: /home/kevin/Desktop/RotMG/realm-cpp/build\n",
+    "release-build": "[0/2] Re-checking globbed directories...\nninja: no work to do.\n",
+    "release-ctest": "Test project /home/kevin/Desktop/RotMG/realm-cpp/build\n      Start  1: status_rules\n 1/42 Test  #1: status_rules .....................   Passed    0.08 sec\n      Start  2: postfx_rules\n 2/42 Test  #2: postfx_rules .....................   Passed    1.28 sec\n      Start  3: models\n 3/42 Test  #3: models ...........................   Passed    0.02 sec\n      Start  4: particles\n 4/42 Test  #4: particles ........................   Passed    0.03 sec\n      Start  5: dyes_masks\n 5/42 Test  #5: dyes_masks .......................   Passed    1.08 sec\n      Start  6: postfx\n 6/42 Test  #6: postfx ...........................   Passed    0.95 sec\n      Start  7: status_gpu\n 7/42 Test  #7: status_gpu .......................   Passed   27.91 sec\n      Start  8: options_gpu\n 8/42 Test  #8: options_gpu ......................   Passed   41.67 sec\n      Start  9: sdl_keys\n 9/42 Test  #9: sdl_keys .........................   Passed    0.01 sec\n      Start 10: skins_http\n10/42 Test #10: skins_http .......................   Passed    1.20 sec\n      Start 11: skins\n11/42 Test #11: skins ............................   Passed    0.70 sec\n      Start 12: ui_surfaces\n12/42 Test #12: ui_surfaces ......................   Passed    0.01 sec\n      Start 13: core_parity\n13/42 Test #13: core_parity ......................   Passed    0.00 sec\n      Start 14: catalog_world\n14/42 Test #14: catalog_world ....................   Passed    0.02 sec\n      Start 15: player_movement\n15/42 Test #15: player_movement ..................   Passed    0.03 sec\n      Start 16: projectile_combat\n16/42 Test #16: projectile_combat ................   Passed    0.03 sec\n      Start 17: party_members\n17/42 Test #17: party_members ....................   Passed    0.02 sec\n      Start 18: inventory_actions\n18/42 Test #18: inventory_actions ................   Passed    0.02 sec\n      Start 19: interaction_panels\n19/42 Test #19: interaction_panels ...............   Passed    0.02 sec\n      Start 20: item_tooltips\n20/42 Test #20: item_tooltips ....................   Passed    0.02 sec\n      Start 21: player_tooltips\n21/42 Test #21: player_tooltips ..................   Passed    0.02 sec\n      Start 22: guild_members\n22/42 Test #22: guild_members ....................   Passed    0.12 sec\n      Start 23: guild_members_http\n23/42 Test #23: guild_members_http ...............   Passed    2.79 sec\n      Start 24: guild_board\n24/42 Test #24: guild_board ......................   Passed    0.31 sec\n      Start 25: guild_board_http\n25/42 Test #25: guild_board_http .................   Passed    1.14 sec\n      Start 26: preferences\n26/42 Test #26: preferences ......................   Passed    0.09 sec\n      Start 27: options_source\n27/42 Test #27: options_source ...................   Passed    0.03 sec\n      Start 28: options\n28/42 Test #28: options ..........................   Passed    0.23 sec\n      Start 29: dialogs\n29/42 Test #29: dialogs ..........................   Passed    0.05 sec\n      Start 30: player_menus\n30/42 Test #30: player_menus .....................   Passed    0.04 sec\n      Start 31: chat\n31/42 Test #31: chat .............................   Passed    0.03 sec\n      Start 32: trade\n32/42 Test #32: trade ............................   Passed    0.02 sec\n      Start 33: social_loopback\n33/42 Test #33: social_loopback ..................   Passed    0.11 sec\n      Start 34: inventory_loopback\n34/42 Test #34: inventory_loopback ...............   Passed    0.10 sec\n      Start 35: animation_parity\n35/42 Test #35: animation_parity .................   Passed    0.01 sec\n      Start 36: terrain_cache\n36/42 Test #36: terrain_cache ....................   Passed    0.81 sec\n      Start 37: teleport_loopback\n37/42 Test #37: teleport_loopback ................   Passed   10.08 sec\n      Start 38: party_arrows\n38/42 Test #38: party_arrows .....................   Passed    0.04 sec\n      Start 39: player_groups\n39/42 Test #39: player_groups ....................   Passed    0.22 sec\n      Start 40: minimap_cache\n40/42 Test #40: minimap_cache ....................   Passed    0.05 sec\n      Start 41: session_loopback\n41/42 Test #41: session_loopback .................   Passed    1.05 sec\n      Start 42: flash_import\n42/42 Test #42: flash_import .....................   Passed    0.19 sec\n\n100% tests passed out of 42\n\nTotal Test time (real) =  92.66 sec\n",
+    "sanitize-config": "-- Configuring done (0.3s)\n-- Generating done (0.0s)\n-- Build files have been written to: /home/kevin/Desktop/RotMG/realm-cpp/build-sanitize\n",
+    "sanitize-build": "[0/2] Re-checking globbed directories...\nninja: no work to do.\n",
+    "sanitize-ctest": "Test project /home/kevin/Desktop/RotMG/realm-cpp/build-sanitize\n      Start  1: status_rules\n 1/38 Test  #1: status_rules .....................   Passed    1.02 sec\n      Start  2: postfx_rules\n 2/38 Test  #2: postfx_rules .....................   Passed    5.10 sec\n      Start  3: models\n 3/38 Test  #3: models ...........................   Passed    0.30 sec\n      Start  4: particles\n 4/38 Test  #4: particles ........................   Passed    0.29 sec\n      Start  5: dyes_masks\n 5/38 Test  #5: dyes_masks .......................   Passed   15.77 sec\n      Start  6: skins_http\n 6/38 Test  #6: skins_http .......................   Passed    4.60 sec\n      Start  7: skins\n 7/38 Test  #7: skins ............................   Passed    6.96 sec\n      Start  8: ui_surfaces\n 8/38 Test  #8: ui_surfaces ......................   Passed    0.03 sec\n      Start  9: core_parity\n 9/38 Test  #9: core_parity ......................   Passed    0.01 sec\n      Start 10: catalog_world\n10/38 Test #10: catalog_world ....................   Passed    0.30 sec\n      Start 11: player_movement\n11/38 Test #11: player_movement ..................   Passed    0.26 sec\n      Start 12: projectile_combat\n12/38 Test #12: projectile_combat ................   Passed    0.26 sec\n      Start 13: party_members\n13/38 Test #13: party_members ....................   Passed    0.26 sec\n      Start 14: inventory_actions\n14/38 Test #14: inventory_actions ................   Passed    0.26 sec\n      Start 15: interaction_panels\n15/38 Test #15: interaction_panels ...............   Passed    0.26 sec\n      Start 16: item_tooltips\n16/38 Test #16: item_tooltips ....................   Passed    0.29 sec\n      Start 17: player_tooltips\n17/38 Test #17: player_tooltips ..................   Passed    0.26 sec\n      Start 18: guild_members\n18/38 Test #18: guild_members ....................   Passed    1.66 sec\n      Start 19: guild_members_http\n19/38 Test #19: guild_members_http ...............   Passed    3.00 sec\n      Start 20: guild_board\n20/38 Test #20: guild_board ......................   Passed    1.87 sec\n      Start 21: guild_board_http\n21/38 Test #21: guild_board_http .................   Passed    2.65 sec\n      Start 22: preferences\n22/38 Test #22: preferences ......................   Passed    1.14 sec\n      Start 23: options_source\n23/38 Test #23: options_source ...................   Passed    0.03 sec\n      Start 24: options\n24/38 Test #24: options ..........................   Passed    2.58 sec\n      Start 25: dialogs\n25/38 Test #25: dialogs ..........................   Passed    0.34 sec\n      Start 26: player_menus\n26/38 Test #26: player_menus .....................   Passed    0.59 sec\n      Start 27: chat\n27/38 Test #27: chat .............................   Passed    0.43 sec\n      Start 28: trade\n28/38 Test #28: trade ............................   Passed    0.30 sec\n      Start 29: social_loopback\n29/38 Test #29: social_loopback ..................   Passed    0.37 sec\n      Start 30: inventory_loopback\n30/38 Test #30: inventory_loopback ...............   Passed    0.34 sec\n      Start 31: animation_parity\n31/38 Test #31: animation_parity .................   Passed    0.11 sec\n      Start 32: terrain_cache\n32/38 Test #32: terrain_cache ....................   Passed   11.94 sec\n      Start 33: teleport_loopback\n33/38 Test #33: teleport_loopback ................   Passed   10.56 sec\n      Start 34: party_arrows\n34/38 Test #34: party_arrows .....................   Passed    0.49 sec\n      Start 35: player_groups\n35/38 Test #35: player_groups ....................   Passed    2.31 sec\n      Start 36: minimap_cache\n36/38 Test #36: minimap_cache ....................   Passed    0.48 sec\n      Start 37: session_loopback\n37/38 Test #37: session_loopback .................   Passed    1.29 sec\n      Start 38: flash_import\n38/38 Test #38: flash_import .....................   Passed    0.09 sec\n\n100% tests passed out of 38\n\nTotal Test time (real) =  78.81 sec\n",
+    "render-tests": "lofiEnvironment: all 480000 framebuffer pixels match source PNG reference exactly\nTraceback (most recent call last):\n  File \"/home/kevin/Desktop/RotMG/realm-cpp/tests/render_tests.py\", line 68, in <module>\n    main()\n    ~~~~^^\n  File \"/home/kevin/Desktop/RotMG/realm-cpp/tests/render_tests.py\", line 63, in main\n    assert report['different_pixels'] == 0, (name, report)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('lofiEnvironment2', {'width': 800, 'height': 600, 'different_pixels': 512, 'total_pixels': 480000, 'different_fraction': 0.0010666666666666667, 'mean_absolute_channel_error': 0.0002666666666666667, 'max_channel_error': 1, 'channel_tolerance': 0})\n"
+  },
+  "hardware": "Environment {'DISPLAY': ':1', 'WAYLAND_DISPLAY': 'wayland-0', 'SDL_VIDEODRIVER': None, 'LIBGL_ALWAYS_SOFTWARE': None, '__GL_SYNC_TO_VBLANK': None}\n\n$ uname -a\nLinux aurora 7.2.9-1-cachyos #1 SMP PREEMPT_DYNAMIC Sat, 03 Oct 2026 18:34:55 +0000 x86_64 GNU/Linux\n\n$ lscpu\nArchitecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           39 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  20\nOn-line CPU(s) list:                     0-19\nVendor ID:                               GenuineIntel\nModel name:                              12th Gen Intel(R) Core(TM) i7-12700F\nCPU family:                              6\nModel:                                   151\nThread(s) per core:                      2\nCore(s) per socket:                      12\nSocket(s):                               1\nStepping:                                2\nMicrocode version:                       0x3e\nCPU(s) scaling MHz:                      46%\nCPU max MHz:                             4900.0000\nCPU min MHz:                             800.0000\nBogoMIPS:                                4224.00\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nVirtualization:                          VT-x\nL1d cache:                               512 KiB (12 instances)\nL1i cache:                               512 KiB (12 instances)\nL2 cache:                                12 MiB (9 instances)\nL3 cache:                                25 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-19\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Mitigation; Clear Register File\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Mitigation; IBPB before exit to userspace\n\n$ free -h\n               total        used        free      shared  buff/cache   available\nMem:            15Gi        10Gi       616Mi       113Mi       3.8Gi       4.4Gi\nSwap:           15Gi       4.4Gi        10Gi\n\n$ cmake --version\ncmake version 4.4.4\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).\n\n$ ninja --version\n1.13.2\n\n$ c++ --version\nc++ (GCC) 16.2.1 20260810\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n\n$ python3 --version\nPython 3.14.7\n\n$ pkg-config --modversion sdl2 glew freetype2 libpng libxml-2.0 zlib\n2.32.74\n2.3.1\n26.6.20\n1.6.59\n2.15.4\n1.3.1.zlib-ng\n\n$ glxinfo -B\nname of display: :1\ndisplay: :1  screen: 0\ndirect rendering: Yes\nExtended renderer info (GLX_MESA_query_renderer):\n    Vendor: AMD (0x1002)\n    Device: AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos) (0x73df)\n    Version: 26.2.4\n    Accelerated: yes\n    Video memory: 12288MB\n    Unified memory: no\n    Preferred profile: core (0x1)\n    Max core profile version: 4.6\n    Max compat profile version: 4.6\n    Max GLES1 profile version: 1.1\n    Max GLES[23] profile version: 3.2\nMemory info (GL_ATI_meminfo):\n    VBO free memory - total: 10814 MB, largest block: 10814 MB\n    VBO free aux. memory - total: 7669 MB, largest block: 7669 MB\n    Texture free memory - total: 10814 MB, largest block: 10814 MB\n    Texture free aux. memory - total: 7669 MB, largest block: 7669 MB\n    Renderbuffer free memory - total: 10814 MB, largest block: 10814 MB\n    Renderbuffer free aux. memory - total: 7669 MB, largest block: 7669 MB\nMemory info (GL_NVX_gpu_memory_info):\n    Dedicated video memory: 12288 MB\n    Total available memory: 20170 MB\n    Currently available dedicated video memory: 10814 MB\nOpenGL vendor string: AMD\nOpenGL renderer string: AMD Radeon RX 6700 XT (radeonsi, navi22, ACO, DRM 3.64, 7.2.9-1-cachyos)\nOpenGL core profile version string: 4.6 (Core Profile) Mesa 26.2.4-arch3.1\nOpenGL core profile shading language version string: 4.60\nOpenGL core profile context flags: (none)\nOpenGL core profile profile mask: core profile\n\nOpenGL version string: 4.6 (Compatibility Profile) Mesa 26.2.4-arch3.1\nOpenGL shading language version string: 4.60\nOpenGL context flags: (none)\nOpenGL profile mask: compatibility profile\n\nOpenGL ES profile version string: OpenGL ES 3.2 Mesa 26.2.4-arch3.1\nOpenGL ES profile shading language version string: OpenGL ES GLSL ES 3.20\n\n\n$ xrandr --current\nWARNING: running xrandr against an Xwayland server. See the xrandr man page for details.\nScreen 0: minimum 16 x 16, current 3000 x 1920, maximum 32767 x 32767\nDP-2 connected 1080x1920+0+0 left (normal left inverted right x axis y axis) 476mm x 268mm\n   1920x1080     59.96*+\n   1440x1080     59.99  \n   1400x1050     59.98  \n   1280x1024     59.89  \n   1280x960      59.94  \n   1152x864      59.96  \n   1024x768      59.92  \n   800x600       59.86  \n   640x480       59.38  \n   320x240       59.29  \n   1680x1050     59.95  \n   1440x900      59.89  \n   1280x800      59.81  \n   1152x720      59.97  \n   960x600       59.63  \n   928x580       59.88  \n   800x500       59.50  \n   768x480       59.90  \n   720x480       59.71  \n   640x400       59.95  \n   320x200       58.14  \n   1600x900      59.95  \n   1368x768      59.88  \n   1280x720      59.86  \n   1024x576      59.90  \n   864x486       59.92  \n   720x400       59.27  \n   640x350       59.28  \nDP-3 connected primary 1920x1080+1080+416 (normal left inverted right x axis y axis) 527mm x 296mm\n   1920x1080    164.83*+\n   1440x1080    164.85  \n   1400x1050    164.77  \n   1280x1024    164.81  \n   1280x960     164.80  \n   1152x864     164.77  \n   1024x768     164.99  \n   800x600      164.72  \n   640x480      164.26  \n   320x240      163.69  \n   1680x1050    164.82  \n   1440x900     164.74  \n   1280x800     164.81  \n   1152x720     164.77  \n   960x600      164.72  \n   928x580      164.51  \n   800x500      164.66  \n   768x480      164.47  \n   720x480      164.67  \n   640x400      164.67  \n   320x200      161.83  \n   1600x900     164.77  \n   1368x768     164.98  \n   1280x720     164.71  \n   1024x576     164.94  \n   864x486      164.71  \n   720x400      164.23  \n   640x350      164.46  \n\n$ nvidia-smi\n[Errno 2] No such file or directory: 'nvidia-smi'\n\n$ powerprofilesctl get\nperformance\n",
+  "baseline_scope": "Short component summaries, no raw frame samples or active-combat capacity. Strict gallery fails with known non-material quantization difference.",
+  "individual_hashes": {
+    "../realm-server/Resources/Worlds/Nexus/0.jm": "17f01c2e4f910b3329ba7bc999f4e2b575cc628aa9ffde938f26c83542e46716",
+    "build/realm_viewer": "c8f0cadcaee1bfe5df74be0737982e0da5171305ce5afdb3599c67f230f1fdec",
+    "build/realm_client": "d48c7aa76cd111fe12d29df90700b4b4a9ec0da8aa3766483d8b83bded9923fa",
+    "build/generated/source_inventory.json": "fd775417607a1b35acfc402e37f8b32b8f4449e5254fac32cd6c2fb80cbf728c",
+    "build/fonts-client/fontpack.json": "a06bbc05faf9fc8b0fa29e2dcce7bfe2ea3638514cc1867b49c51170f2d708d3",
+    "build/fonts-client/glyph-index.bin": "42129d70496a8cb201956e91b4e4c0c8318a3b4ab6bcb8f11e2dbac65ed2491a",
+    "build/fonts-client/glyphs.bin": "f3536bf8e60cb361f3d42e788ad101f1f46075aec9598597e278b6a5a916f301",
+    "build/hud-art/manifest.json": "a2c5bb2387c004f1882dd0bf0ee3d864614f23e1e67a65a048a267711fb39a66",
+    "build/hud-art/images.bin": "7efc22aef3ef2f95658e0855115273ace41d51d0019d044a6f8f5fe33c0bd889",
+    "build/quality-Q00/starting-files.json": "77bf2e6630acceae1ec1f835d0e2de6aaaae6caf0ba0ef5436d2eb119c9ae81a",
+    "build/quality-Q00/starting-diff.txt": "1ea2cdb52d39a82f1143ac22f833131ad0627322bbed753810aeec2ebb732561"
+  }
+}

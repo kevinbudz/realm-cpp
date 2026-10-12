@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/session.hpp"
 #include "realm/movement.hpp"
 #include "flash_assets.hpp"
@@ -9,13 +10,25 @@ bool Session::reskin(int id,std::span<const int> owned) {
     send(net::outgoing::Reskin{id});return true;
 }
 
+void Session::send_packet(const net::Packet& packet) {
+    if(replay_sink_) {telemetry::add(telemetry::Counter::packet_tx_bytes,packet.body.size()+5);replay_sink_(packet);}
+    else transport_.send(packet);
+}
+void Session::replay(const net::Packet& packet,std::int32_t time) {
+    if(!replay_sink_)throw std::logic_error("Session replay requires an offline packet sink");
+    REALM_ZONE("network.decode_dispatch");telemetry::add(telemetry::Counter::packets_decoded);
+    receive(net::decode(packet),time);
+}
 void Session::connect(SessionOptions options) {
+    if(replay_sink_)throw std::logic_error("Offline replay cannot connect a socket");
     world_.particles().clear();transport_.close(); options_ = std::move(options); hello_sent_ = false; pending_moves_ = 0; error_.clear(); events_.clear();
     inventory_.reset();pending_name_.clear();buy_pending_=false;
     transport_.connect(options_.host, options_.port); state_ = SessionState::connecting;
 }
 void Session::disconnect() { world_.particles().clear();transport_.close();inventory_.reset();pending_name_.clear();buy_pending_=false; state_ = SessionState::disconnected; }
 void Session::poll(std::int32_t time) {
+    REALM_ZONE("session.poll");
+    if(replay_sink_)return;
     if (state_ == SessionState::disconnected || state_ == SessionState::failed) return;
     try {
         auto packets = transport_.poll();
@@ -23,7 +36,7 @@ void Session::poll(std::int32_t time) {
             send(net::outgoing::Hello{options_.build_version, options_.game_id, options_.username, options_.password, options_.map_json});
             hello_sent_ = true;
         }
-        for (const auto& packet : packets) receive(net::decode(packet), time);
+        for (const auto& packet : packets) { REALM_ZONE("network.decode_dispatch"); telemetry::add(telemetry::Counter::packets_decoded);receive(net::decode(packet), time); }
         if (transport_.state() == net::ConnectionState::closed && state_ != SessionState::failed) { error_ = transport_.error(); state_ = SessionState::disconnected; }
     } catch (const std::exception& e) { error_ = e.what(); state_ = SessionState::failed; transport_.close(); }
 }
@@ -32,7 +45,7 @@ void Session::finish_frame(std::int32_t time) {
     // Map.update refreshes the party after applying object additions/removals.
     party_.update(world_,time);
     world_.expire_damage(time);
-    for (const auto& packet : combat_.update(time)) transport_.send(packet);
+    for (const auto& packet : combat_.update(time)) send_packet(packet);
     world_.particles().update(world_,time);
     if (pending_moves_) if (auto* player = world_.entity(world_.player_id())) {
         send(net::outgoing::Move{time,{static_cast<float>(player->position.x),static_cast<float>(player->position.y)}});
@@ -91,7 +104,7 @@ void Session::receive(net::Event event, std::int32_t time) {
     }
     default: break;
     }
-    for (const auto& packet : combat_.receive(event,time)) transport_.send(packet);
+    for (const auto& packet : combat_.receive(event,time)) send_packet(packet);
     if (events_.size() >= 1024) events_.erase(events_.begin(), events_.begin() + 512);
     events_.push_back(std::move(event));
 }

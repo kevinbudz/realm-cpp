@@ -1,0 +1,4333 @@
+{
+ "task": "Q02",
+ "status": "complete",
+ "date": "2026-10-11",
+ "native_head": "e093e05bdfe726023c6ee144166a9c95bb04907c",
+ "source_sha256": {
+  "src/world.cpp": "6154e61a756e3c62fbb489835d4524d11393d380da218b385f6f5a0fc39ff12d",
+  "src/combat.cpp": "4e72005349d28816f42dd13de3599b43afc12e038793d54dd48654773444b56c",
+  "src/session.cpp": "5c2f3720e2148e9cac145ffcd8853dc8fc6b15b2d84a5f862d6e00bff97e87f4",
+  "src/scene.cpp": "a909d7f83b4f5868e0757327e051c7f3c84a0c50688459b27c6aa6ccd70dff13",
+  "src/main.cpp": "2e4b71113060268ba38a297a65194d3d2d6c5ba5e0f4ecc774bcfa7064be70d2",
+  "src/stress.cpp": "e75e3b072c3521acdbbfb6dc9f41728fddb8948a8815c8136522cdc3b4b7ada5",
+  "include/realm/stress.hpp": "8433decde4e30f2c9e733484bf9963a24eabea2bb29b721c4c5357d49b868f38",
+  "tools/stress_inputs.cpp": "79f6e87daa8ab97e0d4ba2b0f9cd7aec86240698bdf5ef73a1c6979a862d0e5c",
+  "tools/quality_stress.py": "b2bf54f47e7ee647a64385a4e3f1f579b22a00a04a988fb17197071324503e04",
+  "tests/stress_tests.py": "dbfa15a4e88d5cebe653bbd5109d9c1eb39280a59eff566f1f1533dfa3ba2e71",
+  "tests/stress_packets_tests.py": "4a5717f7897d206cdc54b115af00ab4320e3361ca06b9397e46c577dc9fb971e",
+  "CMakeLists.txt": "e3a91801c1e816024ecb905d2f5e09bb0e43e8053bcd55b890aa8e0fe685e41b",
+  "fixtures/client-quality/v1/index.json": "454d1f6dc719851a659d4db32b98cfab5b09d351ffcfb620560b777db1d87157",
+  "fixtures/client-quality/v1/expected-small.json": "0001d88be2c2f8cdd2200467cbfbacc3d74870eb7fd6e856b2fac753459f7357"
+ },
+ "profile": "Q00-v1 hardware (AMD RX 6700 XT, Mesa radeonsi), hidden 1920x1080 full quality, vsync0 cap0; short component/mixed diagnostic evidence; S3/144 Hz remains UNQUALIFIED",
+ "tests": {
+  "release": {
+   "passed": "50",
+   "total": 50,
+   "seconds": 94.44,
+   "log": "build/quality-Q02/final/release-ctest.log"
+  },
+  "sanitize": {
+   "passed": "44",
+   "total": 44,
+   "seconds": 88.91,
+   "log": "build/quality-Q02/final/sanitize-ctest.log"
+  },
+  "graphics_sanitize": {
+   "passed": "10",
+   "total": 10,
+   "seconds": 29.14,
+   "log": "build/quality-Q02/final/graphics-ctest.log"
+  }
+ },
+ "scaling_matrix": {
+  "protocol": "59 scenarios x 5 repeats, 1 warmup + 3 measured simulation ticks (short discovery; cold-frame dominated), shuffled fixture order per repeat",
+  "source": "build/quality-Q02/qualified/scaling/results.json",
+  "report": "build/quality-Q02/qualified/scaling/report.md",
+  "plot": "build/quality-Q02/qualified/scaling/scaling-curves.png",
+  "scenarios": {
+   "S1-players-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 15.065434,
+     "min": 14.618373,
+     "max": 21.431334
+    },
+    "cpu_p99_ms_median": 15.065434,
+    "gpu_p95_ms_median": 0.64928,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     251,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "15154846121223728038",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 14.509,
+     "scene.build": 14.101,
+     "text.rasterize": 5.64,
+     "render.texture_upload": 2.128,
+     "render.submit": 0.355,
+     "present.swap": 0.2
+    },
+    "counters_median": {
+     "draw_calls": 755,
+     "triangles": 4262,
+     "quads": 2131,
+     "quad_upload_bytes": 238672
+    },
+    "rss_mb_peak": 141.46484375,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 0.25868338699729065
+   },
+   "S1-enemies-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.478993,
+     "min": 0.449895,
+     "max": 0.71432
+    },
+    "cpu_p99_ms_median": 0.478993,
+    "gpu_p95_ms_median": 0.86348,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     250,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     250,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "1620703777308083028",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.467,
+     "scene.build": 0.255,
+     "present.swap": 0.238,
+     "render.submit": 0.16,
+     "scene.terrain": 0.099,
+     "render.quad_upload": 0.032
+    },
+    "counters_median": {
+     "draw_calls": 505,
+     "triangles": 3762,
+     "quads": 1881,
+     "quad_upload_bytes": 210672
+    },
+    "rss_mb_peak": 139.16015625,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.19079088599755778
+   },
+   "S1-models-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.882184,
+     "min": 0.669488,
+     "max": 1.054587
+    },
+    "cpu_p99_ms_median": 0.882184,
+    "gpu_p95_ms_median": 0.3168,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     247,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "9889413539281116488",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.738,
+     "render.submit": 0.399,
+     "render.model_upload_submit": 0.324,
+     "scene.build": 0.316,
+     "present.swap": 0.215,
+     "model.prepare": 0.13
+    },
+    "counters_median": {
+     "draw_calls": 297,
+     "triangles": 4747,
+     "quads": 1077,
+     "quad_upload_bytes": 148288
+    },
+    "rss_mb_peak": 142.5625,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.18986486900030286
+   },
+   "S1-projectiles-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 5.42381,
+     "min": 5.387946,
+     "max": 5.66899
+    },
+    "cpu_p99_ms_median": 5.42381,
+    "gpu_p95_ms_median": 0.59868,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     2000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     2000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1999,
+    "removed": 0,
+    "state_checksum": "12666461691180106885",
+    "packet_checksum": "5976040721801775590",
+    "top_zone_medians_ms": {
+     "frame.cpu": 5.348,
+     "fixture.timeline": 4.195,
+     "combat.update": 4.188,
+     "combat.target_query": 4.032,
+     "scene.build": 1.021,
+     "appearance.lookup": 0.143
+    },
+    "counters_median": {
+     "draw_calls": 9,
+     "triangles": 9762,
+     "quads": 4881,
+     "quad_upload_bytes": 546672
+    },
+    "rss_mb_peak": 138.0078125,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 0.21057320699765114
+   },
+   "S1-mixed-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 54.868886,
+     "min": 53.164287,
+     "max": 59.99699
+    },
+    "cpu_p99_ms_median": 54.868886,
+    "gpu_p95_ms_median": 1.55924,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     250,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     247,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 8749,
+    "removed": 8000,
+    "state_checksum": "4720488056995907718",
+    "packet_checksum": "16450270639818110775",
+    "top_zone_medians_ms": {
+     "appearance.compose": 27.624,
+     "frame.cpu": 25.121,
+     "scene.build": 16.565,
+     "text.rasterize": 6.151,
+     "fixture.timeline": 3.768,
+     "combat.update": 3.446
+    },
+    "counters_median": {
+     "draw_calls": 1560,
+     "triangles": 21537,
+     "quads": 9472,
+     "quad_upload_bytes": 1088528
+    },
+    "rss_mb_peak": 154.89453125,
+    "cache_peak": [
+     256,
+     4803296,
+     256,
+     4841888
+    ],
+    "wall_seconds_median": 0.3642257140018046
+   },
+   "S1-players-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.264709,
+     "min": 0.258425,
+     "max": 0.441304
+    },
+    "cpu_p99_ms_median": 0.264709,
+    "gpu_p95_ms_median": 0.31016,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     46,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "11585803203779767179",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.221,
+     "present.swap": 0.196,
+     "scene.build": 0.174,
+     "scene.terrain": 0.099,
+     "render.submit": 0.04,
+     "render.quad_upload": 0.02
+    },
+    "counters_median": {
+     "draw_calls": 140,
+     "triangles": 2212,
+     "quads": 1106,
+     "quad_upload_bytes": 123872
+    },
+    "rss_mb_peak": 140.01171875,
+    "cache_peak": [
+     37,
+     705456,
+     37,
+     705456
+    ],
+    "wall_seconds_median": 0.19689210200158413
+   },
+   "S1-enemies-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.230438,
+     "min": 0.216645,
+     "max": 0.237469
+    },
+    "cpu_p99_ms_median": 0.230438,
+    "gpu_p95_ms_median": 0.20628,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     250,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     47,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "11429689403508440353",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.189,
+     "present.swap": 0.167,
+     "scene.build": 0.141,
+     "scene.terrain": 0.099,
+     "render.submit": 0.032,
+     "render.quad_upload": 0.019
+    },
+    "counters_median": {
+     "draw_calls": 99,
+     "triangles": 2138,
+     "quads": 1069,
+     "quad_upload_bytes": 119728
+    },
+    "rss_mb_peak": 138.34765625,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.18525102700004936
+   },
+   "S1-models-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.268473,
+     "min": 0.254901,
+     "max": 0.275899
+    },
+    "cpu_p99_ms_median": 0.268473,
+    "gpu_p95_ms_median": 0.21944,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     45,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 250,
+    "removed": 0,
+    "state_checksum": "12095975506604314869",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "present.swap": 0.236,
+     "frame.cpu": 0.226,
+     "scene.build": 0.155,
+     "scene.terrain": 0.099,
+     "render.submit": 0.048,
+     "model.prepare": 0.03
+    },
+    "counters_median": {
+     "draw_calls": 56,
+     "triangles": 2428,
+     "quads": 916,
+     "quad_upload_bytes": 107632
+    },
+    "rss_mb_peak": 142.0234375,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.18819948500095052
+   },
+   "S1-projectiles-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 5.510428,
+     "min": 5.391766,
+     "max": 5.747899
+    },
+    "cpu_p99_ms_median": 5.510428,
+    "gpu_p95_ms_median": 0.5956,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     2000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     2000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1999,
+    "removed": 0,
+    "state_checksum": "12666461691180106885",
+    "packet_checksum": "5976040721801775590",
+    "top_zone_medians_ms": {
+     "frame.cpu": 5.374,
+     "fixture.timeline": 4.208,
+     "combat.update": 4.2,
+     "combat.target_query": 4.049,
+     "scene.build": 1.016,
+     "appearance.lookup": 0.143
+    },
+    "counters_median": {
+     "draw_calls": 9,
+     "triangles": 9762,
+     "quads": 4881,
+     "quad_upload_bytes": 546672
+    },
+    "rss_mb_peak": 138.484375,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 0.20635360300002503
+   },
+   "S1-mixed-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 11.074209,
+     "min": 10.999386,
+     "max": 12.457315
+    },
+    "cpu_p99_ms_median": 11.074209,
+    "gpu_p95_ms_median": 0.87504,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     250,
+     250,
+     2000,
+     0
+    ],
+    "submitted_last": [
+     46,
+     47,
+     45,
+     2000,
+     0
+    ],
+    "hits": 1,
+    "resets": 0,
+    "spawned": 2750,
+    "removed": 1,
+    "state_checksum": "7997254628082655777",
+    "packet_checksum": "15074418448923174653",
+    "top_zone_medians_ms": {
+     "frame.cpu": 10.627,
+     "fixture.timeline": 6.7,
+     "combat.update": 6.677,
+     "combat.target_query": 6.487,
+     "ui.build": 2.131,
+     "scene.build": 1.378
+    },
+    "counters_median": {
+     "draw_calls": 295,
+     "triangles": 11278,
+     "quads": 5341,
+     "quad_upload_bytes": 603232
+    },
+    "rss_mb_peak": 149.23046875,
+    "cache_peak": [
+     58,
+     1036192,
+     52,
+     989728
+    ],
+    "wall_seconds_median": 0.25427408600080526
+   },
+   "S1-combat-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 24.11951,
+     "min": 23.487254,
+     "max": 28.701336
+    },
+    "cpu_p99_ms_median": 24.11951,
+    "gpu_p95_ms_median": 1.51368,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     250,
+     0,
+     2000,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     0,
+     2000,
+     0
+    ],
+    "hits": 2,
+    "resets": 0,
+    "spawned": 2501,
+    "removed": 2,
+    "state_checksum": "18051614479304436449",
+    "packet_checksum": "16495766932324753794",
+    "top_zone_medians_ms": {
+     "frame.cpu": 23.848,
+     "scene.build": 16.158,
+     "fixture.timeline": 5.86,
+     "combat.update": 5.831,
+     "text.rasterize": 5.787,
+     "combat.target_query": 5.652
+    },
+    "counters_median": {
+     "draw_calls": 1264,
+     "triangles": 14306,
+     "quads": 7153,
+     "quad_upload_bytes": 801136
+    },
+    "rss_mb_peak": 147.921875,
+    "cache_peak": [
+     181,
+     3407800,
+     181,
+     3407800
+    ],
+    "wall_seconds_median": 0.3164812229988456
+   },
+   "S2-players-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 63.819386,
+     "min": 61.162426,
+     "max": 64.412627
+    },
+    "cpu_p99_ms_median": 63.819386,
+    "gpu_p95_ms_median": 2.167,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "2841436575084874155",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 62.148,
+     "scene.build": 59.588,
+     "text.rasterize": 24.725,
+     "render.texture_upload": 8.589,
+     "render.submit": 1.539,
+     "appearance.gpu_cache": 0.356
+    },
+    "counters_median": {
+     "draw_calls": 3005,
+     "triangles": 11762,
+     "quads": 5881,
+     "quad_upload_bytes": 658672
+    },
+    "rss_mb_peak": 145.6953125,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 0.4497573349981394
+   },
+   "S2-enemies-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1.984695,
+     "min": 1.683996,
+     "max": 2.401492
+    },
+    "cpu_p99_ms_median": 1.984695,
+    "gpu_p95_ms_median": 1.86256,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     1000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     1000,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "10008193188448229122",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.877,
+     "render.submit": 1.091,
+     "scene.build": 0.753,
+     "present.swap": 0.165,
+     "scene.sort_entities": 0.105,
+     "scene.terrain": 0.1
+    },
+    "counters_median": {
+     "draw_calls": 2005,
+     "triangles": 9762,
+     "quads": 4881,
+     "quad_upload_bytes": 546672
+    },
+    "rss_mb_peak": 139.80078125,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.19311271900005522
+   },
+   "S2-models-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2.964603,
+     "min": 2.24269,
+     "max": 3.223159
+    },
+    "cpu_p99_ms_median": 2.964603,
+    "gpu_p95_ms_median": 0.97632,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     988,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "9319919989238850539",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 2.351,
+     "render.submit": 1.344,
+     "render.model_upload_submit": 1.174,
+     "scene.build": 0.924,
+     "model.prepare": 0.51,
+     "present.swap": 0.178
+    },
+    "counters_median": {
+     "draw_calls": 1169,
+     "triangles": 13536,
+     "quads": 1682,
+     "quad_upload_bytes": 299040
+    },
+    "rss_mb_peak": 142.203125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.19643647400152986
+   },
+   "S2-projectiles-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 105.090312,
+     "min": 103.272071,
+     "max": 106.995507
+    },
+    "cpu_p99_ms_median": 105.090312,
+    "gpu_p95_ms_median": 2.7276,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     10000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     10000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 9999,
+    "removed": 0,
+    "state_checksum": "11811813641024089203",
+    "packet_checksum": "15125781947463219218",
+    "top_zone_medians_ms": {
+     "frame.cpu": 104.792,
+     "fixture.timeline": 99.291,
+     "combat.update": 99.245,
+     "combat.target_query": 98.421,
+     "scene.build": 4.81,
+     "appearance.lookup": 0.72
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 41762,
+     "quads": 20881,
+     "quad_upload_bytes": 2338672
+    },
+    "rss_mb_peak": 145.24609375,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 0.6118147010020039
+   },
+   "S2-mixed-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 270.577943,
+     "min": 266.354981,
+     "max": 274.954196
+    },
+    "cpu_p99_ms_median": 270.577943,
+    "gpu_p95_ms_median": 4.43588,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     1000,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1001,
+     1000,
+     988,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 42999,
+    "removed": 40000,
+    "state_checksum": "1040131448232679219",
+    "packet_checksum": "15859018307020508567",
+    "top_zone_medians_ms": {
+     "frame.cpu": 264.635,
+     "scene.build": 236.068,
+     "appearance.lookup": 152.734,
+     "appearance.compose": 151.203,
+     "text.rasterize": 27.604,
+     "render.texture_upload": 22.098
+    },
+    "counters_median": {
+     "draw_calls": 6186,
+     "triangles": 43826,
+     "quads": 16827,
+     "quad_upload_bytes": 1995280
+    },
+    "rss_mb_peak": 167.359375,
+    "cache_peak": [
+     256,
+     4868888,
+     256,
+     4868888
+    ],
+    "wall_seconds_median": 1.2535766110013356
+   },
+   "S2-players-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 11.810981,
+     "min": 11.729449,
+     "max": 11.907967
+    },
+    "cpu_p99_ms_median": 11.810981,
+    "gpu_p95_ms_median": 0.49412,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     185,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "9582398189424153679",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 11.564,
+     "scene.build": 11.267,
+     "text.rasterize": 4.607,
+     "render.texture_upload": 1.679,
+     "render.submit": 0.301,
+     "present.swap": 0.277
+    },
+    "counters_median": {
+     "draw_calls": 557,
+     "triangles": 3602,
+     "quads": 1801,
+     "quad_upload_bytes": 201712
+    },
+    "rss_mb_peak": 142.01171875,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 0.24943023200103198
+   },
+   "S2-enemies-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.414657,
+     "min": 0.361543,
+     "max": 0.420377
+    },
+    "cpu_p99_ms_median": 0.414657,
+    "gpu_p95_ms_median": 0.55264,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     1000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     185,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "9050284889426918407",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.344,
+     "scene.build": 0.228,
+     "present.swap": 0.201,
+     "scene.terrain": 0.099,
+     "render.submit": 0.094,
+     "render.quad_upload": 0.027
+    },
+    "counters_median": {
+     "draw_calls": 375,
+     "triangles": 3242,
+     "quads": 1621,
+     "quad_upload_bytes": 181552
+    },
+    "rss_mb_peak": 140.0,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.18866627600073116
+   },
+   "S2-models-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.645009,
+     "min": 0.576795,
+     "max": 0.719407
+    },
+    "cpu_p99_ms_median": 0.645009,
+    "gpu_p95_ms_median": 0.25284,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     183,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "5409073553728266200",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.539,
+     "scene.build": 0.258,
+     "render.submit": 0.243,
+     "render.model_upload_submit": 0.186,
+     "present.swap": 0.164,
+     "scene.terrain": 0.097
+    },
+    "counters_median": {
+     "draw_calls": 220,
+     "triangles": 3827,
+     "quads": 1030,
+     "quad_upload_bytes": 135856
+    },
+    "rss_mb_peak": 142.3125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.1932285500006401
+   },
+   "S2-projectiles-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 106.267407,
+     "min": 104.668105,
+     "max": 110.384395
+    },
+    "cpu_p99_ms_median": 106.267407,
+    "gpu_p95_ms_median": 2.72968,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     10000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     10000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 9999,
+    "removed": 0,
+    "state_checksum": "11811813641024089203",
+    "packet_checksum": "15125781947463219218",
+    "top_zone_medians_ms": {
+     "frame.cpu": 105.908,
+     "fixture.timeline": 100.523,
+     "combat.update": 100.472,
+     "combat.target_query": 99.686,
+     "scene.build": 4.774,
+     "appearance.lookup": 0.72
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 41762,
+     "quads": 20881,
+     "quad_upload_bytes": 2338672
+    },
+    "rss_mb_peak": 145.25,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 0.6172274660020776
+   },
+   "S2-mixed-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 201.744115,
+     "min": 178.934678,
+     "max": 224.329188
+    },
+    "cpu_p99_ms_median": 201.744115,
+    "gpu_p95_ms_median": 3.93324,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     1000,
+     1000,
+     10000,
+     0
+    ],
+    "submitted_last": [
+     185,
+     185,
+     183,
+     10000,
+     0
+    ],
+    "hits": 508,
+    "resets": 0,
+    "spawned": 13000,
+    "removed": 1,
+    "state_checksum": "13348662315996615700",
+    "packet_checksum": "8156596741471213518",
+    "top_zone_medians_ms": {
+     "frame.cpu": 196.771,
+     "fixture.timeline": 172.833,
+     "combat.update": 172.62,
+     "combat.target_query": 170.913,
+     "scene.build": 18.519,
+     "text.rasterize": 5.08
+    },
+    "counters_median": {
+     "draw_calls": 1151,
+     "triangles": 47171,
+     "quads": 22702,
+     "quad_upload_bytes": 2563120
+    },
+    "rss_mb_peak": 162.47265625,
+    "cache_peak": [
+     197,
+     3648224,
+     191,
+     3601760
+    ],
+    "wall_seconds_median": 1.027138556000864
+   },
+   "S2-combat-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 229.706293,
+     "min": 200.849734,
+     "max": 237.406825
+    },
+    "cpu_p99_ms_median": 229.706293,
+    "gpu_p95_ms_median": 7.25136,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     1000,
+     0,
+     10000,
+     0
+    ],
+    "submitted_last": [
+     1001,
+     1000,
+     0,
+     10000,
+     0
+    ],
+    "hits": 2,
+    "resets": 0,
+    "spawned": 12001,
+    "removed": 2,
+    "state_checksum": "6114585237186425171",
+    "packet_checksum": "4034705072525355935",
+    "top_zone_medians_ms": {
+     "frame.cpu": 226.557,
+     "fixture.timeline": 150.667,
+     "combat.update": 150.558,
+     "combat.target_query": 149.2,
+     "scene.build": 67.459,
+     "text.rasterize": 24.233
+    },
+    "counters_median": {
+     "draw_calls": 5013,
+     "triangles": 59806,
+     "quads": 29903,
+     "quad_upload_bytes": 3349136
+    },
+    "rss_mb_peak": 158.92578125,
+    "cache_peak": [
+     199,
+     3748264,
+     199,
+     3748264
+    ],
+    "wall_seconds_median": 1.1383611009987362
+   },
+   "S3-players-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 197.836014,
+     "min": 195.113448,
+     "max": 202.407321
+    },
+    "cpu_p99_ms_median": 197.836014,
+    "gpu_p95_ms_median": 6.627,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     3001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "17020494888091677578",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 197.439,
+     "scene.build": 191.943,
+     "text.rasterize": 78.649,
+     "render.texture_upload": 26.497,
+     "render.submit": 4.985,
+     "appearance.gpu_cache": 1.664
+    },
+    "counters_median": {
+     "draw_calls": 9005,
+     "triangles": 31762,
+     "quads": 15881,
+     "quad_upload_bytes": 1778672
+    },
+    "rss_mb_peak": 153.5,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 1.0012122469997848
+   },
+   "S3-enemies-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 5.560522,
+     "min": 4.559543,
+     "max": 5.866126
+    },
+    "cpu_p99_ms_median": 5.560522,
+    "gpu_p95_ms_median": 3.48148,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     3000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     3000,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "1874594594139154455",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 4.633,
+     "render.submit": 2.386,
+     "scene.build": 2.133,
+     "scene.sort_entities": 0.357,
+     "appearance.lookup": 0.253,
+     "appearance.gpu_cache": 0.162
+    },
+    "counters_median": {
+     "draw_calls": 6005,
+     "triangles": 25762,
+     "quads": 12881,
+     "quad_upload_bytes": 1442672
+    },
+    "rss_mb_peak": 140.83984375,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.20861819499987178
+   },
+   "S3-models-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 7.474702,
+     "min": 6.495204,
+     "max": 8.671199
+    },
+    "cpu_p99_ms_median": 7.474702,
+    "gpu_p95_ms_median": 3.02127,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     3000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     2966,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "17685383948675788030",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 6.763,
+     "render.submit": 3.703,
+     "render.model_upload_submit": 3.358,
+     "scene.build": 2.609,
+     "model.prepare": 1.434,
+     "scene.sort_entities": 0.421
+    },
+    "counters_median": {
+     "draw_calls": 3508,
+     "triangles": 37078,
+     "quads": 3285,
+     "quad_upload_bytes": 700112
+    },
+    "rss_mb_peak": 145.2578125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.21373060699988855
+   },
+   "S3-projectiles-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 819.253152,
+     "min": 787.672026,
+     "max": 874.8957
+    },
+    "cpu_p99_ms_median": 819.253152,
+    "gpu_p95_ms_median": 5.69948,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     20000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     20000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 19999,
+    "removed": 0,
+    "state_checksum": "6004266213791743740",
+    "packet_checksum": "12726657433135339034",
+    "top_zone_medians_ms": {
+     "frame.cpu": 770.046,
+     "fixture.timeline": 759.632,
+     "combat.update": 759.533,
+     "combat.target_query": 754.615,
+     "scene.build": 9.33,
+     "appearance.lookup": 1.412
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 81762,
+     "quads": 40881,
+     "quad_upload_bytes": 4578672
+    },
+    "rss_mb_peak": 153.71875,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 3.3389722790016094
+   },
+   "S3-mixed-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 783.817324,
+     "min": 777.91954,
+     "max": 784.158514
+    },
+    "cpu_p99_ms_median": 783.817324,
+    "gpu_p95_ms_median": 11.28121,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     3000,
+     3000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     3001,
+     3000,
+     2966,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 88999,
+    "removed": 80000,
+    "state_checksum": "7120256684267969024",
+    "packet_checksum": "18263206126824056583",
+    "top_zone_medians_ms": {
+     "frame.cpu": 770.951,
+     "scene.build": 708.823,
+     "appearance.lookup": 455.175,
+     "appearance.compose": 450.364,
+     "text.rasterize": 84.085,
+     "render.texture_upload": 64.155
+    },
+    "counters_median": {
+     "draw_calls": 18526,
+     "triangles": 103368,
+     "quads": 36430,
+     "quad_upload_bytes": 4412352
+    },
+    "rss_mb_peak": 193.66796875,
+    "cache_peak": [
+     256,
+     4863808,
+     256,
+     4863808
+    ],
+    "wall_seconds_median": 3.2743871949969616
+   },
+   "S3-players-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 36.510569,
+     "min": 36.154256,
+     "max": 36.885962
+    },
+    "cpu_p99_ms_median": 36.510569,
+    "gpu_p95_ms_median": 1.17936,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     552,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "12088522704696848144",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 36.081,
+     "scene.build": 34.974,
+     "text.rasterize": 14.583,
+     "render.texture_upload": 4.766,
+     "render.submit": 0.804,
+     "present.swap": 0.209
+    },
+    "counters_median": {
+     "draw_calls": 1658,
+     "triangles": 7272,
+     "quads": 3636,
+     "quad_upload_bytes": 407232
+    },
+    "rss_mb_peak": 144.515625,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 0.3421037440020882
+   },
+   "S3-enemies-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1.103838,
+     "min": 1.032004,
+     "max": 1.156321
+    },
+    "cpu_p99_ms_median": 1.103838,
+    "gpu_p95_ms_median": 1.49928,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     3000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     551,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "14514706213303835835",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.986,
+     "render.submit": 0.494,
+     "scene.build": 0.465,
+     "present.swap": 0.198,
+     "scene.terrain": 0.099,
+     "appearance.lookup": 0.048
+    },
+    "counters_median": {
+     "draw_calls": 1107,
+     "triangles": 6170,
+     "quads": 3085,
+     "quad_upload_bytes": 345520
+    },
+    "rss_mb_peak": 140.8203125,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.19283312400148134
+   },
+   "S3-models-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1.781111,
+     "min": 1.410359,
+     "max": 1.97446
+    },
+    "cpu_p99_ms_median": 1.781111,
+    "gpu_p95_ms_median": 0.60293,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     3000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     551,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 3000,
+    "removed": 0,
+    "state_checksum": "12273215035046417439",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.687,
+     "render.submit": 0.873,
+     "render.model_upload_submit": 0.781,
+     "scene.build": 0.586,
+     "model.prepare": 0.271,
+     "present.swap": 0.174
+    },
+    "counters_median": {
+     "draw_calls": 632,
+     "triangles": 8448,
+     "quads": 1334,
+     "quad_upload_bytes": 211120
+    },
+    "rss_mb_peak": 143.0703125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.1912872110005992
+   },
+   "S3-projectiles-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 790.33668,
+     "min": 766.70398,
+     "max": 850.897889
+    },
+    "cpu_p99_ms_median": 790.33668,
+    "gpu_p95_ms_median": 5.68372,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     20000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     20000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 19999,
+    "removed": 0,
+    "state_checksum": "6004266213791743740",
+    "packet_checksum": "12726657433135339034",
+    "top_zone_medians_ms": {
+     "frame.cpu": 769.901,
+     "fixture.timeline": 758.972,
+     "combat.update": 758.865,
+     "combat.target_query": 754.027,
+     "scene.build": 9.331,
+     "appearance.lookup": 1.416
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 81762,
+     "quads": 40881,
+     "quad_upload_bytes": 4578672
+    },
+    "rss_mb_peak": 155.71875,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 3.2985966140004166
+   },
+   "S3-mixed-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1512.064961,
+     "min": 1499.407874,
+     "max": 1534.384537
+    },
+    "cpu_p99_ms_median": 1512.064961,
+    "gpu_p95_ms_median": 8.6144,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     3000,
+     3000,
+     19968,
+     0
+    ],
+    "submitted_last": [
+     555,
+     554,
+     551,
+     19968,
+     0
+    ],
+    "hits": 11125,
+    "resets": 0,
+    "spawned": 29095,
+    "removed": 128,
+    "state_checksum": "1127906418684789489",
+    "packet_checksum": "2330129006157112373",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1486.189,
+     "fixture.timeline": 1331.892,
+     "combat.update": 1331.447,
+     "combat.target_query": 1326.057,
+     "scene.build": 144.242,
+     "appearance.lookup": 85.991
+    },
+    "counters_median": {
+     "draw_calls": 3414,
+     "triangles": 103756,
+     "quads": 48988,
+     "quad_upload_bytes": 5548368
+    },
+    "rss_mb_peak": 180.42578125,
+    "cache_peak": [
+     256,
+     4834408,
+     256,
+     4834408
+    ],
+    "wall_seconds_median": 6.036239483997633
+   },
+   "S3-combat-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1389.053249,
+     "min": 1366.098217,
+     "max": 1443.88112
+    },
+    "cpu_p99_ms_median": 1389.053249,
+    "gpu_p95_ms_median": 11.16848,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     3000,
+     0,
+     20000,
+     0
+    ],
+    "submitted_last": [
+     3001,
+     3000,
+     0,
+     20000,
+     0
+    ],
+    "hits": 2,
+    "resets": 0,
+    "spawned": 26001,
+    "removed": 2,
+    "state_checksum": "7000807898341069473",
+    "packet_checksum": "6360579442313875031",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1378.926,
+     "fixture.timeline": 1159.229,
+     "combat.update": 1158.905,
+     "combat.target_query": 1153.571,
+     "scene.build": 201.273,
+     "text.rasterize": 76.578
+    },
+    "counters_median": {
+     "draw_calls": 15013,
+     "triangles": 135806,
+     "quads": 67903,
+     "quad_upload_bytes": 7605136
+    },
+    "rss_mb_peak": 180.59375,
+    "cache_peak": [
+     199,
+     3748264,
+     199,
+     3748264
+    ],
+    "wall_seconds_median": 5.689248024002154
+   },
+   "S4-players-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 395.916075,
+     "min": 391.488124,
+     "max": 398.936531
+    },
+    "cpu_p99_ms_median": 395.916075,
+    "gpu_p95_ms_median": 10.05012,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     6001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "10869190875381371506",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 393.68,
+     "scene.build": 381.669,
+     "text.rasterize": 160.151,
+     "render.texture_upload": 49.626,
+     "render.submit": 9.754,
+     "appearance.gpu_cache": 3.094
+    },
+    "counters_median": {
+     "draw_calls": 18005,
+     "triangles": 61762,
+     "quads": 30881,
+     "quad_upload_bytes": 3458672
+    },
+    "rss_mb_peak": 167.46875,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 1.783729434999259
+   },
+   "S4-enemies-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 10.500445,
+     "min": 9.378378,
+     "max": 12.926492
+    },
+    "cpu_p99_ms_median": 10.500445,
+    "gpu_p95_ms_median": 4.73188,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     6000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     6000,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "1174890043374074539",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 9.365,
+     "render.submit": 4.942,
+     "scene.build": 4.124,
+     "scene.sort_entities": 0.733,
+     "appearance.lookup": 0.509,
+     "render.quad_upload": 0.369
+    },
+    "counters_median": {
+     "draw_calls": 12005,
+     "triangles": 49762,
+     "quads": 24881,
+     "quad_upload_bytes": 2786672
+    },
+    "rss_mb_peak": 145.6328125,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.23446669099939754
+   },
+   "S4-models-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 12.91052,
+     "min": 12.63454,
+     "max": 13.533054
+    },
+    "cpu_p99_ms_median": 12.91052,
+    "gpu_p95_ms_median": 6.84822,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     6000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     5933,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "2092084509477237079",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 12.715,
+     "render.submit": 7.308,
+     "render.model_upload_submit": 6.802,
+     "scene.build": 4.751,
+     "model.prepare": 2.783,
+     "scene.sort_entities": 0.724
+    },
+    "counters_median": {
+     "draw_calls": 7005,
+     "triangles": 72767,
+     "quads": 5682,
+     "quad_upload_bytes": 1300880
+    },
+    "rss_mb_peak": 152.3203125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.24720948299727752
+   },
+   "S4-projectiles-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3216.880094,
+     "min": 3118.754087,
+     "max": 3273.354404
+    },
+    "cpu_p99_ms_median": 3216.880094,
+    "gpu_p95_ms_median": 9.64196,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     40000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     40000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 39999,
+    "removed": 0,
+    "state_checksum": "4188842441171665415",
+    "packet_checksum": "16057013298461314442",
+    "top_zone_medians_ms": {
+     "frame.cpu": 3169.699,
+     "fixture.timeline": 3149.188,
+     "combat.update": 3148.878,
+     "combat.target_query": 3138.317,
+     "scene.build": 18.868,
+     "appearance.lookup": 2.852
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 161762,
+     "quads": 80881,
+     "quad_upload_bytes": 9058672
+    },
+    "rss_mb_peak": 175.3984375,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 12.957395774999895
+   },
+   "S4-mixed-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1573.728297,
+     "min": 1567.755002,
+     "max": 1577.414344
+    },
+    "cpu_p99_ms_median": 1573.728297,
+    "gpu_p95_ms_median": 22.24988,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     6000,
+     6000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     6001,
+     6000,
+     5933,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 177999,
+    "removed": 160000,
+    "state_checksum": "2194066024615882967",
+    "packet_checksum": "16515216864921533447",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1543.886,
+     "scene.build": 1421.311,
+     "appearance.lookup": 909.22,
+     "appearance.compose": 899.737,
+     "text.rasterize": 172.957,
+     "render.texture_upload": 127.765
+    },
+    "counters_median": {
+     "draw_calls": 37023,
+     "triangles": 193057,
+     "quads": 65827,
+     "quad_upload_bytes": 8037120
+    },
+    "rss_mb_peak": 230.2109375,
+    "cache_peak": [
+     256,
+     4870488,
+     256,
+     4870488
+    ],
+    "wall_seconds_median": 6.379019782998512
+   },
+   "S4-players-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 74.089017,
+     "min": 73.966156,
+     "max": 80.133895
+    },
+    "cpu_p99_ms_median": 74.089017,
+    "gpu_p95_ms_median": 2.22164,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1104,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "4877424156682587707",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 73.442,
+     "scene.build": 71.476,
+     "text.rasterize": 29.982,
+     "render.texture_upload": 9.458,
+     "render.submit": 1.683,
+     "appearance.gpu_cache": 0.388
+    },
+    "counters_median": {
+     "draw_calls": 3314,
+     "triangles": 12792,
+     "quads": 6396,
+     "quad_upload_bytes": 716352
+    },
+    "rss_mb_peak": 148.5859375,
+    "cache_peak": [
+     48,
+     907904,
+     48,
+     907904
+    ],
+    "wall_seconds_median": 0.4984125529990706
+   },
+   "S4-enemies-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2.340215,
+     "min": 1.988827,
+     "max": 2.423238
+    },
+    "cpu_p99_ms_median": 2.340215,
+    "gpu_p95_ms_median": 1.72768,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     6000,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     1106,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "16319356930891241721",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 2.2,
+     "render.submit": 1.251,
+     "scene.build": 0.885,
+     "present.swap": 0.205,
+     "scene.sort_entities": 0.119,
+     "scene.terrain": 0.098
+    },
+    "counters_median": {
+     "draw_calls": 2217,
+     "triangles": 10610,
+     "quads": 5305,
+     "quad_upload_bytes": 594160
+    },
+    "rss_mb_peak": 142.296875,
+    "cache_peak": [
+     4,
+     70312,
+     4,
+     70312
+    ],
+    "wall_seconds_median": 0.2031442209990928
+   },
+   "S4-models-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3.273368,
+     "min": 2.645103,
+     "max": 3.640691
+    },
+    "cpu_p99_ms_median": 3.273368,
+    "gpu_p95_ms_median": 0.926,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     6000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     1099,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 6000,
+    "removed": 0,
+    "state_checksum": "10868407846409932504",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 3.202,
+     "render.submit": 1.434,
+     "render.model_upload_submit": 1.296,
+     "scene.build": 1.029,
+     "model.prepare": 0.562,
+     "present.swap": 0.16
+    },
+    "counters_median": {
+     "draw_calls": 1231,
+     "triangles": 15335,
+     "quads": 1770,
+     "quad_upload_bytes": 321328
+    },
+    "rss_mb_peak": 144.6796875,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.19730567499937024
+   },
+   "S4-projectiles-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3213.885192,
+     "min": 3170.523397,
+     "max": 3346.013417
+    },
+    "cpu_p99_ms_median": 3213.885192,
+    "gpu_p95_ms_median": 9.79892,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     0,
+     40000,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     0,
+     40000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 39999,
+    "removed": 0,
+    "state_checksum": "4188842441171665415",
+    "packet_checksum": "16057013298461314442",
+    "top_zone_medians_ms": {
+     "frame.cpu": 3181.776,
+     "fixture.timeline": 3160.93,
+     "combat.update": 3160.462,
+     "combat.target_query": 3150.58,
+     "scene.build": 18.876,
+     "appearance.lookup": 2.845
+    },
+    "counters_median": {
+     "draw_calls": 8,
+     "triangles": 161762,
+     "quads": 80881,
+     "quad_upload_bytes": 9058672
+    },
+    "rss_mb_peak": 174.91796875,
+    "cache_peak": [
+     3,
+     46336,
+     3,
+     46336
+    ],
+    "wall_seconds_median": 12.896377400000347
+   },
+   "S4-mixed-spread": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 5691.38372,
+     "min": 5203.615212,
+     "max": 6098.225513
+    },
+    "cpu_p99_ms_median": 5691.38372,
+    "gpu_p95_ms_median": 9.91164,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     6000,
+     6000,
+     35008,
+     0
+    ],
+    "submitted_last": [
+     1109,
+     1111,
+     1099,
+     35008,
+     0
+    ],
+    "hits": 39722,
+    "resets": 0,
+    "spawned": 93071,
+    "removed": 40064,
+    "state_checksum": "11769835025580936318",
+    "packet_checksum": "4493057940973402842",
+    "top_zone_medians_ms": {
+     "frame.cpu": 5223.611,
+     "fixture.timeline": 4916.51,
+     "combat.update": 4912.78,
+     "combat.target_query": 4860.203,
+     "scene.build": 285.774,
+     "appearance.lookup": 170.765
+    },
+    "counters_median": {
+     "draw_calls": 6787,
+     "triangles": 187711,
+     "quads": 87958,
+     "quad_upload_bytes": 9974384
+    },
+    "rss_mb_peak": 212.3984375,
+    "cache_peak": [
+     256,
+     4841888,
+     256,
+     4841888
+    ],
+    "wall_seconds_median": 18.231622941999376
+   },
+   "S4-combat-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 5162.011409,
+     "min": 5131.007138,
+     "max": 5420.766312
+    },
+    "cpu_p99_ms_median": 5162.011409,
+    "gpu_p95_ms_median": 17.41628,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     6000,
+     0,
+     40000,
+     0
+    ],
+    "submitted_last": [
+     6001,
+     6000,
+     0,
+     40000,
+     0
+    ],
+    "hits": 2,
+    "resets": 0,
+    "spawned": 52001,
+    "removed": 2,
+    "state_checksum": "4522725525833880931",
+    "packet_checksum": "10657358961929351567",
+    "top_zone_medians_ms": {
+     "frame.cpu": 5096.874,
+     "fixture.timeline": 4649.455,
+     "combat.update": 4648.568,
+     "combat.target_query": 4637.282,
+     "scene.build": 413.163,
+     "text.rasterize": 158.571
+    },
+    "counters_median": {
+     "draw_calls": 30013,
+     "triangles": 269806,
+     "quads": 134903,
+     "quad_upload_bytes": 15109136
+    },
+    "rss_mb_peak": 213.9453125,
+    "cache_peak": [
+     199,
+     3748264,
+     199,
+     3748264
+    ],
+    "wall_seconds_median": 20.792569991001074
+   },
+   "nexus-idle": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.243404,
+     "min": 0.240625,
+     "max": 0.255141
+    },
+    "cpu_p99_ms_median": 0.243404,
+    "gpu_p95_ms_median": 0.20712,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     137
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "15635195051104202248",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.202,
+     "scene.build": 0.144,
+     "present.swap": 0.119,
+     "scene.terrain": 0.092,
+     "render.submit": 0.037,
+     "render.quad_upload": 0.02
+    },
+    "counters_median": {
+     "draw_calls": 39,
+     "triangles": 2136,
+     "quads": 1052,
+     "quad_upload_bytes": 118272
+    },
+    "rss_mb_peak": 138.33984375,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.18724855199980084
+   },
+   "nexus-pan": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.243687,
+     "min": 0.232353,
+     "max": 0.428788
+    },
+    "cpu_p99_ms_median": 0.243687,
+    "gpu_p95_ms_median": 0.2072,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     121
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "15635195051104202248",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.201,
+     "scene.build": 0.147,
+     "present.swap": 0.134,
+     "scene.terrain": 0.091,
+     "render.submit": 0.035,
+     "render.quad_upload": 0.02
+    },
+    "counters_median": {
+     "draw_calls": 38,
+     "triangles": 2116,
+     "quads": 1042,
+     "quad_upload_bytes": 117152
+    },
+    "rss_mb_peak": 138.421875,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.18464397599746007
+   },
+   "nexus-rotate": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.836857,
+     "min": 0.836356,
+     "max": 0.841949
+    },
+    "cpu_p99_ms_median": 0.836857,
+    "gpu_p95_ms_median": 0.2148,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     137
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "15635195051104202248",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.765,
+     "ui.build": 0.573,
+     "present.swap": 0.153,
+     "scene.build": 0.149,
+     "render.texture_upload": 0.123,
+     "scene.terrain": 0.093
+    },
+    "counters_median": {
+     "draw_calls": 42,
+     "triangles": 2028,
+     "quads": 998,
+     "quad_upload_bytes": 112224
+    },
+    "rss_mb_peak": 139.44921875,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.18906014000094729
+   },
+   "nexus-zoom": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.253085,
+     "min": 0.246172,
+     "max": 0.260019
+    },
+    "cpu_p99_ms_median": 0.253085,
+    "gpu_p95_ms_median": 0.2062,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     137
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "15635195051104202248",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.205,
+     "present.swap": 0.161,
+     "scene.build": 0.15,
+     "scene.terrain": 0.093,
+     "render.submit": 0.035,
+     "render.quad_upload": 0.019
+    },
+    "counters_median": {
+     "draw_calls": 39,
+     "triangles": 2136,
+     "quads": 1052,
+     "quad_upload_bytes": 118272
+    },
+    "rss_mb_peak": 138.26171875,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.18410906499775592
+   },
+   "models-varied-rotating": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3.293444,
+     "min": 3.096622,
+     "max": 4.262852
+    },
+    "cpu_p99_ms_median": 3.293444,
+    "gpu_p95_ms_median": 0.68408,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     988,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "15337244590029680735",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 2.958,
+     "render.submit": 1.33,
+     "render.model_upload_submit": 1.202,
+     "scene.build": 0.946,
+     "ui.build": 0.59,
+     "model.prepare": 0.545
+    },
+    "counters_median": {
+     "draw_calls": 1169,
+     "triangles": 15685,
+     "quads": 1677,
+     "quad_upload_bytes": 298480
+    },
+    "rss_mb_peak": 142.80078125,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.19987606100039557
+   },
+   "models-repeated": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2.164784,
+     "min": 1.70765,
+     "max": 2.634187
+    },
+    "cpu_p99_ms_median": 2.164784,
+    "gpu_p95_ms_median": 1.43334,
+    "measured_frames": 3,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "13110137608434187193",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.761,
+     "render.submit": 1.164,
+     "render.model_upload_submit": 1.094,
+     "scene.build": 0.551,
+     "present.swap": 0.349,
+     "model.prepare": 0.222
+    },
+    "counters_median": {
+     "draw_calls": 1005,
+     "triangles": 7762,
+     "quads": 1881,
+     "quad_upload_bytes": 322672
+    },
+    "rss_mb_peak": 140.546875,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.1940211820001423
+   },
+   "variety-16": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 39.985308,
+     "min": 38.405565,
+     "max": 41.02521
+    },
+    "cpu_p99_ms_median": 39.985308,
+    "gpu_p95_ms_median": 1.33548,
+    "measured_frames": 3,
+    "resident": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 600,
+    "removed": 0,
+    "state_checksum": "16717871757443476787",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 38.175,
+     "scene.build": 36.145,
+     "text.rasterize": 14.348,
+     "render.texture_upload": 5.154,
+     "appearance.gpu_cache": 1.168,
+     "ui.build": 1.071
+    },
+    "counters_median": {
+     "draw_calls": 1805,
+     "triangles": 7762,
+     "quads": 3881,
+     "quad_upload_bytes": 434672
+    },
+    "rss_mb_peak": 146.8359375,
+    "cache_peak": [
+     193,
+     3645184,
+     193,
+     3645184
+    ],
+    "wall_seconds_median": 0.37586421300147776
+   },
+   "variety-512": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 139.988146,
+     "min": 139.740104,
+     "max": 145.880971
+    },
+    "cpu_p99_ms_median": 139.988146,
+    "gpu_p95_ms_median": 1.33108,
+    "measured_frames": 3,
+    "resident": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 600,
+    "removed": 0,
+    "state_checksum": "9900087727245497827",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 139.61,
+     "scene.build": 137.257,
+     "appearance.lookup": 90.897,
+     "appearance.compose": 90.208,
+     "text.rasterize": 15.197,
+     "render.texture_upload": 12.827
+    },
+    "counters_median": {
+     "draw_calls": 1805,
+     "triangles": 7762,
+     "quads": 3881,
+     "quad_upload_bytes": 434672
+    },
+    "rss_mb_peak": 148.8984375,
+    "cache_peak": [
+     256,
+     4874768,
+     256,
+     4874768
+    ],
+    "wall_seconds_median": 0.7474322039997787
+   },
+   "churn": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 24.181596,
+     "min": 23.795195,
+     "max": 24.723763
+    },
+    "cpu_p99_ms_median": 24.181596,
+    "gpu_p95_ms_median": 1.54924,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     250,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     247,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 8749,
+    "removed": 8000,
+    "state_checksum": "4720488056995907718",
+    "packet_checksum": "15326979949668835099",
+    "top_zone_medians_ms": {
+     "frame.cpu": 22.257,
+     "scene.build": 16.173,
+     "text.rasterize": 5.756,
+     "fixture.timeline": 3.736,
+     "combat.update": 3.441,
+     "render.texture_upload": 2.381
+    },
+    "counters_median": {
+     "draw_calls": 1559,
+     "triangles": 21535,
+     "quads": 9471,
+     "quad_upload_bytes": 1088416
+    },
+    "rss_mb_peak": 153.00390625,
+    "cache_peak": [
+     253,
+     4780064,
+     253,
+     4780064
+    ],
+    "wall_seconds_median": 0.3191880400008813
+   },
+   "ui": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 1.989903,
+     "min": 1.939046,
+     "max": 2.421182
+    },
+    "cpu_p99_ms_median": 1.989903,
+    "gpu_p95_ms_median": 0.21716,
+    "measured_frames": 3,
+    "resident": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 32,
+    "removed": 0,
+    "state_checksum": "6219706211493963025",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.908,
+     "ui.build": 1.707,
+     "text.rasterize": 0.377,
+     "render.texture_upload": 0.301,
+     "present.swap": 0.155,
+     "scene.build": 0.149
+    },
+    "counters_median": {
+     "draw_calls": 86,
+     "triangles": 2052,
+     "quads": 1026,
+     "quad_upload_bytes": 114912
+    },
+    "rss_mb_peak": 139.6796875,
+    "cache_peak": [
+     20,
+     367600,
+     20,
+     367600
+    ],
+    "wall_seconds_median": 0.19829707000099006
+   },
+   "determinism": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2.266547,
+     "min": 2.253943,
+     "max": 2.333059
+    },
+    "cpu_p99_ms_median": 2.266547,
+    "gpu_p95_ms_median": 0.21088,
+    "measured_frames": 3,
+    "resident": [
+     9,
+     8,
+     0,
+     48,
+     0
+    ],
+    "submitted_last": [
+     9,
+     8,
+     0,
+     48,
+     0
+    ],
+    "hits": 2,
+    "resets": 0,
+    "spawned": 65,
+    "removed": 2,
+    "state_checksum": "16574021314193369980",
+    "packet_checksum": "14212176223757024795",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.901,
+     "ui.build": 1.682,
+     "text.rasterize": 0.377,
+     "render.texture_upload": 0.292,
+     "present.swap": 0.182,
+     "scene.build": 0.158
+    },
+    "counters_median": {
+     "draw_calls": 49,
+     "triangles": 2144,
+     "quads": 1072,
+     "quad_upload_bytes": 120064
+    },
+    "rss_mb_peak": 142.015625,
+    "cache_peak": [
+     20,
+     292432,
+     14,
+     245968
+    ],
+    "wall_seconds_median": 0.20262288999947486
+   },
+   "S1-mixed-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 27.513864,
+     "min": 26.840553,
+     "max": 28.105541
+    },
+    "cpu_p99_ms_median": 27.513864,
+    "gpu_p95_ms_median": 1.69308,
+    "measured_frames": 3,
+    "resident": [
+     251,
+     250,
+     250,
+     2000,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     247,
+     2000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 2751,
+    "removed": 2,
+    "state_checksum": "7906088660862388586",
+    "packet_checksum": "4557600550088074917",
+    "top_zone_medians_ms": {
+     "frame.cpu": 27.153,
+     "scene.build": 16.665,
+     "fixture.timeline": 6.65,
+     "combat.update": 6.616,
+     "combat.target_query": 6.423,
+     "text.rasterize": 6.11
+    },
+    "counters_median": {
+     "draw_calls": 1557,
+     "triangles": 17255,
+     "quads": 7331,
+     "quad_upload_bytes": 848736
+    },
+    "rss_mb_peak": 153.78515625,
+    "cache_peak": [
+     256,
+     4826400,
+     256,
+     4826400
+    ],
+    "wall_seconds_median": 0.3443543289977242
+   },
+   "S2-mixed-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 437.989787,
+     "min": 427.20918,
+     "max": 441.112933
+    },
+    "cpu_p99_ms_median": 437.989787,
+    "gpu_p95_ms_median": 7.38884,
+    "measured_frames": 3,
+    "resident": [
+     1001,
+     1000,
+     1000,
+     10000,
+     0
+    ],
+    "submitted_last": [
+     1001,
+     1000,
+     988,
+     10000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 13001,
+    "removed": 2,
+    "state_checksum": "13970775495953205440",
+    "packet_checksum": "4727774940037803963",
+    "top_zone_medians_ms": {
+     "frame.cpu": 431.322,
+     "scene.build": 236.956,
+     "fixture.timeline": 184.775,
+     "combat.update": 184.602,
+     "combat.target_query": 182.851,
+     "appearance.lookup": 152.535
+    },
+    "counters_median": {
+     "draw_calls": 6178,
+     "triangles": 71544,
+     "quads": 30686,
+     "quad_upload_bytes": 3547488
+    },
+    "rss_mb_peak": 167.87109375,
+    "cache_peak": [
+     256,
+     4856880,
+     256,
+     4856880
+    ],
+    "wall_seconds_median": 1.927104378999502
+   },
+   "S3-mixed-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2086.334577,
+     "min": 2060.741281,
+     "max": 2105.256086
+    },
+    "cpu_p99_ms_median": 2086.334577,
+    "gpu_p95_ms_median": 11.93227,
+    "measured_frames": 3,
+    "resident": [
+     3001,
+     3000,
+     3000,
+     20000,
+     0
+    ],
+    "submitted_last": [
+     3001,
+     3000,
+     2966,
+     20000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 29001,
+    "removed": 2,
+    "state_checksum": "10262755644880699380",
+    "packet_checksum": "8284205334944488391",
+    "top_zone_medians_ms": {
+     "frame.cpu": 2067.779,
+     "fixture.timeline": 1332.193,
+     "combat.update": 1331.881,
+     "combat.target_query": 1326.318,
+     "scene.build": 714.552,
+     "appearance.lookup": 456.35
+    },
+    "counters_median": {
+     "draw_calls": 18517,
+     "triangles": 171086,
+     "quads": 70289,
+     "quad_upload_bytes": 8204560
+    },
+    "rss_mb_peak": 196.08984375,
+    "cache_peak": [
+     256,
+     4858480,
+     256,
+     4858480
+    ],
+    "wall_seconds_median": 8.405351589997736
+   },
+   "S4-mixed-cluster": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 7773.148081,
+     "min": 6775.084124,
+     "max": 7979.772539
+    },
+    "cpu_p99_ms_median": 7773.148081,
+    "gpu_p95_ms_median": 26.61989,
+    "measured_frames": 3,
+    "resident": [
+     6001,
+     6000,
+     6000,
+     40000,
+     0
+    ],
+    "submitted_last": [
+     6001,
+     6000,
+     5933,
+     40000,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 58001,
+    "removed": 2,
+    "state_checksum": "11392302899183755027",
+    "packet_checksum": "8036468155447145407",
+    "top_zone_medians_ms": {
+     "frame.cpu": 7188.653,
+     "fixture.timeline": 5749.25,
+     "combat.update": 5748.284,
+     "combat.target_query": 5735.977,
+     "scene.build": 1399.403,
+     "appearance.lookup": 876.513
+    },
+    "counters_median": {
+     "draw_calls": 37014,
+     "triangles": 340775,
+     "quads": 139686,
+     "quad_upload_bytes": 16309328
+    },
+    "rss_mb_peak": 245.00390625,
+    "cache_peak": [
+     256,
+     4874104,
+     256,
+     4874104
+    ],
+    "wall_seconds_median": 29.436408307999955
+   }
+  }
+ },
+ "extended": {
+  "protocol": "11 scenarios x 5 repeats, 100 warmup + 200 measured fixed ticks (2s+4s simulated), traces, packet/HTTP peers",
+  "source": "build/quality-Q02/qualified/extended/results.json",
+  "scenarios": {
+   "nexus-idle": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.198916,
+     "min": 0.185734,
+     "max": 0.249688
+    },
+    "cpu_p99_ms_median": 0.247327,
+    "gpu_p95_ms_median": 0.19596,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     137
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "1859316853903672983",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.163,
+     "scene.build": 0.137,
+     "scene.terrain": 0.087,
+     "present.swap": 0.073,
+     "render.submit": 0.014,
+     "render.quad_upload": 0.006
+    },
+    "counters_median": {
+     "draw_calls": 40.0,
+     "triangles": 2328.0,
+     "quads": 1148.0,
+     "quad_upload_bytes": 129024.0
+    },
+    "rss_mb_peak": 139.828125,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.2795682680007303
+   },
+   "nexus-pan": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.195357,
+     "min": 0.185518,
+     "max": 0.35027
+    },
+    "cpu_p99_ms_median": 0.217826,
+    "gpu_p95_ms_median": 0.19,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     121
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "1859316853903672983",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.168,
+     "scene.build": 0.142,
+     "scene.terrain": 0.091,
+     "present.swap": 0.071,
+     "render.submit": 0.014,
+     "render.quad_upload": 0.006
+    },
+    "counters_median": {
+     "draw_calls": 39.0,
+     "triangles": 2412.0,
+     "quads": 1190.0,
+     "quad_upload_bytes": 133728.0
+    },
+    "rss_mb_peak": 139.34375,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.28200011100125266
+   },
+   "nexus-rotate": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.777667,
+     "min": 0.756631,
+     "max": 0.978815
+    },
+    "cpu_p99_ms_median": 0.853212,
+    "gpu_p95_ms_median": 0.21732,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     139
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "1859316853903672983",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.708,
+     "ui.build": 0.525,
+     "scene.build": 0.15,
+     "present.swap": 0.128,
+     "appearance.compose": 0.106,
+     "scene.terrain": 0.093
+    },
+    "counters_median": {
+     "draw_calls": 44.0,
+     "triangles": 2292.0,
+     "quads": 1132.0,
+     "quad_upload_bytes": 127344.0
+    },
+    "rss_mb_peak": 140.6875,
+    "cache_peak": [
+     8,
+     114736,
+     8,
+     114736
+    ],
+    "wall_seconds_median": 0.4593948299989279
+   },
+   "nexus-zoom": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.216161,
+     "min": 0.212441,
+     "max": 0.366275
+    },
+    "cpu_p99_ms_median": 0.237293,
+    "gpu_p95_ms_median": 0.19788,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     142
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "1859316853903672983",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.181,
+     "scene.build": 0.153,
+     "scene.terrain": 0.1,
+     "present.swap": 0.099,
+     "render.submit": 0.015,
+     "render.quad_upload": 0.006
+    },
+    "counters_median": {
+     "draw_calls": 46.0,
+     "triangles": 2580.0,
+     "quads": 1274.0,
+     "quad_upload_bytes": 143136.0
+    },
+    "rss_mb_peak": 140.1015625,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.2798875170010433
+   },
+   "models-varied-rotating": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3.498442,
+     "min": 3.069753,
+     "max": 3.829559
+    },
+    "cpu_p99_ms_median": 4.149578,
+    "gpu_p95_ms_median": 1.26803,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     988,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "4299863004133855751",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 2.791,
+     "render.submit": 1.229,
+     "render.model_upload_submit": 1.11,
+     "scene.build": 0.947,
+     "model.prepare": 0.539,
+     "ui.build": 0.523
+    },
+    "counters_median": {
+     "draw_calls": 1267.5,
+     "triangles": 16257.0,
+     "quads": 1937.0,
+     "quad_upload_bytes": 327600.0
+    },
+    "rss_mb_peak": 144.30078125,
+    "cache_peak": [
+     2,
+     27136,
+     2,
+     27136
+    ],
+    "wall_seconds_median": 1.1094121139976778
+   },
+   "models-repeated": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 2.055276,
+     "min": 2.003393,
+     "max": 2.081493
+    },
+    "cpu_p99_ms_median": 2.189784,
+    "gpu_p95_ms_median": 1.12127,
+    "measured_frames": 200,
+    "resident": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "submitted_last": [
+     1,
+     0,
+     1000,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 1000,
+    "removed": 0,
+    "state_checksum": "13110137608434187193",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 1.548,
+     "render.submit": 0.955,
+     "render.model_upload_submit": 0.874,
+     "scene.build": 0.521,
+     "model.prepare": 0.221,
+     "present.swap": 0.205
+    },
+    "counters_median": {
+     "draw_calls": 1005.0,
+     "triangles": 7762.0,
+     "quads": 1881.0,
+     "quad_upload_bytes": 322672.0
+    },
+    "rss_mb_peak": 141.265625,
+    "cache_peak": [
+     1,
+     13568,
+     1,
+     13568
+    ],
+    "wall_seconds_median": 0.7446336970024277
+   },
+   "variety-16": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 42.349886,
+     "min": 42.122188,
+     "max": 43.090486
+    },
+    "cpu_p99_ms_median": 68.368437,
+    "gpu_p95_ms_median": 1.79676,
+    "measured_frames": 200,
+    "resident": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 600,
+    "removed": 0,
+    "state_checksum": "6684359402081746855",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 37.499,
+     "scene.build": 35.494,
+     "appearance.compose": 26.973,
+     "text.rasterize": 14.113,
+     "render.texture_upload": 4.993,
+     "appearance.gpu_cache": 1.152
+    },
+    "counters_median": {
+     "draw_calls": 1805.0,
+     "triangles": 7762.0,
+     "quads": 3881.0,
+     "quad_upload_bytes": 434672.0
+    },
+    "rss_mb_peak": 148.296875,
+    "cache_peak": [
+     256,
+     4874768,
+     256,
+     4874768
+    ],
+    "wall_seconds_median": 12.00479260299835
+   },
+   "variety-512": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 141.607463,
+     "min": 141.373865,
+     "max": 143.606735
+    },
+    "cpu_p99_ms_median": 147.629068,
+    "gpu_p95_ms_median": 1.43552,
+    "measured_frames": 200,
+    "resident": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     601,
+     0,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 600,
+    "removed": 0,
+    "state_checksum": "12114175103574994839",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 138.294,
+     "scene.build": 135.916,
+     "appearance.lookup": 90.237,
+     "appearance.compose": 89.574,
+     "text.rasterize": 15.095,
+     "render.texture_upload": 12.598
+    },
+    "counters_median": {
+     "draw_calls": 1805.0,
+     "triangles": 7762.0,
+     "quads": 3881.0,
+     "quad_upload_bytes": 434672.0
+    },
+    "rss_mb_peak": 149.9765625,
+    "cache_peak": [
+     256,
+     4879848,
+     256,
+     4879848
+    ],
+    "wall_seconds_median": 41.775903945999744
+   },
+   "churn": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 58.994045,
+     "min": 58.515418,
+     "max": 59.889129
+    },
+    "cpu_p99_ms_median": 64.277463,
+    "gpu_p95_ms_median": 1.63659,
+    "measured_frames": 200,
+    "resident": [
+     251,
+     250,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     247,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 2,
+    "spawned": 607911,
+    "removed": 607166,
+    "state_checksum": "17085358268784855501",
+    "packet_checksum": "1304225384401989917",
+    "top_zone_medians_ms": {
+     "frame.cpu": 22.919,
+     "scene.build": 15.756,
+     "text.rasterize": 5.658,
+     "fixture.timeline": 4.995,
+     "combat.update": 4.598,
+     "appearance.compose": 3.597
+    },
+    "counters_median": {
+     "draw_calls": 1622.0,
+     "triangles": 24537.0,
+     "quads": 10972.0,
+     "quad_upload_bytes": 1256528.0
+    },
+    "rss_mb_peak": 154.7734375,
+    "cache_peak": [
+     256,
+     4852848,
+     256,
+     4852848
+    ],
+    "wall_seconds_median": 8.12863120000111
+   },
+   "ui": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 4.398293,
+     "min": 3.844689,
+     "max": 5.583731
+    },
+    "cpu_p99_ms_median": 28.307531,
+    "gpu_p95_ms_median": 0.34684,
+    "measured_frames": 200,
+    "resident": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 32,
+    "removed": 0,
+    "state_checksum": "1087835459217705897",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "text.rasterize": 0.822,
+     "frame.cpu": 0.704,
+     "ui.build": 0.528,
+     "appearance.compose": 0.203,
+     "present.swap": 0.175,
+     "scene.build": 0.137
+    },
+    "counters_median": {
+     "draw_calls": 86.0,
+     "triangles": 2052.0,
+     "quads": 1026.0,
+     "quad_upload_bytes": 114912.0
+    },
+    "rss_mb_peak": 177.70703125,
+    "cache_peak": [
+     132,
+     2448616,
+     132,
+     2448616
+    ],
+    "wall_seconds_median": 0.8758401029990637
+   },
+   "S1-mixed-dense": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 65.822468,
+     "min": 65.290932,
+     "max": 66.538797
+    },
+    "cpu_p99_ms_median": 69.097446,
+    "gpu_p95_ms_median": 1.65489,
+    "measured_frames": 200,
+    "resident": [
+     251,
+     250,
+     250,
+     0,
+     0
+    ],
+    "submitted_last": [
+     251,
+     250,
+     247,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 600749,
+    "removed": 600000,
+    "state_checksum": "12694967582451890774",
+    "packet_checksum": "4156475164162667594",
+    "top_zone_medians_ms": {
+     "frame.cpu": 23.466,
+     "scene.build": 15.82,
+     "text.rasterize": 5.748,
+     "fixture.timeline": 5.08,
+     "combat.update": 4.654,
+     "appearance.compose": 2.968
+    },
+    "counters_median": {
+     "draw_calls": 1641.0,
+     "triangles": 24479.0,
+     "quads": 10943.0,
+     "quad_upload_bytes": 1253280.0
+    },
+    "rss_mb_peak": 192.1484375,
+    "cache_peak": [
+     256,
+     4847768,
+     256,
+     4847768
+    ],
+    "wall_seconds_median": 9.23374744800094
+   }
+  },
+  "interrupted_prior_run": "build/quality-Q02/qualified/extended-interrupted-variety16"
+ },
+ "paired_control": {
+  "protocol": "same current binary vs itself, 5 repeats, shuffled order; validates pipeline only",
+  "scenarios": {
+   "nexus-idle": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 0.16664,
+     "min": 0.163672,
+     "max": 0.29913
+    },
+    "cpu_p99_ms_median": 0.194847,
+    "gpu_p95_ms_median": 0.19724,
+    "measured_frames": 100,
+    "resident": [
+     1,
+     0,
+     8,
+     0,
+     734
+    ],
+    "submitted_last": [
+     1,
+     0,
+     4,
+     0,
+     137
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 0,
+    "removed": 0,
+    "state_checksum": "14470153513425122147",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.159,
+     "scene.build": 0.134,
+     "scene.terrain": 0.087,
+     "present.swap": 0.068,
+     "render.submit": 0.013,
+     "render.quad_upload": 0.005
+    },
+    "counters_median": {
+     "draw_calls": 40.0,
+     "triangles": 2292.0,
+     "quads": 1130.0,
+     "quad_upload_bytes": 127008.0
+    },
+    "rss_mb_peak": 139.515625,
+    "cache_peak": [
+     7,
+     101168,
+     7,
+     101168
+    ],
+    "wall_seconds_median": 0.21261226600108785
+   },
+   "ui": {
+    "repeats": 5,
+    "cpu_p95_ms": {
+     "median": 3.258752,
+     "min": 3.243429,
+     "max": 3.369891
+    },
+    "cpu_p99_ms_median": 28.021733,
+    "gpu_p95_ms_median": 0.34508,
+    "measured_frames": 100,
+    "resident": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "submitted_last": [
+     17,
+     16,
+     0,
+     0,
+     0
+    ],
+    "hits": 0,
+    "resets": 0,
+    "spawned": 32,
+    "removed": 0,
+    "state_checksum": "10655119019920322048",
+    "packet_checksum": "1469598103934665603",
+    "top_zone_medians_ms": {
+     "frame.cpu": 0.718,
+     "text.rasterize": 0.667,
+     "ui.build": 0.524,
+     "appearance.compose": 0.206,
+     "present.swap": 0.197,
+     "scene.build": 0.138
+    },
+    "counters_median": {
+     "draw_calls": 86.0,
+     "triangles": 2052.0,
+     "quads": 1026.0,
+     "quad_upload_bytes": 114912.0
+    },
+    "rss_mb_peak": 173.5546875,
+    "cache_peak": [
+     86,
+     1599928,
+     86,
+     1599928
+    ],
+    "wall_seconds_median": 0.4475649939995492
+   }
+  }
+ },
+ "ordinary_compare": {
+  "protocol": "identical original-Nexus --map ordinary workload, pre-replay vs current profile binaries, fixed 20ms clock, shuffled order",
+  "frames": 3000,
+  "counter_mismatches": [],
+  "ratio_p95_current_over_before": 1.0110898727419884,
+  "ratio_p99_current_over_before": 1.0161224163115032,
+  "summary": {
+   "before": {
+    "cpu_p95_ms": [
+     0.121486,
+     0.114721,
+     0.154638,
+     0.108653,
+     0.116142
+    ],
+    "cpu_p99_ms": [
+     0.209934,
+     0.156475,
+     0.219132,
+     0.142879,
+     0.199908
+    ],
+    "median_of_p95": 0.116142,
+    "median_of_p99": 0.199908
+   },
+   "current": {
+    "cpu_p95_ms": [
+     0.124316,
+     0.111975,
+     0.146438,
+     0.11743,
+     0.113692
+    ],
+    "cpu_p99_ms": [
+     0.212323,
+     0.168537,
+     0.221606,
+     0.198566,
+     0.203131
+    ],
+    "median_of_p95": 0.11743,
+    "median_of_p99": 0.203131
+   }
+  }
+ },
+ "churn_30_resets": {
+  "churn": {
+   "repeats": 1,
+   "cpu_p95_ms": {
+    "median": 59.62728,
+    "min": 59.62728,
+    "max": 59.62728
+   },
+   "cpu_p99_ms_median": 64.323343,
+   "gpu_p95_ms_median": 1.61484,
+   "measured_frames": 2900,
+   "resident": [
+    251,
+    250,
+    250,
+    0,
+    0
+   ],
+   "submitted_last": [
+    251,
+    250,
+    247,
+    0,
+    0
+   ],
+   "hits": 0,
+   "resets": 29,
+   "spawned": 6079974,
+   "removed": 6079283,
+   "state_checksum": "13537726206906832044",
+   "packet_checksum": "16145243637322335903",
+   "top_zone_medians_ms": {
+    "frame.cpu": 22.91,
+    "scene.build": 15.799,
+    "text.rasterize": 5.674,
+    "fixture.timeline": 5.0,
+    "combat.update": 4.61,
+    "appearance.compose": 3.873
+   },
+   "counters_median": {
+    "draw_calls": 1622.0,
+    "triangles": 24537.0,
+    "quads": 10972.0,
+    "quad_upload_bytes": 1256528.0
+   },
+   "rss_mb_peak": 154.9296875,
+   "cache_peak": [
+    256,
+    4852848,
+    256,
+    4852848
+   ],
+   "wall_seconds_median": 79.34233710300032
+  }
+ },
+ "alloc_memory": {
+  "S2-players-dense": {
+   "repeats": 3,
+   "cpu_p95_ms": {
+    "median": 60.501247,
+    "min": 60.260866,
+    "max": 61.399635
+   },
+   "cpu_p99_ms_median": 63.68179,
+   "gpu_p95_ms_median": 2.19214,
+   "measured_frames": 200,
+   "resident": [
+    1001,
+    0,
+    0,
+    0,
+    0
+   ],
+   "submitted_last": [
+    1001,
+    0,
+    0,
+    0,
+    0
+   ],
+   "hits": 0,
+   "resets": 0,
+   "spawned": 1000,
+   "removed": 0,
+   "state_checksum": "2841436575084874155",
+   "packet_checksum": "1469598103934665603",
+   "top_zone_medians_ms": {
+    "frame.cpu": 58.582,
+    "scene.build": 57.183,
+    "text.rasterize": 23.743,
+    "render.texture_upload": 7.999,
+    "render.submit": 1.366,
+    "appearance.gpu_cache": 0.341
+   },
+   "counters_median": {
+    "draw_calls": 3005.0,
+    "triangles": 11762.0,
+    "quads": 5881.0,
+    "quad_upload_bytes": 658672.0
+   },
+   "rss_mb_peak": 146.1171875,
+   "cache_peak": [
+    48,
+    907904,
+    48,
+    907904
+   ],
+   "wall_seconds_median": 12.571343539999361
+  },
+  "S2-models-dense": {
+   "repeats": 3,
+   "cpu_p95_ms": {
+    "median": 2.917701,
+    "min": 2.634305,
+    "max": 3.041131
+   },
+   "cpu_p99_ms_median": 3.069247,
+   "gpu_p95_ms_median": 1.25577,
+   "measured_frames": 200,
+   "resident": [
+    1,
+    0,
+    1000,
+    0,
+    0
+   ],
+   "submitted_last": [
+    1,
+    0,
+    988,
+    0,
+    0
+   ],
+   "hits": 0,
+   "resets": 0,
+   "spawned": 1000,
+   "removed": 0,
+   "state_checksum": "13308647787081056865",
+   "packet_checksum": "1469598103934665603",
+   "top_zone_medians_ms": {
+    "frame.cpu": 2.183,
+    "render.submit": 1.206,
+    "render.model_upload_submit": 1.092,
+    "scene.build": 0.901,
+    "model.prepare": 0.492,
+    "present.swap": 0.136
+   },
+   "counters_median": {
+    "draw_calls": 1281.0,
+    "triangles": 14112.0,
+    "quads": 1970.0,
+    "quad_upload_bytes": 331296.0
+   },
+   "rss_mb_peak": 144.33984375,
+   "cache_peak": [
+    1,
+    13568,
+    1,
+    13568
+   ],
+   "wall_seconds_median": 0.7000894289994903
+  },
+  "variety-512": {
+   "repeats": 3,
+   "cpu_p95_ms": {
+    "median": 137.393908,
+    "min": 136.787134,
+    "max": 137.931935
+   },
+   "cpu_p99_ms_median": 140.348326,
+   "gpu_p95_ms_median": 1.42017,
+   "measured_frames": 200,
+   "resident": [
+    601,
+    0,
+    0,
+    0,
+    0
+   ],
+   "submitted_last": [
+    601,
+    0,
+    0,
+    0,
+    0
+   ],
+   "hits": 0,
+   "resets": 0,
+   "spawned": 600,
+   "removed": 0,
+   "state_checksum": "15467083715964174538",
+   "packet_checksum": "1469598103934665603",
+   "top_zone_medians_ms": {
+    "frame.cpu": 134.532,
+    "scene.build": 132.429,
+    "appearance.lookup": 88.486,
+    "appearance.compose": 87.917,
+    "text.rasterize": 14.655,
+    "render.texture_upload": 12.075
+   },
+   "counters_median": {
+    "draw_calls": 1805.0,
+    "triangles": 7762.0,
+    "quads": 3881.0,
+    "quad_upload_bytes": 434672.0
+   },
+   "rss_mb_peak": 150.87109375,
+   "cache_peak": [
+    256,
+    4879848,
+    256,
+    4879848
+   ],
+   "wall_seconds_median": 28.518720125000982
+  },
+  "churn": {
+   "repeats": 3,
+   "cpu_p95_ms": {
+    "median": 59.083906,
+    "min": 59.032265,
+    "max": 59.162051
+   },
+   "cpu_p99_ms_median": 64.094208,
+   "gpu_p95_ms_median": 1.6232,
+   "measured_frames": 200,
+   "resident": [
+    251,
+    250,
+    250,
+    0,
+    0
+   ],
+   "submitted_last": [
+    251,
+    250,
+    247,
+    0,
+    0
+   ],
+   "hits": 0,
+   "resets": 2,
+   "spawned": 426183,
+   "removed": 425438,
+   "state_checksum": "4673314865017539660",
+   "packet_checksum": "1011483716943760401",
+   "top_zone_medians_ms": {
+    "frame.cpu": 23.028,
+    "scene.build": 15.825,
+    "text.rasterize": 5.662,
+    "fixture.timeline": 5.028,
+    "combat.update": 4.641,
+    "appearance.compose": 3.477
+   },
+   "counters_median": {
+    "draw_calls": 1626.0,
+    "triangles": 24544.0,
+    "quads": 10975.5,
+    "quad_upload_bytes": 1256920.0
+   },
+   "rss_mb_peak": 153.828125,
+   "cache_peak": [
+    256,
+    4852848,
+    256,
+    4852848
+   ],
+   "wall_seconds_median": 5.755624833000184
+  }
+ },
+ "icon_cache": {
+  "note": "CPU original HUD icon cache component only; no GPU residency claim",
+  "runs": {
+   "16": [
+    {
+     "working_set": 16,
+     "ticks": 600,
+     "cache_peak_entries": 16,
+     "cache_peak_bytes": 200704,
+     "evictions": 0,
+     "checksum": "11415280191097894128",
+     "reentry_checksum": "17761535112728502977"
+    },
+    {
+     "working_set": 16,
+     "ticks": 600,
+     "cache_peak_entries": 16,
+     "cache_peak_bytes": 200704,
+     "evictions": 0,
+     "checksum": "11415280191097894128",
+     "reentry_checksum": "17761535112728502977"
+    },
+    {
+     "working_set": 16,
+     "ticks": 600,
+     "cache_peak_entries": 16,
+     "cache_peak_bytes": 200704,
+     "evictions": 0,
+     "checksum": "11415280191097894128",
+     "reentry_checksum": "17761535112728502977"
+    }
+   ],
+   "512": [
+    {
+     "working_set": 512,
+     "ticks": 600,
+     "cache_peak_entries": 128,
+     "cache_peak_bytes": 1605632,
+     "evictions": 307073,
+     "checksum": "5255926095218942952",
+     "reentry_checksum": "17761535112728502977"
+    },
+    {
+     "working_set": 512,
+     "ticks": 600,
+     "cache_peak_entries": 128,
+     "cache_peak_bytes": 1605632,
+     "evictions": 307073,
+     "checksum": "5255926095218942952",
+     "reentry_checksum": "17761535112728502977"
+    },
+    {
+     "working_set": 512,
+     "ticks": 600,
+     "cache_peak_entries": 128,
+     "cache_peak_bytes": 1605632,
+     "evictions": 307073,
+     "checksum": "5255926095218942952",
+     "reentry_checksum": "17761535112728502977"
+    }
+   ]
+  }
+ },
+ "model_library": {
+  "families": 42,
+  "ticks": 100,
+  "vertices": 202431,
+  "checksum": "5407584193085888001"
+ },
+ "captures": {
+  "chat.png": {
+   "sha256": "7b058af9a613e69f2f0983e408c61d4abca3029322aafcdc779bb8ae63c6d679",
+   "path": "build/quality-Q02/qualified/visual/chat.png"
+  },
+  "drag.png": {
+   "sha256": "cbcdc76b5891b2d676bc4ba7e1499b3634ae82d2ce2aeaf3589eb5c792091e6b",
+   "path": "build/quality-Q02/qualified/visual/drag.png"
+  },
+  "mixed-1080.png": {
+   "sha256": "4d2184f177cef29ddc64d381458a765e3354a05631ab17515efab8769a677036",
+   "path": "build/quality-Q02/qualified/visual/mixed-1080.png"
+  },
+  "modal.png": {
+   "sha256": "5ae5802287e936ab155edfaa5c0be02ed87b041b1bf1dea8e0c391ab2e38241a",
+   "path": "build/quality-Q02/qualified/visual/modal.png"
+  },
+  "options-4k.png": {
+   "sha256": "f3e8685da4f77882c7b81735e400e88df568e319abe90d292d9d5de9745a3852",
+   "path": "build/quality-Q02/qualified/visual/options-4k.png"
+  },
+  "options-720.png": {
+   "sha256": "ca9886eb1ba9d91e26b815e2d637de0921527f68fa1f6e4c9620753320bb1f12",
+   "path": "build/quality-Q02/qualified/visual/options-720.png"
+  },
+  "options-800.png": {
+   "sha256": "d61e991c5b86307ada2e312937f4d460d07eb6d1a8434e130ce0a2a8f392a595",
+   "path": "build/quality-Q02/qualified/visual/options-800.png"
+  },
+  "original-1280x720.png": {
+   "sha256": "59ec8de73ae0d3aa1fa7a4d51508a8a8810b5ad8773350706d40ce070530d310",
+   "path": "build/quality-Q02/qualified/visual/original-1280x720.png"
+  },
+  "original-1920x1080.png": {
+   "sha256": "b9201d0c1c6d8555f02edbdfefd8166680b53b1f9706b1ae6f4dedf385c263b0",
+   "path": "build/quality-Q02/qualified/visual/original-1920x1080.png"
+  },
+  "original-3840x2160.png": {
+   "sha256": "8a011504608b8c55a1173cdf60bc3ab8e33f01b83160e7d5db437300eeb118dd",
+   "path": "build/quality-Q02/qualified/visual/original-3840x2160.png"
+  },
+  "original-800x600.png": {
+   "sha256": "cfac3285c22299aaedb9215ee471e1b990545022228c4169a80170fdaf5f6e4b",
+   "path": "build/quality-Q02/qualified/visual/original-800x600.png"
+  },
+  "title-0.png": {
+   "sha256": "4a3e1457bc6a95e3019d3d98538a17c4e48edba8df34ed32bc4863ce2afc8d78",
+   "path": "build/quality-Q02/qualified/visual/title-0.png"
+  },
+  "title-3.png": {
+   "sha256": "bb8bfcf495c7db4f47d6739c162166e761aaa9471979d346722a69cda7eab054",
+   "path": "build/quality-Q02/qualified/visual/title-3.png"
+  },
+  "tooltip.png": {
+   "sha256": "362355ed50f239c54eb00b354489f3da11208fff7f7d47e47695d4eb932f7799",
+   "path": "build/quality-Q02/qualified/visual/tooltip.png"
+  }
+ },
+ "limits": [
+  "Scaling matrix uses 3 measured ticks per run: p95 equals nearly the max and includes cold-frame costs; it is cost discovery, not sustained capacity",
+  "No 30-minute soak (Q19); 3000-tick churn with 29 resets is bounded-trend evidence only",
+  "Hidden rendering is component/mixed evidence; visible window actual drawable 1920x1024",
+  "GPU model telemetry covers documented measured subset; quad area is overlapping geometric area",
+  "Allocation counts need REALM_ALLOCATION_TRACKING build (build-quality-profile)",
+  "Icon benchmark does not measure GPU residency",
+  "Replayed packets and TCP peers are mock fixtures, not live server evidence"
+ ],
+ "preservation": {
+  "siblings": "realm-client, realm-opentk, realm-server git status clean at close",
+  "personal_accounts": "disposable fixture account/settings only"
+ }
+}

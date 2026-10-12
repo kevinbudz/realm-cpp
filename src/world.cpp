@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/world.hpp"
 #include "realm/conditions.hpp"
 #include <nlohmann/json.hpp>
@@ -84,7 +85,10 @@ void World::initialize(int width, int height, std::string name) {
     width_ = width; height_ = height; name_ = std::move(name);
     tiles_.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), {});
     ++minimap_revision_;minimap_rows_.assign(static_cast<std::size_t>(height),minimap_revision_);
-    particles_.clear();entities_.clear(); entity_lookup_.clear(); unresolved_.clear(); damage_cues_.clear(); status_events_.clear(); player_id_ = -1;
+    // A new map starts from a small footprint: capacity grown by the previous map's crowd (dense list, id table) is released.
+    particles_.clear();entities_.clear(); if (entities_.capacity() > 2048) std::vector<Entity>().swap(entities_); entity_lookup_.clear(); interactive_.clear();
+    sets_.clear(); sets_.release();
+    static_grid_.reset(width, height); unresolved_.clear(); damage_cues_.clear(); status_events_.clear(); status_head_=0; player_id_ = -1;
     spawn_ = {width / 2.0, height / 2.0};
 }
 TileState* World::tile(int x, int y) {
@@ -92,16 +96,21 @@ TileState* World::tile(int x, int y) {
 }
 const TileState* World::tile(int x, int y) const { return const_cast<World*>(this)->tile(x, y); }
 Entity* World::entity(std::int32_t id) {
-    const auto it = entity_lookup_.find(id); return it == entity_lookup_.end() ? nullptr : &entities_[it->second];
+    const auto slot = entity_lookup_.find(id); return slot == EntityIndex::none ? nullptr : &entities_[slot];
 }
 const Entity* World::entity(std::int32_t id) const { return const_cast<World*>(this)->entity(id); }
 const Entity* World::interactive_target() const {
+    REALM_ZONE("world.interactive_target");
     const auto* player=entity(player_id_);if(!player)return nullptr;
-    const Entity* closest{};double best=1;
-    for(const auto& e:entities_) {
-        const auto* def=catalog_.object(e.type);if(!def||!def->interactive)continue;
+    // Same result as scanning the dense list in order with a strict `<`: the smallest distance, and among exact ties the
+    // entity earliest in the list. Only interactive entities are candidates, so the cost no longer grows with projectiles,
+    // players or scenery.
+    const Entity* closest{};double best=1;std::size_t closest_index{};
+    for(const auto id:interactive_) {
+        const auto found=entity_lookup_.find(id);if(found==EntityIndex::none)continue;
+        const auto& e=entities_[found];
         const double distance=std::hypot(e.position.x-player->position.x,e.position.y-player->position.y);
-        if(distance<best) { best=distance;closest=&e; }
+        if(distance<best||(distance==best&&closest&&found<closest_index)) { best=distance;closest=&e;closest_index=found; }
     }
     return closest;
 }
@@ -125,17 +134,45 @@ void World::remember_object(const Entity& e) {
         if(cell->minimap_code!=code) { cell->minimap_code=code;minimap_rows_[static_cast<std::size_t>(y)]=++minimap_revision_; }
     }
 }
-Entity& World::add(std::int32_t id, std::uint16_t type, Vec2 position, int size) {
+Entity& World::add(std::int32_t id, std::uint16_t type, Vec2 position, int size, bool projectile) {
     if (!std::isfinite(position.x) || !std::isfinite(position.y) || std::abs(position.x) > 1048576 || std::abs(position.y) > 1048576)
         throw net::ProtocolError("Invalid entity position");
     if (entity(id)) remove(id);
-    Entity e; e.id = id; e.type = type; e.position = e.target = position;
+    Entity e; e.id = id; e.type = type; e.position = e.target = position; e.projectile = projectile;
     if (const auto* d = catalog_.object(type)) {
         e.player = d->player; e.size = size < 0 ? d->min_size : size; e.z = d->z; e.hp = e.max_hp = d->max_hp; e.defense = d->defense;
-        e.tex1 = static_cast<std::uint32_t>(d->xml.number("Tex1")); e.tex2 = static_cast<std::uint32_t>(d->xml.number("Tex2"));
+        e.tex1 = d->tex1; e.tex2 = d->tex2;
     }
     if(const auto* d=catalog_.object(type))particles_.attach(e,d->texture);
-    entity_lookup_[id] = entities_.size(); entities_.push_back(std::move(e)); assign_tile_object(entities_.back()); remember_object(entities_.back()); return entities_.back();
+    if(const auto* d=catalog_.object(type);d&&d->interactive)interactive_.push_back(id);
+    if (entities_.size() >= EntityIndex::none - 1) throw std::length_error("Too many objects");
+    const auto index = static_cast<std::uint32_t>(entities_.size());
+    entity_lookup_.assign(id, index); entities_.push_back(std::move(e)); assign_tile_object(entities_.back()); remember_object(entities_.back());
+    // A projectile visual only ever joins the dynamic set (Combat moves it; the other sets' consumers skip projectiles anyway,
+    // and their membership is still decided by the type below for anything else).
+    const auto mask = projectile ? type_sets(type) | (1U << set_dynamic) : type_sets(type);
+    sets_.push(mask & 0x3fU); static_grid_.push_slot();
+    if (!(mask & (1U << set_dynamic))) static_grid_.insert(index, position);
+    return entities_.back();
+}
+std::uint32_t World::type_sets(std::uint16_t type) {
+    if (type_sets_.empty()) type_sets_.assign(65536, 0);
+    auto& cached = type_sets_[type];
+    if (!(cached & 0x80U)) {
+        const auto* d = catalog_.object(type); std::uint32_t mask = 0x80U;
+        if (d && d->enemy) mask |= 1U << set_enemy;
+        if (d && d->player) mask |= 1U << set_player;
+        if (d && !d->no_minimap && (d->player || d->class_name == "Character" || d->class_name == "Portal" || d->class_name == "GuildHallPortal")) mask |= 1U << set_marker;
+        if (d && d->class_name == "Merchant") mask |= 1U << set_merchant;
+        if (!(d && d->stationary)) mask |= 1U << set_dynamic;
+        cached = static_cast<std::uint8_t>(mask);
+    }
+    return cached;
+}
+void World::set_player_id(std::int32_t id) {
+    // movement.cpp drives the focus player's velocity outside World; once it is no longer the focus, update() must see it.
+    if (const auto index = entity_lookup_.find(player_id_); index != EntityIndex::none) sets_.set(set_moving, index);
+    player_id_ = id;
 }
 std::int32_t World::allocate_fake_id() {
     // BasicObject.as reserves the upper byte; unsigned wrap is defined and an
@@ -147,21 +184,27 @@ std::int32_t World::allocate_fake_id() {
     throw std::runtime_error("Local object ID space exhausted");
 }
 void World::remove(std::int32_t id) {
-    const auto it = entity_lookup_.find(id); if (it == entity_lookup_.end()) return;
-    particles_.remove_target(id);
-    const auto index = it->second; const auto& e = entities_[index];
+    const auto index = entity_lookup_.find(id); if (index == EntityIndex::none) return;
+    particles_.remove_target(id); const auto& e = entities_[index];
+    const auto* definition = catalog_.object(e.type); const bool was_interactive = definition && definition->interactive;
     if (auto* t = tile(static_cast<int>(std::floor(e.position.x)), static_cast<int>(std::floor(e.position.y)));
         t && t->object_id == id) t->object_id = -1;
-    if (index != entities_.size() - 1) { entities_[index] = std::move(entities_.back()); entity_lookup_[entities_[index].id] = index; }
+    if (static_grid_.contains(index)) static_grid_.erase(index);
+    if (index != entities_.size() - 1) { entities_[index] = std::move(entities_.back()); entity_lookup_.assign(entities_[index].id, static_cast<std::uint32_t>(index)); }
     entities_.pop_back(); entity_lookup_.erase(id);
+    sets_.swap_remove(index);
+    static_grid_.swap_remove(index);
+    if(was_interactive)if(const auto slot=std::find(interactive_.begin(),interactive_.end(),id);slot!=interactive_.end()) { *slot=interactive_.back();interactive_.pop_back(); }
 }
 void World::goto_entity(std::int32_t id, Vec2 position) {
     if (!std::isfinite(position.x) || !std::isfinite(position.y) || std::abs(position.x) > 1048576 || std::abs(position.y) > 1048576)
         throw net::ProtocolError("Invalid teleport position");
-    if (auto* e = entity(id)) {
+    if (const auto index = entity_lookup_.find(id); index != EntityIndex::none) {
+        auto* e = &entities_[index];
         if (auto* t = tile(static_cast<int>(std::floor(e->position.x)), static_cast<int>(std::floor(e->position.y)));
             t && t->object_id == id) t->object_id = -1;
         e->position = e->target = position; e->velocity = {}; assign_tile_object(*e);
+        sets_.reset(set_moving, index); static_grid_.move(index, position);
     }
 }
 void World::report_damage(std::int32_t id,int amount,std::int32_t time,std::span<const std::uint8_t> effects,bool piercing,double hit_angle,double hit_speed) {
@@ -191,18 +234,23 @@ void World::report_damage(std::int32_t id,int amount,std::int32_t time,std::span
         notify(id,std::string(condition_effect(shown).name),0xff0000U,3000,offset);offset+=500;
     }
     if (amount>0) notify(id,"-"+std::to_string(amount),pierced ? 0x9000ffU : 0xff0000U,1000);
-    if (damage_cues_.size()>=256) damage_cues_.erase(damage_cues_.begin());
+    if (damage_cues_.size()>=256) damage_cues_.pop_front();
     damage_cues_.push_back({id,time,amount,pierced,{effects.begin(),effects.end()}});
 }
 bool World::allows_notification(std::int32_t object_id) const {
     if (preferences_.ally_notifs || object_id==player_id_) return true;
     const auto found=entity_lookup_.find(object_id);
-    return found==entity_lookup_.end() || !entities_[found->second].player;
+    return found==EntityIndex::none || !entities_[found].player;
 }
 void World::notify(std::int32_t object_id,std::string text,std::uint32_t color,int lifetime,int offset_time) {
     if (!entity(object_id)) return;
-    if (status_events_.size()>=64) status_events_.erase(status_events_.begin());
+    if (status_events_.size()-status_head_>=64) ++status_head_;
     status_events_.push_back({object_id,std::move(text),color,lifetime,offset_time});
+    if (status_head_>=64) { status_events_.erase(status_events_.begin(),status_events_.begin()+static_cast<std::ptrdiff_t>(status_head_));status_head_=0; }
+}
+std::vector<StatusEvent> World::take_status_events() {
+    status_events_.erase(status_events_.begin(),status_events_.begin()+static_cast<std::ptrdiff_t>(status_head_));status_head_=0;
+    return std::exchange(status_events_,{});
 }
 void World::expire_damage(std::int32_t time) {
     std::erase_if(damage_cues_,[&](const auto& cue){ return static_cast<std::int64_t>(time)-cue.time_ms>3500 || !entity(cue.object_id); });
@@ -213,10 +261,12 @@ void World::status(Entity& e, const net::Status& s, bool interpolate, double dt_
         throw net::ProtocolError("Invalid status position");
     if (interpolate && e.id != player_id_ && (e.target.x != position.x || e.target.y != position.y)) {
         e.target = position; e.velocity = {(position.x - e.position.x) / dt_ms, (position.y - e.position.y) / dt_ms};
+        if (!(e.velocity.x == 0 && e.velocity.y == 0)) sets_.set(set_moving, static_cast<std::size_t>(&e - entities_.data()));
     } else if (!interpolate) { goto_entity(e.id, position); }
     // GameServerConnection.onNewTick: level, exp and fame as they were before this update.
     const auto previous=[&](flash::StatId id,int fallback) { const auto it=e.stats.find(static_cast<std::uint8_t>(id));return it==e.stats.end() ? fallback : it->second; };
     const int old_level=previous(flash::StatId::LEVEL_STAT,-1),old_exp=previous(flash::StatId::EXP_STAT,0),old_fame=previous(flash::StatId::CHAR_FAME_STAT,0);
+    if (e.stats.empty()) e.stats.reserve(s.stats.size());   // the first status carries the full set; later ones rewrite it
     for (const auto& stat : s.stats) {
         if (std::holds_alternative<std::string>(stat.value)) {
             if (stat.type == static_cast<std::uint8_t>(flash::StatId::NAME_STAT)) e.name = std::get<std::string>(stat.value);
@@ -272,17 +322,22 @@ void World::apply(const net::Tick& tick, double dt_ms) {
     if (auto* e = entity(player_id_)) { net::Status s; s.stats = tick.player_stats; status(*e, s, true, dt_ms); }
 }
 void World::update(double dt_ms) {
+    REALM_ZONE("world.update");
     if (!std::isfinite(dt_ms) || dt_ms < 0) throw std::invalid_argument("Invalid frame interval");
-    for (auto& e : entities_) {
-        if (e.id == player_id_) continue;
-        if (e.velocity.x == 0 && e.velocity.y == 0) continue;
+    // Only entities World set moving, in dense order: the same visits, in the same order, as the full pass this replaces
+    // (the order matters only when two moving stationary objects claim one tile in the same frame).
+    sets_.each(set_moving, [&](std::size_t i) {
+        auto& e = entities_[i];
+        if (e.id == player_id_) return;
+        if (e.velocity.x == 0 && e.velocity.y == 0) { sets_.reset(set_moving, i); return; }
         Vec2 next{e.position.x + e.velocity.x * dt_ms, e.position.y + e.velocity.y * dt_ms};
         if ((e.velocity.x > 0 && next.x > e.target.x) || (e.velocity.x < 0 && next.x < e.target.x)) { next.x = e.target.x; e.velocity.x = 0; }
         if ((e.velocity.y > 0 && next.y > e.target.y) || (e.velocity.y < 0 && next.y < e.target.y)) { next.y = e.target.y; e.velocity.y = 0; }
         if (auto* t = tile(static_cast<int>(std::floor(e.position.x)), static_cast<int>(std::floor(e.position.y)));
             t && t->object_id == e.id) t->object_id = -1;
-        e.position = next; assign_tile_object(e);
-    }
+        e.position = next; assign_tile_object(e); static_grid_.move(static_cast<std::uint32_t>(i), next);
+        if (e.velocity.x == 0 && e.velocity.y == 0) sets_.reset(set_moving, i);
+    });
 }
 bool World::walkable(double x, double y) const {
     if (!std::isfinite(x) || !std::isfinite(y) || x < 0 || y < 0 || x >= width_ || y >= height_) return false;

@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/protocol.hpp"
 #include <algorithm>
 #include <limits>
@@ -41,6 +42,7 @@ Bytes frame(std::uint8_t id, std::span<const std::uint8_t> body) {
     return w.bytes();
 }
 std::vector<Packet> Framer::feed(std::span<const std::uint8_t> input) {
+    REALM_ZONE("network.framing");
     std::vector<Packet> packets;
     try {
         while (!input.empty()) {
@@ -57,6 +59,7 @@ std::vector<Packet> Framer::feed(std::span<const std::uint8_t> input) {
             }
         }
     } catch (...) { reset(); throw; }
+    telemetry::set(telemetry::Counter::framing_queue_bytes,buffer_.size());
     return packets;
 }
 void Framer::reset() { buffer_.clear(); expected_ = 4; }

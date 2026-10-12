@@ -145,7 +145,7 @@ void art_cache(FontBook& fonts,const std::filesystem::path& root) {
     fonts.set_pixel_scale(2);const auto b=art.status_text("-37",0xff0000U);
     check(b.image!=a.image&&b.image->pixel_scale==2&&std::abs(b.width-a.width)<1e-9&&b.image->width>=a.image->width*2-8,"a new density re-rasterizes at the same logical size");
     fonts.set_pixel_scale(1);
-    for(int i=0;i<400;++i)(void)art.name("Player"+std::to_string(i));
+    for(std::size_t i=0;i<StatusArt::maximum_labels+200;++i)(void)art.name("Player"+std::to_string(i));
     check(art.entries()<=StatusArt::maximum_labels&&art.bytes()<=StatusArt::maximum_bytes&&art.evictions()>=200,"label cache is bounded");
     // Condition icons: 16x16, art centered on 8x8, black outline and glow around it, nothing at the corners.
     const auto icon=art.icon(43);check(icon&&icon->width==16&&icon->height==16&&art.icon(43)==icon,"icon is cached 16x16");

@@ -1,11 +1,15 @@
 #pragma once
 #include "realm/catalog.hpp"
+#include "realm/entity_index.hpp"
+#include "realm/entity_sets.hpp"
 #include "realm/protocol.hpp"
 #include "realm/particles.hpp"
 #include "realm/settings.hpp"
+#include "realm/stat_map.hpp"
 #include <filesystem>
 #include <limits>
 #include <utility>
+#include <deque>
 #include <unordered_map>
 
 namespace realm {
@@ -23,6 +27,8 @@ struct Entity {
     bool player{}, projectile{};
     Vec2 position{}, target{}, velocity{};
     double z{}, facing{}, attack_angle{};
+    // Optional explicit native model transform; ordinary XML objects retain Rotation.
+    double model_rotation{std::numeric_limits<double>::quiet_NaN()};
     std::int32_t attack_start{std::numeric_limits<std::int32_t>::min() / 2};
     double attack_period{500}, move_multiplier{1};
     Vec2 push{};
@@ -32,7 +38,7 @@ struct Entity {
     std::string name, guild;
     // Cold stats (inventory, currency, account data) are allocated only when
     // actually received, rather than enlarging every static world object.
-    std::unordered_map<std::uint8_t, std::int32_t> stats;
+    StatMap stats;
 };
 struct DamageCue {
     std::int32_t object_id{}, time_ms{};
@@ -67,7 +73,7 @@ public:
     // MapOverlay.addStatusText: Notification packets, damage, conditions, level/exp/fame.
     void notify(std::int32_t object_id, std::string text, std::uint32_t color, int lifetime, int offset_time = 0);
     // Hands pending floating-text requests to the overlay; bounded when nothing drains them.
-    [[nodiscard]] std::vector<StatusEvent> take_status_events() { return std::exchange(status_events_, {}); }
+    [[nodiscard]] std::vector<StatusEvent> take_status_events();
     // Parameters.data_ flags the game systems consult (hpBars, allyDamage, allyNotifs, ...). Applying
     // them also gates the optional particle effects.
     void set_preferences(const Preferences& preferences) { preferences_=preferences;particles_.set_enabled(preferences.particles); }
@@ -76,8 +82,9 @@ public:
     [[nodiscard]] bool allows_notification(std::int32_t object_id) const;
     [[nodiscard]] Particles& particles() { return particles_; }
     [[nodiscard]] const Particles& particles() const { return particles_; }
-    [[nodiscard]] const std::vector<DamageCue>& damage_cues() const { return damage_cues_; }
-    Entity& add(std::int32_t id, std::uint16_t type, Vec2 position, int size = -1);
+    [[nodiscard]] const std::deque<DamageCue>& damage_cues() const { return damage_cues_; }
+    // `projectile` marks a projectile visual at insertion (Combat moves those itself, so they never join the static grid).
+    Entity& add(std::int32_t id, std::uint16_t type, Vec2 position, int size = -1, bool projectile = false);
     void remove(std::int32_t id);
     [[nodiscard]] Entity* entity(std::int32_t id);
     [[nodiscard]] const Entity* entity(std::int32_t id) const;
@@ -97,11 +104,32 @@ public:
     [[nodiscard]] const std::vector<std::string>& unresolved_ids() const { return unresolved_; }
     [[nodiscard]] const Catalog& catalog() const { return catalog_; }
     std::int32_t allocate_fake_id();
-    void set_player_id(std::int32_t id) { player_id_ = id; }
+    void set_player_id(std::int32_t id);
     [[nodiscard]] std::int32_t player_id() const { return player_id_; }
     // GameSprite.updateNearestInteractive: the closest interactive object
     // strictly within one tile of the player; ties keep the first found.
     [[nodiscard]] const Entity* interactive_target() const;
+    // Per-frame consumers visit only the entities that can matter to them instead of the whole dense list (a Realm map holds
+    // ~246,000 static objects). Each visits its candidates in dense-list order, i.e. the order a scan of entities() meets them,
+    // and callers keep their own filters, so results equal the scans they replaced. Membership is fixed at add (type never
+    // changes): enemies (Combat target index), minimap marker kinds (players, Character, Portal, GuildHallPortal; projectile and
+    // focus filters stay with the caller), players (party, hover, menus) and merchants (world dyes).
+    template <class Visit> void each_enemy(Visit&& visit) const { sets_.each(set_enemy, [&](std::size_t i) { visit(entities_[i]); }); }
+    template <class Visit> void each_marker_candidate(Visit&& visit) const { sets_.each(set_marker, [&](std::size_t i) { visit(entities_[i]); }); }
+    template <class Visit> void each_player(Visit&& visit) const { sets_.each(set_player, [&](std::size_t i) { visit(entities_[i]); }); }
+    template <class Visit> void each_merchant(Visit&& visit) const { sets_.each(set_merchant, [&](std::size_t i) { visit(entities_[i]); }); }
+    // Camera visibility: every entity is either dynamic (visited in dense order) or static, i.e. of a stationary definition and
+    // not added as a projectile, and kept in an 8-tile grid. Static entities move only through World (goto_entity, status,
+    // update), which re-buckets them; their z stays their definition's. `each_static_in` visits at least every static entity
+    // inside the world rectangle, in arbitrary order.
+    template <class Visit> void each_dynamic(Visit&& visit) const { sets_.each(set_dynamic, [&](std::size_t i) { visit(entities_[i]); }); }
+    template <class Visit> void each_static_in(Vec2 low, Vec2 high, Visit&& visit) const {
+        static_grid_.query(low.x,low.y,high.x,high.y,[&](std::uint32_t i) { visit(entities_[i]); });
+    }
+    [[nodiscard]] std::size_t static_count() const { return static_grid_.size(); }
+    [[nodiscard]] bool is_static(const Entity& e) const { const auto i=entity_lookup_.find(e.id);return i!=EntityIndex::none&&static_grid_.contains(i); }
+    // Entities update() may still move: a superset of those with nonzero velocity (cleared lazily), for diagnostics.
+    [[nodiscard]] std::size_t moving_candidates() const { return sets_.count(set_moving); }
 private:
     void status(Entity& entity, const net::Status& status, bool interpolate, double dt_ms);
     void assign_tile_object(Entity& entity);
@@ -113,10 +141,24 @@ private:
     Vec2 spawn_{};
     std::vector<TileState> tiles_;
     std::vector<Entity> entities_;
-    std::unordered_map<std::int32_t, std::size_t> entity_lookup_;
+    EntityIndex entity_lookup_;
+    // Ids of entities whose definition is interactive, maintained by add/remove: the nearby-interaction query visits only these.
+    std::vector<std::int32_t> interactive_;
+    // Dense-order membership bits (see each_enemy above). The moving set holds every entity whose velocity World made nonzero
+    // (status interpolation) plus the previous focus player when the id changes (movement.cpp drives the focus player's
+    // velocity directly); update() visits only these and drops the ones that stopped.
+    enum : std::size_t { set_moving, set_enemy, set_marker, set_player, set_merchant, set_dynamic, set_count };
+    DenseSets<set_count> sets_;
+    // Membership mask per object type (bit 7 = computed), so add() does no catalog string compares after a type's first object.
+    std::vector<std::uint8_t> type_sets_;
+    [[nodiscard]] std::uint32_t type_sets(std::uint16_t type);
+    StaticGrid static_grid_;
     std::vector<std::string> unresolved_;
-    std::vector<DamageCue> damage_cues_;
+    // Both are bounded logs that drop their oldest entry when full (256 / 64): a deque pops the front in O(1), and the
+    // status queue skips dropped entries with a head offset (compacted amortised) so the hand-off stays a plain vector.
+    std::deque<DamageCue> damage_cues_;
     std::vector<StatusEvent> status_events_;
+    std::size_t status_head_{};
     Particles particles_;
     std::int32_t player_id_{-1};
     Preferences preferences_;

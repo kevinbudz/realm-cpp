@@ -12,6 +12,89 @@ missing features, correctness problems, and measured performance bottlenecks.
 
 ## Current evidence
 
+- Q06 real 3D model rendering completed on 2026-10-11: each placed model is now one allocation-free painter-stream `Quad` (`model_quad`: the affine screen transform of
+  model space, object rotation, sprite and color) drawn by an instanced model program over geometry uploaded once (`model_geometry`, 124 KB for all 42 models); consecutive
+  copies of one model are a single `glDrawArraysInstanced`, and the vertex shader applies the transform and Flash flat shade while GL back-face culling applies the same winding
+  rule. `project_model` stays as the CPU reference. Paired 1080p runs (5 repeats): S3 dense models p50 6.18 -> 1.37 ms, GPU 3.29 -> 0.93 ms, S4 12.1 -> 2.5 ms, 1,000 repeated
+  models 1.51 -> 0.22 ms with 1,005 -> 7 draws, allocations 27,822 -> 876 per frame; mixed S3 spread p50 20.0 -> 18.6 ms (mixed GPU +2-4 %). Equivalence: new `model_instances`
+  differential (12,096 CPU cases, 344 GPU frames: 49 of 27.8 M pixels differ at edges; 7/7 mutations caught), real-Flash model reference 110 frames within 3 px and 109/110
+  byte-identical to the pre-Q06 renderer, 21/21 paired state/packet/hit/marker digests identical, 8/9 1080p captures byte-identical (1 pixel). Release **57/57**, ASan/UBSan
+  **49/49**, graphics sanitizers **23/23**; S3/144 Hz still unqualified (appearance/text = Q07). See `client-quality/handoffs/Q06.md`, `client-quality/evidence/Q06-results.json`.
+  Q07 is next; its dispatch request is written but no successor chat was created from this session.
+- Q05 hot data and resource lifetimes completed on 2026-10-11: callgrind of the S3 mixed-dense fixture showed `Particles::remove_target` was 79 % of all instructions
+  (each expiring projectile scanned the 8,192-particle pool, emitters and flashes), then bounded-log erases at the front in `World::report_damage`/`notify`. Fixes: conservative
+  `TargetFilter`s so removal/attach skip scans when nothing follows the object (exact `Particles::targets` for tests); flat open-addressing `EntityIndex` for id -> slot (no heap node per
+  entity/projectile); `StatMap` (sorted 8-byte entries) for `Entity::stats` (`Entity` 304 -> 272 B, a 40-stat player ~1.7 -> 0.3-0.5 KB); `HitSet` for multi-hit history
+  (`FlyingProjectile` 128 -> 96 B); deque/head-offset bounded logs; default dyes decoded once per definition; dense-list, id-table and combat-grid capacity released at map reset.
+  Headless paired fixtures (identical state/packet/hit checksums in 12/12): S3 mixed-dense 49.7 -> 3.0 ms per tick, S3 mixed-spread 12.6 -> 4.3, churn 5.1 -> 0.43; counted heap S3
+  live 24.6 -> 17.7 MB, 9,000-object populate 156,000 -> 33,025 allocations, map teardown 1.6 -> 0.16 ms and 6.1 -> 1.05 MB retained. Viewer paired runs: painter-stream digests identical
+  in 11/11, S3 p95 ratios 0.86-0.90. New `world_storage` test (505,894 checks, 7 mutations caught). No `Entity` hot/cold split or ECS (not justified by measurement). Release **54/54**,
+  ASan/UBSan **47/47**, graphics sanitizers **20/20**; S3/144 Hz still unqualified (name/appearance churn = Q07, minimap = Q12). See `client-quality/handoffs/Q05.md`,
+  `client-quality/storage.md`, `client-quality/evidence/Q05-results.json`. Q06 is next; its dispatch request is written but no successor chat was created from this session.
+  S3 follow-up (user-authorized): appearance/label caches resized to the S3 working sets (4096 entries / 64 MiB) with O(1) GPU lookups, struct cache keys, faster `ui_rectangle` and `compose`
+  (both differential-tested byte for byte): S3 mixed-spread p50 168.8 -> 19.5 ms, mixed-dense 792 -> 29.8 ms, combat-cluster 225 -> 23.6 ms (identical painter streams in 15/15 scenarios; Release 56/56,
+  ASan/UBSan 49/49, graphics 24/24). 144 Hz still unqualified: p95 tails are first-seen composition hitches, steady frames ~19 ms need a batched/instanced projectile path (Q06/Q07).
+- Q04 visibility and world queries completed on 2026-10-11: profiling showed the camera/ordering/nearby-interaction work is only 3-5 ms of 140-800 ms S3
+  frames (the rest is name/appearance work for Q07 and the minimap redraw, 5.7-7.6 ms, for Q12), so no spatial grid was added. `Scene` now looks up each visible
+  entity's definition and depth once, sorts compact records and merges the pre-ordered entities with the sorted particles; `World::interactive_target` visits a
+  maintained list of interactive ids; `world_dyes` scans once instead of four times. Per-frame query cost S3 3.5-4.4 -> 1.5-1.7 ms, S4 4.7 -> 2.1 ms; whole-frame p95
+  unchanged. The new `visibility_culling` differential (cull-disabled oracle, 63 camera/zoom/resize configs, 30 seeds, 3 mutations caught) found and fixed a real bug:
+  wide/tall models (e.g. Jacko, Large Monument) vanished up to 68 px before leaving the screen; offscreen models are now tested against their own `model_extent`. Painter
+  streams are byte-identical to the previous implementation in 57 of 59 paired scenarios (the other 2 draw 2 more edge models); state/packet checksums identical in all.
+  Release **53/53**, ASan/UBSan **46/46**, graphics sanitizers **19/19**; S3/144 Hz still unqualified. See `client-quality/handoffs/Q04.md`,
+  `client-quality/evidence/Q04-results.json`. Q05 followed (above).
+- Q03 projectile collision search completed on 2026-10-11: `Combat::update` finds enemy-targeting shots' candidates through a per-update uniform
+  grid (bounded cells, power-of-two size, rebuilt from the entity list so nothing can go stale) instead of scanning every entity; target eligibility, exact-tie
+  order (earliest dense entity), multi-hit history and hit packets are unchanged, proved by a lockstep grid-vs-original-scan differential test (56 checks incl.
+  ties, boundaries, NaN/outliers, churn) and identical frozen/stress checksums in 12 paired scenarios x 15 runs. S3 combat cluster `combat.update` 1.2 s -> 1.7 ms,
+  S4 projectiles 3.3 s -> 2.9 ms; 3000 enemies/20k shots in one 0.9-tile box still examine every enemy (548 ms vs 1382 ms). Release **51/51**, ASan/UBSan
+  **45/45**, graphics sanitizers pass. Remaining S3 cost is `scene.build`/appearance/text (Q04/Q05/Q07); S3/144 Hz still unqualified. See `client-quality/handoffs/Q03.md`,
+  `client-quality/evidence/Q03-results.json`. Q04 followed (above).
+
+- Q02 stress fixtures completed on 2026-10-11: versioned deterministic S1–S4/Nexus/
+  models/variety/churn/UI/mixed workloads (59 scenarios, frozen small-fixture checksums,
+  render-pace independent) driving production World/Combat/Scene/HUD and a framed-packet
+  Session replay, plus `realm_stress` (headless, TCP peers, 42-model library, new icon-cache
+  component) and `tools/quality_stress.py` (paired/shuffled runs, semantic checks, traces,
+  reports). Final Release **50/50**, ASan/UBSan **44/44**, graphics sanitizers **10/10**.
+  Original-Nexus captures are pixel-identical to Q01 at 800x600/720p/1080p/4K; ordinary-app
+  control p95 x1.011. Short scaling diagnostics rank `combat.target_query` first (20k shots
+  ≈ 0.8 s, 40k ≈ 3.2 s CPU/frame), then appearance lookup/compose (variety-512 141.6 ms vs
+  42.4 ms at 16) and name text; GPU stays 2–12 ms through S3 mixed. S3/144 Hz is still
+  unqualified; no soak run. See `client-quality/stress.md`, `client-quality/evidence/
+  Q02-results.json`, `client-quality/handoffs/Q02.md`. Q03 followed (above).
+
+- Q01 performance telemetry completed on 2026-10-11: raw frame/counter JSONL,
+  bounded CPU Chrome traces, optional pinned Tracy 0.11.1 and C++ allocation
+  attribution, asynchronous GPU phase/frame/model-subset samples, and a readable
+  report tool. Final Release **44/44** (91.74s), default ASan/UBSan **39/39**
+  (79.92s), explicit graphics+allocation sanitizers **4/4** (8.99s), expanded
+  40-model coverage checks pass. Telemetry preserves predecessor PNGs exactly
+  at 800x600/720p/1080p/4K; visible actual drawable1920x1024. Five short matched
+  diagnostic-control repetitions show overlapping disabled p95 ranges; export
+  adds measured overhead. Original-map traces identify 68 warm-frame C++ requests,
+  45 in model preparation. Real-time particles make fixed-scene Nexus timing
+  comparisons unmatched; Q02 must supply a deterministic simulation timeline and
+  production stress fixtures. No S3/144Hz or whole-client speedup claim. See
+  `client-quality/telemetry.md`, `client-quality/evidence/Q01-results.json` and
+  `client-quality/handoffs/Q01.md`. Q02 followed (see above); the old feature
+  chain remains historical and does not dispatch.
+
+- Q00 quality baseline completed on 2026-10-11: incremental Release build and
+  **42/42 CTest** (92.66 s), ASan/UBSan build and **38/38 CTest** (78.81 s).
+  Source/asset fingerprints, actual hardware/settings, three short Nexus and
+  extra-quad repetitions, separate drawable-size captures and resource/feature
+  audit are in `client-quality/baseline.md` and `client-quality/evidence/Q00-results.json`.
+  Added `tools/quality_baseline.py`; C++ runtime and original assets unchanged.
+  Strict gallery diagnostic reproduces the known 512 one-value pixel differences
+  on Mesa and remains a diagnostic failure, not a pass. Hidden captures cover
+  800x600, 720p, 1080p and 4K; visible 1080p request was actually 1920x1024.
+  Extra quads do not establish active combat capacity. Q00-v1 freezes the
+  full-quality S3/144 Hz goal, still unqualified; missing raw telemetry and
+  production stress work belong to Q01/Q02. Death/fame, legends, deletion and
+  native audio remain confirmed gaps. This audit supersedes stale gap/next-task
+  statements in the historical sections below. See `client-quality/handoffs/Q00.md`.
+
 - Task 02-guild-board completed on 2026-10-10: real panel routing, guild board
   view/edit/cancel/save, officer permissions, reusable Flash scrollbar, native
   asynchronous HTTP, Loading/Saving and recoverable errors. Fresh Release and
@@ -685,13 +768,11 @@ Deviations and gaps:
 
 ## Remaining systems
 
-- Complete HUD widgets, readable text/layout, names, status text/icons, player
-  and other non-item tooltips. Minimap player grouping/menu/edge hover are
-  implemented and verified in task 04 below.
-- Title, login, registration, character selection and creation are
-  implemented (see Startup sequence). Remaining: settings, death/fame
-  screens, legends, character deletion and
-  the other exposed screens.
+- Q00 source audit confirms player/item/group tooltips, minimap menus, party
+  arrows, settings, names/status text/icons and breath/boost bars now exist.
+  Remaining client screens include death/fame, legends, character deletion;
+  startup slot purchase/news art and links/scrollbar still have gaps. See the
+  quality baseline for current verified coverage and limitations.
 - Basic ItemData modifiers, abilities, escape, potion stacks and inventory
   prediction/rollback and the nearby container panel are implemented.
   The nearby portal panel and USEPORTAL, default PartyPanel, ButtonPanel family,
@@ -703,10 +784,12 @@ Deviations and gaps:
   Reskin is now implemented in task 06 (MoneyChanger has no panel in this fork).
 - Masks/dyes and arbitrary live sizes now use bounded lazy native composition
   (task 07). The optional fixed processed pack still loads supplied neutral PNGs.
-- Real 3D models (task 09) and particles/blood/trails (task 08) are implemented.
-  Remaining: environment/background lighting, post effects, breath/boost bar
-  details and complete overlay ordering.
-- Audio/music/sound routing, focus/pause/input persistence and reconnect UI.
+- Real models, particles, backgrounds/post effects and status overlays are
+  implemented through tasks 08–11. Full mixed-scene scaling/ordering qualification
+  remains to be measured; implementation is not complete-client certification.
+- Native audio/music/sound routing remains unimplemented. Settings and selected
+  focus/input/map-reset behavior have tests; full reconnect/startup integration
+  remains part of final qualification.
 - Deterministic full-scene replay/reference captures and matched Flash/native
   CPU/GPU/memory measurements. Current timing figures are isolated harness
   results and must not be presented as a whole-client speedup.
@@ -714,9 +797,11 @@ Deviations and gaps:
 
 ## Next work
 
-Prioritize completing usable gameplay and finding representative performance
-bottlenecks. PlayerMenu, chat, speech balloons and trading are implemented. `docs/flash-specs.md`
-holds extracted specs for party arrows and reskin. Tasks 07, 08 and 09 are complete; continue with task 10-lighting.
+Continue with **Q01 — Add useful performance telemetry** under
+`client-quality-chain.md`; the old feature chain is historical and does not
+dispatch successors. Q00's frozen profile and limitations are the starting
+point. PlayerMenu, chat, speech balloons and trading are implemented. `docs/flash-specs.md`
+holds extracted specs for party arrows and reskin. Tasks 07–12 are implemented.
 Standard dialogs and the guild board are implemented. GuildRegister/GuildHallPortal/NameChanger panels and
 their native dialogs are implemented. Merchant purchases and BUYRESULT feedback (including the standard Purchase Error
 dialog) are wired. MoneyChanger has no panel in this Flash fork. Native item tooltips are implemented. Check current

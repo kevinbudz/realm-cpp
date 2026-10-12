@@ -1,5 +1,7 @@
 # Realm C++
 
+The current improvement workflow is the [native client quality chain](docs/client-quality-chain.md): one verified task per chat, covering capacity under dense workloads, code organization, UI/vector graphics, and remaining client features. Its [benchmark contract](docs/client-quality/benchmarks.md) distinguishes rendered sprites from active gameplay capacity.
+
 A native C++20 client using the current `realm-client` as its visual and
 functional shell. Keep the UI and playfield looking basically the same,
 preserve gameplay rules and server compatibility, and prioritize performance,

@@ -1,9 +1,13 @@
+#include "realm/telemetry.hpp"
 #include "realm/combat.hpp"
 #include "realm/movement.hpp"
 #include "realm/item_data.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
 #include <numbers>
 namespace realm {
 namespace {
@@ -13,16 +17,26 @@ const ProjectileDef* definition(const ObjectDef& container, int id) {
 }
 bool targetable(const Entity& entity) { return !(entity.condition&((1U<<20U)|(1U<<18U))); }
 }
+Combat::Combat(World& world) : world_(world), random_(0) {
+    if(const char* mode=std::getenv("REALM_TARGET_SEARCH");mode&&!std::strcmp(mode,"scan"))search_=TargetSearch::scan;
+}
+// Working storage sized by a crowd is handed back once the crowd is gone (a reset, or a population one-eighth of capacity).
+template <class Vector> void release_excess(Vector& values,std::size_t floor=4096) {
+    if(values.capacity()>floor&&values.capacity()>values.size()*8)values.shrink_to_fit();
+}
 void Combat::reset(std::uint32_t seed) {
     for (const auto& p:projectiles_) world_.remove(p.entity_id);
-    projectiles_.clear();random_=FlashRandom(seed);next_bullet_id_=fake_bullet_id_=next_ability_time_=0;
+    projectiles_.clear();release_excess(projectiles_,1024);
+    index_ready_=false;gathered_.clear();sorted_.clear();cell_of_.clear();cell_start_.clear();columns_=rows_=0;
+    release_excess(gathered_);release_excess(sorted_);release_excess(cell_of_);release_excess(cell_start_);
+    random_=FlashRandom(seed);next_bullet_id_=fake_bullet_id_=next_ability_time_=0;
 }
 void Combat::spawn(std::uint16_t type,int bullet_type,std::int32_t owner,std::int32_t bullet,Vec2 start,double angle,std::int32_t time,int damage) {
     const auto* container=world_.catalog().object(type);if(!container)return;
     const auto* def=definition(*container,bullet_type);if(!def)return;
     const auto* visual=world_.catalog().object(def->object_id);if(!visual)return;
     FlyingProjectile p;p.entity_id=world_.allocate_fake_id();p.bullet_id=bullet;p.owner_id=owner;p.start_time=time;p.container_type=type;p.bullet_type=bullet_type;p.damage=damage;p.start=start;p.angle=angle;p.definition=def;p.damages_players=container->enemy;
-    auto& entity=world_.add(p.entity_id,visual->type,start,def->size>=0 ? def->size : container->size);
+    auto& entity=world_.add(p.entity_id,visual->type,start,def->size>=0 ? def->size : container->size,true);
     entity.projectile=true;entity.facing=angle;entity.z=.5;
     if(const auto* ground=world_.tile(static_cast<int>(start.x),static_cast<int>(start.y))) {
         const auto* g=world_.catalog().ground(ground->type);const auto* cover=world_.entity(ground->object_id);const auto* cover_def=cover ? world_.catalog().object(cover->type) : nullptr;
@@ -85,7 +99,65 @@ std::vector<net::Packet> Combat::receive(const net::Event& event,std::int32_t ti
     }
     return output;
 }
+// Uniform grid over the enemies' bounding box, cell size a power of two tiles, capped at O(enemy count) cells so a
+// huge map or stray far-away enemy cannot inflate it. Counting-sort layout; ties are resolved by dense order in update().
+void Combat::build_target_index() {
+    REALM_ZONE("combat.target_index");
+    index_ready_=true;++stats_.builds;
+    gathered_.clear();cell_of_.clear();
+    double min_x=std::numeric_limits<double>::max(),min_y=min_x,max_x=std::numeric_limits<double>::lowest(),max_y=max_x;
+    // Enemy-definition entities only, in dense order (the same gathered_ sequence as a scan of every entity).
+    world_.each_enemy([&](const Entity& e) {
+        if(e.projectile||!std::isfinite(e.position.x)||!std::isfinite(e.position.y))return;
+        const auto* type=world_.catalog().object(e.type);if(!type||!type->enemy)return;
+        gathered_.push_back({e.position.x,e.position.y,e.id});
+        min_x=std::min(min_x,e.position.x);max_x=std::max(max_x,e.position.x);min_y=std::min(min_y,e.position.y);max_y=std::max(max_y,e.position.y);
+    });
+    stats_.indexed+=gathered_.size();columns_=rows_=0;
+    if(gathered_.empty()) { sorted_.clear();cell_start_.clear();return; }
+    const double cap=static_cast<double>(std::max<std::size_t>(1024,gathered_.size()*4));
+    double cell=1,columns=0,rows=0;
+    for(;;) {
+        cell_inverse_=1/cell;columns=std::floor((max_x-min_x)*cell_inverse_)+1;rows=std::floor((max_y-min_y)*cell_inverse_)+1;
+        if(columns*rows<=cap)break;
+        cell*=2;
+    }
+    origin_x_=min_x;origin_y_=min_y;columns_=static_cast<std::size_t>(columns);rows_=static_cast<std::size_t>(rows);
+    cell_start_.assign(columns_*rows_+1,0);cell_of_.resize(gathered_.size());
+    for(std::size_t i=0;i<gathered_.size();++i) {
+        const auto cx=std::min(columns_-1,static_cast<std::size_t>((gathered_[i].x-origin_x_)*cell_inverse_));
+        const auto cy=std::min(rows_-1,static_cast<std::size_t>((gathered_[i].y-origin_y_)*cell_inverse_));
+        const auto cell_index=static_cast<std::uint32_t>(cy*columns_+cx);cell_of_[i]=cell_index;++cell_start_[cell_index+1];
+    }
+    for(std::size_t i=1;i<cell_start_.size();++i)cell_start_[i]+=cell_start_[i-1];
+    sorted_.resize(gathered_.size());
+    { auto cursor=cell_start_;for(std::size_t i=0;i<gathered_.size();++i)sorted_[cursor[cell_of_[i]]++]=gathered_[i]; }
+    // Keep capacity bounded after a crowd leaves.
+    release_excess(gathered_);release_excess(sorted_);release_excess(cell_of_);release_excess(cell_start_);
+}
+template <class Visit> void Combat::query_target_index(Vec2 position,Visit&& visit) {
+    if(!index_ready_)build_target_index();
+    if(!columns_||!std::isfinite(position.x)||!std::isfinite(position.y))return;
+    // The 0.5 tile test is inclusive and evaluated on differences, so widen the box slightly; exact filtering follows.
+    constexpr double reach=.5+1e-6;
+    const double lo_x=std::floor((position.x-reach-origin_x_)*cell_inverse_),hi_x=std::floor((position.x+reach-origin_x_)*cell_inverse_);
+    const double lo_y=std::floor((position.y-reach-origin_y_)*cell_inverse_),hi_y=std::floor((position.y+reach-origin_y_)*cell_inverse_);
+    if(hi_x<0||hi_y<0||lo_x>static_cast<double>(columns_-1)||lo_y>static_cast<double>(rows_-1))return;
+    const auto x0=static_cast<std::size_t>(std::max(lo_x,0.)),y0=static_cast<std::size_t>(std::max(lo_y,0.));
+    const auto x1=static_cast<std::size_t>(std::min(hi_x,static_cast<double>(columns_-1))),y1=static_cast<std::size_t>(std::min(hi_y,static_cast<double>(rows_-1)));
+    for(std::size_t y=y0;y<=y1;++y) {
+        const auto first=cell_start_[y*columns_+x0],last=cell_start_[y*columns_+x1+1];
+        for(auto i=first;i<last;++i) {
+            ++stats_.examined;
+            const auto& c=sorted_[i];
+            if(std::abs(c.x-position.x)>.5||std::abs(c.y-position.y)>.5)continue;
+            if(auto* e=world_.entity(c.id))visit(*e);
+        }
+    }
+}
 std::vector<net::Packet> Combat::update(std::int32_t time) {
+    index_ready_=false;
+    REALM_ZONE("combat.update");
     using namespace net;std::vector<Packet> output;
     for(std::size_t i=0;i<projectiles_.size();) {
         auto& p=projectiles_[i];auto* visual=world_.entity(p.entity_id);const auto& def=*p.definition;const auto elapsed=time-p.start_time;
@@ -104,14 +176,22 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
         if(alive) {
             if(def.particle_trail&&time-p.last_trail>=17) { world_.particles().trail(position,time);p.last_trail=time; }
             Entity* target{};double distance=std::numeric_limits<double>::max();
+            // Nearest wins; an exact distance tie goes to the earlier entity in the dense list, which is what the
+            // original in-order scan with a strict `<` selected, whatever order candidates are visited in.
             auto consider=[&](Entity& e) {
                 if(!targetable(e)||p.hit.contains(e.id))return;
                 const double dx=std::abs(e.position.x-position.x),dy=std::abs(e.position.y-position.y);
                 if(dx>.5||dy>.5)return;
-                const double d=dx*dx+dy*dy;if(d<distance){target=&e;distance=d;}
+                const double d=dx*dx+dy*dy;
+                if(d<distance||(d==distance&&target&&&e<target)){target=&e;distance=d;}
             };
+            { REALM_ZONE("combat.target_query");
+            ++stats_.queries;
             if(p.damages_players) { if(auto* player=world_.entity(world_.player_id()))consider(*player); }
-            else for(auto& e:world_.entities())if(const auto* type=world_.catalog().object(e.type);type&&type->enemy&&!e.projectile)consider(e);
+            else if(search_==TargetSearch::scan) {
+                for(auto& e:world_.entities())if(const auto* type=world_.catalog().object(e.type);type&&type->enemy&&!e.projectile){++stats_.examined;consider(e);}
+            } else query_target_index(position,consider);
+            }
             if(target) {
                 if(p.damages_players || p.owner_id==world_.player_id()) {
                     if(target->id==world_.player_id())output.push_back(outgoing::encode(outgoing::PlayerHit{p.bullet_id}));
@@ -125,6 +205,7 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
         if(!alive) { world_.remove(p.entity_id);if(i!=projectiles_.size()-1)projectiles_[i]=std::move(projectiles_.back());projectiles_.pop_back(); }
         else ++i;
     }
+    release_excess(projectiles_,1024);
     return output;
 }
 std::vector<net::Packet> Combat::fire(const ObjectDef& weapon,std::int32_t data,double angle,std::int32_t time,bool ability) {

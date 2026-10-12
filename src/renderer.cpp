@@ -1,4 +1,5 @@
 #include "realm/renderer.hpp"
+#include "realm/model.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
@@ -65,8 +66,10 @@ void main() {
     }
     vec2 uv = bounds.xy + coords * bounds.zw;
     vec2 halfTexel = 0.5 / vec2(standalone ? textureSize(surface, 0) : textureSize(sprites, 0).xy);
-    if (mode < 3.5) uv = clamp(uv, bounds.xy + halfTexel, bounds.xy + bounds.zw - halfTexel);
-    if(mode > 5.5 && (any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))) { color=vec4(0);return; }
+    // Bitmaps in the atlas' dynamic pages clamp to their own region like sprites (the neighbouring slot must never show);
+    // mode 4 stays unclamped, and a standalone surface is bounded by the [0,1] test instead.
+    if (mode < 3.5 || (mode > 4.5 && !standalone)) uv = clamp(uv, bounds.xy + halfTexel, bounds.xy + bounds.zw - halfTexel);
+    if(standalone && mode > 5.5 && (any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))) { color=vec4(0);return; }
     vec4 texel = standalone ? texture(surface, uv) : texture(sprites, vec3(uv, layer));
     // Flash UI is composited by the regular display list, which uses the
     // premultiplied bitmap color once. World Stage3D uses SOURCE_ALPHA again.
@@ -89,7 +92,7 @@ void main() {
     uv = texcoord; lit = shade;
 }
 )glsl";
-// Model programs: textured groups sample the object sprite (nearest, repeated)
+// Reference model program (prepared MeshDraw owners, see project_model): textured groups sample the object sprite (nearest, repeated)
 // times the face shade; Solid* groups are the flat object color times it.
 constexpr auto mesh_fragment_shader = R"glsl(#version 330 core
 in vec2 uv;
@@ -103,6 +106,60 @@ out vec4 color;
 void main() {
     if (!textured) { color = vec4(flat_color * lit, 1.0); return; }
     // Nearest sampling with the sprite repeated over the face, as Flash's bitmap fills tile it.
+    vec2 page = vec2(textureSize(sprites, 0).xy);
+    vec2 size = bounds.zw * page;
+    vec2 coords = (bounds.xy * page + mod(floor(uv * size), size) + 0.5) / page;
+    vec4 texel = texture(sprites, vec3(coords, layer));
+    color = vec4(texel.rgb * lit, texel.a);
+}
+)glsl";
+
+// Instanced registered models: persistent model-space triangles (model_geometry) with
+// one painter-stream Quad per placed model as instance data (model_quad). The affine
+// camera/object transform, Flash flat shade and material choice match project_model;
+// GL back-face culling (front = counter-clockwise in window space) applies the same
+// screen winding rule to the stored fan order.
+constexpr auto model_vertex_shader = R"glsl(#version 330 core
+layout(location=0) in vec3 position;
+layout(location=1) in vec3 normal;
+layout(location=2) in vec2 texcoord;
+layout(location=3) in float solid;
+layout(location=4) in vec2 origin;
+layout(location=5) in vec2 axisX;
+layout(location=6) in vec2 axisY;
+layout(location=7) in vec2 axisZ;
+layout(location=8) in vec4 spriteUV;
+layout(location=9) in float page;
+layout(location=10) in vec4 multiply;
+layout(location=11) in vec4 rotation;
+uniform vec2 viewport;
+out vec2 uv;
+flat out float lit;
+flat out vec4 bounds;
+flat out float layer;
+flat out vec3 flatColor;
+flat out float textured;
+void main() {
+    vec2 pixel = origin + axisX * position.x + axisY * position.y + axisZ * position.z;
+    gl_Position = vec4(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0, 0.0, 1.0);
+    // Lighting3D.LIGHT_VECTOR = normalize(1, 3, 2), in world space after the object rotation.
+    vec3 n = vec3(normal.x * rotation.x - normal.y * rotation.y, normal.x * rotation.y + normal.y * rotation.x, normal.z);
+    lit = 0.75 + 0.25 * max(0.0, dot(n, vec3(1.0, 3.0, 2.0) / 3.7416573867739413));
+    uv = texcoord; bounds = spriteUV; layer = page; flatColor = multiply.rgb;
+    textured = solid < 0.5 && multiply.a > 0.5 ? 1.0 : 0.0;
+}
+)glsl";
+constexpr auto model_fragment_shader = R"glsl(#version 330 core
+in vec2 uv;
+flat in float lit;
+flat in vec4 bounds;
+flat in float layer;
+flat in vec3 flatColor;
+flat in float textured;
+uniform sampler2DArray sprites;
+out vec4 color;
+void main() {
+    if (textured < 0.5) { color = vec4(flatColor * lit, 1.0); return; }
     vec2 page = vec2(textureSize(sprites, 0).xy);
     vec2 size = bounds.zw * page;
     vec2 coords = (bounds.xy * page + mod(floor(uv * size), size) + 0.5) / page;
@@ -187,6 +244,7 @@ Quad sprite_quad(SpriteRegion s, Vec2 origin, Vec2 axis_x, Vec2 axis_y) {
 SurfaceTexture::~SurfaceTexture() { if(texture_)glDeleteTextures(1,&texture_); }
 void SurfaceTexture::update(const Image& image) { update_region(image,0,0,image.width,image.height); }
 void SurfaceTexture::update_region(const Image& image,int x,int y,int w,int h) {
+    REALM_ZONE("render.texture_upload");
     if(image.width<1||image.height<1||image.pixels.size()!=static_cast<std::size_t>(image.width)*static_cast<std::size_t>(image.height)*4||x<0||y<0||w<1||h<1||x+w>image.width||y+h>image.height)
         throw std::invalid_argument("Invalid UI texture upload");
     GLint limit{};glGetIntegerv(GL_MAX_TEXTURE_SIZE,&limit);
@@ -201,8 +259,10 @@ void SurfaceTexture::update_region(const Image& image,int x,int y,int w,int h) {
         const auto capacity=[&](int size) { int result=1;while(result<size)result*=2;return std::min(result,limit); };
         storage_width_=retain_capacity_ ? capacity(std::max(width_,reserved_width_)) : std::max(width_,reserved_width_);
         storage_height_=retain_capacity_ ? capacity(std::max(height_,reserved_height_)) : std::max(height_,reserved_height_);
+        telemetry::add(telemetry::Counter::texture_storage_bytes,static_cast<std::uint64_t>(storage_width_)*static_cast<std::uint64_t>(storage_height_)*4);
         glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,storage_width_,storage_height_,0,GL_RGBA,GL_UNSIGNED_BYTE,nullptr);
     }
+    telemetry::add(telemetry::Counter::texture_upload_bytes,static_cast<std::uint64_t>(w)*static_cast<std::uint64_t>(h)*4);
     Image pixels{w,h,std::vector<unsigned char>(static_cast<std::size_t>(w)*static_cast<std::size_t>(h)*4)};
     for(int row=0;row<h;++row)std::copy_n(image.pixels.data()+(static_cast<std::size_t>(row+y)*static_cast<std::size_t>(image.width)+static_cast<std::size_t>(x))*4,static_cast<std::size_t>(w)*4,pixels.pixels.data()+static_cast<std::size_t>(row)*static_cast<std::size_t>(w)*4);
     premultiply_flash_bitmap(pixels);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
@@ -275,14 +335,41 @@ Renderer::Renderer(std::size_t capacity) : capacity_(capacity) {
         glBindVertexArray(0);
     }
     {
+        const auto model_vs = shader(GL_VERTEX_SHADER, model_vertex_shader);
+        GLuint model_fs{};
+        try { model_fs = shader(GL_FRAGMENT_SHADER, model_fragment_shader); }
+        catch (...) { glDeleteShader(model_vs); glDeleteProgram(mesh_program_); glDeleteProgram(program_); throw; }
+        model_program_ = glCreateProgram(); glAttachShader(model_program_, model_vs); glAttachShader(model_program_, model_fs); glLinkProgram(model_program_);
+        glDeleteShader(model_vs); glDeleteShader(model_fs);
+        GLint model_ok{}; glGetProgramiv(model_program_, GL_LINK_STATUS, &model_ok);
+        if (!model_ok) { glDeleteProgram(model_program_); glDeleteProgram(mesh_program_); glDeleteProgram(program_); model_program_ = mesh_program_ = program_ = 0; throw std::runtime_error("Model shader link failed"); }
+        glUseProgram(model_program_);
+        glUniform1i(glGetUniformLocation(model_program_, "sprites"), 0);
+        model_viewport_ = glGetUniformLocation(model_program_, "viewport");
+        // Uploaded once; instances only reference ranges of it.
+        const auto geometry = model_geometry();
+        glGenVertexArrays(1, &model_vao_); glBindVertexArray(model_vao_);
+        glGenBuffers(1, &model_geometry_); glBindBuffer(GL_ARRAY_BUFFER, model_geometry_);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(geometry.size_bytes()), geometry.data(), GL_STATIC_DRAW);
+        telemetry::add(telemetry::Counter::mesh_upload_bytes, geometry.size_bytes());
+        const std::array<std::pair<GLint, std::size_t>, 4> attributes{{{3, offsetof(ModelVertex, x)}, {3, offsetof(ModelVertex, nx)},
+                                                                       {2, offsetof(ModelVertex, u)}, {1, offsetof(ModelVertex, solid)}}};
+        for (GLuint i = 0; i < attributes.size(); ++i) {
+            glEnableVertexAttribArray(i);
+            glVertexAttribPointer(i, attributes[i].first, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), reinterpret_cast<void*>(attributes[i].second));
+        }
+        for (GLuint i = 4; i < 12; ++i) { glEnableVertexAttribArray(i); glVertexAttribDivisor(i, 1); }
+        glBindVertexArray(0);
+    }
+    {
         const auto post_vs = shader(GL_VERTEX_SHADER, post_vertex_shader);
         GLuint post_fs{};
         try { post_fs = shader(GL_FRAGMENT_SHADER, post_fragment_shader); }
-        catch (...) { glDeleteShader(post_vs); glDeleteProgram(mesh_program_); glDeleteProgram(program_); throw; }
+        catch (...) { glDeleteShader(post_vs); glDeleteProgram(model_program_); glDeleteProgram(mesh_program_); glDeleteProgram(program_); throw; }
         post_program_ = glCreateProgram(); glAttachShader(post_program_, post_vs); glAttachShader(post_program_, post_fs); glLinkProgram(post_program_);
         glDeleteShader(post_vs); glDeleteShader(post_fs);
         GLint post_ok{}; glGetProgramiv(post_program_, GL_LINK_STATUS, &post_ok);
-        if (!post_ok) { glDeleteProgram(post_program_); glDeleteProgram(mesh_program_); glDeleteProgram(program_); post_program_ = mesh_program_ = program_ = 0; throw std::runtime_error("Post shader link failed"); }
+        if (!post_ok) { glDeleteProgram(post_program_); glDeleteProgram(model_program_); glDeleteProgram(mesh_program_); glDeleteProgram(program_); post_program_ = model_program_ = mesh_program_ = program_ = 0; throw std::runtime_error("Post shader link failed"); }
         glUseProgram(post_program_);
         glUniform1i(glGetUniformLocation(post_program_, "scene"), 2);
         post_viewport_ = glGetUniformLocation(post_program_, "viewport"); post_rect_ = glGetUniformLocation(post_program_, "rect");
@@ -301,15 +388,16 @@ Renderer::Renderer(std::size_t capacity) : capacity_(capacity) {
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(capacity_ * sizeof(Quad)), nullptr, GL_STREAM_DRAW);
     }
-    glGenQueries(static_cast<GLsizei>(timers_.size()), timers_.data());
+    // Query names are allocated lazily only for telemetry runs.
     glEnable(GL_BLEND); glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST); glDisable(GL_CULL_FACE); glDisable(GL_FRAMEBUFFER_SRGB);
 }
 Renderer::~Renderer() {
-    glDeleteQueries(static_cast<GLsizei>(timers_.size()), timers_.data());
+    for(const auto& timer:timers_)if(timer.ids[0])glDeleteQueries(static_cast<GLsizei>(timestamps),timer.ids.data());
     glDeleteBuffers(static_cast<GLsizei>(buffers_.size()), buffers_.data());
     glDeleteVertexArrays(1, &vao_); glDeleteProgram(program_);
     glDeleteBuffers(1, &mesh_buffer_); glDeleteVertexArrays(1, &mesh_vao_); glDeleteProgram(mesh_program_);
+    glDeleteBuffers(1, &model_geometry_); glDeleteVertexArrays(1, &model_vao_); glDeleteProgram(model_program_);
     glDeleteFramebuffers(2, post_buffers_.data()); glDeleteTextures(2, post_textures_.data());
     glDeleteVertexArrays(1, &post_vao_); glDeleteProgram(post_program_);
 }
@@ -319,6 +407,7 @@ void Renderer::ensure_post_targets(int width, int height) {
     if (!post_textures_[0]) { glGenTextures(2, post_textures_.data()); glGenFramebuffers(2, post_buffers_.data()); }
     for (int i = 0; i < 2; ++i) {
         glBindTexture(GL_TEXTURE_2D, post_textures_[i]);
+        telemetry::add(telemetry::Counter::texture_storage_bytes,static_cast<std::uint64_t>(width)*static_cast<std::uint64_t>(height)*4);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -370,17 +459,16 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     if (width <= 0 || height <= 0 || clip_width < 0 || clip_width > width || total > 1000000)
         throw std::invalid_argument("Invalid draw dimensions or quad count");
     if (total > capacity_) capacity_ = std::min(std::size_t{1000000}, std::max(total, capacity_ * 2));
-    const auto query = frame_ % timers_.size();
-    bool measure = !timer_pending_[query];
-    if (timer_pending_[query]) {
-        GLint ready{}; glGetQueryObjectiv(timers_[query], GL_QUERY_RESULT_AVAILABLE, &ready);
-        if (ready) {
-            GLuint64 ns{}; glGetQueryObjectui64v(timers_[query], GL_QUERY_RESULT, &ns);
-            gpu_ms_ = static_cast<double>(ns) / 1000000.0; measure = true;
-        }
+    REALM_ZONE("render.submit");
+    poll_gpu();
+    auto& timer=timers_[frame_%timers_.size()];
+    const bool measure=recorder_&&!timer.pending;
+    if(recorder_&&!measure)++skipped_gpu_;
+    if(measure) {
+        if(!timer.ids[0])glGenQueries(static_cast<GLsizei>(timestamps),timer.ids.data());
+        timer.frame_id=sample_frame_;timer.normal=sample_normal_;timer.models=timer.models_total=0;
+        glQueryCounter(timer.ids[0],GL_TIMESTAMP);
     }
-    // Queries are polled several frames later. Never wait for a result mid-frame.
-    if (measure) glBeginQuery(GL_TIME_ELAPSED, timers_[query]);
     glViewport(0, 0, width, height); glDisable(GL_SCISSOR_TEST);
     glClearColor(clear_color_[0],clear_color_[1],clear_color_[2],clear_color_[3]); glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_SCISSOR_TEST); glScissor(0, 0, clip_width, height);
@@ -388,9 +476,13 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
     glBindVertexArray(vao_); glBindBuffer(GL_ARRAY_BUFFER, buffers_[frame_ % buffers_.size()]);
     // Orphaning prevents overwrite of in-flight data; three buffer IDs reduce reuse pressure.
+    { REALM_ZONE("render.quad_upload");
+    telemetry::add(telemetry::Counter::quad_upload_bytes,quads.size_bytes()+overlay.size_bytes());
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(capacity_ * sizeof(Quad)), nullptr, GL_STREAM_DRAW);
     if (!quads.empty()) glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(quads.size_bytes()), quads.data());
     if(!overlay.empty())glBufferSubData(GL_ARRAY_BUFFER,static_cast<GLintptr>(quads.size_bytes()),static_cast<GLsizeiptr>(overlay.size_bytes()),overlay.data());
+    }
+    if(measure)glQueryCounter(timer.ids[1],GL_TIMESTAMP);
     const std::array<GLint, 9> sizes{2, 2, 2, 4, 1, 4, 4, 1, 2};
     const std::array<std::size_t, 9> offsets{offsetof(Quad, origin), offsetof(Quad, axis_x), offsetof(Quad, axis_y),
         offsetof(Quad, uv), offsetof(Quad, page), offsetof(Quad, multiply), offsetof(Quad, offset), offsetof(Quad, kind), offsetof(Quad, uv_offset)};
@@ -410,9 +502,43 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     }
     const auto draw=[&](std::span<const Quad> list,std::size_t offset) {
         for(std::size_t first=0;first<list.size();) {
+            if(list[first].kind>8.5F&&!list[first].owner) {
+                // Model instances keep their painter-stream position. A contiguous block switches programs once;
+                // consecutive copies of one model are one instanced draw (instances rasterize in order).
+                REALM_ZONE("render.model_submit");
+                std::size_t end=first;
+                while(end<list.size()&&list[end].kind>8.5F&&!list[end].owner)++end;
+                glUseProgram(model_program_);glBindVertexArray(model_vao_);glBindBuffer(GL_ARRAY_BUFFER,buffers_[frame_%buffers_.size()]);
+                glUniform2f(model_viewport_,static_cast<float>(width),static_cast<float>(height));
+                glEnable(GL_CULL_FACE);glCullFace(GL_BACK);glFrontFace(GL_CCW);
+                const std::array<std::pair<GLint,std::size_t>,8> instance{{{2,offsetof(Quad,origin)},{2,offsetof(Quad,axis_x)},{2,offsetof(Quad,axis_y)},
+                    {2,offsetof(Quad,uv_offset)},{4,offsetof(Quad,uv)},{1,offsetof(Quad,page)},{4,offsetof(Quad,multiply)},{4,offsetof(Quad,offset)}}};
+                for(std::size_t run=first;run<end;) {
+                    const float model=list[run].offset[2];std::size_t next=run+1;
+                    while(next<end&&list[next].offset[2]==model)++next;
+                    const auto range=model_range(static_cast<std::uint32_t>(model));
+                    const bool model_measure=measure&&timer.models<model_query_limit;
+                    if(measure)timer.models_total+=next-run;
+                    if(model_measure)glQueryCounter(timer.ids[5+2*timer.models],GL_TIMESTAMP);
+                    for(GLuint i=0;i<instance.size();++i)glVertexAttribPointer(4+i,instance[i].first,GL_FLOAT,GL_FALSE,sizeof(Quad),reinterpret_cast<void*>(offset+run*sizeof(Quad)+instance[i].second));
+                    glDrawArraysInstanced(GL_TRIANGLES,static_cast<GLint>(range.first),static_cast<GLsizei>(range.count),static_cast<GLsizei>(next-run));++draw_calls_;
+                    telemetry::add(telemetry::Counter::models,next-run);telemetry::add(telemetry::Counter::triangles,(next-run)*(range.count/3));
+                    if(model_measure) { glQueryCounter(timer.ids[6+2*timer.models],GL_TIMESTAMP);++timer.models; }
+                    run=next;
+                }
+                glDisable(GL_CULL_FACE);
+                glUseProgram(program_);glBindVertexArray(vao_);glBindBuffer(GL_ARRAY_BUFFER,buffers_[frame_%buffers_.size()]);
+                first=end;continue;
+            }
             if(list[first].kind>8.5F) {
-                // Projected models share the painter-ordered stream but not the instanced program.
+                // Reference path: a prepared MeshDraw (project_model) is uploaded and drawn on its own.
                 if(const auto* mesh=static_cast<const MeshDraw*>(list[first].owner.get()); mesh&&!mesh->vertices.empty()) {
+                    REALM_ZONE("render.model_upload_submit");
+                    const bool model_measure=measure&&timer.models<model_query_limit;
+                    if(measure)++timer.models_total;
+                    if(model_measure)glQueryCounter(timer.ids[5+2*timer.models],GL_TIMESTAMP);
+                    telemetry::add(telemetry::Counter::models);
+                    telemetry::add(telemetry::Counter::mesh_upload_bytes,mesh->vertices.size()*sizeof(MeshVertex));
                     glUseProgram(mesh_program_);glBindVertexArray(mesh_vao_);glBindBuffer(GL_ARRAY_BUFFER,mesh_buffer_);
                     glUniform2f(mesh_viewport_,static_cast<float>(width),static_cast<float>(height));
                     glUniform4f(mesh_bounds_,mesh->bounds[0],mesh->bounds[1],mesh->bounds[2],mesh->bounds[3]);
@@ -421,7 +547,9 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
                     for(const auto& group:mesh->groups) {
                         glUniform1i(mesh_textured_,group.solid?0:1);
                         glDrawArrays(GL_TRIANGLES,static_cast<GLint>(group.first),static_cast<GLsizei>(group.count));++draw_calls_;
+                        telemetry::add(telemetry::Counter::triangles,group.count/3);
                     }
+                    if(model_measure) { glQueryCounter(timer.ids[6+2*timer.models],GL_TIMESTAMP);++timer.models; }
                     glUseProgram(program_);glBindVertexArray(vao_);glBindBuffer(GL_ARRAY_BUFFER,buffers_[frame_%buffers_.size()]);
                 }
                 ++first;continue;
@@ -431,10 +559,12 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
             glUniform1i(standalone,texture!=0);
             if(texture) { glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D,texture);glActiveTexture(GL_TEXTURE0); }
             for(GLuint i=0;i<sizes.size();++i)glVertexAttribPointer(i,sizes[i],GL_FLOAT,GL_FALSE,sizeof(Quad),reinterpret_cast<void*>(offset+first*sizeof(Quad)+offsets[i]));
+            telemetry::add(telemetry::Counter::quads,end-first);telemetry::add(telemetry::Counter::triangles,2*(end-first));
             glDrawArraysInstanced(GL_TRIANGLE_STRIP,0,4,static_cast<GLsizei>(end-first));++draw_calls_;first=end;
         }
     };
     draw(quads,0);
+    if(measure)glQueryCounter(timer.ids[2],GL_TIMESTAMP);
     const bool screen_overlays=effects.vignette>0||effects.sidebar>0;
     if(effects.filtered()) {
         run_post(width,height,clip_width,effects);
@@ -444,12 +574,32 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
         run_screen_overlays(width,height,clip_width,effects);
         glUseProgram(program_);glBindVertexArray(vao_);glBindBuffer(GL_ARRAY_BUFFER,buffers_[frame_%buffers_.size()]);
     }
+    if(measure)glQueryCounter(timer.ids[3],GL_TIMESTAMP);
     if(!overlay.empty()) {
         glScissor(0,0,width,height);
         draw(overlay,quads.size_bytes());
     }
-    if (measure) { glEndQuery(GL_TIME_ELAPSED); timer_pending_[query] = true; }
+    if(measure) { glQueryCounter(timer.ids[4],GL_TIMESTAMP);timer.pending=true; }
+    telemetry::add(telemetry::Counter::draw_calls,draw_calls_);
     glDisable(GL_SCISSOR_TEST); ++frame_;
+}
+std::size_t Renderer::pending_gpu() const {
+    return static_cast<std::size_t>(std::count_if(timers_.begin(),timers_.end(),[](const auto& timer){ return timer.pending; }));
+}
+void Renderer::poll_gpu() {
+    if(!recorder_)return;
+    REALM_ZONE("render.gpu_poll");
+    for(auto& timer:timers_)if(timer.pending) {
+        GLint ready{};glGetQueryObjectiv(timer.ids[4],GL_QUERY_RESULT_AVAILABLE,&ready);
+        if(!ready)continue;
+        std::array<GLuint64,timestamps> ns{};
+        for(std::size_t i=0;i<5+2*timer.models;++i)glGetQueryObjectui64v(timer.ids[i],GL_QUERY_RESULT,&ns[i]);
+        const auto elapsed=[&](std::size_t a,std::size_t b) { return static_cast<double>(ns[b]-ns[a])/1000000.0; };
+        double models{};for(std::size_t i=0;i<timer.models;++i)models+=elapsed(5+2*i,6+2*i);
+        gpu_ms_=elapsed(0,4);
+        recorder_->gpu({timer.frame_id,timer.normal,gpu_ms_,elapsed(0,1),elapsed(1,2),elapsed(2,3),elapsed(3,4),models,timer.models,timer.models_total});
+        timer.pending=false;
+    }
 }
 Image Renderer::capture(int width, int height) const {
     Image image{width, height, std::vector<unsigned char>(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4)};

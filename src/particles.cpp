@@ -13,7 +13,7 @@ double distance(Vec2 a,Vec2 b) { return std::hypot(a.x-b.x,a.y-b.y); }
 int bounded_count(double value,int limit=256) { return std::isfinite(value) ? static_cast<int>(std::clamp(value,0.0,static_cast<double>(limit))) : 0; }
 }
 Particles::Particles() { particles_.reserve(maximum_particles);emitters_.reserve(maximum_emitters);flashes_.reserve(maximum_flashes); }
-void Particles::clear() { particles_.clear();emitters_.clear();flashes_.clear();now_=0;last_update_=jitter_start_=-1;spawns_=dropped_=0;order_=0;rng_=0x12345678U; }
+void Particles::clear() { particles_.clear();emitters_.clear();flashes_.clear();particle_targets_.clear();emitter_targets_.clear();flash_targets_.clear();now_=0;last_update_=jitter_start_=-1;spawns_=dropped_=0;order_=0;rng_=0x12345678U; }
 // The Particles option stops the optional effects Flash gates (hit and wall-impact bursts, projectile trails, Healing
 // and the object-texture effects); ShowEffect, AoE and level-up effects are gameplay information and always play.
 void Particles::set_enabled(bool value) { enabled_=value; }
@@ -22,7 +22,7 @@ bool Particles::emit(Particle p) {
     if(particles_.size()>=maximum_particles||spawns_>=maximum_spawns) { ++dropped_;return false; }
     if(!finite(p.position)||!finite(p.velocity)||!std::isfinite(p.z)||!std::isfinite(p.size))return false;
     p.lifetime=std::clamp(p.lifetime,1,maximum_lifetime);p.initial_size=p.size=std::clamp(p.size,0.0,640.0);p.initial_z=p.z;
-    p.order=order_++;particles_.push_back(p);++spawns_;return true;
+    p.order=order_++;particles_.push_back(p);if(p.target!=-1)particle_targets_.add(p.target);++spawns_;return true;
 }
 Particle Particles::spark(Vec2 at,std::uint32_t c,double size,int life,double z,Vec2 velocity,std::int64_t time) {
     Particle p;p.motion=ParticleMotion::spark;p.position=p.start=at;p.color=c;p.size=size;p.lifetime=life;p.z=z;p.velocity=velocity;p.born=time;return p;
@@ -39,23 +39,41 @@ std::optional<std::uint32_t> Particles::color(const TextureDef& t,std::uint32_t 
     return flash::particle_colors[range.offset+static_cast<unsigned>(random()*range.count)];
 }
 void Particles::attach(const Entity& e,const TextureDef& t) {
-    const auto it=std::find_if(emitters_.begin(),emitters_.end(),[&](const auto& emitter){return emitter.target==e.id&&emitter.props->kind!="Healing";});
+    // Nearly every object (every projectile) has no emitter: the filter answers that without scanning the emitter list.
+    const bool maybe=emitter_targets_.may_contain(e.id);
+    if(!maybe&&t.effect.kind.empty())return;
+    const auto it=!maybe ? emitters_.end() : std::find_if(emitters_.begin(),emitters_.end(),[&](const auto& emitter){return emitter.target==e.id&&emitter.props->kind!="Healing";});
     if(t.effect.kind.empty()) { if(it!=emitters_.end())emitters_.erase(it);return; }
     // ParticleEffect.fromProps returns null while the option is off; an existing effect keeps running.
     if(!enabled_&&it==emitters_.end())return;
     if(it!=emitters_.end()) { if(it->props!=&t.effect)*it={e.id,&t.effect,static_cast<double>(now_),0};return; }
-    if(emitters_.size()<maximum_emitters)emitters_.push_back({e.id,&t.effect,static_cast<double>(now_),0});else ++dropped_;
+    if(emitters_.size()<maximum_emitters) { emitters_.push_back({e.id,&t.effect,static_cast<double>(now_),0});emitter_targets_.add(e.id); } else ++dropped_;
 }
 void Particles::healing(const Entity& e) {
     static const EffectDef props=[] { EffectDef value;value.kind="Healing";return value; }();
-    const auto it=std::find_if(emitters_.begin(),emitters_.end(),[&](const auto& emitter){return emitter.target==e.id&&emitter.props==&props;});
+    const bool maybe=emitter_targets_.may_contain(e.id);
+    if(!maybe&&!(e.condition&(1U<<15U)))return;
+    const auto it=!maybe ? emitters_.end() : std::find_if(emitters_.begin(),emitters_.end(),[&](const auto& emitter){return emitter.target==e.id&&emitter.props==&props;});
     if(!(e.condition&(1U<<15U))) { if(it!=emitters_.end())emitters_.erase(it);return; }
-    if(it==emitters_.end()&&enabled_&&emitters_.size()<maximum_emitters)emitters_.push_back({e.id,&props,static_cast<double>(now_)-500,0});
+    if(it==emitters_.end()&&enabled_&&emitters_.size()<maximum_emitters) { emitters_.push_back({e.id,&props,static_cast<double>(now_)-500,0});emitter_targets_.add(e.id); }
 }
+// Object removal runs for every expiring projectile, so the three scans (up to 8192 particles of 224 bytes) are gated by
+// the target filters. Untargeted particles carry id -1, so that id (never a real object) always takes the exact path.
 void Particles::remove_target(std::int32_t id) {
-    std::erase_if(emitters_,[&](const auto& e){return e.target==id;});
-    std::erase_if(particles_,[&](const auto& p){return p.target==id;});
-    std::erase_if(flashes_,[&](const auto& f){return f.target==id;});
+    if(emitter_targets_.may_contain(id))std::erase_if(emitters_,[&](const auto& e){return e.target==id;});
+    if(id==-1||particle_targets_.may_contain(id))std::erase_if(particles_,[&](const auto& p){return p.target==id;});
+    if(flash_targets_.may_contain(id))std::erase_if(flashes_,[&](const auto& f){return f.target==id;});
+}
+bool Particles::targets(std::int32_t id) const {
+    return std::any_of(emitters_.begin(),emitters_.end(),[&](const auto& e){return e.target==id;})||
+           std::any_of(particles_.begin(),particles_.end(),[&](const auto& p){return p.target==id;})||
+           std::any_of(flashes_.begin(),flashes_.end(),[&](const auto& f){return f.target==id;});
+}
+void Particles::rebuild_target_filters() {
+    particle_targets_.clear();emitter_targets_.clear();flash_targets_.clear();
+    for(const auto& p:particles_)if(p.target!=-1)particle_targets_.add(p.target);
+    for(const auto& e:emitters_)emitter_targets_.add(e.target);
+    for(const auto& f:flashes_)flash_targets_.add(f.target);
 }
 void Particles::path(Vec2 start,Vec2 end,std::uint32_t c,int life,double size,std::int32_t time,ParticleMotion motion) {
     if(!finite(start)||!finite(end))return;
@@ -110,10 +128,10 @@ void Particles::show(const World& world,const net::incoming::ShowEffect& e,std::
     case 14:jitter_start_=time;break;
     case 15:
         if(a.x>0&&a.y>0) {
-            std::erase_if(flashes_,[&](const auto& f){return f.target==e.target_id;});
+            if(flash_targets_.may_contain(e.target_id))std::erase_if(flashes_,[&](const auto& f){return f.target==e.target_id;});
             const int period=static_cast<int>(std::clamp(a.x*1000,1.0,10000.0));
             const int repeats=static_cast<int>(std::clamp(a.y,1.0,3600000.0/period));
-            if(flashes_.size()<maximum_flashes)flashes_.push_back({e.target_id,time,period,repeats,c});
+            if(flashes_.size()<maximum_flashes) { flashes_.push_back({e.target_id,time,period,repeats,c});flash_targets_.add(e.target_id); }
         }break;
     case 16:
         if(c<=65535)if(const auto* d=world.catalog().object(static_cast<std::uint16_t>(c))) {
@@ -247,5 +265,6 @@ void Particles::update(const World& world,std::int32_t time) {
         }
     }
     spawns_=0;
+    rebuild_target_filters();
 }
 }

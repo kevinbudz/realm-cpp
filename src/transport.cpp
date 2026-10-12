@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/transport.hpp"
 #include <array>
 #include <chrono>
@@ -96,6 +97,7 @@ Transport::~Transport() = default;
 ConnectionState Transport::state() const { return impl_->state; }
 const std::string& Transport::error() const { return impl_->error; }
 std::size_t Transport::queued_bytes() const { return impl_->queued; }
+std::size_t Transport::pending_bytes() const { return impl_->framer.pending_bytes(); }
 void Transport::close() { impl_->close(); }
 void Transport::connect(std::string_view host, std::uint16_t port) {
     auto& p = *impl_; p.close(); p.error.clear();
@@ -121,6 +123,7 @@ void Transport::send(const Packet& packet) {
     p.queued += bytes.size(); p.output.push_back(std::move(bytes));
 }
 std::vector<Packet> Transport::poll() {
+    REALM_ZONE("network.poll");
     auto& p = *impl_; std::vector<Packet> packets;
     if (p.state == ConnectionState::closed) return packets;
     if (p.state == ConnectionState::connecting) {
@@ -154,7 +157,7 @@ std::vector<Packet> Transport::poll() {
         const auto count = ::send(p.socket, reinterpret_cast<const char*>(bytes.data() + p.offset), static_cast<int>(bytes.size() - p.offset), send_flags);
         if (count < 0) { if (interrupted(last_error())) continue; if (!pending(last_error())) p.fail(error_text(last_error())); break; }
         if (!count) break;
-        const auto n = static_cast<std::size_t>(count); p.offset += n; p.queued -= n; sent += n;
+        const auto n = static_cast<std::size_t>(count); telemetry::add(telemetry::Counter::packet_tx_bytes,n);p.offset += n; p.queued -= n; sent += n;
         if (p.offset == bytes.size()) { p.output.pop_front(); p.offset = 0; }
     }
     if (p.state == ConnectionState::closed) return packets;
@@ -163,12 +166,13 @@ std::vector<Packet> Transport::poll() {
         const auto count = ::recv(p.socket, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0);
         if (count < 0) { if (interrupted(last_error())) continue; if (!pending(last_error())) p.fail(error_text(last_error())); break; }
         if (!count) { p.fail("Game server disconnected"); break; }
-        const auto n = static_cast<std::size_t>(count); received += n;
+        const auto n = static_cast<std::size_t>(count); telemetry::add(telemetry::Counter::packet_rx_bytes,n);received += n;
         try {
             auto next = p.framer.feed(std::span(buffer).first(n));
             packets.insert(packets.end(), std::make_move_iterator(next.begin()), std::make_move_iterator(next.end()));
         } catch (const std::exception& e) { p.fail(e.what()); throw; }
     }
+    telemetry::set(telemetry::Counter::outgoing_queue_bytes,p.queued);
     return packets;
 }
 }

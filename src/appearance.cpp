@@ -1,31 +1,51 @@
+#include "realm/telemetry.hpp"
 #include "realm/appearance.hpp"
 #include "flash_assets.hpp"
 #include <array>
 #include <algorithm>
 #include <cmath>
 namespace realm {
+namespace {
+// std::lround for a non-negative value without the libm call (truncate, then round the fraction half up; exact).
+inline long round_up(double v) noexcept { const auto r=static_cast<long>(v);return v-static_cast<double>(r)>=.5 ? r+1 : r; }
+}
 std::array<std::uint32_t,2> world_dyes(const World& world,const Entity& entity) {
     std::array<std::uint32_t,2> result{entity.tex1,entity.tex2};
     if(!entity.player||entity.id!=world.player_id())return result;
+    REALM_ZONE("scene.world_dyes");
     const int x=static_cast<int>(entity.position.x),y=static_cast<int>(entity.position.y);
     const int dx=entity.position.x-x>.5 ? 1 : -1,dy=entity.position.y-y>.5 ? 1 : -1;
-    constexpr int nearby[4][2]={{0,0},{1,0},{0,1},{1,1}};
-    for(const auto& offset:nearby)for(const auto& e:world.entities()) {
+    // The first Merchant in (neighbour order {0,0},{1,0},{0,1},{1,1}, then entity order) decides the dye. One pass over the
+    // merchants (in entity order) finds it: the four neighbour tiles are distinct, so each belongs to at most one neighbour slot.
+    const Entity* merchant{};int slot=4;
+    world.each_merchant([&](const Entity& e) {
+        if(!slot)return;
+        const int ox=static_cast<int>(e.position.x)-x,oy=static_cast<int>(e.position.y)-y;
+        const int kx=ox==0 ? 0 : ox==dx ? 1 : -1,ky=oy==0 ? 0 : oy==dy ? 1 : -1;
+        if(kx<0||ky<0||kx+2*ky>=slot)return;
         const auto* d=world.catalog().object(e.type);
-        if(!d||d->class_name!="Merchant"||static_cast<int>(e.position.x)!=x+dx*offset[0]||static_cast<int>(e.position.y)!=y+dy*offset[1])continue;
-        const double ex=e.position.x-entity.position.x,ey=e.position.y-entity.position.y;
-        if(ex*ex+ey*ey>=1)return result;
-        const auto it=e.stats.find(static_cast<std::uint8_t>(flash::StatId::MERCHANDISE_TYPE_STAT));
-        const auto* item=it==e.stats.end() ? nullptr : world.catalog().object(static_cast<std::uint16_t>(it->second));
-        if(item&&item->xml.child("Activate").text()=="Dye") {
-            if(item->xml.has("Tex1"))result[0]=static_cast<std::uint32_t>(item->xml.number("Tex1"));
-            if(item->xml.has("Tex2"))result[1]=static_cast<std::uint32_t>(item->xml.number("Tex2"));
-        }
-        return result;
+        if(!d||d->class_name!="Merchant")return;
+        merchant=&e;slot=kx+2*ky;
+    });
+    if(!merchant)return result;
+    const auto& e=*merchant;
+    const double ex=e.position.x-entity.position.x,ey=e.position.y-entity.position.y;
+    if(ex*ex+ey*ey>=1)return result;
+    const auto it=e.stats.find(static_cast<std::uint8_t>(flash::StatId::MERCHANDISE_TYPE_STAT));
+    const auto* item=it==e.stats.end() ? nullptr : world.catalog().object(static_cast<std::uint16_t>(it->second));
+    if(item&&item->xml.child("Activate").text()=="Dye") {
+        if(item->xml.has("Tex1"))result[0]=static_cast<std::uint32_t>(item->xml.number("Tex1"));
+        if(item->xml.has("Tex2"))result[1]=static_cast<std::uint32_t>(item->xml.number("Tex2"));
     }
     return result;
 }
 Appearances::Appearances(const std::filesystem::path& root,const AnimationLibrary& animations):animations_(animations) {
+    textile_sheets_.fill(-1);
+    for(std::size_t sheet=0;sheet<flash::sheets.size();++sheet) {
+        const std::string_view name=flash::sheets[sheet].name;
+        if(name=="textile4x4")textile_sheets_[0]=static_cast<int>(sheet);else if(name=="textile5x5")textile_sheets_[1]=static_cast<int>(sheet);
+        else if(name=="textile9x9")textile_sheets_[2]=static_cast<int>(sheet);else if(name=="textile10x10")textile_sheets_[3]=static_cast<int>(sheet);
+    }
     sheets_.resize(flash::assets.size());
     // Only image-set assets are needed. Animation strips already have owners.
     for(const auto& sheet:flash::sheets)if(sheet.asset>=0&&sheets_[static_cast<std::size_t>(sheet.asset)].pixels.empty()) {
@@ -94,7 +114,133 @@ std::shared_ptr<const Image> Appearances::condition_icon(int frame) const {
     }
     return result;
 }
+const Image& Appearances::textile(std::uint32_t op) const {
+    static const Image none;static const Image blank{1,1,std::vector<unsigned char>(4)};
+    const auto kind=op>>24U;
+    if(kind!=4&&kind!=5&&kind!=9&&kind!=10)return none;
+    // The last sheet carrying the name wins, as before; the (kind, index) art is cropped once and kept (bounded by the sheet's count).
+    const int sheet=textile_sheets_[kind==4 ? 0 : kind==5 ? 1 : kind==9 ? 2 : 3];
+    if(sheet<0)return none;
+    const int index=static_cast<int>(op&0xffffffU);const auto& s=flash::sheets[static_cast<std::size_t>(sheet)];
+    if(s.asset<0||index<0||index>=s.count)return blank;
+    const auto key=(static_cast<std::uint64_t>(sheet)<<32U)|static_cast<std::uint32_t>(index);
+    auto found=textiles_.find(key);
+    if(found==textiles_.end())found=textiles_.emplace(key,sprite(sheet,index)).first;
+    return found->second;
+}
 Image Appearances::compose(const Image& source,const Image* mask,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
+    REALM_ZONE("appearance.compose");
+    // Flash does texturing on a 5x bitmap before size scaling. Textile origin is
+    // the frame origin, including transparent extended-attack padding.
+    const bool dyed=mask&&(tex1||tex2);
+    Image dyed_source;
+    const Image* input=&source;
+    if(dyed) {
+        dyed_source={source.width*5,source.height*5,std::vector<unsigned char>(static_cast<std::size_t>(source.width*5)*static_cast<std::size_t>(source.height*5)*4)};
+        const Image* textiles[2]={};const std::uint32_t ops[2]={tex1,tex2};
+        for(int channel=0;channel<2;++channel) textiles[channel]=&textile(ops[channel]);
+        for(int y=0;y<dyed_source.height;++y)for(int x=0;x<dyed_source.width;++x) {
+            const auto src=static_cast<std::size_t>((y/5*source.width+x/5)*4),dst=static_cast<std::size_t>((y*dyed_source.width+x)*4);
+            std::copy_n(source.pixels.data()+src,4,dyed_source.pixels.data()+dst);
+            if(x/5>=mask->width||y/5>=mask->height)continue;
+            const auto m=static_cast<std::size_t>((y/5*mask->width+x/5)*4);
+            if(!mask->pixels[m+3])continue;
+            const int c=mask->pixels[m]>0 ? 0 : mask->pixels[m+1]>0 ? 1 : -1;
+            if(c<0||ops[c]==0)continue;
+            const auto& tile=*textiles[c];
+            for(int k=0;k<3;++k) {
+                const auto color=tile.pixels.empty() ? static_cast<unsigned char>((ops[c]>>24U)==1 ? (ops[c]>>(16-8*k))&255U : 0) : tile.pixels[static_cast<std::size_t>((y%tile.height*tile.width+x%tile.width)*4+k)];
+                dyed_source.pixels[dst+static_cast<std::size_t>(k)]=static_cast<unsigned char>((static_cast<unsigned>(color)*mask->pixels[m+static_cast<std::size_t>(c)]+127U)/255U);
+            }
+            dyed_source.pixels[dst+3]=255;
+        }
+        input=&dyed_source;
+    }
+    // Raster bounds protect against hostile size stats; density tracks the
+    // reduction so world placement still preserves the authoritative size.
+    const double factor=5*std::max(1,dyed ? size/5*5 : size)/100.0;
+    const int wanted_w=std::max(1,static_cast<int>(factor*source.width)),wanted_h=std::max(1,static_cast<int>(factor*source.height));
+    const double density=std::min(1.0,1024.0/std::max(wanted_w,wanted_h));
+    const int w=std::max(1,static_cast<int>(wanted_w*density)),h=std::max(1,static_cast<int>(wanted_h*density));
+    Image result{w+24,h+(pad?24:13),std::vector<unsigned char>(static_cast<std::size_t>(w+24)*static_cast<std::size_t>(h+(pad?24:13))*4)};result.pixel_scale=density;
+    // Same arithmetic as compose_reference, with per-column and per-row terms computed once instead of once per pixel.
+    struct Span { int first{},last{};double extent{};std::size_t offset{}; };
+    const auto spans=[&](int count,int from,int source_count,std::vector<Span>& out,std::vector<double>& weights) {
+        out.resize(static_cast<std::size_t>(count));weights.clear();
+        for(int i=0;i<count;++i) {
+            const double s0=count>=source_count ? std::floor((i+.49999)*source_count/count) : static_cast<double>(i)*source_count/count;
+            const double s1=count>=source_count ? s0+1 : static_cast<double>(i+1)*source_count/count;
+            auto& span=out[static_cast<std::size_t>(i)];span.first=static_cast<int>(s0);span.last=std::min(source_count,static_cast<int>(std::ceil(s1)));span.extent=s1-s0;span.offset=weights.size();
+            for(int t=span.first;t<span.last;++t)weights.push_back(std::min(s1,t+1.0)-std::max(s0,static_cast<double>(t)));
+        }
+        (void)from;
+    };
+    static thread_local std::vector<Span> column_spans,row_spans;static thread_local std::vector<double> column_weights,row_weights;
+    spans(w,input->width,input->width,column_spans,column_weights);spans(h,input->height,input->height,row_spans,row_weights);
+    for(int y=0;y<h;++y) {
+        const auto& ry=row_spans[static_cast<std::size_t>(y)];
+        const int subtract=static_cast<int>(40*std::max(0.0,2.0*(y+12)/result.height-1));
+        for(int x=0;x<w;++x) {
+            const auto& rx=column_spans[static_cast<std::size_t>(x)];
+            const double area=rx.extent*ry.extent;
+            double channels[4]={};
+            for(int sy=ry.first;sy<ry.last;++sy) {
+                const double wy=row_weights[ry.offset+static_cast<std::size_t>(sy-ry.first)];
+                for(int sx=rx.first;sx<rx.last;++sx) {
+                    const double weight=column_weights[rx.offset+static_cast<std::size_t>(sx-rx.first)]*wy/area;
+                    const auto src=static_cast<std::size_t>((sy*input->width+sx)*4);const double alpha=input->pixels[src+3]/255.0;
+                    for(int k=0;k<3;++k)channels[k]+=input->pixels[src+static_cast<std::size_t>(k)]*alpha*weight;
+                    channels[3]+=input->pixels[src+3]*weight;
+                }
+            }
+            const auto dst=static_cast<std::size_t>(((y+12)*result.width+x+12)*4);
+            if(channels[3]>0)for(int k=0;k<3;++k)result.pixels[dst+static_cast<std::size_t>(k)]=static_cast<unsigned char>(std::clamp(round_up(channels[k]*255/channels[3])-subtract,0L,255L));
+            result.pixels[dst+3]=static_cast<unsigned char>(std::min(round_up(channels[3]),255L));
+        }
+    }
+    // Black silhouette outline and a soft halo; original pixels stay crisp.
+    const int rw=result.width,rh=result.height;const auto count=static_cast<std::size_t>(rw)*static_cast<std::size_t>(rh);
+    static thread_local std::vector<unsigned char> alpha_plane,row_max,outline_plane;static thread_local std::vector<double> halo,next;
+    alpha_plane.resize(count);row_max.resize(count);outline_plane.resize(count);halo.resize(count);next.resize(count);
+    for(std::size_t i=0;i<count;++i) { alpha_plane[i]=result.pixels[i*4+3];halo[i]=alpha_plane[i]; }
+    // Two seven-pixel box passes per axis form the separable triangular halo.
+    for(int pass=0;pass<4;++pass) {
+        const bool vertical=pass>=2;
+        const int rows=vertical ? rw : rh,columns=vertical ? rh : rw;
+        const auto at=[&](int row,int column) { return static_cast<std::size_t>(vertical ? column*rw+row : row*rw+column); };
+        for(int row=0;row<rows;++row) {
+            double sum=0;for(int c=0;c<std::min(3,columns);++c)sum+=halo[at(row,c)];
+            for(int c=0;c<columns;++c) {
+                if(c+3<columns)sum+=halo[at(row,c+3)];
+                if(c-4>=0)sum-=halo[at(row,c-4)];
+                next[at(row,c)]=sum/7;
+            }
+        }
+        halo.swap(next);
+    }
+    // 3x3 maximum of the original alpha as two 1-D passes (exact for a rectangle clipped to the image).
+    for(int y=0;y<rh;++y)for(int x=0;x<rw;++x) {
+        unsigned char m=alpha_plane[static_cast<std::size_t>(y*rw+x)];
+        if(x>0)m=std::max(m,alpha_plane[static_cast<std::size_t>(y*rw+x-1)]);
+        if(x+1<rw)m=std::max(m,alpha_plane[static_cast<std::size_t>(y*rw+x+1)]);
+        row_max[static_cast<std::size_t>(y*rw+x)]=m;
+    }
+    for(int y=0;y<rh;++y)for(int x=0;x<rw;++x) {
+        unsigned char m=row_max[static_cast<std::size_t>(y*rw+x)];
+        if(y>0)m=std::max(m,row_max[static_cast<std::size_t>((y-1)*rw+x)]);
+        if(y+1<rh)m=std::max(m,row_max[static_cast<std::size_t>((y+1)*rw+x)]);
+        outline_plane[static_cast<std::size_t>(y*rw+x)]=m;
+    }
+    for(std::size_t i=0;i<count;++i) {
+        const auto dst=i*4;
+        const double a=alpha_plane[i]/255.0,b=std::max(outline_plane[i]*.8,halo[i]*.6)/255.0;
+        const double out=a+b*(1-a);result.pixels[dst+3]=static_cast<unsigned char>(std::min(round_up(out*255),255L));
+        if(out>0)for(int k=0;k<3;++k)result.pixels[dst+static_cast<std::size_t>(k)]=static_cast<unsigned char>(round_up(result.pixels[dst+static_cast<std::size_t>(k)]*a/out));
+    }
+    return result;
+}
+Image Appearances::compose_reference(const Image& source,const Image* mask,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
+    // The original implementation, kept verbatim as the differential oracle for `compose`.
     // Flash does texturing on a 5x bitmap before size scaling. Textile origin is
     // the frame origin, including transparent extended-attack padding.
     const bool dyed=mask&&(tex1||tex2);
@@ -183,28 +329,53 @@ Image Appearances::compose(const Image& source,const Image* mask,int size,bool p
     }
     return result;
 }
-std::shared_ptr<const Image> Appearances::get(std::string key,const Image& source,const Image* mask,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2,bool normalize) const {
-    key+=':'+std::to_string(size)+':'+std::to_string(pad)+':'+std::to_string(tex1)+':'+std::to_string(tex2);
-    if(const auto it=cache_.find(key);it!=cache_.end()) { lru_.splice(lru_.begin(),lru_,it->second.lru);return it->second.image; }
+std::size_t Appearances::KeyHash::operator()(const Key& key) const noexcept {
+    std::uint64_t h=1469598103934665603ULL;
+    const auto mix=[&](std::uint64_t v) { h^=v+0x9e3779b97f4a7c15ULL+(h<<6U)+(h>>2U); };
+    mix(static_cast<std::uint32_t>(key.a));mix(static_cast<std::uint32_t>(key.b));mix(static_cast<std::uint32_t>(key.c));mix(static_cast<std::uint32_t>(key.d));
+    mix(static_cast<std::uint32_t>(key.size));mix(key.tex1);mix(key.tex2);mix(static_cast<std::uint64_t>(key.kind)<<8U|key.pad);
+    return static_cast<std::size_t>(h*0x2545F4914F6CDD1DULL);
+}
+template <class Make> std::shared_ptr<const Image> Appearances::get(const Key& key,Make&& make) const {
+    REALM_ZONE("appearance.lookup");
+    if(const auto it=cache_.find(key);it!=cache_.end()) { telemetry::add(telemetry::Counter::appearance_hits); lru_.splice(lru_.begin(),lru_,it->second.lru);return it->second.image; }
+    Image owned_source,owned_mask;const Image* source=nullptr;const Image* mask=nullptr;bool normalize=false;
+    make(owned_source,owned_mask,source,mask,normalize);
     Image normalized_source,normalized_mask;
-    const Image* input=&source;
-    if(normalize) { normalized_source=source;normalize_flash_png(normalized_source);input=&normalized_source;if(mask) { normalized_mask=*mask;normalize_flash_png(normalized_mask);mask=&normalized_mask; } }
-    auto image=std::make_shared<const Image>(compose(*input,mask,size,pad,tex1,tex2));
-    while(!cache_.empty()&&(cache_.size()>=maximum_entries||bytes_+image->pixels.size()>maximum_bytes)) {
-        const auto it=cache_.find(lru_.back());bytes_-=it->second.image->pixels.size();cache_.erase(it);lru_.pop_back();++evictions_;
+    const Image* input=source;
+    if(normalize) { normalized_source=*source;normalize_flash_png(normalized_source);input=&normalized_source;if(mask) { normalized_mask=*mask;normalize_flash_png(normalized_mask);mask=&normalized_mask; } }
+    telemetry::add(telemetry::Counter::appearance_misses);
+    auto image=std::make_shared<const Image>(compose(*input,mask,key.size,key.pad,key.tex1,key.tex2));
+    while(!cache_.empty()&&(cache_.size()>=budget_entries_||bytes_+image->pixels.size()>budget_bytes_)) {
+        const auto it=cache_.find(lru_.back());bytes_-=it->second.image->pixels.size();cache_.erase(it);lru_.pop_back();++evictions_;telemetry::add(telemetry::Counter::appearance_evictions);
     }
     bytes_+=image->pixels.size();lru_.push_front(key);cache_.emplace(key,Entry{image,lru_.begin()});return image;
 }
-std::shared_ptr<const Image> Appearances::animated(AnimationFrame frame,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
-    const auto& source=animations_.images().at(frame.image);const auto* mask=frame.mask<0 ? nullptr : &animations_.images().at(static_cast<std::size_t>(frame.mask));
-    return get("a"+std::to_string(frame.image)+"m"+std::to_string(frame.mask),source,mask,size,pad,tex1,tex2,true);
+void Appearances::set_budget(std::size_t entries,std::size_t bytes) const {
+    budget_entries_=entries;budget_bytes_=bytes;
+    while(!cache_.empty()&&(cache_.size()>budget_entries_||bytes_>budget_bytes_)) {
+        const auto it=cache_.find(lru_.back());bytes_-=it->second.image->pixels.size();cache_.erase(it);lru_.pop_back();++evictions_;telemetry::add(telemetry::Counter::appearance_evictions);
+    }
 }
-std::shared_ptr<const Image> Appearances::texture(const TextureDef& definition,std::uint32_t id,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
+Appearances::Key Appearances::animated_key(AnimationFrame frame,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
+    return {static_cast<std::int32_t>(frame.image),static_cast<std::int32_t>(frame.mask),0,0,size,tex1,tex2,1,static_cast<std::uint8_t>(pad)};
+}
+Appearances::Key Appearances::texture_key(const TextureDef& definition,std::uint32_t id,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const {
     const auto& t=definition.select(id);
-    if(const auto* c=animations_.character(t.animated,t.index))return animated(c->frame(0,0,Action::stand,0),size,pad,tex1,tex2);
-    const auto source=sprite(t.sheet,t.index);const auto mask=t.mask_sheet<0 ? Image{} : sprite(t.mask_sheet,t.mask_index);
-    return get("s"+std::to_string(t.sheet)+"i"+std::to_string(t.index)+"m"+std::to_string(t.mask_sheet)+"i"+std::to_string(t.mask_index),source,t.mask_sheet<0?nullptr:&mask,size,pad,tex1,tex2);
+    if(const auto* c=animations_.character(t.animated,t.index))return animated_key(c->frame(0,0,Action::stand,0),size,pad,tex1,tex2);
+    return {t.sheet,t.index,t.mask_sheet,t.mask_index,size,tex1,tex2,0,static_cast<std::uint8_t>(pad)};
 }
+std::shared_ptr<const Image> Appearances::image(const Key& key) const {
+    return get(key,[&](Image& source,Image& mask,const Image*& source_ref,const Image*& mask_ref,bool& normalize) {
+        if(key.kind==1) {
+            source_ref=&animations_.images().at(static_cast<std::size_t>(key.a));mask_ref=key.b<0 ? nullptr : &animations_.images().at(static_cast<std::size_t>(key.b));normalize=true;return;
+        }
+        source=sprite(key.a,key.b);source_ref=&source;
+        if(key.c>=0) { mask=sprite(key.c,key.d);mask_ref=&mask; }
+    });
+}
+std::shared_ptr<const Image> Appearances::animated(AnimationFrame frame,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const { return image(animated_key(frame,size,pad,tex1,tex2)); }
+std::shared_ptr<const Image> Appearances::texture(const TextureDef& definition,std::uint32_t id,int size,bool pad,std::uint32_t tex1,std::uint32_t tex2) const { return image(texture_key(definition,id,size,pad,tex1,tex2)); }
 std::shared_ptr<const Image> Appearances::portrait(const Catalog& catalog,int type,int skin,std::uint32_t tex1,std::uint32_t tex2) const {
     const auto& t=catalog.player_texture(type,skin).select(0);
     if(const auto* c=animations_.character(t.animated,t.index)) {

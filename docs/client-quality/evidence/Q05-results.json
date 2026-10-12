@@ -1,0 +1,1117 @@
+{
+ "task": "Q05",
+ "status": "complete",
+ "date": "2026-10-11",
+ "profile": "Q00-v1 hardware (AMD RX 6700 XT, Mesa radeonsi), Release; headless realm_stress paired (60 ticks x5, alternating order) plus hidden 1920x1080 viewer paired runs; component evidence, S3/144 Hz remains UNQUALIFIED",
+ "source_sha256": {
+  "include/realm/entity_index.hpp": "a5078492c2d862c3cfe8ea94538d0cef3efcc369994f5e34e317138593b0106d",
+  "include/realm/stat_map.hpp": "397ec353acb29d268c9afb206f24c4cfc6b97a775fabb58b39f3f60426978ac9",
+  "include/realm/world.hpp": "eda2f0c8e42ead34d9a914f7e1af177e746279e1047fc40fc25d2b53984f5d16",
+  "src/world.cpp": "2d7cb454a2667479d74dd84a8731c49e0023fb9fea0222a04babfa4c8ff13448",
+  "include/realm/particles.hpp": "263117c256dfdbc52e4e8336d42b7fe1a152ee17f4df1101a91caa855f402cfa",
+  "src/particles.cpp": "47c209b9b255503ec3055710ac09fced5c81f5d41d128f786b95a860bfc56b0c",
+  "include/realm/combat.hpp": "feca196545a39a474fc610c546c7d1c9aead024120d8e35874a62b40c3f54c23",
+  "src/combat.cpp": "aa7622b18f3647365db4f10809ce8c608154311b5bc7a8cae4908b9da4f6138b",
+  "include/realm/catalog.hpp": "8d088eb8eba68e2b3fa1c38ba9c771b58048426fc97199030fb787a490c53765",
+  "src/catalog.cpp": "1e02060a254b9d69bddd4af1458afba8586f10f3f9a1ba801dce954d94b489e3",
+  "tests/world_storage_tests.cpp": "a8adbb673a915cec1bf8276f655618395c8fbd0228cbd6702e3aa7a3540ead63",
+  "tools/quality_pair.py": "daa283a315dacec6125cf1e6c60d281efadc72729d6b81c073e11a9f98a2a03e"
+ },
+ "heap_probe": {
+  "before": {
+   "sizeof": {
+    "Entity": 304,
+    "FlyingProjectile": 128
+   },
+   "S2": {
+    "residents": 3000,
+    "projectiles": 10000,
+    "actors_bytes": 3017680,
+    "bytes_per_actor": 1005.89,
+    "projectile_bytes": 6198072,
+    "bytes_per_projectile": 619.807,
+    "live": 12492864,
+    "peak": 13398160,
+    "steady_tick_ms": 0.663161,
+    "allocs_per_tick": 1165.77
+   },
+   "S3": {
+    "residents": 9000,
+    "projectiles": 20000,
+    "actors_bytes": 10247232,
+    "bytes_per_actor": 1138.58,
+    "projectile_bytes": 9913336,
+    "bytes_per_projectile": 495.667,
+    "live": 24596680,
+    "peak": 25098616,
+    "steady_tick_ms": 2.16614,
+    "allocs_per_tick": 5546.73
+   },
+   "populate_9000": {
+    "median_ms": 4.0727,
+    "allocations": 156000,
+    "live": 11298232
+   },
+   "teardown": {
+    "median_ms": 1.61257,
+    "frees": 150001,
+    "live_after": 6113568
+   }
+  },
+  "after": {
+   "sizeof": {
+    "Entity": 272,
+    "FlyingProjectile": 96
+   },
+   "S2": {
+    "residents": 3000,
+    "projectiles": 10000,
+    "actors_bytes": 1775312,
+    "bytes_per_actor": 591.771,
+    "projectile_bytes": 5111816,
+    "bytes_per_projectile": 511.182,
+    "live": 9953888,
+    "peak": 11269320,
+    "steady_tick_ms": 0.603073,
+    "allocs_per_tick": 932.033
+   },
+   "S3": {
+    "residents": 9000,
+    "projectiles": 20000,
+    "actors_bytes": 6494352,
+    "bytes_per_actor": 721.595,
+    "projectile_bytes": 7868392,
+    "bytes_per_projectile": 393.42,
+    "live": 17710896,
+    "peak": 19388104,
+    "steady_tick_ms": 1.63521,
+    "allocs_per_tick": 4950.9
+   },
+   "populate_9000": {
+    "median_ms": 1.6536,
+    "allocations": 33025,
+    "live": 7545536
+   },
+   "teardown": {
+    "median_ms": 0.159601,
+    "frees": 6002,
+    "live_after": 1050656
+   }
+  },
+  "note": "tests/world_storage_tests.cpp --profile; counting global operator new; players carry 40 stats, enemies 5; before = pre-Q05 sources built with -DREALM_STORAGE_BASELINE"
+ },
+ "headless_pair": {
+  "S2-mixed-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 24.8494765,
+     "after_ms": 1.5306595,
+     "before_range": [
+      24.7568275,
+      25.365430500000002
+     ],
+     "after_range": [
+      1.5236575,
+      1.5552565
+     ],
+     "ratio": 0.06159725336668561
+    },
+    "combat.update": {
+     "before_ms": 23.5472185,
+     "after_ms": 0.608309,
+     "before_range": [
+      23.502706500000002,
+      24.115119
+     ],
+     "after_range": [
+      0.604649,
+      0.6117385
+     ],
+     "ratio": 0.025833582000353884
+    },
+    "world.update": {
+     "before_ms": 0.0335265,
+     "after_ms": 0.014284999999999999,
+     "before_range": [
+      0.029386,
+      0.0377655
+     ],
+     "after_range": [
+      0.013346,
+      0.0149205
+     ],
+     "ratio": 0.4260808614081398
+    },
+    "network.decode_dispatch": {
+     "before_ms": 0.866023,
+     "after_ms": 0.610986,
+     "before_range": [
+      0.8537399999999999,
+      0.8831725
+     ],
+     "after_range": [
+      0.6102874999999999,
+      0.6529739999999999
+     ],
+     "ratio": 0.7055078213858061
+    },
+    "fixture.framed_replay": {
+     "before_ms": 0.88332,
+     "after_ms": 0.6276715,
+     "before_range": [
+      0.871134,
+      0.900693
+     ],
+     "after_range": [
+      0.6268199999999999,
+      0.6694535
+     ],
+     "ratio": 0.7105822352035503
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S2-mixed-spread": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 2.5780135,
+     "after_ms": 1.4908475,
+     "before_range": [
+      2.3938005,
+      2.6087965
+     ],
+     "after_range": [
+      1.3956755,
+      1.5240619999999998
+     ],
+     "ratio": 0.5782931315138575
+    },
+    "combat.update": {
+     "before_ms": 2.087662,
+     "after_ms": 1.083287,
+     "before_range": [
+      1.958624,
+      2.1009105000000003
+     ],
+     "after_range": [
+      1.056171,
+      1.1233204999999997
+     ],
+     "ratio": 0.5188996111439497
+    },
+    "combat.target_query": {
+     "before_ms": 0.387636,
+     "after_ms": 0.363951,
+     "before_range": [
+      0.372653,
+      0.40256800000000004
+     ],
+     "after_range": [
+      0.35609749999999996,
+      0.36848400000000003
+     ],
+     "ratio": 0.9388988638826117
+    },
+    "world.update": {
+     "before_ms": 0.07007,
+     "after_ms": 0.0552895,
+     "before_range": [
+      0.0656235,
+      0.07606
+     ],
+     "after_range": [
+      0.053699000000000004,
+      0.061648499999999995
+     ],
+     "ratio": 0.7890609390609391
+    },
+    "network.decode_dispatch": {
+     "before_ms": 0.0456645,
+     "after_ms": 0.02631,
+     "before_range": [
+      0.04488,
+      0.047245499999999996
+     ],
+     "after_range": [
+      0.024583,
+      0.027348
+     ],
+     "ratio": 0.5761587228591138
+    },
+    "fixture.framed_replay": {
+     "before_ms": 0.047311,
+     "after_ms": 0.027638999999999997,
+     "before_range": [
+      0.0461175,
+      0.0491025
+     ],
+     "after_range": [
+      0.026264000000000003,
+      0.028724
+     ],
+     "ratio": 0.5841981780135698
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-mixed-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 49.6792685,
+     "after_ms": 3.0075355,
+     "before_range": [
+      49.3409235,
+      51.998593
+     ],
+     "after_range": [
+      2.906604,
+      3.146633
+     ],
+     "ratio": 0.060539045577935595
+    },
+    "combat.update": {
+     "before_ms": 47.257090000000005,
+     "after_ms": 1.221034,
+     "before_range": [
+      46.9084665,
+      49.527142
+     ],
+     "after_range": [
+      1.1885725,
+      1.255638
+     ],
+     "ratio": 0.025838112334043418
+    },
+    "world.update": {
+     "before_ms": 0.1070875,
+     "after_ms": 0.0496775,
+     "before_range": [
+      0.1024075,
+      0.1190475
+     ],
+     "after_range": [
+      0.043574,
+      0.070557
+     ],
+     "ratio": 0.4638963464456636
+    },
+    "network.decode_dispatch": {
+     "before_ms": 1.709339,
+     "after_ms": 1.2840409999999998,
+     "before_range": [
+      1.7022385,
+      1.7302650000000002
+     ],
+     "after_range": [
+      1.257345,
+      1.3348665
+     ],
+     "ratio": 0.7511915424617351
+    },
+    "fixture.framed_replay": {
+     "before_ms": 1.743824,
+     "after_ms": 1.317218,
+     "before_range": [
+      1.7352275000000001,
+      1.7650725
+     ],
+     "after_range": [
+      1.2884039999999999,
+      1.3668005
+     ],
+     "ratio": 0.7553617796291369
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-mixed-spread": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 12.59364,
+     "after_ms": 4.3309155,
+     "before_range": [
+      11.585844,
+      13.532225
+     ],
+     "after_range": [
+      4.1245585,
+      4.461576
+     ],
+     "ratio": 0.3438970385051502
+    },
+    "combat.update": {
+     "before_ms": 10.775513499999999,
+     "after_ms": 3.134327,
+     "before_range": [
+      9.977713,
+      11.31899
+     ],
+     "after_range": [
+      2.9893865,
+      3.2069625
+     ],
+     "ratio": 0.29087495459033114
+    },
+    "combat.target_query": {
+     "before_ms": 1.2290825,
+     "after_ms": 0.839314,
+     "before_range": [
+      1.1532840000000002,
+      1.406318
+     ],
+     "after_range": [
+      0.807355,
+      0.8723890000000001
+     ],
+     "ratio": 0.6828784886287128
+    },
+    "world.update": {
+     "before_ms": 0.253144,
+     "after_ms": 0.1923855,
+     "before_range": [
+      0.22264,
+      0.2850815
+     ],
+     "after_range": [
+      0.1401645,
+      0.204571
+     ],
+     "ratio": 0.7599844357361818
+    },
+    "network.decode_dispatch": {
+     "before_ms": 0.23286749999999998,
+     "after_ms": 0.12189849999999999,
+     "before_range": [
+      0.21946549999999998,
+      0.260747
+     ],
+     "after_range": [
+      0.1196855,
+      0.12447649999999999
+     ],
+     "ratio": 0.5234672077468947
+    },
+    "fixture.framed_replay": {
+     "before_ms": 0.23821750000000003,
+     "after_ms": 0.125874,
+     "before_range": [
+      0.22438550000000002,
+      0.266511
+     ],
+     "after_range": [
+      0.12409600000000001,
+      0.1289615
+     ],
+     "ratio": 0.5283994668737603
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-mixed-cluster": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 1.8114525000000001,
+     "after_ms": 1.8166885000000002,
+     "before_range": [
+      1.7833450000000002,
+      1.9124235
+     ],
+     "after_range": [
+      1.7501455,
+      1.8248760000000002
+     ],
+     "ratio": 1.002890498094761
+    },
+    "combat.update": {
+     "before_ms": 1.575767,
+     "after_ms": 1.5537895000000002,
+     "before_range": [
+      1.5485075,
+      1.6501435
+     ],
+     "after_range": [
+      1.5208805,
+      1.5793000000000001
+     ],
+     "ratio": 0.9860528237994578
+    },
+    "combat.target_query": {
+     "before_ms": 0.4786515,
+     "after_ms": 0.483008,
+     "before_range": [
+      0.471788,
+      0.4931475
+     ],
+     "after_range": [
+      0.476472,
+      0.498784
+     ],
+     "ratio": 1.0091016115064926
+    },
+    "world.update": {
+     "before_ms": 0.12121799999999999,
+     "after_ms": 0.10571749999999999,
+     "before_range": [
+      0.111962,
+      0.148716
+     ],
+     "after_range": [
+      0.1012575,
+      0.1358785
+     ],
+     "ratio": 0.8721270768367734
+    },
+    "network.decode_dispatch": {
+     "before_ms": 0.4641,
+     "after_ms": 0.500381,
+     "before_range": [
+      0.458565,
+      0.48842899999999995
+     ],
+     "after_range": [
+      0.49186599999999997,
+      0.540924
+     ],
+     "ratio": 1.0781749622926093
+    },
+    "fixture.framed_replay": {
+     "before_ms": 0.576589,
+     "after_ms": 0.59877,
+     "before_range": [
+      0.569919,
+      0.607085
+     ],
+     "after_range": [
+      0.593693,
+      0.621481
+     ],
+     "ratio": 1.0384693429808756
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-combat-cluster": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 2.0055785,
+     "after_ms": 1.8935165,
+     "before_range": [
+      1.975393,
+      2.047988
+     ],
+     "after_range": [
+      1.841008,
+      1.9761319999999998
+     ],
+     "ratio": 0.9441248497627992
+    },
+    "combat.update": {
+     "before_ms": 1.6416385,
+     "after_ms": 1.521639,
+     "before_range": [
+      1.6269084999999999,
+      1.672764
+     ],
+     "after_range": [
+      1.4927295,
+      1.5563865
+     ],
+     "ratio": 0.9269026037096474
+    },
+    "combat.target_query": {
+     "before_ms": 0.48892,
+     "after_ms": 0.49882099999999996,
+     "before_range": [
+      0.48588299999999995,
+      0.506318
+     ],
+     "after_range": [
+      0.49136500000000005,
+      0.5076525000000001
+     ],
+     "ratio": 1.0202507567700236
+    },
+    "world.update": {
+     "before_ms": 0.119367,
+     "after_ms": 0.09890299999999999,
+     "before_range": [
+      0.10929749999999999,
+      0.135179
+     ],
+     "after_range": [
+      0.09088,
+      0.144245
+     ],
+     "ratio": 0.8285623329730997
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-projectiles-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 1.5586075,
+     "after_ms": 1.3922115000000002,
+     "before_range": [
+      1.5237574999999999,
+      1.5780990000000001
+     ],
+     "after_range": [
+      1.3870665,
+      1.4035475
+     ],
+     "ratio": 0.8932406009851744
+    },
+    "combat.update": {
+     "before_ms": 1.4233975,
+     "after_ms": 1.2830825,
+     "before_range": [
+      1.403411,
+      1.460193
+     ],
+     "after_range": [
+      1.2792375,
+      1.292228
+     ],
+     "ratio": 0.9014224768555514
+    },
+    "combat.target_query": {
+     "before_ms": 0.2996645,
+     "after_ms": 0.2939975,
+     "before_range": [
+      0.296075,
+      0.303393
+     ],
+     "after_range": [
+      0.29260850000000005,
+      0.294844
+     ],
+     "ratio": 0.9810888510317373
+    },
+    "world.update": {
+     "before_ms": 0.069978,
+     "after_ms": 0.0596205,
+     "before_range": [
+      0.060511499999999996,
+      0.0839345
+     ],
+     "after_range": [
+      0.057059,
+      0.0647855
+     ],
+     "ratio": 0.8519891966046472
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-players-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 0.007567000000000001,
+     "after_ms": 0.0075775,
+     "before_range": [
+      0.007559,
+      0.007633
+     ],
+     "after_range": [
+      0.007554,
+      0.0076170000000000005
+     ],
+     "ratio": 1.0013876040703051
+    },
+    "combat.update": {
+     "before_ms": 1.6e-05,
+     "after_ms": 1.7999999999999997e-05,
+     "before_range": [
+      1.4999999999999999e-05,
+      1.7e-05
+     ],
+     "after_range": [
+      1.6e-05,
+      1.7999999999999997e-05
+     ],
+     "ratio": 1.1249999999999998
+    },
+    "world.update": {
+     "before_ms": 0.002726,
+     "after_ms": 0.002727,
+     "before_range": [
+      0.002725,
+      0.0027365000000000002
+     ],
+     "after_range": [
+      0.0027229999999999997,
+      0.0027355
+     ],
+     "ratio": 1.000366837857667
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S3-models-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 0.0118175,
+     "after_ms": 0.0121175,
+     "before_range": [
+      0.011774999999999999,
+      0.012463
+     ],
+     "after_range": [
+      0.011800999999999999,
+      0.012178
+     ],
+     "ratio": 1.0253860799661518
+    },
+    "combat.update": {
+     "before_ms": 1.7e-05,
+     "after_ms": 1.7e-05,
+     "before_range": [
+      1.6e-05,
+      1.7e-05
+     ],
+     "after_range": [
+      1.7e-05,
+      1.7999999999999997e-05
+     ],
+     "ratio": 1.0
+    },
+    "world.update": {
+     "before_ms": 0.0027725,
+     "after_ms": 0.002757,
+     "before_range": [
+      0.0027545,
+      0.002927
+     ],
+     "after_range": [
+      0.0027370000000000003,
+      0.0028269999999999997
+     ],
+     "ratio": 0.994409377817854
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "churn": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 5.117735,
+     "after_ms": 0.4329775,
+     "before_range": [
+      5.045916999999999,
+      5.2411935
+     ],
+     "after_range": [
+      0.407533,
+      0.4485555
+     ],
+     "ratio": 0.08460334503447327
+    },
+    "combat.update": {
+     "before_ms": 4.765748500000001,
+     "after_ms": 0.12531199999999998,
+     "before_range": [
+      4.69101,
+      4.8705045
+     ],
+     "after_range": [
+      0.1232585,
+      0.12639499999999998
+     ],
+     "ratio": 0.026294295638974646
+    },
+    "world.update": {
+     "before_ms": 0.0056615,
+     "after_ms": 0.003438,
+     "before_range": [
+      0.0053405,
+      0.008077
+     ],
+     "after_range": [
+      0.0033915,
+      0.0035145
+     ],
+     "ratio": 0.6072595601872296
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "S1-mixed-dense": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 5.312842,
+     "after_ms": 0.45895549999999996,
+     "before_range": [
+      5.077607499999999,
+      5.594837500000001
+     ],
+     "after_range": [
+      0.4545625,
+      0.463283
+     ],
+     "ratio": 0.08638606229961289
+    },
+    "combat.update": {
+     "before_ms": 4.933709,
+     "after_ms": 0.1248465,
+     "before_range": [
+      4.685366999999999,
+      5.2346225
+     ],
+     "after_range": [
+      0.12317600000000001,
+      0.126438
+     ],
+     "ratio": 0.025304796046949667
+    },
+    "world.update": {
+     "before_ms": 0.004538,
+     "after_ms": 0.0034645,
+     "before_range": [
+      0.004314,
+      0.005023
+     ],
+     "after_range": [
+      0.0033875,
+      0.00348
+     ],
+     "ratio": 0.763442044953724
+    },
+    "network.decode_dispatch": {
+     "before_ms": 0.173595,
+     "after_ms": 0.1145205,
+     "before_range": [
+      0.1704375,
+      0.174288
+     ],
+     "after_range": [
+      0.113785,
+      0.1162955
+     ],
+     "ratio": 0.6596993000950488
+    },
+    "fixture.framed_replay": {
+     "before_ms": 0.1775135,
+     "after_ms": 0.117978,
+     "before_range": [
+      0.1739845,
+      0.1786835
+     ],
+     "after_range": [
+      0.11737,
+      0.1198795
+     ],
+     "ratio": 0.6646142406070524
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "nexus-idle": {
+   "identical_outcomes": true,
+   "zones": {
+    "fixture.timeline": {
+     "before_ms": 0.0029620000000000002,
+     "after_ms": 0.0054635000000000005,
+     "before_range": [
+      0.002946,
+      0.003043
+     ],
+     "after_range": [
+      0.0050385,
+      0.0054815
+     ],
+     "ratio": 1.8445307224848075
+    },
+    "combat.update": {
+     "before_ms": 1.6e-05,
+     "after_ms": 1.6e-05,
+     "before_range": [
+      1.4999999999999999e-05,
+      1.6e-05
+     ],
+     "after_range": [
+      1.6e-05,
+      1.7e-05
+     ],
+     "ratio": 1.0
+    },
+    "world.update": {
+     "before_ms": 0.0007205,
+     "after_ms": 0.0007199999999999999,
+     "before_range": [
+      0.000717,
+      0.0007214999999999999
+     ],
+     "after_range": [
+      0.0007175,
+      0.0007205
+     ],
+     "ratio": 0.9993060374739763
+    }
+   },
+   "rss_mb_peak": {
+    "before": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "after": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  }
+ },
+ "viewer_pair_outcomes_identical": {
+  "nexus-idle": true,
+  "nexus-rotate": true,
+  "determinism": true,
+  "S1-mixed-dense": true,
+  "S1-players-spread": true,
+  "S2-mixed-spread": true,
+  "S2-projectiles-spread": true,
+  "S3-mixed-spread": true,
+  "S3-combat-cluster": true,
+  "churn": true,
+  "models-varied-rotating": true
+ },
+ "ctest": {
+  "release": "54/54",
+  "sanitize": "47/47",
+  "graphics_sanitize_subset": "20/20"
+ },
+ "s3_followup": {
+  "steady_state_cpu_frame_ms": {
+   "S3-mixed-spread": {
+    "before": [
+     168.8,
+     181.5,
+     198.8
+    ],
+    "after": [
+     19.5,
+     103.2,
+     112.1
+    ]
+   },
+   "S3-mixed-dense": {
+    "before": [
+     792.1,
+     818.4,
+     826.7
+    ],
+    "after": [
+     29.8,
+     363.6,
+     534.3
+    ]
+   },
+   "S3-combat-cluster": {
+    "before": [
+     224.7,
+     257.7,
+     287.7
+    ],
+    "after": [
+     23.6,
+     43.1,
+     53.9
+    ]
+   },
+   "order": [
+    "p50",
+    "p95",
+    "p99"
+   ],
+   "method": "4 s warmup, 200 frames, 3 repeats, hidden 1080p"
+  },
+  "painter_stream_identical_scenarios": "15/15 vs same-digest binary with old cache/key/ui_rectangle sources",
+  "ctest": {
+   "release": "56/56",
+   "sanitize": "49/49",
+   "graphics_sanitize_subset": "24/24"
+  },
+  "unqualified": "S3/144 Hz (6.94 ms) not met"
+ }
+}

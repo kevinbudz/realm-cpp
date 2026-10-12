@@ -40,10 +40,10 @@ int main(int argc,char** argv) { try {
   check(requested==200&&art.cache_entries()<=256&&art.cache_bytes()<=8*1024*1024,"Dynamic icons obey HUD cache bounds");
  }
  auto retained=appearances.animated(frame,100,false,0x1ff0000,0);const auto saved=retained->pixels;
- for(unsigned i=1;i<=512;++i)(void)appearances.animated(frame,50,false,0x1000000|i,0);
+ for(unsigned i=1;i<=Appearances::maximum_entries+256;++i)(void)appearances.animated(frame,50,false,0x1000000|i,0);
  check(appearances.entries()<=Appearances::maximum_entries&&appearances.bytes()<=Appearances::maximum_bytes,"Count and byte cache bounds");check(appearances.evictions()>0,"Churn evicts");check(retained->pixels==saved,"Eviction cannot invalidate retained draw");
  appearances.clear();check(appearances.entries()==0&&appearances.bytes()==0,"Map teardown clears compositions");
- for(unsigned i=0;i<12;++i)(void)appearances.animated(frame,3000,false,0x1000000|i,0);
- check(appearances.bytes()<=Appearances::maximum_bytes&&appearances.entries()<12,"Byte bound evicts below count bound");
+ for(unsigned i=0;i<48;++i)(void)appearances.animated(frame,3000,false,0x1000000|i,0);
+ check(appearances.bytes()<=Appearances::maximum_bytes&&appearances.entries()<48,"Byte bound evicts below count bound");
  std::cout<<checks<<" dye/mask/cache/stat checks passed, "<<definitions<<" catalog definitions and "<<sizes<<" live sizes\n";
  }catch(const std::exception& e) { std::cerr<<e.what()<<'\n';return 1; } }

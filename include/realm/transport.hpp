@@ -16,6 +16,7 @@ public:
     [[nodiscard]] ConnectionState state() const;
     [[nodiscard]] const std::string& error() const;
     [[nodiscard]] std::size_t queued_bytes() const;
+    [[nodiscard]] std::size_t pending_bytes() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

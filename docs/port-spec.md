@@ -146,6 +146,9 @@ upload volume, and memory. Include stationary, scrolling, rotation, initial
 resource load, map transitions, and dense combat.
 
 The native harness separately reports CPU event/build/submit and presentation
-time. Its last GPU query is delayed, not a GPU average. A synthetic 10,000-sprite
+time. Q01 adds optional raw frame/zone exports and frame-attributed asynchronous
+GPU phase samples; see `client-quality/telemetry.md`. With telemetry disabled,
+the last GPU value is unavailable. CPU/GPU durations overlap; model GPU samples
+are a subset of the world/UI phases and report their coverage limit. A synthetic 10,000-sprite
 fixture is useful to detect renderer regressions; it is not evidence for a
 client FPS multiplier. Only matched full-client scenes can establish speedup.

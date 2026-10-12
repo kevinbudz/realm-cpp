@@ -1,6 +1,7 @@
 #pragma once
 #include "realm/catalog.hpp"
 #include "realm/messages.hpp"
+#include <array>
 #include <span>
 #include <optional>
 namespace realm {
@@ -20,6 +21,17 @@ struct Particle {
     int animation{-1};
     bool bottom_anchor{}, custom_size{};
     std::uint64_t order{};
+};
+// Conservative membership of entity ids (4096 bits, one hash bit per id). A clear bit proves no live particle, emitter or flash
+// targets the id, so object removal and attachment skip scans of the 8192-entry particle pool; a set bit only means "scan".
+class TargetFilter {
+public:
+    void add(std::int32_t id) noexcept { const auto bit=slot(id);bits_[bit>>6U]|=std::uint64_t{1}<<(bit&63U); }
+    [[nodiscard]] bool may_contain(std::int32_t id) const noexcept { const auto bit=slot(id);return bits_[bit>>6U]>>(bit&63U)&1U; }
+    void clear() noexcept { bits_.fill(0); }
+private:
+    static std::uint32_t slot(std::int32_t id) noexcept { return (static_cast<std::uint32_t>(id)*2654435761U)>>20U; }
+    std::array<std::uint64_t,64> bits_{};
 };
 struct EntityFlash { std::int32_t target{};std::int64_t born{};int period{}, repeats{};std::uint32_t color{}; };
 class Particles {
@@ -44,6 +56,8 @@ public:
     [[nodiscard]] std::span<const Particle> particles() const { return particles_; }
     [[nodiscard]] std::span<const EntityFlash> flashes() const { return flashes_; }
     [[nodiscard]] std::size_t emitter_count() const { return emitters_.size(); }
+    // Exact (unfiltered) scan: does any live particle, emitter or flash still target this object? Diagnostics and tests.
+    [[nodiscard]] bool targets(std::int32_t id) const;
     [[nodiscard]] std::size_t dropped() const { return dropped_; }
     [[nodiscard]] Vec2 camera_offset(std::int32_t time) const;
     [[nodiscard]] std::int64_t time() const { return now_; }
@@ -60,6 +74,9 @@ private:
     std::vector<Particle> particles_;
     std::vector<Emitter> emitters_;
     std::vector<EntityFlash> flashes_;
+    // Maintained by every insertion, rebuilt from the live containers once per update so stale bits do not accumulate.
+    TargetFilter particle_targets_, emitter_targets_, flash_targets_;
+    void rebuild_target_filters();
     std::uint32_t rng_{0x12345678U};
     std::uint64_t order_{};
     std::int64_t now_{}, last_update_{-1}, jitter_start_{-1};

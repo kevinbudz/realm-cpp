@@ -66,17 +66,31 @@ void ui_blit(Image& dst,const Image& src,double x,double y,bool src_pm,bool dst_
         dst.pixels[to+3]=static_cast<unsigned char>(std::lround(combined*255));
     }
 }
+namespace {
+// std::lround for a non-negative value without the libm call: truncate, then round the fraction half up (exact, as v - r is exact).
+inline long round_up(double v) noexcept { const auto r=static_cast<long>(v);return v-static_cast<double>(r)>=.5 ? r+1 : r; }
+}
 void ui_rectangle(Image& dst,double x,double y,double w,double h,std::uint32_t color,bool pm) {
     const double s=dst.pixel_scale;x*=s;y*=s;w*=s;h*=s;
-    for(int py=std::max(0,static_cast<int>(std::floor(y)));py<std::min(dst.height,static_cast<int>(std::ceil(y+h)));++py)
-        for(int px=std::max(0,static_cast<int>(std::floor(x)));px<std::min(dst.width,static_cast<int>(std::ceil(x+w)));++px) {
-            const double a=std::clamp(std::min(x+w,px+1.0)-std::max(x,static_cast<double>(px)),0.0,1.0)*
-                           std::clamp(std::min(y+h,py+1.0)-std::max(y,static_cast<double>(py)),0.0,1.0);
+    const int top=std::max(0,static_cast<int>(std::floor(y))),bottom=std::min(dst.height,static_cast<int>(std::ceil(y+h)));
+    const int left=std::max(0,static_cast<int>(std::floor(x))),right=std::min(dst.width,static_cast<int>(std::ceil(x+w)));
+    if(top>=bottom||left>=right)return;
+    // Coverage is separable: one value per column and per row instead of recomputing both for every pixel. A fully covered
+    // pixel is exactly the source color and alpha 255 (the general formula reduces to that), so it skips the blend.
+    const unsigned char solid[4]={static_cast<unsigned char>(color>>16U),static_cast<unsigned char>(color>>8U),static_cast<unsigned char>(color),255};
+    static thread_local std::vector<double> columns;columns.resize(static_cast<std::size_t>(right-left));
+    for(int px=left;px<right;++px)columns[static_cast<std::size_t>(px-left)]=std::clamp(std::min(x+w,px+1.0)-std::max(x,static_cast<double>(px)),0.0,1.0);
+    for(int py=top;py<bottom;++py) {
+        const double row=std::clamp(std::min(y+h,py+1.0)-std::max(y,static_cast<double>(py)),0.0,1.0);
+        for(int px=left;px<right;++px) {
+            const double a=columns[static_cast<std::size_t>(px-left)]*row;
             const auto to=(static_cast<std::size_t>(py)*static_cast<std::size_t>(dst.width)+static_cast<std::size_t>(px))*4;
+            if(a==1.0) { std::copy_n(solid,4,dst.pixels.data()+to);continue; }
             const double da=dst.pixels[to+3]/255.0,combined=a+da*(1-a);if(combined<=0)continue;
-            for(unsigned c=0;c<3;++c)dst.pixels[to+c]=static_cast<unsigned char>(std::clamp(std::lround((((color>>(16-c*8))&255U)*a+dst.pixels[to+c]*(pm ? 1 : da)*(1-a))/(pm ? 1 : combined)),0L,255L));
-            dst.pixels[to+3]=static_cast<unsigned char>(std::lround(combined*255));
+            for(unsigned c=0;c<3;++c)dst.pixels[to+c]=static_cast<unsigned char>(std::min(round_up((((color>>(16-c*8))&255U)*a+dst.pixels[to+c]*(pm ? 1 : da)*(1-a))/(pm ? 1 : combined)),255L));
+            dst.pixels[to+3]=static_cast<unsigned char>(round_up(combined*255));
         }
+    }
 }
 void normalize_flash_png(Image& image) {
     for(std::size_t i=0;i<image.pixels.size();i+=4) {

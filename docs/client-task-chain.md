@@ -1,5 +1,11 @@
 # C++ client completion: one task per chat
 
+Execution update, 2026-10-11: the user requested a broader client-only quality
+chain. Use [client-quality-chain.md](client-quality-chain.md) for new work and
+successor dispatch. The ledger and evidence below remain feature history; do
+not dispatch this older sequence alongside the quality chain. Its confirmed
+remaining features are represented in Q14–Q17 of the new chain.
+
 Created 2026-10-10 at the user's request. The user explicitly wants a new
 chat to start each time a task completes. This is a sequential chain of
 local Codex chats, with no scheduled automation. Each chat implements and
@@ -29,8 +35,9 @@ chat should actively do the work, not just restate this plan.
   preserve the existing client checks.
 - Runtime stays native. AIR is allowed for offline reference/art export.
   Preserve the existing art bundle and its backup when adding assets.
-- Subagents are not requested for this chain. If later authorized, the user
-  requires every subagent to be GPT-6 Luna (`gpt-6-luna`). New user-owned
+- Subagents: follow the user's global delegation rules for the tool in use:
+  `~/.claude/CLAUDE.md` in Claude Code, `~/.codex/AGENTS.md` in ChatGPT/Codex
+  (GPT-6 Luna roles). New user-owned
   successor chats are separate from subagents; keep their configured default
   model unless the user asks otherwise.
 
@@ -140,7 +147,8 @@ create no successor. No recurring automation is needed.
 > every completed task; after this task is implemented and verified, update
 > the ledger/evidence and use create_thread to start exactly one successor
 > for the next pending task with this same authorization and chain procedure.
-> Keep the default model for successor chats. Subagents are not requested;
-> if later authorized, every subagent must be GPT-6 Luna. Do not schedule an
+> Keep the default model for successor chats. Use subagents per the user's
+> global rules (`~/.claude/CLAUDE.md` in Claude Code, `~/.codex/AGENTS.md` in
+> ChatGPT/Codex). Do not schedule an
 > automation. Begin implementation, and persist until this task is complete
 > or requires concrete user input. Then hand off and finish this chat.

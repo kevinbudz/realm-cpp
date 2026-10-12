@@ -150,6 +150,7 @@ Catalog::Catalog(const std::filesystem::path& root)
             d.color = static_cast<std::uint32_t>(o.number("Color", 0xffffff)); d.blood_color = static_cast<std::uint32_t>(o.number("BloodColor", 0xff0000));
             d.blood_probability = o.number("BloodProb"); d.shadow_color = static_cast<std::uint32_t>(o.number("ShadowColor"));
             d.min_size = o.integer("Size", o.integer("MinSize", 100)); d.max_size = o.integer("Size", o.integer("MaxSize", 100)); d.size_step = o.integer("SizeStep", 5);
+            d.tex1 = static_cast<std::uint32_t>(o.number("Tex1")); d.tex2 = static_cast<std::uint32_t>(o.number("Tex2"));
             d.max_hp = o.integer("MaxHitPoints"); d.defense = o.integer("Defense"); d.slot_type = o.integer("SlotType", -1); d.tier = o.integer("Tier", -1);
             d.max_hp_cap=std::stoi(o.child("MaxHitPoints").attribute("max","0"));d.max_mp=o.integer("MaxMagicPoints");d.max_mp_cap=std::stoi(o.child("MaxMagicPoints").attribute("max","0"));
             constexpr std::array stat_names{"Attack","Defense","Speed","Dexterity","HpRegen","MpRegen"};

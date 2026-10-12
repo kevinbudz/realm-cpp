@@ -1,3 +1,4 @@
+#include "realm/telemetry.hpp"
 #include "realm/font.hpp"
 #include "flash_assets.hpp"
 #include <nlohmann/json.hpp>
@@ -158,6 +159,7 @@ TextBitmap FontBook::rasterize_line(std::string_view text,double scale,std::uint
     bitmap.offset.y=-line_ascent(size,bold);return bitmap;
 }
 TextBitmap FontBook::rasterize_native(std::string_view text,int size,bool bold,bool shadow,std::uint32_t color,double phase,double vertical_phase,unsigned strength,int field_width,int field_height,double density,Vec2 pixel_phase,bool natural_metrics) const {
+    REALM_ZONE("text.rasterize");
     auto run=layout(text,size,bold,false,phase,vertical_phase);
     if(natural_metrics) { run.width=line_measure(text,size,bold)+4;run.height=size+4; }
     if(field_width<0||field_height<0)throw std::invalid_argument("Invalid text field size");
@@ -275,7 +277,8 @@ void FontBook::load_face(FontFace& face) const {
     face.loaded=true;
 }
 const Image& FontBook::image(std::size_t index) const {
-    if(auto found=cache_.find(index);found!=cache_.end()) { lru_.splice(lru_.end(),lru_,found->second.position);return found->second.image; }
+    if(auto found=cache_.find(index);found!=cache_.end()) { telemetry::add(telemetry::Counter::glyph_hits); lru_.splice(lru_.end(),lru_,found->second.position);return found->second.image; }
+    telemetry::add(telemetry::Counter::glyph_misses);
     const auto& source=sources_.at(index);Image decoded;
     if(bundle_.is_open()) {
         std::vector<unsigned char> bytes(static_cast<std::size_t>(source.length));bundle_.clear();bundle_.seekg(static_cast<std::streamoff>(source.offset));
@@ -290,7 +293,7 @@ const Image& FontBook::image(std::size_t index) const {
     constexpr std::size_t limit=8*1024*1024;
     while(!cache_.empty()&&(cache_bytes_+decoded.pixels.size()>limit||cache_.size()>=4096)) {
         const auto oldest=cache_.find(lru_.front());
-        cache_bytes_-=oldest->second.image.pixels.size();cache_.erase(oldest);lru_.pop_front();++cache_evictions_;
+        cache_bytes_-=oldest->second.image.pixels.size();cache_.erase(oldest);lru_.pop_front();++cache_evictions_;telemetry::add(telemetry::Counter::glyph_evictions);
     }
     cache_bytes_+=decoded.pixels.size();lru_.push_back(index);
     return cache_.emplace(index,CachedGlyph{std::move(decoded),std::prev(lru_.end())}).first->second.image;

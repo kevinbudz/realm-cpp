@@ -1,0 +1,15 @@
+{
+  "task_id": "Q00",
+  "title": "RotMG client Q00: Establish the actual client baseline",
+  "project_id": "4e459a47-d36d-4862-9ff2-53c2d40e669c",
+  "threadId": "01a12c71-9f72-7940-996a-ddb277d454d3",
+  "hostId": "local",
+  "created_at": "2026-10-11 19:30:16 UTC",
+  "request_path": "docs/client-quality/handoffs/Q00-dispatch-request.md",
+  "confirmation": {
+    "cursor": "12e68621-b164-45d7-a9c9-4952d297b003:1",
+    "thread_status": "active",
+    "turn_status": "inProgress",
+    "latest_commentary": "I’ll establish Q00 in the existing checkout, run the baseline checks, and record the results and limits before handing off to Q01."
+  }
+}

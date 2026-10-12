@@ -76,6 +76,8 @@ struct ObjectDef {
     bool interactive{}, container{};
     std::vector<int> slot_types;
     std::vector<ProjectileDef> projectiles;
+    // Default dye colors (Tex1/Tex2), decoded once at load: World::add copies them into every new entity.
+    std::uint32_t tex1{}, tex2{};
     Xml xml;
 };
 struct ParticleFrameDef { TextureDef texture; double duration_ms{}; };

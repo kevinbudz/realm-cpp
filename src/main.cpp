@@ -1,4 +1,6 @@
 #include "realm/backdrop.hpp"
+#include "realm/telemetry.hpp"
+#include "realm/stress.hpp"
 #include "realm/scene.hpp"
 #include "realm/session.hpp"
 #include "realm/movement.hpp"
@@ -27,6 +29,7 @@
 #include <SDL.h>
 #include <algorithm>
 #include <charconv>
+#include <cstdlib>
 #include <deque>
 #include <chrono>
 #include <filesystem>
@@ -49,6 +52,19 @@
 #endif
 namespace {
 using Clock = std::chrono::steady_clock;
+// Integer environment override, validated like a command-line value.
+int environment_integer(const char* name, int fallback, int low, int high) {
+    const char* value = std::getenv(name);
+    if (!value) return fallback;
+    const std::string_view text(value); int parsed{};
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), parsed);
+    if (error != std::errc{} || end != text.data() + text.size() || parsed < low || parsed > high) throw std::invalid_argument(std::string("Invalid ") + name);
+    return parsed;
+}
+// Dynamic atlas layers for composed bitmaps (2048x2048 RGBA = 16 MiB each). REALM_DYNAMIC_ATLAS_PAGES is the maximum (default 12, 0
+// disables); the atlas starts at REALM_DYNAMIC_ATLAS_INITIAL (default 2, clamped to [1, maximum]) and grows on demand.
+int dynamic_atlas_maximum() { return environment_integer("REALM_DYNAMIC_ATLAS_PAGES", 12, 0, 64); }
+int dynamic_atlas_initial(int maximum) { return maximum ? std::clamp(environment_integer("REALM_DYNAMIC_ATLAS_INITIAL", 2, 1, 64), 1, maximum) : 0; }
 struct Options {
     std::filesystem::path root{realm::flash::source_root}, capture, map, processed, texture, fonts, hud_art, account_file, settings_file, script;
     bool client{REALM_CLIENT_DEFAULT != 0};
@@ -62,6 +78,9 @@ struct Options {
     std::uint32_t condition{}; int breath{-1}, background{}; std::int32_t effect_time{-1};
     // Status fixtures (--map only): health, a second player with a name, floating text and a simulated hit.
     int hp{-1}, damage{}, status_age{}; std::int32_t scene_time{-1}; bool ghost{}; bool ally{}; std::string ally_name, notify, damage_effects;
+    std::filesystem::path telemetry, trace, stress, stress_summary;
+    int stress_delay{}, fixture_step{};
+    int telemetry_warmup{30};
     realm::SessionOptions session;
 };
 int integer(std::string_view value) {
@@ -109,6 +128,13 @@ Options parse(int argc, char** argv) {
         else if (arg == "--frames") o.frames = integer(value());
         else if (arg == "--sprites") o.sprites = integer(value());
         else if (arg == "--scale") o.scale = integer(value());
+        else if (arg == "--stress") { o.stress=value();o.world=true; }
+        else if (arg == "--stress-summary") o.stress_summary=value();
+        else if (arg == "--fixture-step-ms") { o.fixture_step=integer(value());if(o.fixture_step!=20)throw std::invalid_argument("Fixture clock uses 20ms steps"); }
+        else if (arg == "--stress-delay") o.stress_delay=integer(value());
+        else if (arg == "--telemetry") o.telemetry=value();
+        else if (arg == "--trace") o.trace=value();
+        else if (arg == "--telemetry-warmup") { o.telemetry_warmup=integer(value());if(o.telemetry_warmup<0)throw std::invalid_argument("Invalid telemetry warmup"); }
         else if (arg == "--capture") o.capture = value();
         else if (arg == "--condition") o.condition = static_cast<std::uint32_t>(std::stoul(value()));
         else if (arg == "--breath") o.breath = integer(value());
@@ -131,6 +157,8 @@ Options parse(int argc, char** argv) {
             std::cout << "realm_viewer [--flash-root PATH] [--sheet NAME] [--width N] [--height N]\n"
                 "  [--scale N] [--map PATH.jm|PATH.wmap] [--world] [--offset] [--frames N] [--sprites N]\n"
                 "  [--processed DIR] [--fonts DIR] [--hud-art DIR] [--capture PATH.png] [--hidden] [--benchmark]\n"
+                "  [--telemetry PATH.jsonl] [--trace PATH.json] [--telemetry-warmup N] (frame count)\n"
+                "  [--stress MANIFEST.json --stress-summary RESULT.json --frames N] [--stress-delay MS]\n"
                 "Gallery: Left/Right select set; Up/Down page. Tab toggles camera fixture.\n"
                 "Camera fixture: WASD pan; Q/E rotate (with Allow Camera Rotation); +/- zoom; C toggle camera centering. Escape exits.\n"
                 "Live session: --connect HOST --port N --username NAME --password-stdin --character N\n"
@@ -156,6 +184,9 @@ Options parse(int argc, char** argv) {
     if (o.connect && !o.map.empty()) throw std::invalid_argument("Choose a live connection or an offline map");
     if (o.client && (o.connect || !o.map.empty() || !o.texture.empty() || !o.text.empty()))
         throw std::invalid_argument("The client startup sequence cannot be combined with --connect, --map, --texture or --text");
+    if (!o.stress.empty() && (o.client||o.connect||!o.map.empty()||o.stress_summary.empty()||o.frames<1||o.stress_delay<0||o.stress_delay>100))throw std::invalid_argument("--stress needs finite --frames/--stress-summary and offline fixture mode");
+    if(o.fixture_step&&(o.connect||o.frames<1))throw std::invalid_argument("Fixture clock requires finite offline frames");
+    if(o.stress_delay<0||o.stress_delay>100)throw std::invalid_argument("Fixture delay outside bounds");
     if (o.client) o.world = true;
     if (o.benchmark && o.frames == 0) o.frames = 600;
     if (o.hidden && o.frames == 0 && o.script.empty()) throw std::invalid_argument("--hidden requires a finite --frames count or a --script");
@@ -378,22 +409,41 @@ int main(int argc, char** argv) {
             if (o.ghost) world.remove(-2);
             std::cout << "Map " << world.name() << " " << world.width() << "x" << world.height() << " objects=" << world.entities().size() << " unresolved=" << world.unresolved_ids().size() << '\n';
         }
+        std::unique_ptr<realm::quality::StressTimeline> stress;
+        if(!o.stress.empty())stress=std::make_unique<realm::quality::StressTimeline>(world,realm::quality::StressConfig::load(o.stress));
         std::unique_ptr<realm::Terrain> terrain;
         const auto terrain_first = atlas_images.size();
-        if (!o.map.empty() || o.connect || o.client) {
-            terrain = std::make_unique<realm::Terrain>(world, o.root, terrain_first, -1, o.connect || o.client);
+        if (!o.map.empty() || o.connect || o.client || stress) {
+            terrain = std::make_unique<realm::Terrain>(world, o.root, terrain_first, -1, o.connect || o.client || static_cast<bool>(stress));
             atlas_images.insert(atlas_images.end(), terrain->images().begin(), terrain->images().end());
             std::cout << "Terrain variants=" << terrain->images().size() << '\n';
         }
         const auto fixture_index = atlas_images.size();
         if (!o.texture.empty()) { auto image=realm::load_png(o.texture); if(o.raw_flash_bitmap) realm::normalize_flash_png(image); atlas_images.push_back(std::move(image)); }
-        realm::Atlas atlas(o.root, atlas_images, animations.images().size());
+        const int atlas_maximum = dynamic_atlas_maximum(), atlas_initial = dynamic_atlas_initial(atlas_maximum);
+        realm::Atlas atlas(o.root, atlas_images, animations.images().size(), atlas_initial);
+        scene.set_dynamic_atlas_pages(atlas_initial, atlas_maximum, static_cast<std::uint64_t>(environment_integer("REALM_ATLAS_GROW_FRAMES", 120, 1, 100000)));
+        // REALM_DYNAMIC_ATLAS=0 is the differential oracle: the same atlas, but every bitmap takes the per-image SurfaceTexture path.
+        if (const char* flag = std::getenv("REALM_DYNAMIC_ATLAS"); flag && std::string_view(flag) == "0") scene.set_dynamic_atlas(false);
+        scene.set_atlas_protect_frames(static_cast<std::uint64_t>(environment_integer("REALM_ATLAS_PROTECT_FRAMES", 2, 1, 64)));
         const std::string app_host=o.session.host;
         if (o.connect) {
             if (o.password_stdin) std::getline(std::cin,o.session.password);
             game_session = std::make_unique<realm::Session>(world); game_session->connect(std::move(o.session));
         }
         constexpr std::size_t base_capacity = 4096;
+        if(!o.trace.empty()&&o.telemetry.empty())throw std::invalid_argument("--trace requires --telemetry");
+        if(!o.trace.empty()&&std::filesystem::absolute(o.trace).lexically_normal()==std::filesystem::absolute(o.telemetry).lexically_normal())throw std::invalid_argument("Trace and sample paths must differ");
+        std::unique_ptr<realm::telemetry::Recorder> telemetry;
+        if(!o.telemetry.empty()) {
+            telemetry=std::make_unique<realm::telemetry::Recorder>(o.telemetry,o.trace);
+            if(stress){telemetry->aggregate_repeated(true);telemetry->metadata("zone_mode","stress aggregate: cumulative inclusive duration per name anchored at first occurrence, not continuous spans");telemetry->metadata("manifest",o.stress.string());}
+            telemetry->metadata("GL_vendor",reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+            telemetry->metadata("GL_renderer",reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+            telemetry->metadata("GL_version",reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+            telemetry->metadata("workload",!o.map.empty()?o.map.string():o.client?"client":"gallery/camera/extra-quads");
+            telemetry->metadata("window",o.hidden?"hidden":"visible");
+        }
         realm::Renderer renderer(base_capacity + static_cast<std::size_t>(o.sprites));
         std::cout << "Atlas pages=" << atlas.pages() << " bytes=" << atlas.bytes() << " PNGs=" << realm::flash::assets.size() << '\n';
         std::size_t selected{};
@@ -404,7 +454,7 @@ int main(int argc, char** argv) {
         std::vector<realm::Quad> quads; quads.reserve(base_capacity + static_cast<std::size_t>(o.sprites));
         std::vector<double> cpu_samples, present_samples;
         if (o.frames) { cpu_samples.reserve(static_cast<std::size_t>(o.frames)); present_samples.reserve(static_cast<std::size_t>(o.frames)); }
-        realm::Camera camera; realm::Vec2 position = o.map.empty() ? realm::Vec2{} : world.spawn_position();
+        realm::Camera camera; realm::Vec2 position = o.map.empty()&&!stress ? realm::Vec2{} : world.spawn_position();
         double angle = settings.camera_angle(), zoom = 1;
         bool centered = !o.offset && settings.flag("centerOnPlayer"), running = true, leaving_game = false;
         bool applied_centering = settings.flag("centerOnPlayer"), autofire = false, perf_stats = false;
@@ -438,10 +488,39 @@ int main(int argc, char** argv) {
         std::size_t script_next{};
         bool script_ability_down{};bool script_mouse_down{};realm::Vec2 script_pointer{};
         int page{}; std::uint64_t frame{}; auto previous = Clock::now(); const auto epoch = previous;
+        bool previous_capture{};
         while (running && (!o.frames || frame < static_cast<std::uint64_t>(o.frames))) {
             const auto start = Clock::now();
-            const double dt = std::min(milliseconds(start - previous) / 1000, .1); previous = start;
-            const auto time = static_cast<std::int32_t>(milliseconds(start - epoch));
+            const double frame_interval=milliseconds(start-previous);
+            if(telemetry)telemetry->begin(frame,start);
+            realm::telemetry::Zone cpu_zone("frame.cpu");
+            double input_age=-60000;bool input_observed{};
+            const auto previous_drops=world.particles().dropped();
+            const double dt = stress ? stress->config().step_ms/1000.0 : o.fixture_step ? o.fixture_step/1000.0 : std::min(frame_interval / 1000, .1); previous = start;
+            const auto time = stress ? stress->time() : o.fixture_step ? static_cast<std::int32_t>(frame*static_cast<std::uint64_t>(o.fixture_step)) : static_cast<std::int32_t>(milliseconds(start - epoch));
+            if(stress) {
+                stress->step();position=stress->camera_position();angle=stress->camera_angle();zoom=stress->zoom_factor();
+                const auto& kind=stress->config().workload;
+                if(kind=="UI"||kind=="MIXED") {
+                    REALM_ZONE("fixture.ui_input");
+                    const auto phase=frame%100;
+                    if(phase==0){chat.add("Fixture","Crowded combat and chat scroll",time);chat.open();}
+                    if(phase<20)chat.text("x");
+                    if(phase==20){(void)chat.submit();chat.scroll_up();}
+                    if(phase==25)chat.scroll_down();
+                    if(phase==40)options_screen.open(settings);
+                    if(phase==45)options_screen.set_tab(realm::OptionsTab::graphics);
+                    if(phase==60)options_screen.close();
+                    if(phase==70)(void)dialog.purchase_result({1,"Fixture error"});
+                    if(phase==80)dialog.close();
+                    tooltip_pointer_valid=phase>=85;hud_input.move({20,320},hud_input.selected());
+                    if(const auto* p=world.entity(world.player_id())){const auto inventory=realm::HudState::player(world,*p).inventory;
+                        if(phase==85)hud_input.down({20,320},inventory);
+                        if(phase==86){hud_input.move({26,320},hud_input.selected());if(hud_input.dragging()!=0)throw std::runtime_error("Stress UI failed to drag equipped weapon");}
+                        if(phase==88)hud_input.move({70,430},hud_input.selected());
+                        if(phase==90)(void)hud_input.up({70,430},false,false,time,inventory);}
+                }
+            }
             if (terrain) terrain->begin_frame();
             if (startup) if (auto launch = startup->take_launch()) {
                 game_session = std::make_unique<realm::Session>(world); background_world = false;
@@ -571,8 +650,15 @@ int main(int argc, char** argv) {
                 int dw{},dh{};SDL_GL_GetDrawableSize(session.window,&dw,&dh);
                 if(dh>0) { fonts.set_pixel_scale(dh/600.0);if(board.update(fonts,dw,dh,dt))board_texture.update(board.image()); }
             }
+            { REALM_ZONE("events.poll_dispatch");
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
+                if(telemetry&&(event.type==SDL_KEYDOWN||event.type==SDL_KEYUP||event.type==SDL_MOUSEMOTION||event.type==SDL_MOUSEBUTTONDOWN||event.type==SDL_MOUSEBUTTONUP||event.type==SDL_TEXTINPUT||event.type==SDL_MOUSEWHEEL)) {
+                    input_observed=true;const auto age=static_cast<std::uint32_t>(SDL_GetTicks()-event.common.timestamp);
+                    // SDL timestamps use its monotonic millisecond tick clock. Synthetic
+                    // zero/invalid timestamps are observation-to-submit samples.
+                    input_age=std::max(input_age,(event.common.timestamp&&age<60000 ? static_cast<double>(age) : 0)-milliseconds(Clock::now()-start));
+                }
                 if (event.type == SDL_QUIT) running = false;
                 if(event.type==SDL_MOUSEBUTTONUP&&event.button.button==SDL_BUTTON_LEFT)skin_press_guard=false;
                 if (menus) {
@@ -985,6 +1071,7 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+            }
             if(auto request=interaction.take_request();request&&game_session&&game_session->state()==realm::SessionState::playing) {
                 using K=realm::HudState::SocialKind;
                 if(request->kind==K::create_guild)game_session->create_guild(request->value);
@@ -1034,12 +1121,12 @@ int main(int argc, char** argv) {
                 }
                 game_session->finish_frame(time);
             }
-            if(!game_session)world.particles().update(world,time);
+            if(!game_session&&!stress)world.particles().update(world,time);
             int width{}, height{}; SDL_GL_GetDrawableSize(session.window, &width, &height);
-            if (width <= 0 || height <= 0) { SDL_Delay(10); continue; }
+            if (width <= 0 || height <= 0) { cpu_zone.finish();realm::telemetry::active=nullptr;SDL_Delay(10);previous_capture=true;continue; }
             if(!fonts.empty())fonts.set_pixel_scale(height/600.0);
             if(minimap)minimap->set_pixel_scale(height/600.0);
-            if (startup) startup->update(time, dt*1000, width, height);
+            if (startup) { REALM_ZONE("ui.startup");startup->update(time, dt*1000, width, height); }
             quads.clear(); int clip_width = width;
             const auto& sheet = realm::flash::sheets[selected];
             if(!o.text.empty()) {
@@ -1062,7 +1149,7 @@ int main(int argc, char** argv) {
                 const auto shake=world.particles().camera_offset(time);
                 camera.configure({position.x+shake.x,position.y+shake.y}, angle, width, height, zoom, centered);
                 clip_width = static_cast<int>(camera.playable_width());
-                if (!o.map.empty() || game_session) {
+                if (!o.map.empty() || game_session || stress) {
                     // MAPINFO background (stars / nexus water), redone whenever a new map loads.
                     if (backdrop_generation != world.generation()) {
                         backdrop.reset(game_session ? game_session->map_info().background : o.background, game_session ? game_session->map_info().seed : 1U);
@@ -1106,6 +1193,7 @@ int main(int argc, char** argv) {
                     {static_cast<double>(x), static_cast<double>(y)}, {32, 0}, {0, 32}));
             }
             if (terrain) for (const auto slot : terrain->changes()) atlas.update_additional(terrain_first+slot,terrain->images().at(slot));
+            realm::telemetry::Zone ui_zone("ui.build");
             std::array<realm::Quad,128> overlay_storage;std::span<const realm::Quad> overlay;
             if (startup) {
                 for (const auto& area : startup->uploads()) startup_texture.update_region(startup->sheet(), area.x, area.y, area.width, area.height);
@@ -1114,7 +1202,7 @@ int main(int argc, char** argv) {
                 if (!menu_quads.empty()) overlay = menu_quads;
             }
             if(hud&&o.world&&!menus)if(const auto* player=world.entity(world.player_id())) {
-                auto state=realm::HudState::player(world,*player,game_session ? &game_session->party() : nullptr,time);
+                auto state=realm::HudState::player(world,*player,game_session ? &game_session->party() : stress ? stress->party() : nullptr,time);
                 const bool hover_enabled=!dialog.visible()&&!board.visible() && !members.visible()&&!(skins&&skins->visible())&&tooltip_pointer_valid&&!hud_mouse_down&&!interaction.visible()&&!trade.active()&&!trade.request()&&game_session&&game_session->state()==realm::SessionState::playing;
                 if(game_session)party_hover.update(world,game_session->party(),state,hud_view,hud_input.pointer(),hover_enabled,time);
                 else party_hover.reset();
@@ -1175,10 +1263,11 @@ int main(int argc, char** argv) {
                 for(const auto& text:status_texts.texts()) {
                     if(!realm::StatusTexts::visible(text,status_time)||!text.label.image||overlay.size()>=100)continue;
                     const auto* speaker=world.entity(text.object_id);if(!speaker)continue;
-                    const auto surface=scene.status_surface(text.label.image);
                     const auto at=realm::StatusTexts::position(text,camera.world_to_screen(speaker->position),speaker->size,zoom,status_time);
                     const double w=text.label.image->width/text.label.image->pixel_scale*zoom,h=text.label.image->height/text.label.image->pixel_scale*zoom;
-                    auto quad=surface->quad(at,{w,0},{0,h});quad.owner=surface;
+                    const auto placed=scene.status_quad(text.label.image,atlas,at,{w,0},{0,h});
+                    std::shared_ptr<realm::SurfaceTexture> surface;if(!placed)surface=scene.status_surface(text.label.image);
+                    auto quad=placed ? *placed : surface->quad(at,{w,0},{0,h});quad.owner=surface;
                     overlay_storage[overlay.size()]=quad;overlay=std::span<const realm::Quad>(overlay_storage).first(overlay.size()+1);
                 }
                 if(chat_view) {
@@ -1363,8 +1452,13 @@ int main(int argc, char** argv) {
                 const realm::Entity* local=world.entity(world.player_id());
                 effects=realm::screen_effects(local,o.effect_time>=0?o.effect_time:time,height/600.0);
             }
+            ui_zone.finish();
+            const bool capture_frame=(!o.capture.empty()&&(!o.frames?frame==0:frame+1==static_cast<std::uint64_t>(o.frames)))||!script_capture.empty();
+            const bool normal_frame=frame>=static_cast<std::uint64_t>(o.telemetry_warmup)&&!capture_frame;
+            renderer.timing(telemetry.get(),frame,normal_frame);
             renderer.draw(atlas, quads, width, height, clip_width,overlay,effects);
-            const auto submitted = Clock::now();
+            const auto submitted = Clock::now();cpu_zone.finish();
+
             // Capture before swap; finite runs always capture their last rendered frame.
             if (!o.capture.empty() && (!o.frames ? frame == 0 : frame + 1 == static_cast<std::uint64_t>(o.frames)))
                 realm::save_png(o.capture, renderer.capture(width, height));
@@ -1372,12 +1466,13 @@ int main(int argc, char** argv) {
                 realm::save_png(script_capture, renderer.capture(width, height));
                 if(o.benchmark)std::cout<<"Particle capture "<<script_capture.filename()<<" particles="<<world.particles().particles().size()<<" emitters="<<world.particles().emitter_count()<<" flashes="<<world.particles().flashes().size()<<" dropped="<<world.particles().dropped()<<" quads="<<quads.size()<<'\n';
             }
-            SDL_GL_SwapWindow(session.window);
+            const auto present_start=Clock::now();
+            { REALM_ZONE("present.swap");SDL_GL_SwapWindow(session.window); }
             const auto presented = Clock::now();
             const int warmup = o.frames > 60 ? 30 : 0;
-            if (o.frames && frame >= static_cast<std::uint64_t>(warmup) && (o.capture.empty() || frame + 1 != static_cast<std::uint64_t>(o.frames))) {
+            if (o.frames && frame >= static_cast<std::uint64_t>(warmup) && !capture_frame) {
                 cpu_samples.push_back(milliseconds(submitted - start));
-                present_samples.push_back(milliseconds(presented - submitted));
+                present_samples.push_back(milliseconds(presented - present_start));
             }
             if (frame % 60 == 0 && !startup) {
                 const std::string title = "Realm C++ harness | " + std::string(sheet.name) + (o.world ? (o.map.empty() ? " | camera fixture" : " | " + world.name()) : " | raw asset gallery") +
@@ -1403,11 +1498,45 @@ int main(int argc, char** argv) {
                     if (target - milliseconds(Clock::now() - start) > 2) SDL_Delay(1);
                 }
             }
+            if(telemetry) {
+                using C=realm::telemetry::Counter;
+                realm::telemetry::set(C::resident_entities,world.entities().size());
+                realm::telemetry::set(C::resident_projectiles,game_session?game_session->projectile_count():stress?stress->projectile_count():0);
+                realm::telemetry::set(C::outgoing_queue_bytes,game_session?game_session->outgoing_queue_bytes():0);
+                realm::telemetry::set(C::framing_queue_bytes,game_session?game_session->framing_queue_bytes():0);
+                realm::telemetry::set(C::particles,world.particles().particles().size());
+                realm::telemetry::set(C::appearance_cpu_bytes,appearances.bytes());
+                realm::telemetry::set(C::appearance_gpu_bytes,scene.appearance_bytes());
+                realm::telemetry::set(C::glyph_bytes,fonts.cache_bytes());
+                const auto drops=world.particles().dropped();
+                realm::telemetry::set(C::optional_drops,drops>=previous_drops?drops-previous_drops:drops);
+                // Capture/readback is excluded from CPU/present and marked on the
+                // frame. The following interval also includes capture work.
+                telemetry->end({frame,frame<static_cast<std::uint64_t>(o.telemetry_warmup),capture_frame,frame>0&&!capture_frame&&!previous_capture,
+                    frame_interval,milliseconds(submitted-start),milliseconds(presented-present_start),milliseconds(Clock::now()-presented),
+                    input_observed?std::max(0.0,input_age+milliseconds(submitted-start)):-1,width,height,SDL_GL_GetSwapInterval(),o.benchmark||o.hidden?0:settings.get("maxFPS")});
+            }
+            if(stress){stress->sample_scene(camera,width,height,quads,scene.submitted_counts());
+                const double rss=(frame%50==0||frame+1==static_cast<std::uint64_t>(o.frames))?resident_megabytes():0;
+                stress->sample_resources(rss,appearances.entries(),appearances.bytes(),scene.appearance_entries(),scene.appearance_bytes());}
+            if((stress||o.fixture_step)&&o.stress_delay)SDL_Delay(static_cast<Uint32>(o.stress_delay));
+            previous_capture=capture_frame;
+#ifdef REALM_TRACY
+            FrameMark;
+#endif
             ++frame;
         }
+        if(telemetry) {
+            renderer.poll_gpu();
+            telemetry->metadata("gpu_pending_at_exit",std::to_string(renderer.pending_gpu()));
+            telemetry->metadata("gpu_skipped_busy_slots",std::to_string(renderer.skipped_gpu()));
+            telemetry->finish();
+        }
+        if(stress)stress->write_summary(o.stress_summary);
         // Parameters.cameraAngle persists across sessions.
         if (persist_settings && settings.camera_angle() != angle) save_settings();
         std::cout << "Appearance CPU=" << appearances.entries() << "/" << appearances.bytes() << " GPU=" << scene.appearance_entries() << "/" << scene.appearance_bytes() << " evictions=" << appearances.evictions() << '\n';
+        std::cout << "Dynamic atlas pages=" << atlas.dynamic_pages() << "/" << atlas_maximum << " resizes=" << atlas.resizes() << " resident=" << scene.residency().entries() << "/" << scene.residency().used_bytes() << " evictions=" << scene.residency().evictions() << " fallbacks=" << scene.atlas_fallbacks() << '\n';
         std::cout << std::fixed << std::setprecision(4);
         report("CPU event/build/submit", std::move(cpu_samples)); report("Present", std::move(present_samples));
         return 0;

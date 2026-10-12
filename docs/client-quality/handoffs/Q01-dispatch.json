@@ -1,0 +1,15 @@
+{
+  "task_id": "Q01",
+  "title": "RotMG client Q01: Add useful performance telemetry",
+  "project_id": "4e459a47-d36d-4862-9ff2-53c2d40e669c",
+  "threadId": "01a12c7b-1624-7b81-9f15-4ac04fef7626",
+  "hostId": "local",
+  "created_at": "2026-10-11 19:40:32 UTC",
+  "request_path": "docs/client-quality/handoffs/Q01-dispatch-request.md",
+  "confirmation": {
+    "cursor": "1f08cac0-c255-4243-ab04-24ff365137f2:1",
+    "thread_status": "active",
+    "turn_status": "inProgress",
+    "latest_commentary": "I’ll read the quality-chain requirements and current checkout, implement Q01 telemetry, then verify it and write the handoff before starting the next task."
+  }
+}

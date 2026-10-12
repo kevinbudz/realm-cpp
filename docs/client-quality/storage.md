@@ -65,6 +65,8 @@ cache residency and per-frame label/surface allocation (S2 mixed-dense: 52k allo
 
 Appearance CPU/GPU caches 4096 entries / 64 MiB each, status labels 4096 / 64 MiB (CPU) and 4096 / 64 MiB (GPU surfaces), against the Q00 provisional 256 MiB GPU / 1 GiB RSS limits. They are LRU with in-flight draw ownership, so eviction cannot invalidate a drawn quad. A working set above these bounds still thrashes cyclically; residency policy beyond sizing is Q07.
 
+Since Q07 the GPU side of these bitmaps lives in dynamic layers of the sprite atlas array (2 x 16 MiB at start, growing on demand to 12 layers / 192 MiB, shrunk at map change), managed by `TextureResidency` with a 2-frame protection window; the per-image GPU surfaces above are only overflow and are capped at 16 MiB each while the atlas is active (worst case 32 + 192 + 32 = 256 MiB). The CPU caches are unchanged. See [handoffs/Q07.md](handoffs/Q07.md).
+
 ## Per-frame entity sets and the static grid (Q05b)
 
 A real Realm map (`realm-server/Resources/Worlds/Realm/1.wmap`) loads ~246,000 static objects into the dense list (272 B each, ~67 MB per

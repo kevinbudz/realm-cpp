@@ -12,6 +12,15 @@ missing features, correctness problems, and measured performance bottlenecks.
 
 ## Current evidence
 
+- Q07 texture residency and batching completed on 2026-10-12: every composed appearance, name, condition icon and floating status text used to be its own GL texture, so dense
+  scenes broke the instanced batch at each one (S3 combat 15,080 draws/frame, `render.submit` 7.4 ms) and the 64 MiB per-image GPU cache sat at its cap with deterministic miss bursts.
+  They now live in dynamic layers of the sprite atlas array: a headless shelf allocator with LRU and a 2-frame protection window (`TextureResidency`), appearances keyed by content
+  so a resident one needs no CPU lookup, growth from 2 to at most 12 pages (GPU copy) only when the recent working set needs it, shrink at map change, per-image fallback beyond that.
+  Paired 1080p runs (5 repeats): draws S3 combat 15,080 -> 4, S3 mixed-dense 18,170 -> 3,169, S2 players 3,005 -> 3; CPU p50 S3 combat 23.0 -> 11.7 ms, mixed-dense 24.5 -> 13.9
+  (p95 233 -> 140), mixed-spread 18.4 -> 13.4, S2 players 2.04 -> 0.64; GPU S3 mixed-dense 12.9 -> 5.9 ms; models/Nexus/UI flat. Worst-case GPU for these bitmaps 256 MiB (was 160).
+  New `dynamic_atlas` (906,018 checks: every resident slot read back byte-exact through churn, eviction and growth on both copy paths; 0 unexplained differing pixels, the rest are
+  nearest-sampling ties) and `texture_residency` (485 M checks). Release **59/59**, ASan/UBSan **50/50**, graphics sanitizers **27/27**; S3/144 Hz still unqualified (first-seen
+  composition bursts). See `client-quality/handoffs/Q07.md`, `client-quality/evidence/Q07-results.json`. Q08 is next; its dispatch request is written but no successor chat was created.
 - Q06 real 3D model rendering completed on 2026-10-11: each placed model is now one allocation-free painter-stream `Quad` (`model_quad`: the affine screen transform of
   model space, object rotation, sprite and color) drawn by an instanced model program over geometry uploaded once (`model_geometry`, 124 KB for all 42 models); consecutive
   copies of one model are a single `glDrawArraysInstanced`, and the vertex shader applies the transform and Flash flat shade while GL back-face culling applies the same winding

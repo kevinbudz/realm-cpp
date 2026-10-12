@@ -1,0 +1,92 @@
+{
+  "task": "Q07",
+  "title": "Improve texture residency and batching",
+  "dates": ["2026-10-11", "2026-10-12"],
+  "head": {"start": "e093e05", "end": "69d955d (user commit including the Q07 code)"},
+  "hardware": "AMD Radeon RX 6700 XT, Mesa radeonsi, GL 4.6 core (3.3 requested), 1920x1080 hidden window, vsync off",
+  "before_binary": "build/quality-Q07/viewer-before",
+  "checks": {
+    "release_ctest": {"passed": 59, "total": 59, "build_warnings": 0, "log": "build/quality-Q07/final2/release-ctest.log"},
+    "sanitize_ctest": {"passed": 50, "total": 50, "log": "build/quality-Q07/final2/sanitize-ctest.log"},
+    "graphics_sanitize_ctest": {"passed": 27, "total": 27, "log": "build/quality-Q07/final2/graphics-ctest.log"},
+    "sanitizer_reports": ["pre-existing: src/appearance.cpp:23 signed integer overflow in world_dyes from world_queries (non-finite positions); not Q07"],
+    "texture_residency": {"checks": 485585430},
+    "dynamic_atlas": {
+      "checks": 906018,
+      "content": "every resident region read back byte-identical to premultiplied image after build and after status text; every dynamic-layer quad inside a live slot",
+      "copy_paths": ["glCopyImageSubData", "framebuffer blit"],
+      "growth": "1 -> 2 -> 4 -> 1 pages, 3 resizes per run, static layers byte-identical across resizes",
+      "runs": {
+        "roomy 1:1": {"frames": 9, "pixels_differ": 3, "edge": 2, "tie": 1, "unexplained": 0, "draws_dynamic": 18, "draws_surface": 9776},
+        "roomy scaled": {"frames": 9, "pixels_differ": 2, "edge": 2, "tie": 0, "unexplained": 0, "draws_dynamic": 18, "draws_surface": 10005},
+        "churn window 1": {"frames": 24, "pixels_differ": 230, "edge": 197, "tie": 33, "unexplained": 0, "evictions": 4914, "fallbacks": 426},
+        "churn window 2": {"frames": 24, "pixels_differ": 222, "edge": 221, "tie": 1, "unexplained": 0, "evictions": 4509, "fallbacks": 542},
+        "persistent churn window 1": {"frames": 40, "pixels_differ": 521, "edge": 462, "tie": 59, "unexplained": 0, "evictions": 5885, "fallbacks": 146},
+        "persistent churn window 2": {"frames": 40, "pixels_differ": 491, "edge": 432, "tie": 59, "unexplained": 0, "evictions": 2499, "fallbacks": 223},
+        "growth": {"frames": 88, "pixels_differ": 428, "edge": 380, "tie": 48, "unexplained": 0, "draws_dynamic": 176, "draws_surface": 40502}
+      },
+      "tie_threshold_texels": 0.002
+    }
+  },
+  "baseline": {
+    "dir": "build/quality-Q07/baseline",
+    "draws": {"S2-players-dense": 3000, "S3-combat-cluster": 15080, "S3-mixed-dense": 18200, "S3-mixed-spread": 3560, "churn": 1580, "variety-512": 1800},
+    "gpu_appearance_bytes_median": {"S3-mixed-dense": 67100000, "S3-mixed-spread": 67100000, "variety-512": 67100000},
+    "miss_bursts": {
+      "S3-mixed-dense": {"frames_with_misses": 138, "of": 600, "max_misses_one_frame": 2999, "p99_ms": 337.3},
+      "S3-mixed-spread": {"frames_with_misses": 192, "of": 600, "p99_ms": 80.0},
+      "variety-512": {"frames_with_misses": 138, "of": 600, "p99_ms": 65.9},
+      "churn": {"frames_with_misses": 138, "of": 600, "p99_ms": 31.9}
+    }
+  },
+  "paired_default": {
+    "command": "python3 tools/quality_stress.py --scenarios <12> --warmup-seconds 2 --measure-seconds 4 --repeats 5 --compare build/quality-Q07/viewer-before --output build/quality-Q07/final2/pair",
+    "units": "CPU ms nearest-rank over 1000 measured frames per side; zones/GPU medians",
+    "scenarios": {
+      "S2-players-dense": {"cpu_p50": [2.043, 0.642], "cpu_p95": [2.624, 0.688], "scene_build": [0.834, 0.598], "render_submit": [1.173, 0.029], "draws": [3005, 3], "gpu": [1.369, 0.400], "pages": 2},
+      "S3-combat-cluster": {"cpu_p50": [23.02, 11.73], "cpu_p95": [30.66, 18.23], "scene_build": [10.46, 6.31], "render_submit": [7.35, 0.69], "draws": [15080, 4], "gpu": [14.61, 8.35], "pages": 4},
+      "S3-mixed-dense": {"cpu_p50": [24.53, 13.91], "cpu_p95": [233.1, 140.2], "scene_build": [8.14, 6.03], "render_submit": [8.93, 1.15], "draws": [18170, 3169], "gpu": [12.92, 5.93], "pages": 12},
+      "S3-mixed-spread": {"cpu_p50": [18.44, 13.38], "cpu_p95": [70.51, 48.34], "scene_build": [8.06, 4.79], "render_submit": [2.29, 0.88], "draws": [3556, 883], "gpu": [6.53, 6.16], "pages": 8},
+      "variety-512": {"cpu_p50": [2.16, 1.25], "cpu_p95": [63.1, 42.28], "scene_build": [0.698, 0.510], "render_submit": [0.731, 0.028], "draws": [1805, 3], "gpu": [1.323, 0.599], "pages": 12},
+      "churn": {"cpu_p50": [2.944, 2.238], "cpu_p95": [12.37, 11.12], "scene_build": [1.075, 0.945], "render_submit": [0.681, 0.146], "draws": [1577, 372], "gpu": [1.557, 1.15], "pages": 2},
+      "S3-models-dense": {"cpu_p50": [1.363, 1.358], "cpu_p95": [1.953, 1.918], "draws": [3162, 3160], "gpu": [0.807, 0.855], "pages": 2},
+      "S4-models-dense": {"cpu_p50": [2.481, 2.495], "cpu_p95": [3.42, 3.429], "draws": [6137, 6135], "gpu": [1.655, 1.659], "pages": 2},
+      "models-varied-rotating": {"cpu_p50": [1.094, 1.079], "cpu_p95": [1.873, 1.667], "draws": [1037, 1036], "gpu": [0.742, 0.729], "pages": 2},
+      "nexus-idle": {"cpu_p50": [0.146, 0.141], "cpu_p95": [0.158, 0.164], "draws": [38, 7], "gpu": [0.133, 0.115], "pages": 2},
+      "nexus-rotate": {"cpu_p50": [0.672, 0.660], "cpu_p95": [0.925, 0.749], "draws": [44, 13], "gpu": [0.207, 0.202], "pages": 2},
+      "ui": {"cpu_p50": [0.672, 0.673], "cpu_p95": [4.802, 4.843], "draws": [86, 4], "gpu": [0.218, 0.209], "pages": 2}
+    },
+    "atlas_fallbacks_total": 0
+  },
+  "budget_matrix_S3_mixed_dense": {
+    "dir": "build/quality-Q07/matrix",
+    "off": {"cpu_p50": 23.6, "cpu_p95": 228, "draws": 18170},
+    "p4w1": {"cpu_p50": 19.4, "cpu_p95": 213, "uploads_median": 192, "fallbacks_median": 1757, "texture_upload_ms": 2.00},
+    "p4w2": {"cpu_p50": 17.6, "cpu_p95": 204, "uploads_median": 0, "fallbacks_median": 1734, "texture_upload_ms": 0.376},
+    "p8w2": {"cpu_p50": 14.2, "cpu_p95": 185, "uploads_median": 0, "fallbacks_median": 0, "fallbacks_max": 1049},
+    "p16w2": {"cpu_p50": 13.6, "cpu_p95": 74.3, "uploads_median": 0, "fallbacks_median": 0}
+  },
+  "working_sets_mib_16_pages": {
+    "S3-mixed-dense": {"resident": 231.9, "shelf": 254.4},
+    "variety-512": {"resident": 221.3, "shelf": 240.0},
+    "S3-mixed-spread": {"resident": 182.2, "shelf": 197.6},
+    "S3-combat-cluster": {"resident": 32.3, "shelf": 40.2},
+    "churn": {"resident": 27.9, "shelf": 31.0}
+  },
+  "captures_fixed_4_pages": {
+    "dir": "build/quality-Q07/final/captures",
+    "byte_identical": ["S3-mixed-dense", "churn", "models-varied-rotating", "nexus-rotate", "ui"],
+    "differ": {"S2-players-dense": {"pixels": 1311, "max_delta": 252}, "S3-mixed-spread": {"pixels": 247, "max_delta": 46}, "variety-512": {"pixels": 228, "max_delta": 247}},
+    "cause": "nearest-sampling ties (one-texel shifts), inspected",
+    "note": "not re-run after on-demand growth was added"
+  },
+  "budgets_mib": {
+    "static_atlas": 32,
+    "dynamic_atlas_initial": 32,
+    "dynamic_atlas_cap": 192,
+    "overflow_surface_caches": 32,
+    "worst_case_gpu_for_bitmaps": 256,
+    "before_worst_case": 160
+  },
+  "s3_144hz": "unqualified: S3 mixed-dense p50 13.9 ms, p95 140 ms (first-seen composition bursts)"
+}

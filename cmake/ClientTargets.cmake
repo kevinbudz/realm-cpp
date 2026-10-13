@@ -69,7 +69,7 @@ if(REALM_AUDIO)
     target_link_libraries(realm_audio PRIVATE realm_network realm_miniaudio Threads::Threads)
     target_compile_definitions(realm_audio PRIVATE "REALM_SFX_ROOT_DEFAULT=\"${REALM_SFX_ROOT_PATH}\"")
 endif()
-realm_library(realm_game src/objects/ObjectLibrary.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
+realm_library(realm_game src/objects/ObjectLibrary.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
     src/map/WorldSoundEvents.cpp src/map/Map.cpp src/messaging/GameServerConnection.cpp src/objects/Player.cpp
     src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/parameters/Parameters.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)

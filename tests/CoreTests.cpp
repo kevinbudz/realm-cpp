@@ -1,6 +1,7 @@
 #include "realm/map/Camera.hpp"
 #include "realm/objects/ProjectileProperties.hpp"
 #include "realm/messaging/Protocol.hpp"
+#include "realm/util/Random.hpp"
 #include <array>
 #include <cmath>
 #include <iostream>

@@ -1,6 +1,10 @@
 #pragma once
+#include "realm/appengine/SavedCharacter.hpp"
+#include "realm/appengine/SavedNewsItem.hpp"
+#include "realm/fame/CharacterFame.hpp"
+#include "realm/legends/Legend.hpp"
+#include "realm/ui/guild/GuildMember.hpp"
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -9,16 +13,6 @@
 #include <string_view>
 #include <vector>
 namespace realm {
-struct SavedCharacter {
-  int id{}, object_type{}, level{1}, experience{}, fame{}, skin{}, tex1{}, tex2{};
-  int hp{}, max_hp{}, mp{}, max_mp{};
-  std::array<int, 12> equipment{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-  std::array<int, 12> item_data{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-};
-struct NewsItem {
-  std::string icon, title, tagline, link;
-  std::int64_t date{};
-};
 // SavedCharactersList: the /char/list reply.
 struct CharList {
   std::string name;
@@ -40,38 +34,6 @@ inline constexpr int fame_stars[5]{20, 150, 400, 800, 2000};
 // Destructive endpoints require an explicit, well-formed <Success/> reply.
 void parse_delete_result(std::string_view response);
 [[nodiscard]] CharList parse_char_list(std::string_view xml);
-struct FameLine {
-  std::string label;
-  int value{};
-  bool fame{}, bonus{};
-  std::string unit;
-};
-struct CharacterFame {
-  SavedCharacter character;
-  std::string name, killed_by, death_date;
-  int total_fame{};
-  std::vector<FameLine> lines;  // ScoringBox order, followed by server-ordered bonuses.
-};
-[[nodiscard]] CharacterFame parse_character_fame(std::string_view xml, int character_id);
-struct Legend {
-  int account_id{}, character_id{}, total_fame{};
-  std::string name;
-  SavedCharacter character;
-  std::array<int, 4> equipment{-1, -1, -1, -1}, item_data{-1, -1, -1, -1};
-};
-// Legends keep server order, removing repeated account/character pairs.
-// MyFameListElem is deliberately ignored by the current source factory.
-[[nodiscard]] std::vector<Legend> parse_legends(std::string_view xml, std::string_view timespan);
-struct GuildMember {
-  std::string name;
-  int rank{}, fame{};
-};
-struct GuildMemberList {
-  std::string name;
-  int fame{}, level{};
-  std::vector<GuildMember> members;
-};
-[[nodiscard]] GuildMemberList parse_guild_members(std::string_view xml);
 // SavedCharacter.compare: most recently played first, then most experience.
 void sort_characters(CharList& list, const std::map<int, std::int64_t>& use);
 

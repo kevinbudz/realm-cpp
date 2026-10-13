@@ -16,6 +16,5 @@ struct CharacterFame {
   int total_fame{};
   std::vector<FameLine> lines;  // ScoringBox order, followed by server-ordered bonuses.
 };
-// Defined in src/appengine/SavedCharactersList.cpp beside the shared AppEngine XML helpers.
 [[nodiscard]] CharacterFame parse_character_fame(std::string_view xml, int character_id);
 }

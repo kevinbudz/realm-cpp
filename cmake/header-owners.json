@@ -106,5 +106,6 @@
   "src/screens/StartupState.hpp": "realm_startup",
   "src/screens/StartupTypes.hpp": "realm_startup",
   "src/screens/StartupHttpTasks.hpp": "realm_startup",
-  "src/screens/StartupViewModel.hpp": "realm_startup"
+  "src/screens/StartupViewModel.hpp": "realm_startup",
+  "src/appengine/AppEngineXml.hpp": "realm_game"
 }

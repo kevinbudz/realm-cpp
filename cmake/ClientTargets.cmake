@@ -71,7 +71,7 @@ if(REALM_AUDIO)
 endif()
 realm_library(realm_game src/objects/ObjectLibrary.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
     src/map/WorldSoundEvents.cpp src/map/Map.cpp src/messaging/GameServerConnection.cpp src/objects/Player.cpp
-    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/parameters/Parameters.cpp src/map/PostEffects.cpp)
+    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/fame/CharacterFame.cpp src/legends/Legend.cpp src/ui/guild/GuildMember.cpp src/parameters/Parameters.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)
 realm_library(realm_assets src/engine3d/Model3D.cpp src/util/Image.cpp src/util/AnimatedChars.cpp src/util/ProcessedTextures.cpp src/util/TextureRedrawer.cpp
     src/map/Terrain.cpp src/ui/fonts/FontBook.cpp src/util/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)

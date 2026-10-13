@@ -12,6 +12,5 @@ struct GuildMemberList {
   int fame{}, level{};
   std::vector<GuildMember> members;
 };
-// Defined in src/appengine/SavedCharactersList.cpp beside the shared AppEngine XML helpers.
 [[nodiscard]] GuildMemberList parse_guild_members(std::string_view xml);
 }

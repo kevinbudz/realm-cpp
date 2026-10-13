@@ -13,6 +13,5 @@ struct Legend {
 };
 // Legends keep server order, removing repeated account/character pairs.
 // MyFameListElem is deliberately ignored by the current source factory.
-// Defined in src/appengine/SavedCharactersList.cpp beside the shared AppEngine XML helpers.
 [[nodiscard]] std::vector<Legend> parse_legends(std::string_view xml, std::string_view timespan);
 }

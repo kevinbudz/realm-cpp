@@ -6,6 +6,7 @@ compile. Public headers must only use PUBLIC dependencies; .cpp files may use
 PRIVATE dependencies. Pure libraries may not include graphics SDKs.
 """
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -50,7 +51,7 @@ def violations(text, path, owner, permitted):
     if owner not in GL_OWNERS and re.search(r'#\s*include\s*[<"](?:GL/|EGL/|GLES)', text):
         failures.append(f'{path}: GL SDK outside the backend/platform adapter')
     for header in INCLUDE.findall(text):
-        name = 'include/' + header if header.startswith('realm/') else str(Path(path).parent / header)
+        name = 'include/' + header if header.startswith('realm/') else os.path.normpath(Path(path).parent / header)
         other = HEADERS.get(name)
         if other and other not in permitted:
             failures.append(f'{path}: {owner} includes {name} owned by {other} without a dependency')

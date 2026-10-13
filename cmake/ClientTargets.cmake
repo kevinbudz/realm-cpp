@@ -96,8 +96,9 @@ if(REALM_BUILD_VIEWER)
     realm_library(realm_platform_sdl src/platform/PlatformSDL.cpp)
     target_link_libraries(realm_platform_sdl PUBLIC realm_platform SDL2::SDL2 PRIVATE OpenGL::GL GLEW::GLEW)
     target_compile_definitions(realm_platform_sdl PRIVATE SDL_MAIN_HANDLED)
-    # Startup keeps its screen controller, HTTP task service, and retained view model as separate parts.
-    realm_library(realm_startup src/screens/Startup.cpp src/screens/StartupHttpTasks.cpp src/screens/StartupViewModel.cpp)
+    # Startup is split by concern (entry points and dispatch, frame and task completions, input, dialogs, fame and legends);
+    # its HTTP task service and retained view model remain separate parts.
+    realm_library(realm_startup src/screens/Startup.cpp src/screens/StartupDialogs.cpp src/screens/StartupFame.cpp src/screens/StartupHttpTasks.cpp src/screens/StartupInput.cpp src/screens/StartupUpdate.cpp src/screens/StartupViewModel.cpp)
     target_link_libraries(realm_startup PUBLIC realm_ui realm_render)
     # RmlUi's MIT SDL platform and GL3 renderer backends, vendored unmodified in third_party/rmlui.
     set(REALM_RMLUI_BACKENDS "${RMLUI_BACKENDS_DIR}/RmlUi_Renderer_GL3.cpp" "${RMLUI_BACKENDS_DIR}/RmlUi_Platform_SDL.cpp")

@@ -9,6 +9,10 @@
 #include <string>
 #include <string_view>
 
+namespace realm::startup_detail {
+inline constexpr const char* legend_spans[]{"week", "month", "all"};
+}
+
 namespace realm {
 struct Startup::Impl {
   using Screen = startup_detail::Screen;

@@ -1,0 +1,213 @@
+<FameList timespan="week">
+  <FameListElem accountId="90" charId="100">
+    <Name>Legend1</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>16711680</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>5000</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="91" charId="101">
+    <Name>Legend2</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4900</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="42" charId="7">
+    <Name>FameFixture</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4800</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="93" charId="103">
+    <Name>Legend4</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4700</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="94" charId="104">
+    <Name>Legend5</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4600</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="95" charId="105">
+    <Name>Legend6</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4500</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="96" charId="106">
+    <Name>Legend7</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4400</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="97" charId="107">
+    <Name>Legend8</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4300</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="98" charId="108">
+    <Name>Legend9</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4200</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="99" charId="109">
+    <Name>Legend10</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4100</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="100" charId="110">
+    <Name>Legend11</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>4000</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="101" charId="111">
+    <Name>Legend12</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3900</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="102" charId="112">
+    <Name>Legend13</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3800</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="103" charId="113">
+    <Name>Legend14</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3700</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="104" charId="114">
+    <Name>Legend15</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3600</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="105" charId="115">
+    <Name>Legend16</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3500</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="106" charId="116">
+    <Name>Legend17</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3400</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="107" charId="117">
+    <Name>Legend18</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3300</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="108" charId="118">
+    <Name>Legend19</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3200</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="109" charId="119">
+    <Name>Legend20</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>0</Texture>
+    <Tex1>0</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>3100</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <FameListElem accountId="90" charId="100">
+    <Name>Legend1</Name>
+    <ObjectType>782</ObjectType>
+    <Texture>836</Texture>
+    <Tex1>16711680</Tex1>
+    <Tex2>0</Tex2>
+    <TotalFame>5000</TotalFame>
+    <Equipment>2594,2595,-1,-1,999,999</Equipment>
+    <ItemDatas>-1,-1,-1,-1,-1,-1</ItemDatas>
+  </FameListElem>
+  <MyFameListElem accountId="42" charId="999" />
+</FameList>

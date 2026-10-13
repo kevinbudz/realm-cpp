@@ -1,0 +1,7 @@
+BasedOnStyle: Google
+ColumnLimit: 120
+SortIncludes: Never
+IncludeBlocks: Preserve
+DerivePointerAlignment: false
+PointerAlignment: Left
+FixNamespaceComments: false

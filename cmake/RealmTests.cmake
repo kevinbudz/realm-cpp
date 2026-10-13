@@ -1,0 +1,63 @@
+# Test declaration helpers. Every CTest test is declared through one of these so that it carries exactly one label:
+#   unit - headless: no GL context, no display, loopback network only
+#   gpu  - opens a window, a GL context or realm_client, so it needs a display
+#   live - needs a real game server (none in CTest; see tests/README.md)
+# Properties these helpers do not cover (RESOURCE_LOCK, for example) are set with set_tests_properties after the call.
+set(REALM_TEST_LABELS unit gpu live)
+
+# realm_add_test(NAME <test> TARGET <exe> LABELS <label> [SOURCES <src>...] [LINK <lib>...] [DEFINES <def>...]
+#                [ARGS <arg>...] [WORKING_DIRECTORY <dir>] [DEPENDS <test>...])
+# With SOURCES, creates executable <exe> with PRIVATE links and definitions. Without SOURCES, <exe> must already be a
+# target, and the test runs it. DEPENDS names tests that CTest runs first (the DEPENDS test property).
+function(realm_add_test)
+    cmake_parse_arguments(PARSE_ARGV 0 RT "" "NAME;TARGET;LABELS;WORKING_DIRECTORY" "SOURCES;LINK;DEFINES;ARGS;DEPENDS")
+    if(RT_UNPARSED_ARGUMENTS OR NOT RT_NAME OR NOT RT_TARGET OR NOT RT_LABELS)
+        message(FATAL_ERROR "realm_add_test: NAME, TARGET and LABELS are required; unexpected '${RT_UNPARSED_ARGUMENTS}'")
+    endif()
+    if(NOT RT_LABELS IN_LIST REALM_TEST_LABELS)
+        message(FATAL_ERROR "realm_add_test(${RT_NAME}): LABELS must be one of ${REALM_TEST_LABELS}, got '${RT_LABELS}'")
+    endif()
+    if(RT_SOURCES)
+        add_executable(${RT_TARGET} ${RT_SOURCES})
+        if(RT_LINK)
+            target_link_libraries(${RT_TARGET} PRIVATE ${RT_LINK})
+        endif()
+        if(RT_DEFINES)
+            target_compile_definitions(${RT_TARGET} PRIVATE ${RT_DEFINES})
+        endif()
+    elseif(RT_LINK OR RT_DEFINES)
+        message(FATAL_ERROR "realm_add_test(${RT_NAME}): LINK and DEFINES need SOURCES")
+    endif()
+    set(working_dir_args)
+    if(RT_WORKING_DIRECTORY)
+        set(working_dir_args WORKING_DIRECTORY "${RT_WORKING_DIRECTORY}")
+    endif()
+    add_test(NAME ${RT_NAME} COMMAND ${RT_TARGET} ${RT_ARGS} ${working_dir_args})
+    set_tests_properties(${RT_NAME} PROPERTIES LABELS "${RT_LABELS}")
+    if(RT_DEPENDS)
+        set_tests_properties(${RT_NAME} PROPERTIES DEPENDS "${RT_DEPENDS}")
+    endif()
+endfunction()
+
+# realm_add_python_test(NAME <test> SCRIPT <path> LABELS <label> [ARGS <arg>...] [WORKING_DIRECTORY <dir>]
+#                       [DEPENDS <test>...])
+# Runs SCRIPT with Python3::Interpreter. A relative SCRIPT is resolved against the current source directory.
+function(realm_add_python_test)
+    cmake_parse_arguments(PARSE_ARGV 0 RT "" "NAME;SCRIPT;LABELS;WORKING_DIRECTORY" "ARGS;DEPENDS")
+    if(RT_UNPARSED_ARGUMENTS OR NOT RT_NAME OR NOT RT_SCRIPT OR NOT RT_LABELS)
+        message(FATAL_ERROR "realm_add_python_test: NAME, SCRIPT and LABELS are required; unexpected '${RT_UNPARSED_ARGUMENTS}'")
+    endif()
+    if(NOT RT_LABELS IN_LIST REALM_TEST_LABELS)
+        message(FATAL_ERROR "realm_add_python_test(${RT_NAME}): LABELS must be one of ${REALM_TEST_LABELS}, got '${RT_LABELS}'")
+    endif()
+    cmake_path(ABSOLUTE_PATH RT_SCRIPT BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" NORMALIZE OUTPUT_VARIABLE script)
+    set(working_dir_args)
+    if(RT_WORKING_DIRECTORY)
+        set(working_dir_args WORKING_DIRECTORY "${RT_WORKING_DIRECTORY}")
+    endif()
+    add_test(NAME ${RT_NAME} COMMAND Python3::Interpreter "${script}" ${RT_ARGS} ${working_dir_args})
+    set_tests_properties(${RT_NAME} PROPERTIES LABELS "${RT_LABELS}")
+    if(RT_DEPENDS)
+        set_tests_properties(${RT_NAME} PROPERTIES DEPENDS "${RT_DEPENDS}")
+    endif()
+endfunction()

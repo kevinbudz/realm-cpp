@@ -1,0 +1,41 @@
+/* Base sheet for every client RmlUi document: <link type="text/rcss" href="flash.rcss"/>. RmlUi has no user-agent
+   sheet, so what a browser would assume is spelled out here. Pair it with <link type="text/rcss" href="text.rcss"/>,
+   which the host generates from FontBook metrics (.t14 .t14b .t16 ... : font-size and line-height in dp, "b" = bold),
+   and always size in dp: the host scales dp by drawable_height/600, as Flash's stage is scaled.
+
+   Flash colour tokens (RCSS has no variables):
+     white      #ffffff   text, button fill, scroll thumb
+     panel      #363636   panel and dialog fill, button text   (0x363636)
+     hover      #ffdc85   hovered button / thumb / arrow       (0xFFDC85)
+     track      #545454   scroll bar track                     (0x545454)
+     field      #333333   text field fill, border #454545, text #b3b3b3
+     tooltip    #9b9b9b   tooltip border; unusable item border #a75b5b on #4b3030
+     title      #57ad62   dialog titles
+
+   Flash vector shapes (cut-edge rects, menu backdrops) are drawn by the client's painters into retained textures:
+     decorator: paint(NAME ARG ARG ...);
+   NAME and the ARGs are space-separated tokens inside the parentheses (no commas, no quotes); colours are 0xRRGGBB (or
+   #rrggbb) and `none` where a colour is optional. The decorator paints the element's border box, one texture pixel per
+   drawable pixel. Built-in painters:
+     paint(cut-rect FILL STROKE CUT [STROKE_WIDTH])   corners cut by CUT dp, e.g. paint(cut-rect 0x363636 0xffffff 4 2);
+                                                      the outline is inset by half STROKE_WIDTH so it stays inside the box
+     paint(rect FILL)                                 an antialiased rectangle, e.g. paint(rect 0x545454)
+     paint(menu-backdrop)                             the options / guild menu backdrop; give the element height: 600dp */
+
+div,p,input,textarea,pulse-text{display:block}
+body{font-family:"Myriad Pro";color:#fff;font-size:14dp;width:100%;height:100%}
+.abs{position:absolute}
+
+/* Flash TextButton: white fill, 4 dp corners, 0x363636 bold 16 text, gold on hover. Add .t16b for its line height. */
+.button{box-sizing:border-box;background-color:#fff;border-radius:4dp;color:#363636;text-align:center;font-size:16dp;font-weight:bold}
+.button:hover{background-color:#ffdc85}
+
+/* Flash's Scrollbar: 16 dp wide, white arrows and thumb (gold on hover), 0x545454 track. */
+scrollbarvertical{width:16dp}
+scrollbarvertical slidertrack{width:16dp;background-color:#545454}
+scrollbarvertical sliderbar{width:16dp;min-height:16dp;background-color:#fff;border-radius:4dp}
+scrollbarvertical sliderbar:hover,scrollbarvertical sliderbar:active{background-color:#ffdc85}
+scrollbarvertical sliderarrowdec{display:block;width:0;height:0;margin-bottom:5dp;border-left:8dp transparent;border-right:8dp transparent;border-bottom:12dp #fff}
+scrollbarvertical sliderarrowinc{display:block;width:0;height:0;margin-top:5dp;border-left:8dp transparent;border-right:8dp transparent;border-top:12dp #fff}
+scrollbarvertical sliderarrowdec:hover{border-bottom-color:#ffdc85}
+scrollbarvertical sliderarrowinc:hover{border-top-color:#ffdc85}

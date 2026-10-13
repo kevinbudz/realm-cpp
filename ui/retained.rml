@@ -1,0 +1,15 @@
+<rml>
+  <head>
+    <title>retained UI surfaces</title>
+    <link type="text/rcss" href="flash.rcss" />
+    <link type="text/rcss" href="text.rcss" />
+    <style>
+      body { background-color: transparent; }
+      #retained { position: absolute; left: 0px; top: 0px; width: 100%; height: 100%; }
+      native-image { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="retained"></div>
+  </body>
+</rml>

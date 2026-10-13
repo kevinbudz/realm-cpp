@@ -1,0 +1,14 @@
+<Fame>
+  <Char id="8"><ObjectType>0x0300</ObjectType><Level>1</Level><Account><Name>WrongCharacter</Name></Account></Char>
+  <Char id="7"><ObjectType>782</ObjectType><Level>20</Level><Texture>836</Texture><Tex1>0</Tex1><Tex2>0</Tex2><Account><Name>FameFixture</Name></Account></Char>
+  <MinutesActive>73</MinutesActive><Shots>300</Shots><ShotsThatDamage>101</ShotsThatDamage>
+  <AbilitiesUsed>42</AbilitiesUsed><TilesUncovered>9001</TilesUncovered><MonsterKills>123</MonsterKills>
+  <GodKills>7</GodKills><OryxKills>2</OryxKills><CubeKills>3</CubeKills><CyanBags>4</CyanBags>
+  <BlueBags>5</BlueBags><WhiteBags>6</WhiteBags><DamageTaken>1111</DamageTaken><DamageDealt>2222</DamageDealt>
+  <Teleports>8</Teleports><PotionsDrank>9</PotionsDrank><QuestsCompleted>10</QuestsCompleted>
+  <PirateCavesCompleted>1</PirateCavesCompleted><UndeadLairsCompleted>2</UndeadLairsCompleted><AbyssOfDemonsCompleted>3</AbyssOfDemonsCompleted>
+  <SnakePitsCompleted>4</SnakePitsCompleted><SpiderDensCompleted>5</SpiderDensCompleted><SpriteWorldsCompleted>6</SpriteWorldsCompleted><TombsCompleted>7</TombsCompleted>
+  <Escapes>11</Escapes><NearDeathEscapes>12</NearDeathEscapes><LevelUpAssists>13</LevelUpAssists>
+  <BaseFame>400</BaseFame><Bonus id="First Born">40</Bonus><Bonus id="Enemy of the Gods">50</Bonus>
+  <TotalFame>490</TotalFame><KilledOn>1700000000</KilledOn><KilledBy>Medusa &amp; Friends</KilledBy>
+</Fame>

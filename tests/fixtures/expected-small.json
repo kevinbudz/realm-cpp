@@ -1,0 +1,26 @@
+{
+  "state_checksum": "6554414281887631283",
+  "packet_checksum": "10344367846238755078",
+  "packets": {
+    "21": 3,
+    "28": 20,
+    "29": 199,
+    "3": 2,
+    "31": 36,
+    "4": 20
+  },
+  "hits": 219,
+  "resident": [
+    9,
+    8,
+    0,
+    48,
+    0
+  ],
+  "simulated_entity_steps": 6517,
+  "spawned": 460,
+  "removed": 400,
+  "resets": 2,
+  "particles": 20,
+  "optional_drops": 0
+}

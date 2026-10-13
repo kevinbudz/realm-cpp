@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-12",
+  "hardware": "AMD Radeon RX 6700 XT; Mesa 26.2.4; OpenGL 4.6",
+  "fixture": "Nexus map, pan camera, six moving players, 1920x1080, RmlUi HUD",
+  "frames": 600,
+  "warmup_frames": 30,
+  "live_session": false,
+  "runs": {
+    "reference": {
+      "samples": 570,
+      "cpu_mean_ms": 0.6780253280701755,
+      "frame_interval_mean_ms": 0.7794613912280701,
+      "texture_upload_mean_bytes": 479816.47719298245,
+      "zones_mean_us": {
+        "scene.terrain": 93.83906140350877,
+        "minimap.render": 426.9187,
+        "render.quad_upload": 8.615119298245615,
+        "render.submit": 16.67292105263158
+      }
+    },
+    "optimized": {
+      "samples": 570,
+      "cpu_mean_ms": 0.09642912105263157,
+      "frame_interval_mean_ms": 0.18217492105263158,
+      "texture_upload_mean_bytes": 966.5122807017544,
+      "zones_mean_us": {
+        "scene.terrain": 8.15331403508772,
+        "minimap.gpu_build": 1.3952385964912282,
+        "render.quad_upload": 6.348563157894737,
+        "render.submit": 13.66351052631579
+      }
+    }
+  }
+}

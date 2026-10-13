@@ -1,0 +1,154 @@
+name: realm-cpp-refactor-plan
+description: "Approved full refactor plan (2026-10-13) for realm-cpp, to make the native client easy to read and change for humans and agents. Phases, user decisions, baseline, verification, and status."
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: 78d51d84-588f-4efd-a1a6-d4a81410ea5e
+  modified: 2026-10-13T17:18:56.514Z
+---
+
+**Goal (user):** make the realm-cpp client "as cleanly/easy to work with as possible" for agents and human contributors. This is a full refactor. Native UI removal is Phase 1.
+
+**Current status (2026-10-13):** Phase 7 is complete. Startup keeps its public facade in `include/realm/startup.hpp`; screen/account/input state is in `src/startup_state.hpp`, HTTP task ownership and generation metadata in `src/startup_http_tasks.{hpp,cpp}`, and sheet/layout/snapshot/upload state in `src/startup_view_model.{hpp,cpp}`. `src/startup_impl.hpp` coordinates them and `src/startup_types.hpp` shares internal types. The ownership boundary is updated in `cmake/ClientTargets.cmake`, `cmake/header-owners.json`, and `tests/client_boundaries_tests.py`; boundary and headless stale-delete checks pass. World, Renderer, and Entity are also split as detailed under Phase 7 below. Release build, formatting, source diff checks, and independent reviews passed. Final CTest is 72/73 (exit 8); the only failure is the established `dynamic_atlas` 8-pixel mismatch at roomy frame 3. The options and long GPU suites pass. All three quad checksum scenarios match, including state, packet, and count fields; `startup_parity` (7 cases), `ui_resize`, and `skin_gpu` pass. Logs are in `/workspace/scratch/phase7/{world,renderer,entity}`. Phases 8 and 9 have not started.
+
+**Historical status (2026-10-13):** Phases 0-3 done. Phase 3: .clang-format (Google, 120 cols, SortIncludes Never, PointerAlignment Left, FixNamespaceComments false) plus .clang-format-ignore for generated messages.{cpp,hpp}; checksums identical before/after (S1 16281437216637724640, models-varied-rotating 5660507718228004574, determinism 7352671618066388878, 120 frames --hidden); ctest 73/73; code-token check 0 mismatches. Pre-existing warnings: ui_retained.cpp 8 + ui_rml.cpp 4 Wconversion, player_menu_tests 1 Wnarrowing, ui_rectangle_tests 1 Wunused-parameter. Next: Phase 4, staged: 4a ClientState in src/application_state.{hpp,cpp} DONE (side effects via mem-init helpers; ref named `cs`; checks all pass), 4b DONE (14 layers in ClientLayers, src/application_layers{.hpp,_hud,_social,_screens}.cpp; closures must not capture function-local objects by reference), 4c dispatched, 4b layers into src/application_layers*.cpp under realm_application (not realm_ui_views: they need World/Hud), keep add order, 4c frame loop into methods. Gate for each: build, the three checksums, ctest 73/73, startup_parity/ui_resize/skin_gpu scripts. Pixel oracle skipped for Phase 4. Earlier: Phase 2 verified: realm_client is the only client binary; build exit 0; `ctest --test-dir build -j 6` 73/73 pass; startup_parity, ui_resize and skin_gpu scripts pass; 27 stale build/realm_* binaries were deleted. Leftovers for Phase 8: README, docs/fps-optimizations.md:3,24 and docs/flash-specs.md:368 reference removed binaries and paths. The C key camera-centering toggle in --connect/--map was kept; revisit in Phase 4. Phase 1 note: pixel diffs are not a gate (wall clock plus random sprite and background in startup.cpp:93,106). Logs are in session scratchpad `6e61a55e-.../scratchpad/phase{1,2}_*`, along with the pre-refactor backup. Next: Phase 3 (formatting).
+
+Earlier: planning only. The aborted run left `include/realm/startup.hpp` at its exact pre-task text. `src/` was never touched. Nothing is committed. The user's 25 uncommitted changes are in the tree. The user will not dispatch the quality chain's Q19.
+
+**User decisions (2026-10-13):**
+- Formatting: pick a base style. Google's C++ style is allowed. Chosen: `BasedOnStyle: Google` with `ColumnLimit: 120` (see Phase 3).
+- Parity with Flash is no longer a goal. Remove harness flags, the offline harness modes, the Flash reference tests, and the AIR reference tooling.
+- Delete the nine `build*` directories at the repo root.
+- Untrack `.claude/agent-memory-local/`.
+- Commits: the user already decided. Make no commits during the refactor. At the end, squash history to one "Initial commit" (see the last section).
+- No `Co-Authored-By` (or any other attribution) lines in commits or PRs. The user's instruction overrides the system reminder.
+- The plan may change as needed.
+
+**Process rules:**
+- From Phase 1 through Phase 6, follow the earlier user preference: delegate execution to Haiku sidekicks (fusion-sidekick, xhigh), with the lead planning and reviewing. From Phase 7 onward, delegate execution, review, and verification to Luna subagents (xhigh/max); the lead orchestrates. This later preference supersedes the earlier one for Phase 7 onward. Phase 0 was done inline.
+- Read each file with the Read tool before editing it.
+- No commits, no pushes, and no history rewrites until the final phase.
+- Do not run Release and sanitize CTest at the same time.
+- Use `REALM_QUAD_CHECKSUM=1` (painter-stream digest, `src/stress.cpp`) as the behavior oracle for pure refactors. Keep it.
+
+## Baseline (before any edit)
+
+- Release `cmake --build build` exits 0. `ctest --test-dir build -j 6` shows 74 of 76 passing.
+- `delete_character_gpu` and `legends_gpu` fail on assertions. `teleport_loopback` is inconsistent: it shows "Passed" in its progress line but appears in the final FAILED list. Treat all three as pre-existing.
+- Logs in the session scratchpad: `baseline_build.log`, `baseline_ctest.log`, `baseline_startup_parity.log` (partial).
+
+## Facts that shape the plan
+
+- `application::run()` (`src/application.cpp:128` to the end) is 1,572 lines, with 15 `FunctionLayer` registrations, about 53 capturing lambdas, and about 40 branches on mode and option flags.
+- Two UI backends: RmlUi (default) and a native GL-texture path. The native path also feeds the Q09 pilot comparison.
+- `Startup` (`src/startup.cpp`, 1,469 lines) builds a view model for RmlUi. `src/startup_rml.cpp` consumes it, so the model stays even though parts of it look native.
+- `RetainedSurface` (`include/realm/ui_retained.hpp`) switches between a native `SurfaceTexture` path and an RmlUi snapshot path through `rml(bool)`.
+- `--client` implies `--hud` (`src/application_options.cpp` line ~146), so the RmlUi host exists in every client run.
+- `REALM_RMLUI` is a CMake option guarding about 47 `#if` lines, plus `cmake/ClientTargets.cmake`, `cmake/ClientBoundaries.cmake`, and `cmake/header-owners.json`.
+- Oracle env switches: `REALM_TARGET_SEARCH` (`src/combat.cpp:21`), `REALM_DYNAMIC_ATLAS` (`src/application.cpp:242`), `REALM_DYNAMIC_ATLAS_PAGES` (`=0` disables the atlas), `REALM_DYNAMIC_ATLAS_INITIAL`, `REALM_ATLAS_GROW_FRAMES`, `REALM_ATLAS_PROTECT_FRAMES`, and `REALM_RMLUI_PULSE` (pilot only). Only the first few are oracles. The others are sizing knobs.
+- Env knobs that stay: `REALM_AUDIO`, `REALM_AUDIO_DEVICE`, `REALM_AUDIO_CACHE_MB`, `REALM_SFX_ROOT`, `REALM_UI_ACTION_TRACE`, `REALM_QUAD_CHECKSUM`.
+- Harness surface: 66 CLI flags in one parser (`src/application_options.cpp`), including `--stress*`, `--reference-render`, `--sprites`, `--texture`, `--raw-flash-bitmap`, `--projectile-*`, `--text`, `--font-*`, `--sheet`, `--scale`, `--frames`, `--scene-time`, `--status-age`, `--ghost`, `--ally*`, `--damage*`, `--hp`, `--breath`, `--condition`, `--background`, `--effect-time`, `--notify`, `--offset`, `--fixture-step-ms`, `--benchmark`, `--orphan-stream`, `--telemetry*`, `--trace`, `--capture`, `--map`, `--world`, `--script`, `--fonts`, and `--hud-art` (both already ignored).
+- Harness executables and tests: 25 `tools/*_inputs.cpp`, 22 `tests/*inputs.cpp` and `*_session_inputs.cpp` files, 19 `tests/*_reference_tests.py` files. About 57 Python tests reference Flash, AIR, or a live server (rough grep).
+- Reference data: `fixtures/client-quality/v1` (65 files) and `tools/flash-reference/` (AS3 exporters plus `build_flash_reference.py`, `font_reference.py`, `import_flash.py`).
+- Keep: the asset pipeline that feeds the build (`compile_*.py`, `bake_*.py`, and the generated `flash_*.hpp` headers) and `assets/*.bin`. The product still reads art, XML, and fonts from the Flash source tree (`--flash-root`).
+- Large classes: `Startup` (screen state, HTTP tasks, layout), `World` (~20 responsibilities), `Renderer` (dozens of GL handles, post-processing, GPU timers), and `Entity` (about 30 public fields).
+- Duplicated helpers: `stat()` in `src/hud.cpp:51`, `src/inventory.cpp:5`, and `src/item_tooltip_content.cpp:17` (identical bodies). `number()` in `item_tooltip_content.cpp`, `startup_rml.cpp`, `ui_retained.cpp`, and `catalog.cpp`. `code_points()` in `chat.cpp`, `startup_rml.cpp`, and `ui_pilot_native.cpp`. `pending()` in `http.cpp` and `transport.cpp`. `integer()` in `account.cpp` and `application_options.cpp`.
+- Tests are named by verification mode (`_gpu_`, `_live_`, `_reference_`, `_http_`), not by subsystem. No CTest labels. `CMakeLists.txt` is 30 KB, with 75 hand-written `add_executable`/`target_link_libraries`/`add_test` triples.
+- One feature (party arrows) spans nine files across `src/`, `include/`, `tools/`, and `tests/`.
+- Style: no `.clang-format`. About 2,500 of 24,000 src and header lines exceed 120 columns. About 1,500 lines hold several statements. About 1,470 single-line `if`s lack braces. Both `if(` (3,046) and `if (` (688) appear.
+- Dead docs: the README links six files under `docs/client-quality/`, deleted on purpose in commit `61f86a2`. `docs/progress.md` (1,285 lines) points to a deleted `AGENTS.md`.
+- Process labels in code: about 10 `src`/`include` lines and 24 test/tool lines mention Q-numbers as history.
+- Repo hygiene: nine `build*` directories at the repo root (gitignored). `.claude/agent-memory-local/` is tracked (3 files).
+- Keep: `cmake/ClientBoundaries.cmake` (link boundaries enforced at configure time), one header per `src` file, `include/realm/ui_stack.hpp` (input ownership), sanitizers, CTest, live-server tests, and the quad checksum oracle.
+
+## Phases (each phase leaves Release building and CTest passing, except where noted)
+
+**Phase 0. Pixel baseline.** Before anything is removed, capture RmlUi startup frames with `python3 tests/startup_parity_gpu_tests.py --backends rmlui` and save `build/startup-parity` to the scratchpad. This test drives the client with `--script`, so it must run before Phase 2.
+
+**Phase 1. Remove the native UI backend, the Q09 pilot, and the oracle env switches.**
+- Startup (`src/startup.cpp`, `include/realm/startup.hpp`): delete `build()`, `uploads_`/`uploads()`/`clear_uploads()`, `pulse_texture_`, `skin_texture_`, `skin_native_stale_`, `native_view_`, and `set_native_view()`. Take the RmlUi branch of every `native_view_` check. Keep the element model, `sheet()`, `store()`, `changed_regions_`, `view_uploads_`, `hit()`, and the pointer and key methods.
+- `RetainedSurface`: remove the native `SurfaceTexture` member and `rml(bool)`. Update `tests/ui_retained_tests.cpp` (native test around line 86).
+- Application (`src/application.cpp`): remove every `#ifdef REALM_RMLUI` and the `UiSurface` alias. Remove the native `else` branches for startup, the startup layer (around lines 740 to 765, including the native `is_text` fallback), and surfaces. Remove all pilot code. Remove the `REALM_DYNAMIC_ATLAS*` and `REALM_ATLAS_*` reads (around lines 240 to 243) and hard-code 12 pages, 2 initial, 120 grow frames, and 2 protect frames. Keep `text_ui && hud_art && (o.client || o.world)` for `production_ui`. Rename `production_ui` once it is the only UI.
+- Options: remove `ui_backend`, `ui_pilot`, `ui_pilot_summary`, their parse entries, and their help text. Remove `dynamic_atlas_*` and `environment_integer` if unused.
+- Oracle reads: remove the `getenv` for `REALM_TARGET_SEARCH`. Keep `TargetSearch::scan` (`include/realm/combat.hpp`) and `Scene::set_dynamic_atlas(bool)` as test-only reference APIs, since `tests/combat_target_tests.cpp` and `tests/dynamic_atlas_tests.cpp` need them. Reword their comments as test-only.
+- Delete the pilot: `src/ui_pilot*.cpp`, `src/ui_pilot_rmlui.hpp`, `include/realm/ui_pilot*.hpp`, `tests/ui_pilot_gpu_tests.py`, `tests/ui_pilot.script`, `tests/ui_pilot_phases.json`, `tools/ui_pilot_bench.py`.
+- CMake: make RmlUi unconditional (remove the option and its guards). Remove `realm_ui_pilot` and its tests. Update `cmake/ClientTargets.cmake`, `cmake/ClientBoundaries.cmake`, `cmake/header-owners.json`, and the test list near line 398 of `CMakeLists.txt`.
+- GPU tests: remove the `--ui-backend native` variant from `death_fame`, `delete_character`, `hud_overlay`, `legends`, `skin`, `startup_parity`, `ui_bundle`, and `ui_resize`.
+- Check `tests/client_boundaries_tests.py`, `tests/ui_rml_host_tests.cpp`, `tools/quality_stress.py`, and `tools/quality_baseline.py` for pilot or backend references.
+- Verify: `ctest --preset release`. Expected: the baseline failures, minus the removed pilot tests. Compare the Phase 0 captures.
+
+**Phase 2. Remove the harness and the Flash parity tooling.**
+- Remove the offline viewer `realm_viewer` (`src/main.cpp` path with `--map`, `--world`, and `--capture`). Keep only `realm_client`. Judgment call: no debug map viewer. If one is wanted later, it becomes a small separate tool.
+- Remove the harness flags listed under "Harness surface" from `src/application_options.cpp` and the code paths they select. Keep the product flags: `--client`, `--connect`, `--server`, `--app-port`, `--port`, `--username`, `--password-stdin`, `--character`, `--create`, `--game`, `--account-file`, `--settings-file`, `--flash-root`, `--audio`, `--hidden`, `--width`, `--height`, and `--help`. Keep `REALM_QUAD_CHECKSUM` (the oracle).
+- Delete the harness executables: the 25 `tools/*_inputs.cpp` and the `tests/*inputs.cpp` / `*_session_inputs.cpp` files, with their CMake entries.
+- Delete the 19 `tests/*_reference_tests.py` files, `fixtures/client-quality/`, and `tools/flash-reference/`. Delete `tools/build_flash_reference.py` and `tools/font_reference.py`. Keep `tools/import_flash.py` and the `compile_*.py` and `bake_*.py` generators only if the build still needs them (check `flash_manifest`).
+- Delete the Python tests whose only job was Flash comparison or harness input. For each remaining Python test, keep it only if it checks product behavior without Flash output. Those tests get re-labelled in Phase 6.
+- Verify: release build, then `ctest --preset release` on the remaining tests. Expect fewer tests. Record the new count and its exact list in the scratchpad.
+
+**Phase 2 decisions (user, 2026-10-13, after the inventory):**
+- realm_viewer goes. realm_client is the only binary. Its default mode is the startup flow. `--connect` (direct live join, with --username/--password-stdin/--character/--create/--game), `--map` (offline world) and `--stress`/`--stress-summary` (the rendered stress path that holds the REALM_QUAD_CHECKSUM oracle) are documented test-only modes.
+- Kept test hooks: --script, --hidden, --frames, --benchmark, --fixture-step-ms, --stress-delay, --capture, --width/--height, the status fixture flags (--hp --condition --breath --ghost --ally --ally-name --notify --damage --damage-effects --status-age --effect-time --scene-time), and the telemetry flags --telemetry, --trace and --telemetry-warmup.
+- Removed: --client, --hud (always on), --world (internal), --fonts/--hud-art, --text/--font-*, --texture, --raw-flash-bitmap, --projectile-*, --sheet, --sprites, --scale, --offset, --background, --reference-render, --orphan-stream, plus the gallery and camera fixture.
+- Kept drivers: realm_session, realm_stress, tests/*_session_inputs.cpp, delete_stale, skin_http. Deleted: all tools/*_inputs.cpp except stress_inputs (Flash comparison), options_source (Flash parity), and the 34 Flash-reference Python scripts. Deletion follows the inventory's classified list, not the `*_reference_tests.py` name pattern, which misses 15 of them.
+- fixtures/client-quality/v1 is stress workloads plus HTTP replies, not Flash data. It moves to tests/fixtures/.
+
+**Phase 3. Formatting, as one pass with no logic change.** Add `.clang-format` with `BasedOnStyle: Google` and `ColumnLimit: 120`. Google's default of 80 columns would wrap thousands of lines in this dense codebase. Naming stays as it is (snake_case functions, trailing-underscore members). Google style governs layout only. Run `clang-format -i` over `src`, `include`, `tests`, and `tools`. Verify with a full build and the checksum. Doing this after the deletions keeps the churn smaller.
+
+**Phase 4. Split `application::run()`.** With only `realm_client` left, the run loop is simpler. Move it into a `Coordinator` with separate methods for startup screens, the in-game loop, and shutdown. Move each `FunctionLayer` group into its own class under the UI views target. Keep the 15 registration order, since `ui_stack` depends on it. Verify with CTest and the checksum.
+
+**Phase 5. Consolidate duplicated helpers.** Add `Entity::stat(flash::StatId, int fallback)` or a `StatMap` method, and replace the three `stat()` copies. Move `number()`, `code_points()`, `pending()`, and `integer()` into shared headers. Verify with CTest.
+
+**Phase 6. Tests and CMake.**
+- Add CTest labels to every remaining test: `unit` (headless, no deps) and `gpu` (needs GL). Add `live` for tests that need the server. Verify `ctest -L unit` runs without a server.
+- Add a `realm_add_test(NAME ... SOURCES ... LINK ... ARGS ... LABELS ...)` CMake function to replace the hand-written triples in `CMakeLists.txt`.
+- Add `tests/README.md`: a matrix of each label, its prerequisites, and how to run it.
+- Rename test files by subsystem where the rename is cheap.
+
+**Phase 7. Split the large classes, one at a time, as they are touched.**
+- `Startup`: separate screen state, an HTTP task service (`std::async` with generation checks), and the view model.
+- `World`: move particles, status text, and sound cues into owned subsystems.
+- `Renderer`: extract post-processing, GPU timers, and stream buffers.
+- `Entity`: make fields private with accessors, or group them into sub-structs.
+- Verify each split with the checksum and CTest.
+
+**Completed (2026-10-13):** All four class splits are complete. Startup state, HTTP tasks, and view-model responsibilities live in the paths listed in Current status; its boundary ownership changes are in `cmake/ClientTargets.cmake`, `cmake/header-owners.json`, and `tests/client_boundaries_tests.py`. World now owns `include/realm/world_{feedback,particles,sounds}.hpp` and `src/world_{feedback,particles,sounds}.cpp` through `realm_game`. Renderer owns `src/renderer_post_process.{hpp,cpp}`, `src/renderer_gpu_timers.{hpp,cpp}`, and `src/renderer_stream.{hpp,cpp}`; `src/renderer_shader.hpp` is shared and owned by `realm_render`. Entity is standalone in `include/realm/entity.hpp`: motion, combat, appearance, and profile data are grouped, with `id`, `type`, `player`, and `projectile` kept flat; its size is 272 bytes with 8-byte alignment. The independent Entity caller review passed. Release build, formatting, and source diff checks passed for the splits. Startup's expanded boundary and headless stale-delete checks passed. World and Renderer incremental CTest runs each reported 72/73, with only the established `dynamic_atlas` 8-pixel mismatch. Final verification reported the same sole CTest failure; the three checksum scenarios and all three startup/UI scripts passed. Phase logs are in `/workspace/scratch/phase7/{world,renderer,entity}`.
+
+**Phase 8. Comments, docs, and process residue.**
+- Remove Q-number and Codex, handoff, and chain references from comments. Describe the invariant instead.
+- Remove Flash-parity phrasing from comments. Keep Flash names only where they name a Flash-sourced asset or class, and add a short glossary for them.
+- Rewrite `README.md` as a contributor guide: what the project is, build, run, test labels (pointing at `tests/README.md`), and an architecture map. Fix the six dead links.
+- Move `docs/progress.md`, `docs/client-task-chain.md`, and `docs/client-quality-chain.md` to `docs/history/`.
+
+**Phase 9. Final cleanup and history.**
+1. Add `.claude/agent-memory-local/` to `.gitignore`, and untrack it from the index.
+2. Run the full verification: Release build, `ctest --preset release`, then `ctest --preset sanitize` on its own.
+3. Delete the nine `build*` directories at the repo root. Do this after verification, since they are needed for it.
+4. Squash history (see below).
+
+## Final history: squash to one "Initial commit"
+
+After the refactor is complete, squash the realm-cpp history into one root commit named "Initial commit". The user writes the later commit messages. The user also decided on this during the refactor, so no commits happen before it.
+
+Facts checked 2026-10-13:
+- Repo: `realm-cpp` (the outer `RotMG` folder is not a git repo). 16 commits on `main` (HEAD `cdb66d0`), root `4396147`. No tags, no stashes.
+- Remote: `origin` = `https://github.com/kevinbudz/realm-cpp.git`. Remote branches `origin/main` and `origin/codex/q08-boundaries`. PR #1 was merged from the Codex branch. Squashing and force-pushing rewrites public history and affects that branch.
+- Steps, each needing confirmation at execution time:
+  1. Confirm the refactor is finished and the tree is clean (nothing uncommitted that should be dropped).
+  2. Save a backup bundle outside the repo (for example `git bundle create <scratchpad>/realm-cpp-pre-squash.bundle --all`). Do not add a tag inside the repo, since that keeps the old history reachable.
+  3. Create an orphan branch from the final tree and commit it as "Initial commit". Do not add any `Co-Authored-By` or other attribution line.
+  4. Replace `main` with it. Force-push only after the user confirms. Ask what to do with `codex/q08-boundaries` (delete it or leave it).
+- Never run `git push --force` or delete remote branches without an explicit confirmation at the time.
+
+## Open decisions
+
+1. Whether to delete `codex/q08-boundaries` on the remote after the squash. Decide at execution time.
+2. Whether `tools/compile_*.py` and `tools/bake_*.py` stay (Phase 2 checks what the build still needs).
+
+## Why
+
+The user wants the codebase easy to read, modify, and extend for agents and human contributors.
+Related memory: [[client-quality-chain]] (the chain is finished; Q19 will not be dispatched), [[client-task-chain]] (historical).
+
+## How to apply
+
+Start at Phase 0. Confirm each phase's verification before moving on. Report regressions only after confirming them against the baseline above.

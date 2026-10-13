@@ -99,6 +99,7 @@
   "src/core/ApplicationState.hpp": "realm_application",
   "src/core/ApplicationLayers.hpp": "realm_application",
   "src/core/ApplicationLoop.hpp": "realm_application",
+  "src/core/ApplicationLoopDetail.hpp": "realm_application",
   "include/realm/game/view/CreditDisplay.hpp": "realm_ui",
   "include/realm/game/view/SafeAreaDisplay.hpp": "realm_ui",
   "include/realm/ui/tooltip/MyPlayerToolTip.hpp": "realm_ui",

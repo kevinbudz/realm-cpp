@@ -76,8 +76,8 @@ target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 Z
 realm_library(realm_assets src/engine3d/Model3D.cpp src/util/Image.cpp src/util/AnimatedChars.cpp src/util/ProcessedTextures.cpp src/util/TextureRedrawer.cpp
     src/map/Terrain.cpp src/ui/fonts/FontBook.cpp src/util/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
 target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::Freetype ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_ui src/hud/Hud.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/MyPlayerToolTip.cpp src/hud/HudInput.cpp src/minimap/MiniMap.cpp src/ui/tooltip/EquipmentToolTip.cpp src/ui/tooltip/EquipmentToolTipContent.cpp src/ui/tooltip/PlayerToolTip.cpp
-    src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyOverlay.cpp src/ui/Chat.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
+realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/MyPlayerToolTip.cpp src/hud/HudInput.cpp src/minimap/MiniMap.cpp src/ui/tooltip/EquipmentToolTip.cpp src/ui/tooltip/EquipmentToolTipContent.cpp src/ui/tooltip/PlayerToolTip.cpp
+    src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyOverlay.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
     src/ui/Scrollbar.cpp src/ui/board/GuildBoardWindow.cpp src/ui/guild/GuildPlayerList.cpp src/ui/TradePanel.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/CharacterSkinListView.cpp
     src/ui/options/Options.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/UIStack.cpp)
 target_link_libraries(realm_ui PUBLIC realm_assets)

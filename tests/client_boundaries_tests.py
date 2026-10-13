@@ -65,10 +65,8 @@ def main():
             assert source not in owners, f'{source} compiled by multiple libraries'
             owners[source] = owner
             failures += violations((ROOT / source).read_text(), source, owner, closure(targets, owner))
-    assert set(HEADERS) == {str(p.relative_to(ROOT)) for p in (ROOT/'include/realm').glob('*.hpp')} | {
-        str(p.relative_to(ROOT)) for p in (ROOT/'src').glob('application_*.hpp')} | {
-        str(p.relative_to(ROOT)) for p in (ROOT/'src').glob('startup_*.hpp')} | {
-        str(p.relative_to(ROOT)) for p in (ROOT/'src').glob('renderer_*.hpp')}, 'Public/internal header missing an owner'
+    assert set(HEADERS) == {str(p.relative_to(ROOT)) for p in (ROOT/'include/realm').rglob('*.hpp')} | {
+        str(p.relative_to(ROOT)) for p in (ROOT/'src').rglob('*.hpp')}, 'Public/internal header missing an owner'
     for header, owner in HEADERS.items():
         # Graphics owners are optional in a headless build; their headers are
         # audited against the actual dependency graph in graphics builds.
@@ -77,10 +75,10 @@ def main():
         elif owner not in GRAPHICS:
             assert False, f'Headless owner absent: {owner}'
     # Prove this checker rejects the regressions it is meant to prevent.
-    for spelling in ['"realm/renderer.hpp"', '<realm/renderer.hpp>']:
-        assert violations('#include ' + spelling, 'src/world.cpp', 'realm_game', closure(targets, 'realm_game'))
-    assert violations('#include <GL/glew.h>', 'src/font.cpp', 'realm_assets', closure(targets, 'realm_assets'))
-    assert violations('#include "realm/hud.hpp"', 'include/realm/model.hpp', 'realm_assets', closure(targets, 'realm_assets', True))
+    for spelling in ['"realm/stage3D/Renderer.hpp"', '<realm/stage3D/Renderer.hpp>']:
+        assert violations('#include ' + spelling, 'src/map/Map.cpp', 'realm_game', closure(targets, 'realm_game'))
+    assert violations('#include <GL/glew.h>', 'src/ui/fonts/FontBook.cpp', 'realm_assets', closure(targets, 'realm_assets'))
+    assert violations('#include "realm/hud/Hud.hpp"', 'include/realm/engine3d/Model3D.hpp', 'realm_assets', closure(targets, 'realm_assets', True))
     assert not failures, '\n'.join(failures)
     print(f'Client boundaries: {len(targets)} libraries, {len(owners)} sources, {len(HEADERS)} public/internal headers; upward and graphics includes rejected')
 

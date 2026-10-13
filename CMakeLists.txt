@@ -82,21 +82,21 @@ add_custom_target(flash_manifest DEPENDS "${GENERATED_DIR}/flash_models.hpp" "${
 
 include(cmake/ClientTargets.cmake)
 
-add_executable(realm_session src/session_main.cpp)
+add_executable(realm_session src/SessionMain.cpp)
 target_link_libraries(realm_session PRIVATE realm_game realm_ui)
 
-add_executable(realm_stress tools/stress_inputs.cpp)
+add_executable(realm_stress tools/StressInputs.cpp)
 target_link_libraries(realm_stress PRIVATE nlohmann_json::nlohmann_json realm_assets realm_fixtures realm_game realm_support)
 
-add_executable(realm_dye_session_inputs tests/dye_session_inputs.cpp)
+add_executable(realm_dye_session_inputs tests/DyeSessionInputs.cpp)
 target_link_libraries(realm_dye_session_inputs PRIVATE nlohmann_json::nlohmann_json realm_assets realm_game realm_ui)
 
 if(REALM_BUILD_VIEWER)
     # realm_client is the only product binary; it links the coordinator, platform and render implementations.
-    add_executable(realm_client src/main.cpp)
+    add_executable(realm_client src/Main.cpp)
     target_link_libraries(realm_client PRIVATE realm_application)
     if(REALM_ALLOCATION_TRACKING)
-        target_sources(realm_client PRIVATE src/allocation_tracking.cpp)
+        target_sources(realm_client PRIVATE src/util/AllocationTracking.cpp)
     endif()
     if(REALM_IPO_AVAILABLE AND NOT REALM_SANITIZERS)
         set_property(TARGET realm_client PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
@@ -106,10 +106,10 @@ endif()
 include(cmake/RealmTests.cmake)
 if(BUILD_TESTING)
     realm_add_test(NAME legends TARGET realm_legends_tests LABELS unit
-        SOURCES tests/legends_tests.cpp LINK realm_game
+        SOURCES tests/LegendsTests.cpp LINK realm_game
         ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/legends.xml")
     realm_add_test(NAME fame TARGET realm_fame_tests LABELS unit
-        SOURCES tests/fame_tests.cpp LINK realm_game
+        SOURCES tests/FameTests.cpp LINK realm_game
         ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/death-fame.xml")
     realm_add_test(NAME stress_session_guards TARGET realm_stress LABELS unit ARGS --guards)
     realm_add_python_test(NAME stress_timeline LABELS unit
@@ -130,19 +130,19 @@ if(BUILD_TESTING)
             ARGS "$<TARGET_FILE:realm_stress>" "$<TARGET_FILE:realm_client>")
     endif()
     realm_add_test(NAME telemetry TARGET realm_telemetry_tests LABELS unit
-        SOURCES tests/telemetry_tests.cpp LINK nlohmann_json::nlohmann_json realm_support
+        SOURCES tests/TelemetryTests.cpp LINK nlohmann_json::nlohmann_json realm_support
         ARGS "${CMAKE_CURRENT_BINARY_DIR}/telemetry-test")
     if(REALM_AUDIO)
         realm_add_test(NAME audio TARGET realm_audio_tests LABELS unit
-            SOURCES tests/audio_tests.cpp LINK realm_audio
+            SOURCES tests/AudioTests.cpp LINK realm_audio
             ARGS "${CMAKE_CURRENT_BINARY_DIR}/audio-test")
         # Game events queue the Flash sounds they should (SoundCues), checked against the real catalog; CPU only.
         realm_add_test(NAME audio_events TARGET realm_audio_events_tests LABELS unit
-            SOURCES tests/audio_events_tests.cpp LINK realm_game realm_audio)
+            SOURCES tests/AudioEventsTests.cpp LINK realm_game realm_audio)
     endif()
     if(REALM_ALLOCATION_TRACKING)
         realm_add_test(NAME allocation_tracking TARGET realm_allocation_tracking_tests LABELS unit
-            SOURCES tests/allocation_tracking_tests.cpp src/allocation_tracking.cpp
+            SOURCES tests/AllocationTrackingTests.cpp src/util/AllocationTracking.cpp
             LINK nlohmann_json::nlohmann_json realm_support
             ARGS "${CMAKE_CURRENT_BINARY_DIR}/allocation-test.jsonl")
     endif()
@@ -150,158 +150,158 @@ if(BUILD_TESTING)
         realm_add_python_test(NAME telemetry_gpu LABELS gpu
             SCRIPT tests/telemetry_gpu_tests.py ARGS "$<TARGET_FILE:realm_client>")
     endif()
-    add_executable(realm_postfx_session_inputs tests/postfx_session_inputs.cpp)
+    add_executable(realm_postfx_session_inputs tests/PostfxSessionInputs.cpp)
     target_link_libraries(realm_postfx_session_inputs PRIVATE realm_game)
-    add_executable(realm_status_session_inputs tests/status_session_inputs.cpp)
+    add_executable(realm_status_session_inputs tests/StatusSessionInputs.cpp)
     target_link_libraries(realm_status_session_inputs PRIVATE realm_game)
-    add_executable(realm_particle_session_inputs tests/particle_session_inputs.cpp)
+    add_executable(realm_particle_session_inputs tests/ParticleSessionInputs.cpp)
     target_link_libraries(realm_particle_session_inputs PRIVATE realm_game)
-    add_executable(realm_model_session_inputs tests/model_session_inputs.cpp)
+    add_executable(realm_model_session_inputs tests/ModelSessionInputs.cpp)
     target_link_libraries(realm_model_session_inputs PRIVATE realm_assets realm_game)
     realm_add_test(NAME status_rules TARGET realm_status_rules_tests LABELS unit
-        SOURCES tests/status_rules_tests.cpp LINK realm_assets)
+        SOURCES tests/StatusRulesTests.cpp LINK realm_assets)
     realm_add_test(NAME postfx_rules TARGET realm_postfx_rules_tests LABELS unit
-        SOURCES tests/postfx_rules_tests.cpp LINK realm_assets realm_game)
+        SOURCES tests/PostfxRulesTests.cpp LINK realm_assets realm_game)
     realm_add_test(NAME models TARGET realm_model_tests LABELS unit
-        SOURCES tests/model_tests.cpp LINK realm_assets realm_game)
+        SOURCES tests/ModelTests.cpp LINK realm_assets realm_game)
     realm_add_test(NAME particles TARGET realm_particle_tests LABELS unit
-        SOURCES tests/particle_tests.cpp LINK realm_game)
+        SOURCES tests/ParticleTests.cpp LINK realm_game)
     realm_add_test(NAME dyes_masks TARGET realm_dye_tests LABELS unit
-        SOURCES tests/dye_tests.cpp LINK realm_assets realm_ui)
+        SOURCES tests/DyeTests.cpp LINK realm_assets realm_ui)
     if(REALM_BUILD_VIEWER)
         realm_add_test(NAME postfx TARGET realm_postfx_tests LABELS gpu
-            SOURCES tests/postfx_tests.cpp
+            SOURCES tests/PostfxTests.cpp
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_game realm_render
             DEFINES SDL_MAIN_HANDLED)
         realm_add_test(NAME visibility_culling TARGET realm_visibility_tests LABELS gpu
-            SOURCES tests/visibility_tests.cpp
+            SOURCES tests/VisibilityTests.cpp
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_render
             DEFINES SDL_MAIN_HANDLED)
         realm_add_test(NAME frame_caches TARGET realm_frame_cache_tests LABELS gpu
-            SOURCES tests/frame_cache_tests.cpp LINK realm_ui_gpu realm_platform_sdl)
+            SOURCES tests/FrameCacheTests.cpp LINK realm_ui_gpu realm_platform_sdl)
         realm_add_test(NAME model_instances TARGET realm_model_instance_tests LABELS gpu
-            SOURCES tests/model_instance_tests.cpp
+            SOURCES tests/ModelInstanceTests.cpp
             LINK realm_render GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_game
             DEFINES SDL_MAIN_HANDLED)
         realm_add_test(NAME dynamic_atlas TARGET realm_dynamic_atlas_tests LABELS gpu
-            SOURCES tests/dynamic_atlas_tests.cpp
+            SOURCES tests/DynamicAtlasTests.cpp
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_render
             DEFINES SDL_MAIN_HANDLED)
         realm_add_python_test(NAME status_gpu LABELS gpu SCRIPT tests/status_gpu_tests.py)
         realm_add_python_test(NAME options_gpu LABELS gpu SCRIPT tests/options_gpu_tests.py)
         # The RmlUi host's retained invalidation, input, clipping and lifetime on real fonts, art and GL.
         realm_add_test(NAME ui_rml_host TARGET realm_ui_rml_host_tests LABELS gpu
-            SOURCES tests/ui_rml_host_tests.cpp
+            SOURCES tests/UiRmlHostTests.cpp
             LINK realm_ui_rmlui realm_platform_sdl RmlUi::Core GLEW::GLEW OpenGL::GL SDL2::SDL2
             DEFINES SDL_MAIN_HANDLED)
         realm_add_test(NAME ui_retained TARGET realm_ui_retained_tests LABELS gpu
-            SOURCES tests/ui_retained_tests.cpp
+            SOURCES tests/UiRetainedTests.cpp
             LINK realm_ui_views realm_platform_sdl GLEW::GLEW OpenGL::GL SDL2::SDL2
             DEFINES SDL_MAIN_HANDLED)
         realm_add_python_test(NAME ui_bundle_gpu LABELS gpu SCRIPT tests/ui_bundle_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/ui-bundle")
         realm_add_test(NAME sdl_keys TARGET realm_sdl_keys_tests LABELS gpu
-            SOURCES tests/sdl_keys_tests.cpp LINK SDL2::SDL2 realm_game realm_platform_sdl)
+            SOURCES tests/SdlKeysTests.cpp LINK SDL2::SDL2 realm_game realm_platform_sdl)
         realm_add_python_test(NAME legends_gpu LABELS gpu SCRIPT tests/legends_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/legends-gpu")
         realm_add_python_test(NAME death_fame_gpu LABELS gpu SCRIPT tests/death_fame_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/death-fame-gpu")
         realm_add_python_test(NAME delete_character_gpu LABELS gpu SCRIPT tests/delete_character_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/delete-character-gpu")
-        add_executable(realm_delete_stale_inputs tests/delete_stale_inputs.cpp)
+        add_executable(realm_delete_stale_inputs tests/DeleteStaleInputs.cpp)
         target_link_libraries(realm_delete_stale_inputs PRIVATE realm_startup)
         realm_add_python_test(NAME delete_character_stale LABELS unit
             SCRIPT tests/delete_stale_tests.py ARGS "$<TARGET_FILE:realm_delete_stale_inputs>")
     endif()
-    add_executable(realm_skin_session_inputs tests/skin_session_inputs.cpp)
+    add_executable(realm_skin_session_inputs tests/SkinSessionInputs.cpp)
     target_link_libraries(realm_skin_session_inputs PRIVATE realm_game realm_ui)
-    add_executable(realm_skin_http_inputs tests/skin_http_inputs.cpp)
+    add_executable(realm_skin_http_inputs tests/SkinHttpInputs.cpp)
     target_link_libraries(realm_skin_http_inputs PRIVATE realm_ui)
     realm_add_python_test(NAME skins_http LABELS unit
         SCRIPT tests/skin_http_tests.py ARGS "$<TARGET_FILE:realm_skin_http_inputs>")
     realm_add_test(NAME skins TARGET realm_skin_tests LABELS unit
-        SOURCES tests/skin_tests.cpp LINK realm_ui)
+        SOURCES tests/SkinTests.cpp LINK realm_ui)
     realm_add_test(NAME ui_stack TARGET realm_ui_stack_tests LABELS unit
-        SOURCES tests/ui_stack_tests.cpp LINK realm_ui)
+        SOURCES tests/UiStackTests.cpp LINK realm_ui)
     realm_add_test(NAME hud_credit_safe_area TARGET realm_hud_credit_safe_area_tests LABELS unit
-        SOURCES tests/hud_credit_safe_area_tests.cpp LINK realm_ui)
+        SOURCES tests/HudCreditSafeAreaTests.cpp LINK realm_ui)
     realm_add_test(NAME ui_surfaces TARGET realm_ui_resize_tests LABELS unit
-        SOURCES tests/ui_resize_tests.cpp LINK realm_ui)
+        SOURCES tests/UiResizeTests.cpp LINK realm_ui)
     realm_add_test(NAME core_parity TARGET realm_core_tests LABELS unit
-        SOURCES tests/core_tests.cpp LINK realm_network realm_support)
+        SOURCES tests/CoreTests.cpp LINK realm_network realm_support)
     realm_add_test(NAME catalog_world TARGET realm_data_tests LABELS unit
-        SOURCES tests/data_tests.cpp LINK realm_game)
+        SOURCES tests/DataTests.cpp LINK realm_game)
     realm_add_test(NAME player_movement TARGET realm_movement_tests LABELS unit
-        SOURCES tests/movement_tests.cpp LINK realm_game)
+        SOURCES tests/MovementTests.cpp LINK realm_game)
     realm_add_test(NAME projectile_combat TARGET realm_combat_tests LABELS unit
-        SOURCES tests/combat_tests.cpp LINK realm_game)
+        SOURCES tests/CombatTests.cpp LINK realm_game)
     realm_add_test(NAME projectile_target_search TARGET realm_combat_target_tests LABELS unit
-        SOURCES tests/combat_target_tests.cpp LINK realm_game)
+        SOURCES tests/CombatTargetTests.cpp LINK realm_game)
     realm_add_test(NAME world_queries TARGET realm_world_query_tests LABELS unit
-        SOURCES tests/world_query_tests.cpp LINK realm_assets realm_game realm_ui)
+        SOURCES tests/WorldQueryTests.cpp LINK realm_assets realm_game realm_ui)
     realm_add_test(NAME appearance_compose TARGET realm_compose_tests LABELS unit
-        SOURCES tests/compose_tests.cpp LINK realm_assets)
+        SOURCES tests/ComposeTests.cpp LINK realm_assets)
     realm_add_test(NAME ui_rectangle TARGET realm_ui_rectangle_tests LABELS unit
-        SOURCES tests/ui_rectangle_tests.cpp LINK realm_assets)
+        SOURCES tests/UiRectangleTests.cpp LINK realm_assets)
     realm_add_test(NAME world_storage TARGET realm_world_storage_tests LABELS unit
-        SOURCES tests/world_storage_tests.cpp LINK realm_game)
+        SOURCES tests/WorldStorageTests.cpp LINK realm_game)
     realm_add_test(NAME texture_residency TARGET realm_texture_residency_tests LABELS unit
-        SOURCES tests/texture_residency_tests.cpp LINK realm_support)
+        SOURCES tests/TextureResidencyTests.cpp LINK realm_support)
     realm_add_test(NAME party_members TARGET realm_party_tests LABELS unit
-        SOURCES tests/party_tests.cpp LINK realm_game)
+        SOURCES tests/PartyTests.cpp LINK realm_game)
     realm_add_test(NAME inventory_actions TARGET realm_inventory_tests LABELS unit
-        SOURCES tests/inventory_tests.cpp LINK realm_game realm_ui)
+        SOURCES tests/InventoryTests.cpp LINK realm_game realm_ui)
     realm_add_test(NAME interaction_panels TARGET realm_interaction_tests LABELS unit
-        SOURCES tests/interaction_tests.cpp LINK realm_ui)
+        SOURCES tests/InteractionTests.cpp LINK realm_ui)
     realm_add_test(NAME item_tooltips TARGET realm_tooltip_tests LABELS unit
-        SOURCES tests/tooltip_tests.cpp LINK realm_game realm_ui)
+        SOURCES tests/TooltipTests.cpp LINK realm_game realm_ui)
     realm_add_test(NAME player_tooltips TARGET realm_player_tooltip_tests LABELS unit
-        SOURCES tests/player_tooltip_tests.cpp LINK realm_ui)
+        SOURCES tests/PlayerTooltipTests.cpp LINK realm_ui)
     realm_add_test(NAME guild_members TARGET realm_guild_members_tests LABELS unit
-        SOURCES tests/guild_members_tests.cpp LINK realm_game realm_ui)
+        SOURCES tests/GuildMembersTests.cpp LINK realm_game realm_ui)
     realm_add_python_test(NAME guild_members_http LABELS unit
         SCRIPT tests/guild_members_http_tests.py ARGS "$<TARGET_FILE:realm_guild_members_tests>")
     realm_add_test(NAME guild_board TARGET realm_guild_board_tests LABELS unit
-        SOURCES tests/guild_board_tests.cpp LINK realm_ui)
+        SOURCES tests/GuildBoardTests.cpp LINK realm_ui)
     realm_add_python_test(NAME guild_board_http LABELS unit
         SCRIPT tests/guild_board_http_tests.py ARGS "$<TARGET_FILE:realm_guild_board_tests>")
     realm_add_test(NAME preferences TARGET realm_preferences_tests LABELS unit
-        SOURCES tests/preferences_tests.cpp LINK realm_game realm_ui)
+        SOURCES tests/PreferencesTests.cpp LINK realm_game realm_ui)
     realm_add_test(NAME options TARGET realm_options_tests LABELS unit
-        SOURCES tests/options_tests.cpp LINK realm_ui
+        SOURCES tests/OptionsTests.cpp LINK realm_ui
         ARGS "${CMAKE_CURRENT_BINARY_DIR}/options-test")
     realm_add_test(NAME dialogs TARGET realm_dialog_tests LABELS unit
-        SOURCES tests/dialog_tests.cpp LINK realm_ui)
+        SOURCES tests/DialogTests.cpp LINK realm_ui)
     realm_add_test(NAME trade TARGET realm_trade_tests LABELS unit
-        SOURCES tests/trade_tests.cpp LINK realm_ui)
+        SOURCES tests/TradeTests.cpp LINK realm_ui)
     realm_add_test(NAME chat TARGET realm_chat_tests LABELS unit
-        SOURCES tests/chat_tests.cpp LINK realm_ui)
+        SOURCES tests/ChatTests.cpp LINK realm_ui)
     realm_add_test(NAME player_menus TARGET realm_player_menu_tests LABELS unit
-        SOURCES tests/player_menu_tests.cpp LINK realm_ui)
-    add_executable(realm_social_session_inputs tests/social_session_inputs.cpp)
+        SOURCES tests/PlayerMenuTests.cpp LINK realm_ui)
+    add_executable(realm_social_session_inputs tests/SocialSessionInputs.cpp)
     target_link_libraries(realm_social_session_inputs PRIVATE realm_game)
     realm_add_python_test(NAME social_loopback LABELS unit
         SCRIPT tests/social_session_tests.py ARGS "$<TARGET_FILE:realm_social_session_inputs>")
-    add_executable(realm_inventory_session_inputs tests/inventory_session_inputs.cpp)
+    add_executable(realm_inventory_session_inputs tests/InventorySessionInputs.cpp)
     target_link_libraries(realm_inventory_session_inputs PRIVATE realm_game)
     realm_add_python_test(NAME inventory_loopback LABELS unit
         SCRIPT tests/inventory_session_tests.py ARGS "$<TARGET_FILE:realm_inventory_session_inputs>")
     realm_add_test(NAME animation_parity TARGET realm_animation_tests LABELS unit
-        SOURCES tests/animation_tests.cpp LINK realm_assets)
+        SOURCES tests/AnimationTests.cpp LINK realm_assets)
     realm_add_test(NAME terrain_cache TARGET realm_terrain_tests LABELS unit
-        SOURCES tests/terrain_tests.cpp LINK realm_assets)
-    add_executable(realm_teleport_session_inputs tests/teleport_session_inputs.cpp)
+        SOURCES tests/TerrainTests.cpp LINK realm_assets)
+    add_executable(realm_teleport_session_inputs tests/TeleportSessionInputs.cpp)
     target_link_libraries(realm_teleport_session_inputs PRIVATE realm_game realm_ui)
     realm_add_python_test(NAME teleport_loopback LABELS unit
         SCRIPT tests/teleport_session_tests.py ARGS "$<TARGET_FILE:realm_teleport_session_inputs>")
-    add_executable(realm_party_arrow_session_inputs tests/party_arrow_session_inputs.cpp)
+    add_executable(realm_party_arrow_session_inputs tests/PartyArrowSessionInputs.cpp)
     target_link_libraries(realm_party_arrow_session_inputs PRIVATE realm_game realm_ui)
     realm_add_test(NAME party_arrows TARGET realm_party_arrow_tests LABELS unit
-        SOURCES tests/party_arrow_tests.cpp LINK realm_ui)
+        SOURCES tests/PartyArrowTests.cpp LINK realm_ui)
     realm_add_test(NAME player_groups TARGET realm_player_group_tests LABELS unit
-        SOURCES tests/player_group_tests.cpp LINK realm_ui)
+        SOURCES tests/PlayerGroupTests.cpp LINK realm_ui)
     realm_add_test(NAME minimap_cache TARGET realm_minimap_cache_tests LABELS unit
-        SOURCES tests/minimap_cache_tests.cpp LINK realm_ui)
+        SOURCES tests/MinimapCacheTests.cpp LINK realm_ui)
     realm_add_python_test(NAME session_loopback LABELS unit
         SCRIPT tests/session_tests.py ARGS "$<TARGET_FILE:realm_session>")
     realm_add_python_test(NAME flash_import LABELS unit

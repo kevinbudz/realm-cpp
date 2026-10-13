@@ -40,7 +40,7 @@ or a `*_gpu` script must also be added to `REALM_GPU_TESTS` in `CMakeLists.txt`,
 Test data is in `tests/fixtures/`, described by `tests/fixtures/README.md`. It includes the legends and death-fame XML
 used by unit tests, the stress manifests, and `index.json`, which lists the pinned workloads.
 
-The `*_session_inputs.cpp`, `skin_http_inputs.cpp` and `delete_stale_inputs.cpp` files are small drivers. CMake builds
+The `*_session_inputs.cpp`, `SkinHttpInputs.cpp` and `DeleteStaleInputs.cpp` files are small drivers. CMake builds
 them as executables, and the Python loopback tests run them.
 
 `tests/client_boundaries_tests.py` reads `build/client-boundaries.tsv`, which configure writes. Rerun configure if it is missing.

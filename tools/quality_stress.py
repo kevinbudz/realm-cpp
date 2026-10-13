@@ -98,7 +98,7 @@ def main():
     if a.list:print('\n'.join(index['scenarios']));return
     if a.warmup_seconds<0 or a.measure_seconds<=0 or a.repeats<1:p.error('Invalid duration/repetitions')
     warmup=round(a.warmup_seconds*50);ticks=warmup+max(1,round(a.measure_seconds*50));out=a.output.resolve();out.mkdir(parents=True,exist_ok=True)
-    source=[*ROOT.glob('src/*'),*ROOT.glob('include/realm/*'),ROOT/'CMakeLists.txt']
+    source=[*(p for p in ROOT.glob('src/**/*') if p.is_file()),*(p for p in ROOT.glob('include/realm/**/*') if p.is_file()),ROOT/'CMakeLists.txt']
     inventory={str(f.relative_to(ROOT)):digest(f) for f in source if f.is_file()}
     manifests={n:digest(FIXTURES/index['scenarios'][n]) for n in names}
     write(out/'environment.json',dict(platform=platform.platform(),cpu=platform.processor(),uname=list(platform.uname()),head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),dirty=subprocess.check_output(['git','status','--short'],cwd=ROOT,text=True),source=inventory,manifest_hashes=manifests,environment={k:os.environ.get(k) for k in ['DISPLAY','WAYLAND_DISPLAY','SDL_VIDEODRIVER']},target='v1 full quality, vsync0 cap0',warmup_ticks=warmup,measure_ticks=ticks-warmup,repeats=a.repeats,assets={str(f.relative_to(ROOT.parent)):digest(f) for folder in [ROOT.parent/'realm-client/src/kabam/rotmg/assets',ROOT.parent/'realm-client/src/com/company/ui/fonts'] for f in folder.rglob('*') if f.is_file()},map=digest(ROOT.parent/'realm-server/Resources/Worlds/Nexus/0.jm'),binaries={str(x):digest(x) for x in [a.viewer.resolve()]+([a.compare.resolve()] if a.compare else [])}))

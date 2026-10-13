@@ -1,9 +1,9 @@
-#include "realm/ui/TradePanel.hpp"
+#include "realm/ui/Trade.hpp"
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/ui/menu/PlayerMenu.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
-#include "realm/objects/Player.hpp"
+#include "realm/objects/Movement.hpp"
 #include <chrono>
 #include <cmath>
 #include <iostream>

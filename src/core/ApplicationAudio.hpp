@@ -1,6 +1,6 @@
 #pragma once
 #include "ApplicationOptions.hpp"
-#include "realm/parameters/Parameters.hpp"
+#include "realm/parameters/Settings.hpp"
 #include "realm/sound/SoundCues.hpp"
 #include <memory>
 #include <string>

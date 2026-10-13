@@ -1,4 +1,4 @@
-#include "realm/ui/tooltip/EquipmentToolTip.hpp"
+#include "realm/ui/tooltip/ItemTooltip.hpp"
 #include "realm/util/ItemData.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>

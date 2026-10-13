@@ -1,10 +1,10 @@
 #pragma once
-#include "realm/util/AnimatedChars.hpp"
-#include "realm/util/TextureRedrawer.hpp"
+#include "realm/util/AnimationLibrary.hpp"
+#include "realm/util/Appearances.hpp"
 #include "realm/util/ProcessedTextures.hpp"
 #include "realm/map/Terrain.hpp"
 #include "realm/stage3D/Renderer.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include "realm/objects/StatusArt.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/TextureResidency.hpp"

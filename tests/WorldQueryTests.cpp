@@ -4,8 +4,8 @@
 // per-frame entity sets (moving, enemies, minimap markers, players, merchants, dynamic/static grid) must visit exactly
 // what the original full passes visited, in the same order; World::update is compared with the original whole-list
 // pass.
-#include "realm/util/TextureRedrawer.hpp"
-#include "realm/minimap/MiniMap.hpp"
+#include "realm/util/Appearances.hpp"
+#include "realm/minimap/Minimap.hpp"
 #include "realm/objects/Party.hpp"
 #include <cstring>
 #include <map>
@@ -344,7 +344,7 @@ void sets_differential(const realm::Catalog& catalog) {
         }
         world.apply(tick, rng() % 2 ? 127.0 : 20 + unit(rng) * 200);
       } else if (op == 10) {
-        // Player.cpp writes the focus player's velocity directly; then the focus may change.
+        // Movement.cpp writes the focus player's velocity directly; then the focus may change.
         if (auto* focus = world.entity(world.player_id()))
           focus->motion.velocity = {(unit(rng) * 2 - 1) * .01, (unit(rng) * 2 - 1) * .01};
         if (rng() % 2) {

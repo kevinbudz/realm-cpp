@@ -1,5 +1,5 @@
 #include "realm/ui/menu/PlayerGroup.hpp"
-#include "realm/minimap/MiniMap.hpp"
+#include "realm/minimap/Minimap.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
 namespace {

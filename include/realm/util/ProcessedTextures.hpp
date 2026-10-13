@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/util/AnimatedChars.hpp"
+#include "realm/util/AnimationLibrary.hpp"
 #include <unordered_map>
 namespace realm {
 [[nodiscard]] std::string static_texture_key(int sheet, int index, int size, bool pad_bottom = false);

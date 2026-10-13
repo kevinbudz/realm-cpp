@@ -1,4 +1,4 @@
-#include "realm/map/partyoverlay/PartyOverlay.hpp"
+#include "realm/map/partyoverlay/PartyArrows.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "flash_assets.hpp"
 #include <iostream>

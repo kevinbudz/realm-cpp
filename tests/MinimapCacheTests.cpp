@@ -1,4 +1,4 @@
-#include "realm/minimap/MiniMap.hpp"
+#include "realm/minimap/Minimap.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
 #include <limits>

@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/util/Image.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include <memory>
 #include <span>
 namespace realm {

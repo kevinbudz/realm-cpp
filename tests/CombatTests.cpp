@@ -1,7 +1,7 @@
 #include "realm/objects/Combat.hpp"
 #include "flash_assets.hpp"
 #include "realm/util/ItemData.hpp"
-#include "realm/objects/Player.hpp"
+#include "realm/objects/Movement.hpp"
 #include <iostream>
 #include <stdexcept>
 namespace {

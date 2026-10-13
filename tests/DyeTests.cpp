@@ -1,6 +1,6 @@
-#include "realm/util/TextureRedrawer.hpp"
+#include "realm/util/Appearances.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
-#include "realm/ui/tooltip/PlayerToolTip.hpp"
+#include "realm/ui/tooltip/PlayerTooltip.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
 #include <stdexcept>

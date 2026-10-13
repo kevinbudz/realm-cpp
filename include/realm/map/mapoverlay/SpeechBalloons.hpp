@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/map/Camera.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include "realm/messaging/Messages.hpp"
 #include "realm/ui/fonts/FontBook.hpp"
 #include "realm/util/Image.hpp"

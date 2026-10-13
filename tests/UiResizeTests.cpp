@@ -1,8 +1,8 @@
 #include "realm/hud/Hud.hpp"
 #include "realm/ui/dialogs/InteractionDialog.hpp"
-#include "realm/minimap/MiniMap.hpp"
-#include "realm/ui/tooltip/PlayerToolTip.hpp"
-#include "realm/ui/tooltip/EquipmentToolTip.hpp"
+#include "realm/minimap/Minimap.hpp"
+#include "realm/ui/tooltip/PlayerTooltip.hpp"
+#include "realm/ui/tooltip/ItemTooltip.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>

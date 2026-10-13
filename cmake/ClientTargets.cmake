@@ -37,7 +37,7 @@ if(REALM_IPO_AVAILABLE AND NOT REALM_SANITIZERS)
     set_property(TARGET realm_support PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
 realm_library(realm_platform src/platform/Platform.cpp)
-realm_library(realm_network src/messaging/Protocol.cpp src/messaging/Messages.cpp src/net/SocketServer.cpp src/appengine/AppEngineClient.cpp)
+realm_library(realm_network src/messaging/Protocol.cpp src/messaging/Messages.cpp src/net/Transport.cpp src/net/Http.cpp)
 target_link_libraries(realm_network PUBLIC realm_support)
 if(WIN32)
     target_link_libraries(realm_network PRIVATE ws2_32)
@@ -69,17 +69,17 @@ if(REALM_AUDIO)
     target_link_libraries(realm_audio PRIVATE realm_network realm_miniaudio Threads::Threads)
     target_compile_definitions(realm_audio PRIVATE "REALM_SFX_ROOT_DEFAULT=\"${REALM_SFX_ROOT_PATH}\"")
 endif()
-realm_library(realm_game src/objects/ObjectLibrary.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
-    src/map/WorldSoundEvents.cpp src/map/Map.cpp src/messaging/GameServerConnection.cpp src/objects/Player.cpp
-    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/fame/CharacterFame.cpp src/legends/Legend.cpp src/ui/guild/GuildMember.cpp src/parameters/Parameters.cpp src/map/PostEffects.cpp)
+realm_library(realm_game src/objects/Catalog.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
+    src/map/WorldSoundEvents.cpp src/map/World.cpp src/messaging/Session.cpp src/objects/Movement.cpp
+    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/fame/CharacterFame.cpp src/legends/Legend.cpp src/ui/guild/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_assets src/engine3d/Model3D.cpp src/util/Image.cpp src/util/AnimatedChars.cpp src/util/ProcessedTextures.cpp src/util/TextureRedrawer.cpp
+realm_library(realm_assets src/engine3d/Model3D.cpp src/util/Image.cpp src/util/AnimationLibrary.cpp src/util/ProcessedTextures.cpp src/util/Appearances.cpp
     src/map/Terrain.cpp src/ui/fonts/FontBook.cpp src/util/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
 target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::Freetype ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/MyPlayerToolTip.cpp src/hud/HudInput.cpp src/minimap/MiniMap.cpp src/ui/tooltip/EquipmentToolTip.cpp src/ui/tooltip/EquipmentToolTipContent.cpp src/ui/tooltip/PlayerToolTip.cpp
-    src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyOverlay.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
-    src/ui/Scrollbar.cpp src/ui/board/GuildBoardWindow.cpp src/ui/guild/GuildPlayerList.cpp src/ui/TradePanel.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/CharacterSkinListView.cpp
-    src/ui/options/Options.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/UIStack.cpp)
+realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
+    src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
+    src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/SkinChooser.cpp
+    src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
 target_link_libraries(realm_ui PUBLIC realm_assets)
 realm_library(realm_fixtures src/fixtures/StressTimeline.cpp)
 target_link_libraries(realm_fixtures PUBLIC realm_assets PRIVATE nlohmann_json::nlohmann_json)
@@ -89,11 +89,11 @@ if(REALM_BUILD_VIEWER)
     find_package(OpenGL REQUIRED)
     find_package(GLEW REQUIRED)
     realm_library(realm_render src/stage3D/Renderer.cpp src/stage3D/RendererPostProcess.cpp src/stage3D/RendererGpuTimers.cpp
-        src/stage3D/RendererStream.cpp src/stage3D/SpriteAtlas.cpp src/map/Scene.cpp src/background/Backdrop.cpp)
+        src/stage3D/RendererStream.cpp src/stage3D/Atlas.cpp src/map/Scene.cpp src/background/Backdrop.cpp)
     target_link_libraries(realm_render PUBLIC realm_assets PRIVATE OpenGL::GL GLEW::GLEW)
-    realm_library(realm_ui_gpu src/minimap/MiniMapGpu.cpp)
+    realm_library(realm_ui_gpu src/minimap/MinimapGpu.cpp)
     target_link_libraries(realm_ui_gpu PUBLIC realm_ui realm_render)
-    realm_library(realm_platform_sdl src/platform/PlatformSDL.cpp)
+    realm_library(realm_platform_sdl src/platform/PlatformSdl.cpp)
     target_link_libraries(realm_platform_sdl PUBLIC realm_platform SDL2::SDL2 PRIVATE OpenGL::GL GLEW::GLEW)
     target_compile_definitions(realm_platform_sdl PRIVATE SDL_MAIN_HANDLED)
     # Startup is split by concern (entry points and dispatch, frame and task completions, input, dialogs, fame and legends);
@@ -114,7 +114,7 @@ if(REALM_BUILD_VIEWER)
     target_include_directories(realm_ui_rmlui SYSTEM PRIVATE "${RMLUI_BACKENDS_DIR}")
     target_compile_definitions(realm_ui_rmlui PRIVATE RMLUI_GL3_CUSTOM_LOADER=<GL/glew.h> RMLUI_SDL_VERSION_MAJOR=2)
     set_source_files_properties(${REALM_RMLUI_BACKENDS} PROPERTIES COMPILE_OPTIONS -w)
-    realm_library(realm_ui_views src/lib/ui/RetainedUI.cpp src/screens/StartupRml.cpp)
+    realm_library(realm_ui_views src/lib/ui/RetainedUi.cpp src/screens/StartupRml.cpp)
     target_link_libraries(realm_ui_views PUBLIC realm_ui_rmlui realm_startup realm_render PRIVATE RmlUi::Core SDL2::SDL2)
     realm_library(realm_application src/core/Application.cpp src/core/ApplicationState.cpp src/core/ApplicationLayersHud.cpp src/core/ApplicationLayersSocial.cpp src/core/ApplicationLayersScreens.cpp src/core/ApplicationLoop.cpp src/core/ApplicationLoopInput.cpp src/core/ApplicationLoopUpdate.cpp src/core/ApplicationLoopRender.cpp src/core/ApplicationLoopPanels.cpp src/core/ApplicationOptions.cpp src/core/ApplicationScript.cpp src/core/ApplicationFixtures.cpp src/core/ApplicationAudio.cpp)
     target_link_libraries(realm_application PRIVATE realm_startup realm_ui_views realm_platform_sdl realm_fixtures realm_ui_gpu)

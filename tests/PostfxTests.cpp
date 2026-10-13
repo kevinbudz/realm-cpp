@@ -2,7 +2,7 @@
 #include "realm/background/Backdrop.hpp"
 #include "realm/map/PostEffects.hpp"
 #include "realm/stage3D/Renderer.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include "flash_assets.hpp"
 #include <SDL.h>
 #include <algorithm>

@@ -1,4 +1,4 @@
-#include "realm/util/AnimatedChars.hpp"
+#include "realm/util/AnimationLibrary.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
 #include <numbers>

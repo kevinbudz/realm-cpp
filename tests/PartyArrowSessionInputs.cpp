@@ -1,7 +1,7 @@
-#include "realm/map/partyoverlay/PartyOverlay.hpp"
+#include "realm/map/partyoverlay/PartyArrows.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
-#include "realm/objects/Player.hpp"
+#include "realm/messaging/Session.hpp"
+#include "realm/objects/Movement.hpp"
 #include "flash_assets.hpp"
 #include <chrono>
 #include <thread>

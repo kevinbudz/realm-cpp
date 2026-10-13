@@ -1,6 +1,6 @@
 #pragma once
-#include "realm/map/Map.hpp"
-#include "realm/objects/GameObject.hpp"
+#include "realm/map/World.hpp"
+#include "realm/objects/Entity.hpp"
 #include "realm/objects/Party.hpp"
 #include "realm/ui/fonts/FontBook.hpp"
 #include <array>

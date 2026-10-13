@@ -1,12 +1,12 @@
 #include "ApplicationLoop.hpp"
 #include "ApplicationLoopDetail.hpp"
 #include "realm/util/Telemetry.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
-#include "realm/objects/Player.hpp"
+#include "realm/messaging/Session.hpp"
+#include "realm/objects/Movement.hpp"
 #include "realm/hud/Hud.hpp"
-#include "realm/lib/ui/UIStack.hpp"
-#include "realm/platform/SDLKeyCodes.hpp"
-#include "realm/parameters/Parameters.hpp"
+#include "realm/lib/ui/Stack.hpp"
+#include "realm/platform/SdlKeyCodes.hpp"
+#include "realm/parameters/Settings.hpp"
 #include <SDL.h>
 #include <algorithm>
 #include <cmath>

@@ -2,7 +2,7 @@
 #include "realm/ui/fonts/FontBook.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/messaging/Messages.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include "realm/map/mapoverlay/SpeechBalloons.hpp"
 #include <deque>
 #include <optional>

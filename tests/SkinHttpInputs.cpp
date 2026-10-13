@@ -1,4 +1,4 @@
-#include "realm/classes/CharacterSkinListView.hpp"
+#include "realm/classes/SkinChooser.hpp"
 #include "flash_assets.hpp"
 #include <chrono>
 #include <thread>

@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/messaging/Messages.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include "realm/util/Random.hpp"
 #include <algorithm>
 #include <unordered_set>

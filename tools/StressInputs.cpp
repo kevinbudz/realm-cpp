@@ -1,5 +1,5 @@
 #include "realm/fixtures/StressTimeline.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/util/Telemetry.hpp"

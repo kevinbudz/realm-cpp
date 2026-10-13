@@ -2,10 +2,10 @@
 #include "realm/util/Telemetry.hpp"
 #include "realm/ui/fonts/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
-#include "realm/ui/TradePanel.hpp"
+#include "realm/ui/Trade.hpp"
 #include "realm/ui/dialogs/InteractionDialog.hpp"
 #include "realm/ui/tooltip/TextToolTip.hpp"
-#include "realm/parameters/Parameters.hpp"
+#include "realm/parameters/Settings.hpp"
 #include <SDL.h>
 #include <algorithm>
 #include <sstream>

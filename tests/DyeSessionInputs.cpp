@@ -1,7 +1,7 @@
-#include "realm/util/TextureRedrawer.hpp"
+#include "realm/util/Appearances.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
-#include "realm/ui/tooltip/PlayerToolTip.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/ui/tooltip/PlayerTooltip.hpp"
+#include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>

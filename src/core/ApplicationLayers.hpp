@@ -1,7 +1,7 @@
 #pragma once
 #include "ApplicationState.hpp"
-#include "realm/lib/ui/UIStack.hpp"
-#include "realm/platform/SDLKeyCodes.hpp"
+#include "realm/lib/ui/Stack.hpp"
+#include "realm/platform/SdlKeyCodes.hpp"
 
 namespace realm::application {
 

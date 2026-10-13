@@ -1,6 +1,6 @@
 #include "realm/map/WorldParticleEffects.hpp"
-#include "realm/objects/ObjectLibrary.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/objects/Catalog.hpp"
+#include "realm/map/World.hpp"
 
 namespace realm {
 void WorldParticleEffects::add_entity(const Entity& entity, const ObjectDef* definition) {

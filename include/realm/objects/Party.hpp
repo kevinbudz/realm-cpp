@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/messaging/Messages.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include <array>
 #include <unordered_set>
 namespace realm {

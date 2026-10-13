@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/hud/Hud.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>

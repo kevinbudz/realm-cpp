@@ -1,4 +1,4 @@
-#include "realm/objects/ObjectLibrary.hpp"
+#include "realm/objects/Catalog.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>

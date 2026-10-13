@@ -1,5 +1,5 @@
 #include "realm/util/ConditionEffect.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <chrono>

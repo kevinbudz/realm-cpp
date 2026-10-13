@@ -1,5 +1,5 @@
 #include "realm/objects/StatusArt.hpp"
-#include "realm/util/AnimatedChars.hpp"
+#include "realm/util/AnimationLibrary.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>

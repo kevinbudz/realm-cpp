@@ -1,5 +1,5 @@
 #include "realm/map/WorldSoundEvents.hpp"
-#include "realm/objects/ObjectLibrary.hpp"
+#include "realm/objects/Catalog.hpp"
 
 namespace realm {
 bool WorldSoundEvents::mark_preloaded(std::uint16_t type) {

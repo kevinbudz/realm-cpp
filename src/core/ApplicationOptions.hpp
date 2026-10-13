@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
 #include <filesystem>
 #include <string>

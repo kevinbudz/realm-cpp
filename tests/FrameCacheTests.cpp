@@ -1,6 +1,6 @@
-#include "realm/minimap/MiniMapGpu.hpp"
+#include "realm/minimap/MinimapGpu.hpp"
 #include "realm/map/Scene.hpp"
-#include "realm/platform/PlatformSDL.hpp"
+#include "realm/platform/PlatformSdl.hpp"
 #include "realm/hud/Hud.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>

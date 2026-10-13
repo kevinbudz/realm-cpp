@@ -5,8 +5,8 @@
 // the flat shade. GPU part: both paths render the same frames (every model, camera/object
 // rotations, zooms, with and without sprites, overlapping painter-ordered scenes with
 // interleaved sprites) and the captures are compared pixel by pixel.
-#include "realm/util/AnimatedChars.hpp"
-#include "realm/objects/ObjectLibrary.hpp"
+#include "realm/util/AnimationLibrary.hpp"
+#include "realm/objects/Catalog.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/Renderer.hpp"
 #include "flash_assets.hpp"

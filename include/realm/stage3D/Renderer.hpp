@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/stage3D/SpriteAtlas.hpp"
+#include "realm/stage3D/Atlas.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
 #include "realm/map/PostEffects.hpp"

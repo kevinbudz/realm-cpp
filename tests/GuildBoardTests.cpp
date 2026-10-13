@@ -1,4 +1,4 @@
-#include "realm/ui/board/GuildBoardWindow.hpp"
+#include "realm/ui/board/GuildBoard.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>

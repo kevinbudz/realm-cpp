@@ -1,6 +1,6 @@
 #include <GL/glew.h>
-#include "realm/platform/PlatformSDL.hpp"
-#include "realm/lib/ui/RetainedUI.hpp"
+#include "realm/platform/PlatformSdl.hpp"
+#include "realm/lib/ui/RetainedUi.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>

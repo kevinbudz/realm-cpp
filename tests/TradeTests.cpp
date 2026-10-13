@@ -1,4 +1,4 @@
-#include "realm/ui/TradePanel.hpp"
+#include "realm/ui/Trade.hpp"
 #include <algorithm>
 #include <iostream>
 

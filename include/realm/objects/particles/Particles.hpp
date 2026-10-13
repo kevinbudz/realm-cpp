@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/objects/ObjectLibrary.hpp"
+#include "realm/objects/Catalog.hpp"
 #include "realm/messaging/Messages.hpp"
 #include <array>
 #include <span>

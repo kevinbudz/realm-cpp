@@ -1,9 +1,9 @@
 #include "ApplicationLoop.hpp"
 #include "realm/util/Telemetry.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "realm/ui/Chat.hpp"
-#include "realm/ui/guild/GuildPlayerList.hpp"
-#include "realm/lib/ui/UIStack.hpp"
+#include "realm/ui/guild/GuildMembers.hpp"
+#include "realm/lib/ui/Stack.hpp"
 #include "flash_assets.hpp"
 #include <SDL.h>
 #include <memory>

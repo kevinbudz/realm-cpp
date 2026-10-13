@@ -77,7 +77,7 @@ def main():
             assert False, f'Headless owner absent: {owner}'
     # Prove this checker rejects the regressions it is meant to prevent.
     for spelling in ['"realm/stage3D/Renderer.hpp"', '<realm/stage3D/Renderer.hpp>']:
-        assert violations('#include ' + spelling, 'src/map/Map.cpp', 'realm_game', closure(targets, 'realm_game'))
+        assert violations('#include ' + spelling, 'src/map/World.cpp', 'realm_game', closure(targets, 'realm_game'))
     assert violations('#include <GL/glew.h>', 'src/ui/fonts/FontBook.cpp', 'realm_assets', closure(targets, 'realm_assets'))
     assert violations('#include "realm/hud/Hud.hpp"', 'include/realm/engine3d/Model3D.hpp', 'realm_assets', closure(targets, 'realm_assets', True))
     assert not failures, '\n'.join(failures)

@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
 #include <filesystem>
 #include <deque>

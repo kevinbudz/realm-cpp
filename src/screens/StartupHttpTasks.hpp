@@ -1,6 +1,6 @@
 #pragma once
 
-#include "realm/appengine/AppEngineClient.hpp"
+#include "realm/net/Http.hpp"
 #include "StartupTypes.hpp"
 #include <cstddef>
 #include <cstdint>

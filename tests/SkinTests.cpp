@@ -1,6 +1,6 @@
-#include "realm/classes/CharacterSkinListView.hpp"
+#include "realm/classes/SkinChooser.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
-#include "realm/ui/tooltip/PlayerToolTip.hpp"
+#include "realm/ui/tooltip/PlayerTooltip.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
 namespace {

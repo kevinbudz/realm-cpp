@@ -1,5 +1,5 @@
 #include "realm/engine3d/Model3D.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
 #include <chrono>
 #include <iostream>

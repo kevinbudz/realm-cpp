@@ -3,9 +3,9 @@
 #include "realm/sound/SoundEffectLibrary.hpp"
 #include "realm/objects/Combat.hpp"
 #include "realm/game/Inventory.hpp"
-#include "realm/messaging/GameServerConnection.hpp"
+#include "realm/messaging/Session.hpp"
 #include "realm/sound/SoundCues.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include <chrono>
 #include <iostream>
 #include <stdexcept>

@@ -1,11 +1,11 @@
-#include "realm/lib/ui/UIStack.hpp"
+#include "realm/lib/ui/Stack.hpp"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-// The shared input owner. Every rule in UIStack.hpp is exercised with recording layers.
+// The shared input owner. Every rule in Stack.hpp is exercised with recording layers.
 namespace {
 using namespace realm;
 using namespace realm::ui;

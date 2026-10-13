@@ -1,8 +1,8 @@
 #pragma once
-#include "realm/util/TextureRedrawer.hpp"
+#include "realm/util/Appearances.hpp"
 #include "realm/util/ConditionEffect.hpp"
 #include "realm/ui/fonts/FontBook.hpp"
-#include "realm/map/Map.hpp"
+#include "realm/map/World.hpp"
 #include <list>
 #include <memory>
 #include <string>

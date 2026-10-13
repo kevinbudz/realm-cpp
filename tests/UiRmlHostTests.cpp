@@ -8,9 +8,9 @@
 // - clipping: content scrolled out of an overflow:hidden box is not drawn outside it (pixel readback);
 // - lifetime: caches released and rebuilt, the host destroyed with documents and listeners alive and re-created on the
 //   same GL context, a second concurrent host refused; no GL errors and no RmlUi errors throughout.
-#include "realm/platform/PlatformSDL.hpp"
+#include "realm/platform/PlatformSdl.hpp"
 #include "realm/lib/ui/RmlHost.hpp"
-#include "realm/lib/ui/UIStack.hpp"
+#include "realm/lib/ui/Stack.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <SDL.h>

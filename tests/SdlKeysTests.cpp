@@ -1,6 +1,6 @@
 #include <SDL.h>
-#include "realm/platform/SDLKeyCodes.hpp"
-#include "realm/parameters/Parameters.hpp"
+#include "realm/platform/SdlKeyCodes.hpp"
+#include "realm/parameters/Settings.hpp"
 #include <iostream>
 #include <stdexcept>
 // SDL keys <-> the Flash key codes the Options screen stores.

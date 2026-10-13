@@ -1,6 +1,7 @@
 {
   "include/realm/map/Camera.hpp": "realm_support",
   "include/realm/objects/ProjectileProperties.hpp": "realm_support",
+  "include/realm/util/Random.hpp": "realm_support",
   "include/realm/util/Telemetry.hpp": "realm_support",
   "include/realm/util/Utf8.hpp": "realm_support",
   "include/realm/util/TextFormat.hpp": "realm_support",
@@ -14,6 +15,10 @@
   "include/realm/appengine/AppEngineClient.hpp": "realm_network",
   "include/realm/sound/SoundEffectLibrary.hpp": "realm_audio",
   "include/realm/objects/ObjectLibrary.hpp": "realm_game",
+  "include/realm/objects/ObjectProperties.hpp": "realm_game",
+  "include/realm/map/GroundProperties.hpp": "realm_game",
+  "include/realm/objects/particles/ParticleProperties.hpp": "realm_game",
+  "include/realm/util/Xml.hpp": "realm_game",
   "include/realm/objects/GameObject.hpp": "realm_game",
   "include/realm/objects/particles/Particles.hpp": "realm_game",
   "include/realm/map/Map.hpp": "realm_game",

@@ -1,5 +1,6 @@
 #include "realm/objects/ProjectileProperties.hpp"
 #include <numbers>
+#include <stdexcept>
 
 namespace realm {
 Vec2 projectile_position(const ProjectileProperties& p, Vec2 start, double angle, std::int32_t id,

@@ -39,6 +39,9 @@ enum Action : int {
   classes_action,
   new_character_action,
   buy_slot_action,
+  // Header hit areas below dialog_actions: an open dialog covers them.
+  sound_action,
+  rank_action,
   character_action = 100,
   class_action = 200,
   legend_tab_action = 300,

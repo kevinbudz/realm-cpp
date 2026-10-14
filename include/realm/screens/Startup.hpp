@@ -51,7 +51,8 @@ struct StartupAction {
     legend_tab,
     legend_row,
     delete_character,
-    account_logout
+    account_logout,
+    sound
   };
   Kind kind{Kind::none};
   std::size_t index{};
@@ -129,6 +130,10 @@ class Startup {
   [[nodiscard]] const StartupViewSnapshot& view() const;
   // Typed action entry point used by the RmlUi view.
   void perform(StartupAction action);
+  // SoundIcon: the app mirrors Parameters.playSFX here each frame, and takes the value a click asked for, which it
+  // stores as playSFX and playPewPew.
+  void set_play_sfx(bool play_sfx);
+  [[nodiscard]] std::optional<bool> take_play_sfx();
   // Keep the controller's credential and validation model synchronized with an editable RmlUi input.
   void set_field_value(std::size_t index, std::string value);
   [[nodiscard]] std::string field_value(std::size_t index) const;

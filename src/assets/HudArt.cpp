@@ -760,6 +760,17 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
     }
     return image;
   }
+  // SoundIcon: the lofiInterfaceBig speaker (frame 3 while sound effects play, 4 when muted) at 2x with
+  // GlowFilter(0, 1, 4, 4, 2, 1). The 8-pixel margin holds the glow.
+  if (key == "soundicon-on" || key == "soundicon-off") {
+    if (dry) return Image{};
+    auto source = s.sprite("lofiInterfaceBig", key == "soundicon-on" ? 3 : 4);
+    premultiply(source);
+    auto image = fd::canvas(source.width * 2 + 16, source.height * 2 + 16);
+    fd::draw(image, source, 8, 8, 2, 2);
+    fd::drop_shadow(image, 0, 0, 0, 1, 4, 4, 2);
+    return image;
+  }
   if (keyed(key, "guildrankicon", 0, 40, a)) {
     if (a % 10) return std::nullopt;
     if (dry) return Image{};
@@ -823,6 +834,16 @@ Image HudArt::rank_star_icon(int stars, double scale) const {
   if (stars < 0) return {};
   if (!std::isfinite(scale) || scale <= 0) throw std::invalid_argument("Invalid rank star scale");
   return sources().rank_star_icon(stars, scale);
+}
+Image HudArt::star_graphic(std::uint32_t tint, double scale) const {
+  if (!std::isfinite(scale) || scale <= 0) throw std::invalid_argument("Invalid star scale");
+  const auto& shape = sources().star_shape();
+  auto image = fd::canvas(static_cast<int>(std::ceil(shape.width() * scale)),
+                          static_cast<int>(std::ceil(shape.height() * scale)));
+  fd::draw_shape(image, shape, -shape.left * scale, -shape.top * scale, scale,
+                 {static_cast<double>((tint >> 16U) & 255U) / 255, static_cast<double>((tint >> 8U) & 255U) / 255,
+                  static_cast<double>(tint & 255U) / 255});
+  return image;
 }
 const Image& HudArt::image(const std::string& key) const {
   if (const auto found = cache_.find(key); found != cache_.end()) {

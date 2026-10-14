@@ -61,6 +61,11 @@ CharList parse_char_list(std::string_view source) {
   list.total_fame = integer(child(stats, "TotalFame"));
   list.fame = integer(child(stats, "Fame"));
   list.credits = integer(child(stats, "Credits"));
+  // SavedCharactersList.parseGuildData: the Guild element is optional.
+  if (const auto* guild = child(account, "Guild")) {
+    list.guild_name = text(child(guild, "Name"));
+    list.guild_rank = integer(child(guild, "Rank"));
+  }
   for (auto* c = stats ? stats->children : nullptr; c; c = c->next)
     if (c->type == XML_ELEMENT_NODE && name(c) == "ClassStats") {
       const auto type = integer(attribute(c, "objectType"));

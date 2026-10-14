@@ -103,6 +103,7 @@
   "include/realm/game/view/CreditDisplay.hpp": "realm_ui",
   "include/realm/game/view/SafeAreaDisplay.hpp": "realm_ui",
   "include/realm/ui/tooltip/SavedCharacterTooltip.hpp": "realm_ui",
+  "include/realm/ui/tooltip/RankToolTip.hpp": "realm_ui",
   "src/screens/StartupImpl.hpp": "realm_startup",
   "src/screens/StartupState.hpp": "realm_startup",
   "src/screens/StartupTypes.hpp": "realm_startup",

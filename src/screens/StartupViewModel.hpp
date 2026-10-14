@@ -5,6 +5,7 @@
 #include "realm/hud/Hud.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/ui/tooltip/SavedCharacterTooltip.hpp"
+#include "realm/ui/tooltip/RankToolTip.hpp"
 #include "realm/screens/Startup.hpp"
 #include "StartupState.hpp"
 #include <array>
@@ -29,6 +30,7 @@ class StartupViewModel {
   [[nodiscard]] bool dirty() const { return dirty_; }
   [[nodiscard]] bool pending() const { return view_pending_; }
   [[nodiscard]] bool has_character_tooltip() const { return character_tooltip_element_.has_value(); }
+  [[nodiscard]] bool has_rank_tooltip() const { return rank_tooltip_element_.has_value(); }
 
   void set_logo(Image logo) { logo_ = std::move(logo); }
   void reset_character_tooltip();
@@ -41,6 +43,7 @@ class StartupViewModel {
   int hit(const StartupScreenState& state, Vec2 point) const;
   void sync_field(std::size_t index, const StartupScreenState& state);
   void position_character_tooltip(const StartupScreenState& state);
+  void position_rank_tooltip(const StartupScreenState& state);
   [[nodiscard]] double death_fade(const StartupScreenState& state, std::int32_t time) const;
   void acknowledge_sheet_upload(std::uint64_t revision);
   void acknowledge_skin_upload(std::uint64_t revision);
@@ -78,6 +81,7 @@ class StartupViewModel {
   void add_window_text(std::string_view value, int size, bool bold, std::uint32_t color, Vec2 anchor, Vec2 offset,
                        Vec2 pixels, bool align_right, bool align_bottom, int action = -1);
   void menu_frame(bool background);
+  void sound_icon();
   void loading_screen(std::string_view text);
   void fame_screen(StartupScreenState& state, bool busy);
   void legends_screen(StartupScreenState& state, bool busy);
@@ -107,6 +111,11 @@ class StartupViewModel {
   int character_tooltip_id_{-1};
   double character_tooltip_density_{};
   std::optional<std::size_t> character_tooltip_element_;
+  RankToolTipImage rank_tooltip_;
+  int rank_tooltip_stars_{-1};
+  double rank_tooltip_density_{};
+  std::optional<std::size_t> rank_tooltip_element_;
+  bool play_sfx_{true};
   double list_height_{};
   double width_{800}, height_{600};
   std::size_t dialog_begin_{};

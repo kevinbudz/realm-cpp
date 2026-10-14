@@ -130,6 +130,16 @@ void update_panels(ClientState& cs, Frame& f) {
   if (cs.startup)
     if (auto error = cs.startup->take_skin_error())
       cs.dialog.message_close("D'oh, this isn't good", "An error has occured:\n" + *error, "Ok");
+  if (cs.startup) {
+    // SoundIcon.onIconClick stores playSFX and playPewPew together; the menu then mirrors the stored playSFX.
+    if (const auto play = cs.startup->take_play_sfx()) {
+      cs.settings.set_choice("playSFX", *play ? 1 : 0);
+      cs.settings.set_choice("playPewPew", *play ? 1 : 0);
+      cs.apply_settings();
+      cs.save_settings();
+    }
+    cs.startup->set_play_sfx(cs.settings.flag("playSFX"));
+  }
   cs.board.poll();
   cs.members.poll(dt);
   if (cs.skins) cs.skins->poll();

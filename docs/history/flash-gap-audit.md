@@ -43,8 +43,9 @@ was integrated into the current tree, repaired and tested while preserving the a
 - **News URLs:** external navigation accepts HTTP(S); fame links request `/char/fame` for the selected account and
   return to character selection. Malformed fame IDs and unsupported URI schemes do not launch anything.
 - **Rendering:** static randomized shapes are deterministic per object, so they do not jitter or destabilize
-  fixtures. Connected geometry uses a bounded 1024-entry Scene cache. A ConnectedWall cross has at most 78 expanded
-  triangle vertices in two mesh commands; a CaveWall cross has at most 42 in one; a Stalagmite has nine in one.
+  fixtures. Connected geometry uses a bounded 4096-entry Scene cache, larger than a full screen of walls so it
+  never cycles. A ConnectedWall cross has at most 78 expanded triangle vertices in two mesh commands; a CaveWall
+  cross has at most 42 in one; a Stalagmite has nine in one.
   Projection culls hidden faces before submission. These are primitive-count bounds, not frame-time guarantees.
   The mesh path preserves Flash software rendering's affine mapping from the first, second and last face vertices;
   cave split triangles retain independent lighting. Nonrepeating bitmap fills clamp in the fragment shader.

@@ -49,6 +49,8 @@ class Hud {
   void stats(const std::array<HudStatState, 6>& state);
   void heading(const HudState& state);
   void rectangle(double x, int y, double width, int height, std::uint32_t color);
+  // Fills the logical rectangle with its edges rounded to whole device pixels.
+  void snapped_rectangle(double x, double y, double width, double height, std::uint32_t color);
   void text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y, double alpha = 1,
             unsigned shadow_strength = 1, int field_width = 0);
   void bar(const StatusBarState& state);

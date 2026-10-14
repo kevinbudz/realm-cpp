@@ -27,6 +27,10 @@ class HudArt {
   // StarGraphic without filters, tinted by RGB multipliers (0xffffff keeps the star's own color).
   [[nodiscard]] Image star_graphic(std::uint32_t tint, double scale = 1) const;
   [[nodiscard]] const Image& image(const std::string& key) const;
+  // The same art at `scale` device pixels per logical unit. Vector-drawn tiles, panels and buttons are rasterized at
+  // that density with their edges on device pixel boundaries; bitmap art keeps its native density for ui_blit to
+  // resample. Images are cached per scale.
+  [[nodiscard]] const Image& image(const std::string& key, double scale) const;
   [[nodiscard]] bool contains(const std::string& key) const;
   [[nodiscard]] std::size_t cache_entries() const { return cache_.size(); }
   [[nodiscard]] std::size_t cache_bytes() const { return bytes_; }
@@ -40,7 +44,7 @@ class HudArt {
   };
   [[nodiscard]] Sources& sources() const;
   // Draws the image a key names; with `dry_run` only reports whether the key names one.
-  [[nodiscard]] std::optional<Image> make(const std::string& key, bool dry_run) const;
+  [[nodiscard]] std::optional<Image> make(const std::string& key, bool dry_run, double density = 1) const;
   mutable std::unique_ptr<Sources> sources_;
   const Appearances* shared_appearances_{};
   const Catalog* shared_catalog_{};

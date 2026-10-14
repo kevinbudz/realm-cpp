@@ -887,11 +887,15 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
                       static_cast<float>(color & 255U) / 255, 1};
         out.push_back(q);
       };
-      solid({ground.x - 21.2 * zoom, y - 1.2 * zoom}, {42.4 * zoom, 7.4 * zoom}, 0x111111);
+      // Device pixels: the 40x5 bar origin and size round once, and the black frame is the same border on all four
+      // sides, so its edges are hard at fractional UI scales.
+      const double bar_x = std::round(ground.x - 20 * zoom), bar_y = std::round(y), bar_w = std::round(40 * zoom),
+                   bar_h = std::round(5 * zoom), border = std::max(1.0, std::round(1.2 * zoom));
+      solid({bar_x - border, bar_y - border}, {bar_w + 2 * border, bar_h + 2 * border}, 0x111111);
       const double hp_fraction = static_cast<double>(e.combat.hp) /
                                  std::max(1, d.player ? e.combat.max_hp : std::max(e.combat.hp, e.combat.max_hp));
       if (e.combat.hp > 0)
-        solid({ground.x - 20 * zoom, y}, {40 * hp_fraction * zoom, 5 * zoom},
+        solid({bar_x, bar_y}, {std::round(bar_w * hp_fraction), bar_h},
               hp_fraction < .2   ? 14684176U
               : hp_fraction < .5 ? 16744464U
                                  : 0x10ff00U);
@@ -911,9 +915,12 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
                         static_cast<float>(color & 255U) / 255, 1};
           out.push_back(q);
         };
-        solid({ground.x - 20 * zoom, y}, {40 * zoom, 4 * zoom}, breath_bar_back_color(breath, time));
+        // Whole device pixels, as the health bar.
+        const double bar_x = std::round(ground.x - 20 * zoom), bar_y = std::round(y), bar_w = std::round(40 * zoom),
+                     bar_h = std::round(4 * zoom);
+        solid({bar_x, bar_y}, {bar_w, bar_h}, breath_bar_back_color(breath, time));
         if (breath > 0)
-          solid({ground.x - 20 * zoom, y}, {std::min(breath, 100) / 100.0 * 40 * zoom, 4 * zoom}, 0x26caffU);
+          solid({bar_x, bar_y}, {std::round(bar_w * std::min(breath, 100) / 100.0), bar_h}, 0x26caffU);
       }
     }
   };

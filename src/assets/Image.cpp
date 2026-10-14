@@ -59,6 +59,36 @@ Image ui_image(double width, double height, double scale) {
   const int w = static_cast<int>(std::ceil(width * scale)), h = static_cast<int>(std::ceil(height * scale));
   return {w, h, std::vector<unsigned char>(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4), scale};
 }
+namespace {
+// std::lround for a non-negative value without the libm call: truncate, then round the fraction half up (exact, as v -
+// r is exact).
+inline long round_up(double v) noexcept {
+  const auto r = static_cast<long>(v);
+  return v - static_cast<double>(r) >= .5 ? r + 1 : r;
+}
+bool near_integer(double value) { return std::abs(value - std::round(value)) < 1e-9; }
+// The source texels one destination pixel overlaps along an axis: texels first .. first + count - 1, with their area
+// weights (summing to one) stored from `offset`. Texels outside the source are transparent and left out.
+struct TexelSpan {
+  int first{}, count{};
+  std::size_t offset{};
+};
+void texel_spans(int begin, int end, int origin, double ratio, int size, std::vector<TexelSpan>& spans,
+                 std::vector<double>& weights) {
+  spans.resize(static_cast<std::size_t>(end - begin));
+  weights.clear();
+  for (int p = begin; p < end; ++p) {
+    // Destination pixel p covers the source interval [a, b) along this axis.
+    const double a = (p - origin) * ratio, b = a + ratio;
+    auto& span = spans[static_cast<std::size_t>(p - begin)];
+    span = {static_cast<int>(std::floor(a)), 0, weights.size()};
+    for (int t = span.first; t < b && t < size; ++t) {
+      weights.push_back((std::min(b, t + 1.0) - std::max(a, static_cast<double>(t))) / ratio);
+      ++span.count;
+    }
+  }
+}
+}
 void ui_blit(Image& dst, const Image& src, double x, double y, bool src_pm, bool dst_pm, double opacity, double cx,
              double cy, double cw, double ch) {
   const double s = dst.pixel_scale, ratio = src.pixel_scale / s;
@@ -69,33 +99,72 @@ void ui_blit(Image& dst, const Image& src, double x, double y, bool src_pm, bool
       static_cast<int>(std::ceil(std::min({static_cast<double>(dst.width), ox + src.width / ratio, (cx + cw) * s})));
   const int bottom =
       static_cast<int>(std::ceil(std::min({static_cast<double>(dst.height), oy + src.height / ratio, (cy + ch) * s})));
-  for (int py = top; py < bottom; ++py)
+  if (top >= bottom || left >= right) return;
+  // Every blended term is non-negative, so round_up equals std::lround here.
+  const auto blend = [&](std::size_t to, const double value[3], double a) {
+    const double da = dst.pixels[to + 3] / 255.0, combined = a + da * (1 - a);
+    for (unsigned c = 0; c < 3; ++c) {
+      const double old = dst.pixels[to + c] * (dst_pm ? 1 : da);
+      dst.pixels[to + c] = static_cast<unsigned char>(
+          std::clamp(round_up((value[c] + old * (1 - a)) / (dst_pm ? 1 : combined)), 0L, 255L));
+    }
+    dst.pixels[to + 3] = static_cast<unsigned char>(round_up(combined * 255));
+  };
+  // Integer magnification or reduction keeps nearest sampling: each destination pixel takes one texel, so a block of
+  // texels stays exact. Other ratios take the area each destination pixel covers. Every texel then keeps a footprint
+  // of the same width, with at most one partly covered destination pixel at each edge, instead of widths that
+  // alternate between floor and ceil.
+  if (near_integer(ratio) || near_integer(1 / ratio)) {
+    for (int py = top; py < bottom; ++py)
+      for (int px = left; px < right; ++px) {
+        const int sx = std::clamp(static_cast<int>((px - ox + .5) * ratio), 0, src.width - 1),
+                  sy = std::clamp(static_cast<int>((py - oy + .5) * ratio), 0, src.height - 1);
+        const auto from =
+            (static_cast<std::size_t>(sy) * static_cast<std::size_t>(src.width) + static_cast<std::size_t>(sx)) * 4;
+        const auto to =
+            (static_cast<std::size_t>(py) * static_cast<std::size_t>(dst.width) + static_cast<std::size_t>(px)) * 4;
+        const double a = src.pixels[from + 3] / 255.0 * opacity;
+        if (a <= 0) continue;
+        const double value[3] = {src_pm ? src.pixels[from] * opacity : src.pixels[from] * a,
+                                 src_pm ? src.pixels[from + 1] * opacity : src.pixels[from + 1] * a,
+                                 src_pm ? src.pixels[from + 2] * opacity : src.pixels[from + 2] * a};
+        blend(to, value, a);
+      }
+    return;
+  }
+  // Premultiplied color and alpha are averaged over the overlap weights; straight colors are premultiplied first so
+  // that partly covered texels do not bring their color into fully transparent neighbours.
+  static thread_local std::vector<TexelSpan> columns, rows;
+  static thread_local std::vector<double> column_weights, row_weights;
+  texel_spans(left, right, ox, ratio, src.width, columns, column_weights);
+  texel_spans(top, bottom, oy, ratio, src.height, rows, row_weights);
+  for (int py = top; py < bottom; ++py) {
+    const auto& row = rows[static_cast<std::size_t>(py - top)];
     for (int px = left; px < right; ++px) {
-      const int sx = std::clamp(static_cast<int>((px - ox + .5) * ratio), 0, src.width - 1),
-                sy = std::clamp(static_cast<int>((py - oy + .5) * ratio), 0, src.height - 1);
-      const auto from =
-          (static_cast<std::size_t>(sy) * static_cast<std::size_t>(src.width) + static_cast<std::size_t>(sx)) * 4;
+      const auto& column = columns[static_cast<std::size_t>(px - left)];
+      double premultiplied[3]{}, alpha_sum{};
+      for (int i = 0; i < row.count; ++i) {
+        const double wy = row_weights[row.offset + static_cast<std::size_t>(i)];
+        for (int j = 0; j < column.count; ++j) {
+          const double w = wy * column_weights[column.offset + static_cast<std::size_t>(j)];
+          const auto from =
+              (static_cast<std::size_t>(row.first + i) * static_cast<std::size_t>(src.width) +
+               static_cast<std::size_t>(column.first + j)) *
+              4;
+          const double alpha = src.pixels[from + 3] * (1.0 / 255.0);
+          alpha_sum += w * alpha;
+          for (unsigned c = 0; c < 3; ++c)
+            premultiplied[c] += w * (src_pm ? src.pixels[from + c] : src.pixels[from + c] * alpha);
+        }
+      }
+      const double a = alpha_sum * opacity;
+      if (a <= 0) continue;
+      const double value[3] = {premultiplied[0] * opacity, premultiplied[1] * opacity, premultiplied[2] * opacity};
       const auto to =
           (static_cast<std::size_t>(py) * static_cast<std::size_t>(dst.width) + static_cast<std::size_t>(px)) * 4;
-      const double a = src.pixels[from + 3] / 255.0 * opacity;
-      if (a <= 0) continue;
-      const double da = dst.pixels[to + 3] / 255.0, combined = a + da * (1 - a);
-      for (unsigned c = 0; c < 3; ++c) {
-        const double value = src_pm ? src.pixels[from + c] * opacity : src.pixels[from + c] * a;
-        const double old = dst.pixels[to + c] * (dst_pm ? 1 : da);
-        dst.pixels[to + c] = static_cast<unsigned char>(
-            std::clamp(std::lround((value + old * (1 - a)) / (dst_pm ? 1 : combined)), 0L, 255L));
-      }
-      dst.pixels[to + 3] = static_cast<unsigned char>(std::lround(combined * 255));
+      blend(to, value, a);
     }
-}
-namespace {
-// std::lround for a non-negative value without the libm call: truncate, then round the fraction half up (exact, as v -
-// r is exact).
-inline long round_up(double v) noexcept {
-  const auto r = static_cast<long>(v);
-  return v - static_cast<double>(r) >= .5 ? r + 1 : r;
-}
+  }
 }
 void ui_rectangle(Image& dst, double x, double y, double w, double h, std::uint32_t color, bool pm) {
   const double s = dst.pixel_scale;

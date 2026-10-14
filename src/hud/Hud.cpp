@@ -144,7 +144,9 @@ void Hud::inventory(const HudState::Inventory& state) {
   if (!art_ || !state.enabled) return;
   if (state.selected < 0 || state.selected > 2 || (state.selected == 2 && !state.backpack))
     throw std::runtime_error("Invalid HUD inventory tab");
-  blit(art_->image("backdrop" + std::to_string(state.backpack) + "s" + std::to_string(state.selected)), 0, 300);
+  blit(art_->image("backdrop" + std::to_string(state.backpack) + "s" + std::to_string(state.selected),
+                   image_.pixel_scale),
+       0, 300);
   for (int i = 0; i < 4; ++i) tile(state, i, i, 14 + 44 * i, 304, true);
   if (state.selected != 1) {
     for (int i = 0; i < 8; ++i)
@@ -164,15 +166,16 @@ void Hud::tile(const HudState::Inventory& state, int index, int position, int x,
   else
     background = (type <= 0 && index < container_slot ? "hotkey" : "inventory") + std::to_string(position);
   if (image_.pixel_scale != 1 && background.starts_with("hotkey")) {
-    blit(art_->image("inventory" + std::to_string(position)), x, y);
+    blit(art_->image("inventory" + std::to_string(position), image_.pixel_scale), x, y);
     const auto label = std::to_string(position + 1);
     draw_direct(fonts_.rasterize(label, 26, true, false, 3552822, 0, 0, 1, 26, 30),
                 x + 20 - fonts_.layout(label, 26, true).width / 2, y + 2, 3552822);
   } else
-    blit(art_->image(background), x, y);
+    blit(art_->image(background, image_.pixel_scale), x, y);
   if (type == -1) return;
   if (state.restricted.at(static_cast<std::size_t>(index)))
-    blit(art_->image((equipped ? "equiprestricted" : "restricted") + std::to_string(position)), x, y);
+    blit(art_->image((equipped ? "equiprestricted" : "restricted") + std::to_string(position), image_.pixel_scale), x,
+         y);
   const auto& icon = art_->image((equipped && state.dim.at(static_cast<std::size_t>(position)) ? "dim" : "item") +
                                  std::to_string(type));
   blit(icon, x + 20 - icon.width / 2, y + 20 - icon.height / 2);
@@ -198,7 +201,7 @@ void Hud::potions(const std::array<int, 2>& counts) {
   for (std::size_t i = 0; i < counts.size(); ++i) {
     const int x = potion_view_x[i];
     const bool stocked = counts[i] > 0;
-    blit(art_->image((stocked ? "potionuse" : "potionbuy") + std::to_string(i)), x, potion_view_y);
+    blit(art_->image((stocked ? "potionuse" : "potionbuy") + std::to_string(i), image_.pixel_scale), x, potion_view_y);
     text(stocked ? std::to_string(counts[i]) : "0", 13, false, stocked ? 0xffffffU : 11184810U, x + 47,
          potion_view_y + 2, 1, 2, 24);
     blit(art_->image("potion" + std::to_string(potion_types[i])), x + 13, potion_view_y - 11);
@@ -440,7 +443,7 @@ bool Hud::update(const HudState& state) {
       changes_.push_back({0, 300, 200, 200});
     } else if (art_ && state.inventory.enabled && state.inventory.selected == 1 && state_.stats != state.stats) {
       const HudRegion area{0, 373, 200, 127};
-      blit(art_->image("backdrop" + std::to_string(state.inventory.backpack) + "s1"), 0, 300, area);
+      blit(art_->image("backdrop" + std::to_string(state.inventory.backpack) + "s1", image_.pixel_scale), 0, 300, area);
       stats(state.stats);
       changes_.push_back(area);
     }
@@ -486,6 +489,25 @@ void Hud::rectangle(double x, int y, double width, int height, std::uint32_t col
             static_cast<unsigned char>((((color >> (16U - 8U * c)) & 255U) * alpha +
                                         static_cast<unsigned>(image_.pixels[at + c]) * (256 - alpha)) >>
                                        8U);
+      image_.pixels[at + 3] = 255;
+    }
+}
+void Hud::snapped_rectangle(double x, double y, double width, double height, std::uint32_t color) {
+  // Each edge rounds to a device pixel on its own, so neighbouring edges never split a device pixel and the fill is
+  // opaque (equal to a fully covered ui_rectangle pixel).
+  const double s = image_.pixel_scale;
+  const auto edge = [](double value, int limit) {
+    return std::clamp(static_cast<int>(std::lround(value)), 0, limit);
+  };
+  const int left = edge(x * s, image_.width), right = edge((x + width) * s, image_.width),
+            top = edge(y * s, image_.height), bottom = edge((y + height) * s, image_.height);
+  const unsigned char solid[3] = {static_cast<unsigned char>(color >> 16U), static_cast<unsigned char>(color >> 8U),
+                                  static_cast<unsigned char>(color)};
+  for (int row = top; row < bottom; ++row)
+    for (int col = left; col < right; ++col) {
+      const auto at = (static_cast<std::size_t>(row) * static_cast<std::size_t>(image_.width) +
+                       static_cast<std::size_t>(col)) * 4;
+      std::copy_n(solid, 3, image_.pixels.begin() + static_cast<std::ptrdiff_t>(at));
       image_.pixels[at + 3] = 255;
     }
 }
@@ -554,8 +576,9 @@ void Hud::bar(const StatusBarState& state) {
   const auto color = state.cap > 0 && static_cast<std::int64_t>(state.maximum) - state.boost == state.cap ? 16572160U
                      : state.boost > 0                                                                    ? 6206769U
                                                                                                           : 0xffffffU;
-  rectangle(12, state.y, 176, 16, 5526612);
-  rectangle(12, state.y, state.maximum > 0 ? 176.0 * value / state.maximum : 176, 16, state.color);
+  // Track and fill snap to whole device pixels, so their edges are hard on every side at fractional UI scales.
+  snapped_rectangle(12, state.y, 176, 16, 5526612);
+  snapped_rectangle(12, state.y, state.maximum > 0 ? 176.0 * value / state.maximum : 176, 16, state.color);
   text(state.label, 14, true, 0xffffff, 12, state.y - 3);
   const auto amount = std::to_string(value) + (state.maximum > 0 ? "/" + std::to_string(state.maximum) : "");
   const auto boost =

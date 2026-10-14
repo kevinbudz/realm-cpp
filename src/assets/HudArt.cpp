@@ -105,6 +105,27 @@ Image crop_image(const Image& source, int x, int y, int width, int height) {
   fd::draw(result, source, -x, -y);
   return result;
 }
+// Vector art drawn at `scale` device pixels per logical unit. The canvas holds whole device pixels and the logical
+// geometry is stretched onto it, so every edge lands on a device pixel boundary. At scale 1 this is the plain canvas.
+struct Raster {
+  Image image;
+  double kx{1}, ky{1};
+  void fill(const fd::Path& shape, std::uint32_t color, double alpha = 1) {
+    fd::Path scaled = shape;
+    for (auto& contour : scaled.contours)
+      for (auto& point : contour) {
+        point.x *= kx;
+        point.y *= ky;
+      }
+    fd::fill(image, scaled, color, alpha);
+  }
+};
+Raster raster(int width, int height, double scale) {
+  const int w = static_cast<int>(std::lround(width * scale)), h = static_cast<int>(std::lround(height * scale));
+  Raster result{fd::canvas(w, h), w / static_cast<double>(width), h / static_cast<double>(height)};
+  result.image.pixel_scale = scale;
+  return result;
+}
 // SimpleText field metrics: updateMetrics sizes are the truncated line width/height plus the 4 pixel gutters.
 struct Field {
   double width{}, height{}, text_width{}, text_height{};
@@ -321,14 +342,17 @@ struct HudArt::Sources {
         dy = -2;
       } else if (!equipment_tile && type == 11)
         dy = -2;
-      fd::draw(canvas, image, offset.x + 4 + dx, offset.y + 4 + dy, 4, 4);
+      // Four logical pixels per texel, placed on the canvas density (exact at scale 1, area-weighted otherwise).
+      auto enlarged = fd::canvas(image.width * 4, image.height * 4);
+      fd::draw(enlarged, image, 0, 0, 4, 4);
+      ui_blit(canvas, enlarged, offset.x + 4 + dx, offset.y + 4 + dy, true, true);
     } else if (hotkey > 0) {
       const auto value = std::to_string(hotkey);
       const auto f = field(value, 26, true);
       // The number is drawn into a 26x30 bitmap, which snaps to the nearest pixel.
       auto bitmap = fd::canvas(26, 30);
       text(bitmap, value, 26, true, panel_gray, 0, 0);
-      fd::draw(canvas, bitmap, offset.x + std::round(20 - f.width / 2), offset.y + 2);
+      ui_blit(canvas, bitmap, offset.x + std::round(20 - f.width / 2), offset.y + 2, true, true);
     }
   }
 };
@@ -343,7 +367,7 @@ HudArt::Sources& HudArt::sources() const {
   if (!sources_) sources_ = std::make_unique<Sources>(shared_appearances_, shared_catalog_);
   return *sources_;
 }
-std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
+std::optional<Image> HudArt::make(const std::string& key, bool dry, double density) const {
   auto& s = sources();
   const auto& catalog = *s.catalog;
   int a{}, b{};
@@ -458,11 +482,11 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
   // Equipment and inventory tiles: backgrounds, restricted-use overlays, slot-type art and hotkey numbers.
   if (keyed(key, "equipment", 0, 3, a) || keyed(key, "equiprestricted", 0, 3, a)) {
     if (dry) return Image{};
-    auto image = fd::canvas(40, 40);
+    auto image = raster(40, 40, density);
     fd::Path shape;
     shape.cut_edge_rect(0, 0, 40, 40, 4, equipment_cuts[static_cast<std::size_t>(a)]);
-    fd::fill(image, shape, key.starts_with("equipment") ? equipment_gray : restricted_red);
-    return image;
+    image.fill(shape, key.starts_with("equipment") ? equipment_gray : restricted_red);
+    return std::move(image.image);
   }
   if (key.starts_with("empty")) {
     const auto p = key.find('p', 5);
@@ -470,22 +494,22 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
         !number(std::string_view(key).substr(p + 1), b) || a < 1 || a > 25 || a == 10 || b < 0 || b > 3)
       return std::nullopt;
     if (dry) return Image{};
-    auto image = fd::canvas(40, 40);
+    auto image = raster(40, 40, density);
     fd::Path shape;
     shape.cut_edge_rect(0, 0, 40, 40, 4, equipment_cuts[static_cast<std::size_t>(b)]);
-    fd::fill(image, shape, equipment_gray);
-    s.slot_background(image, a, 0, true, {});
-    return image;
+    image.fill(shape, equipment_gray);
+    s.slot_background(image.image, a, 0, true, {});
+    return std::move(image.image);
   }
   for (const std::string_view prefix : {"inventory", "hotkey", "restricted"})
     if (keyed(key, prefix, 0, 7, a)) {
       if (dry) return Image{};
-      auto image = fd::canvas(40, 40);
+      auto image = raster(40, 40, density);
       fd::Path shape;
       shape.cut_edge_rect(0, 0, 40, 40, 4, inventory_cuts[static_cast<std::size_t>(a)]);
-      fd::fill(image, shape, prefix == "restricted" ? restricted_red : tile_gray);
-      if (prefix == "hotkey") s.slot_background(image, 0, a + 1, false, {});
-      return image;
+      image.fill(shape, prefix == "restricted" ? restricted_red : tile_gray);
+      if (prefix == "hotkey") s.slot_background(image.image, 0, a + 1, false, {});
+      return std::move(image.image);
     }
   if (key.starts_with("backdrop") && key.size() == 11 && key[9] == 's') {
     const bool backpack = key[8] == '1';
@@ -493,25 +517,26 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
     if ((key[8] != '0' && key[8] != '1') || selected < 0 || selected > (backpack ? 2 : 1)) return std::nullopt;
     if (dry) return Image{};
     // The inventory side panel below the stats, in HUD coordinates offset by y 300.
-    auto image = fd::canvas(200, 200);
+    auto image = raster(200, 200, density);
     fd::Path base;
     base.rect(0, 0, 200, 200);
-    fd::fill(image, base, panel_gray);
+    image.fill(base, panel_gray);
     fd::Path header;
     header.cut_edge_rect(11, 1, 178, 46, 6);
-    fd::fill(image, header, 6776679);
-    // TabStripView(186, 153) at (7, 46): tabs, then its content background above them.
+    image.fill(header, 6776679);
+    // TabStripView(186, 153) at (7, 46): tabs, then its content background above them. The tab icons are bitmaps
+    // placed at logical offsets.
     for (int tab = 0; tab < (backpack ? 3 : 2); ++tab) {
       const double tx = 7 + tab * 30, ty = 46 + 8;
       fd::Path shape;
       shape.round_rect(tx, ty, 28, 35, 9);
-      fd::fill(image, shape, tab == selected ? 2368034 : 7039594);
-      fd::draw(image, s.redraw(s.sprite("lofiInterfaceBig", 24 + tab), 20, true), tx - 5, ty - 11);
+      image.fill(shape, tab == selected ? 2368034 : 7039594);
+      ui_blit(image.image, s.redraw(s.sprite("lofiInterfaceBig", 24 + tab), 20, true), tx - 5, ty - 11, true, true);
     }
     fd::Path content;
     content.cut_edge_rect(7, 46 + 27, 186, 126, 6);
-    fd::fill(image, content, 2368034);
-    return image;
+    image.fill(content, 2368034);
+    return std::move(image.image);
   }
   if (key.starts_with("statlabel")) {
     const auto p = key.find('p', 9);
@@ -527,19 +552,19 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
   }
   if (keyed(key, "potionuse", 0, 1, a) || keyed(key, "potionbuy", 0, 1, a)) {
     if (dry) return Image{};
-    auto image = fd::canvas(84, 24);
+    auto image = raster(84, 24, density);
     const auto& cuts = potion_cuts[static_cast<std::size_t>(a)];
     fd::Path outer;
     outer.cut_edge_rect(0, 0, 84, 24, 4, cuts);
     if (key.starts_with("potionuse"))
-      fd::fill(image, outer, tile_gray);
+      image.fill(outer, tile_gray);
     else {
-      fd::fill(image, outer, 4078909);
+      image.fill(outer, 4078909);
       fd::Path inner;
       inner.cut_edge_rect(2, 2, 80, 20, 4, cuts);
-      fd::fill(image, inner, 2368034);
+      image.fill(inner, 2368034);
     }
-    return image;
+    return std::move(image.image);
   }
   if (keyed(key, "potion", 1, 65535, a)) {
     if (!object(a)) return std::nullopt;
@@ -577,6 +602,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
     if (a < 0 || a > 2 || b < 0 || b > 1) return std::nullopt;
     if (dry) return Image{};
     static constexpr std::array<std::uint32_t, 3> fills{16777215, 16768133, 8355711};
+    // Sellable buttons stay at logical density: Hud::sellable slices their columns in logical units.
     auto image = fd::canvas(41, 26);
     fd::Path shape;
     shape.cut_edge_rect(b * .5, 0, 40, 26, 4);
@@ -926,12 +952,15 @@ Image HudArt::star_graphic(std::uint32_t tint, double scale) const {
                   static_cast<double>(tint & 255U) / 255});
   return image;
 }
-const Image& HudArt::image(const std::string& key) const {
-  if (const auto found = cache_.find(key); found != cache_.end()) {
+const Image& HudArt::image(const std::string& key) const { return image(key, 1); }
+const Image& HudArt::image(const std::string& key, double scale) const {
+  if (!std::isfinite(scale) || scale <= 0) throw std::invalid_argument("Invalid HUD artwork scale");
+  const std::string id = scale == 1 ? key : key + "@" + std::to_string(scale);
+  if (const auto found = cache_.find(id); found != cache_.end()) {
     lru_.splice(lru_.begin(), lru_, found->second.lru);
     return found->second.image;
   }
-  auto made = make(key, false);
+  auto made = make(key, false, scale);
   if (!made) throw std::runtime_error("Unknown HUD artwork: " + key);
   if (made->pixels.size() > cache_byte_limit) throw std::runtime_error("HUD artwork exceeds decoded cache budget");
   while (!cache_.empty() && (cache_.size() >= cache_limit || bytes_ + made->pixels.size() > cache_byte_limit)) {
@@ -942,7 +971,7 @@ const Image& HudArt::image(const std::string& key) const {
     ++evictions_;
   }
   bytes_ += made->pixels.size();
-  lru_.push_front(key);
-  return cache_.emplace(key, Entry{std::move(*made), lru_.begin()}).first->second.image;
+  lru_.push_front(id);
+  return cache_.emplace(id, Entry{std::move(*made), lru_.begin()}).first->second.image;
 }
 }

@@ -10,7 +10,7 @@ counter and the GPU total/world medians. Several directories print side by side.
 import argparse, collections, json, statistics
 from pathlib import Path
 
-ZONES = 'scene.build,model.prepare,render.submit,render.quad_upload,render.model_upload_submit'
+ZONES = 'scene.build,model.prepare,render.submit,render.quad_upload,render.mesh_upload,render.mesh_submit'
 COUNTERS = 'models,draw_calls,mesh_upload_bytes,triangles,allocations'
 
 

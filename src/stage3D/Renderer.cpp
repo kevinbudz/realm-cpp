@@ -136,12 +136,23 @@ constexpr auto mesh_vertex_shader = R"glsl(#version 330 core
 layout(location=0) in vec2 position;
 layout(location=1) in vec2 texcoord;
 layout(location=2) in float shade;
+layout(location=3) in vec4 spriteUV;
+layout(location=4) in float page;
+layout(location=5) in vec3 meshColor;
+layout(location=6) in float texturedFlag;
+layout(location=7) in float repeatFlag;
 uniform vec2 viewport;
 out vec2 uv;
 out float lit;
+flat out vec4 bounds;
+flat out float layer;
+flat out vec3 flatColor;
+flat out float textured;
+flat out float repeatTexture;
 void main() {
     gl_Position = vec4(position.x / viewport.x * 2.0 - 1.0, 1.0 - position.y / viewport.y * 2.0, 0.0, 1.0);
     uv = texcoord; lit = shade;
+    bounds = spriteUV; layer = page; flatColor = meshColor; textured = texturedFlag; repeatTexture = repeatFlag;
 }
 )glsl";
 // Reference model program (prepared MeshDraw owners, see project_model): textured groups sample the object sprite
@@ -149,20 +160,20 @@ void main() {
 constexpr auto mesh_fragment_shader = R"glsl(#version 330 core
 in vec2 uv;
 in float lit;
+flat in vec4 bounds;
+flat in float layer;
+flat in vec3 flatColor;
+flat in float textured;
+flat in float repeatTexture;
 uniform sampler2DArray sprites;
-uniform vec4 bounds;
-uniform float layer;
-uniform vec3 flat_color;
-uniform bool textured;
-uniform bool repeat_texture;
 out vec4 color;
 void main() {
-    if (!textured) { color = vec4(flat_color * lit, 1.0); return; }
+    if (!(textured > 0.5)) { color = vec4(flatColor * lit, 1.0); return; }
     // Nearest sampling with the sprite repeated over the face, as a tiled bitmap fill.
     vec2 page = vec2(textureSize(sprites, 0).xy);
     vec2 size = bounds.zw * page;
     vec2 pixels = floor(uv * size);
-    pixels = repeat_texture ? mod(pixels, size) : clamp(pixels, vec2(0.0), size - 1.0);
+    pixels = repeatTexture > 0.5 ? mod(pixels, size) : clamp(pixels, vec2(0.0), size - 1.0);
     vec2 coords = (bounds.xy * page + pixels + 0.5) / page;
     vec4 texel = texture(sprites, vec3(coords, layer));
     color = vec4(texel.rgb * lit, texel.a);
@@ -379,22 +390,23 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       glUseProgram(mesh_program_);
       glUniform1i(glGetUniformLocation(mesh_program_, "sprites"), 0);
       mesh_viewport_ = glGetUniformLocation(mesh_program_, "viewport");
-      mesh_bounds_ = glGetUniformLocation(mesh_program_, "bounds");
-      mesh_color_ = glGetUniformLocation(mesh_program_, "flat_color");
-      mesh_page_ = glGetUniformLocation(mesh_program_, "layer");
-      mesh_textured_ = glGetUniformLocation(mesh_program_, "textured");
-      mesh_repeat_ = glGetUniformLocation(mesh_program_, "repeat_texture");
       glGenVertexArrays(1, &mesh_vao_);
       glBindVertexArray(mesh_vao_);
       glGenBuffers(1, &mesh_buffer_);
       glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
-      for (GLuint i = 0; i < 3; ++i) glEnableVertexAttribArray(i);
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex),
-                            reinterpret_cast<void*>(offsetof(MeshVertex, x)));
-      glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex),
-                            reinterpret_cast<void*>(offsetof(MeshVertex, u)));
-      glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(MeshVertex),
-                            reinterpret_cast<void*>(offsetof(MeshVertex, shade)));
+      const std::array<std::pair<GLint, std::size_t>, 8> mesh_attributes{{{2, offsetof(MeshBatchVertex, x)},
+                                                                          {2, offsetof(MeshBatchVertex, u)},
+                                                                          {1, offsetof(MeshBatchVertex, shade)},
+                                                                          {4, offsetof(MeshBatchVertex, bounds)},
+                                                                          {1, offsetof(MeshBatchVertex, page)},
+                                                                          {3, offsetof(MeshBatchVertex, color)},
+                                                                          {1, offsetof(MeshBatchVertex, textured)},
+                                                                          {1, offsetof(MeshBatchVertex, repeat)}}};
+      for (GLuint i = 0; i < mesh_attributes.size(); ++i) {
+        glEnableVertexAttribArray(i);
+        glVertexAttribPointer(i, mesh_attributes[i].first, GL_FLOAT, GL_FALSE, sizeof(MeshBatchVertex),
+                              reinterpret_cast<void*>(mesh_attributes[i].second));
+      }
       glBindVertexArray(0);
     }
     {
@@ -581,34 +593,34 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       continue;
     }
     if (list[first].kind == 9) {
-      // Reference path: a prepared MeshDraw (project_model) is uploaded and drawn on its own.
-      if (const auto* mesh = static_cast<const MeshDraw*>(list[first].owner.get()); mesh && !mesh->vertices.empty()) {
-        REALM_ZONE("render.model_upload_submit");
-        const bool model_measure = measure_models && gpu_timers_->model_begin(1);
-        telemetry::add(telemetry::Counter::models);
-        telemetry::add(telemetry::Counter::mesh_upload_bytes, mesh->vertices.size() * sizeof(MeshVertex));
+      // Reference path: prepared MeshDraw owners (project_model) draw from their spans of mesh_buffer_, which
+      // collect_meshes filled in this same order. A run of consecutive meshes is one draw over contiguous vertices.
+      REALM_ZONE("render.mesh_submit");
+      std::size_t end = first;
+      while (end < list.size() && list[end].kind == 9 && list[end].owner) ++end;
+      if (mesh_ranges_.size() - mesh_cursor_ < end - first) throw std::logic_error("Mesh batch out of sync");
+      const auto run = std::span(mesh_ranges_).subspan(mesh_cursor_, end - first);
+      mesh_cursor_ += end - first;
+      std::size_t vertices{}, models{};
+      for (const auto& range : run) {
+        vertices += range.count;
+        models += range.count != 0;
+      }
+      if (vertices) {
+        const bool model_measure = measure_models && gpu_timers_->model_begin(models);
+        telemetry::add(telemetry::Counter::models, models);
+        telemetry::add(telemetry::Counter::triangles, vertices / 3);
         glUseProgram(mesh_program_);
         glBindVertexArray(mesh_vao_);
-        glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
         glUniform2f(mesh_viewport_, static_cast<float>(width), static_cast<float>(height));
-        glUniform4f(mesh_bounds_, mesh->bounds[0], mesh->bounds[1], mesh->bounds[2], mesh->bounds[3]);
-        glUniform1f(mesh_page_, mesh->page);
-        glUniform3f(mesh_color_, mesh->color[0], mesh->color[1], mesh->color[2]);
-        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mesh->vertices.size() * sizeof(MeshVertex)),
-                     mesh->vertices.data(), GL_STREAM_DRAW);
-        for (const auto& group : mesh->groups) {
-          glUniform1i(mesh_textured_, group.solid ? 0 : 1);
-          glUniform1i(mesh_repeat_, group.repeat ? 1 : 0);
-          glDrawArrays(GL_TRIANGLES, static_cast<GLint>(group.first), static_cast<GLsizei>(group.count));
-          ++draw_calls_;
-          telemetry::add(telemetry::Counter::triangles, group.count / 3);
-        }
+        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(run.front().first), static_cast<GLsizei>(vertices));
+        ++draw_calls_;
         if (measure_models) gpu_timers_->model_end(model_measure);
         glUseProgram(program_);
         glBindVertexArray(vao_);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
       }
-      ++first;
+      first = end;
       continue;
     }
     const auto texture = list[first].texture;
@@ -654,6 +666,7 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   glBindVertexArray(vao_);
   glUniform1i(ground_location_, 0);
   glUniform1i(clip_location_, 0);
+  upload_meshes(quads, overlay);
   const auto stream_buffer = stream_->upload(quads, overlay);
   if (measure) gpu_timers_->phase(1);
   glUniform1i(surface_location_, 1);
@@ -692,6 +705,43 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   glDisable(GL_SCISSOR_TEST);
   gpu_timers_->advance_frame();
 }
+// Mirrors draw_batch's visiting order exactly: a clipped layer is collected at its own stream position.
+void Renderer::collect_meshes(std::span<const Quad> list) {
+  for (const auto& quad : list) {
+    if (quad.kind == 14) {
+      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) collect_meshes(layer->quads);
+      continue;
+    }
+    if (quad.kind != 9 || !quad.owner) continue;
+    const auto& mesh = *static_cast<const MeshDraw*>(quad.owner.get());
+    const auto first = mesh_vertices_.size();
+    for (const auto& group : mesh.groups) {
+      // Whole triangles only: a run's single draw relies on every span starting on a triangle boundary.
+      const std::size_t begin = group.first, end = begin + (group.count - group.count % 3);
+      if (end > mesh.vertices.size()) throw std::logic_error("Invalid mesh group");
+      const float textured = group.solid ? 0.F : 1.F, repeat = group.repeat ? 1.F : 0.F;
+      for (std::size_t i = begin; i < end; ++i) {
+        const auto& v = mesh.vertices[i];
+        mesh_vertices_.push_back({v.x, v.y, v.u, v.v, v.shade, mesh.bounds, mesh.page, mesh.color, textured, repeat});
+      }
+    }
+    mesh_ranges_.push_back({first, mesh_vertices_.size() - first});
+  }
+}
+// One submission's meshes (quads, then overlay, both drawn in that order) share one upload into mesh_buffer_.
+void Renderer::upload_meshes(std::span<const Quad> quads, std::span<const Quad> overlay) {
+  mesh_vertices_.clear();
+  mesh_ranges_.clear();
+  mesh_cursor_ = 0;
+  collect_meshes(quads);
+  collect_meshes(overlay);
+  if (mesh_vertices_.empty()) return;
+  REALM_ZONE("render.mesh_upload");
+  const auto bytes = mesh_vertices_.size() * sizeof(MeshBatchVertex);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
+  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes), mesh_vertices_.data(), GL_STREAM_DRAW);
+  telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
+}
 // A later pass (RmlUi) leaves arbitrary GL state behind, so everything the quad program depends on is set again here.
 void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, int width, int height) {
   if (width <= 0 || height <= 0 || overlay.size() > 1000000)
@@ -718,6 +768,7 @@ void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, i
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);
+  upload_meshes({}, overlay);
   const auto overlay_buffer = stream_->upload_overlay(overlay);
   const auto before = draw_calls_;
   draw_batch(overlay, 0, width, height, overlay_buffer, false);

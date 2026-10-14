@@ -24,6 +24,9 @@ struct ObjectFaceGeometry {
   bool split_diagonal{};
   bool has_normal_local{};
   std::array<double, 3> normal_local{};
+  // Camera-independent triangulation of `vertices` (indices into them), filled when the geometry is built. Empty means
+  // project_object_faces triangulates on the fly, as for hand-built faces.
+  std::vector<std::array<std::uint8_t, 3>> triangles;
 };
 
 struct ConnectedObjectGeometry {

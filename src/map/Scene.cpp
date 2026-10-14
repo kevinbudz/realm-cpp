@@ -443,6 +443,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     webs_.clear();
     connected_geometries_.clear();
     connected_geometry_lru_.clear();
+    stalagmite_geometries_.clear();
     status_surfaces_.clear();
     status_list_.clear();
     status_surface_bytes_ = 0;
@@ -565,9 +566,13 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
   };
   const auto* focus = world.entity(world.player_id());
   const bool hallucinating = focus && (focus->combat.condition & condition::bit(condition::hallucinating));
-  int hallucination_sheet = -1;
-  for (std::size_t i = 0; i < flash::sheets.size(); ++i)
-    if (std::string_view(flash::sheets[i].name) == "lofiChar8x8") hallucination_sheet = static_cast<int>(i);
+  // The lofiChar8x8 sheet is fixed by the Flash source, so its index is looked up once per process.
+  static const int hallucination_sheet = [] {
+    int found = -1;
+    for (std::size_t i = 0; i < flash::sheets.size(); ++i)
+      if (std::string_view(flash::sheets[i].name) == "lofiChar8x8") found = static_cast<int>(i);
+    return found;
+  }();
   TextureDef hallucinated;
   auto draw_impl = [&](const Entity& e, const ObjectDef& d) {
     auto dyes = world_dyes(world, e);
@@ -688,10 +693,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       return;
     }
     if (d.class_name == "Stalagmite") {
-      const auto seed = static_cast<std::uint32_t>(e.id) * 2654435761U ^ 0x7f4a7c15U;
-      const auto geometry = stalagmite_geometry(seed);
-      if (const auto mesh =
-              project_object_faces(geometry, 0, sprite, camera, e.motion.position, 0, d.rotation, nullptr, 0, 0, false))
+      auto cached = stalagmite_geometries_.find(e.id);
+      if (cached == stalagmite_geometries_.end()) {
+        if (stalagmite_geometries_.size() >= maximum_connected_geometries) stalagmite_geometries_.clear();
+        const auto seed = static_cast<std::uint32_t>(e.id) * 2654435761U ^ 0x7f4a7c15U;
+        cached = stalagmite_geometries_.emplace(e.id, stalagmite_geometry(seed)).first;
+      }
+      if (const auto mesh = project_object_faces(cached->second, 0, sprite, camera, e.motion.position, 0, d.rotation,
+                                                 nullptr, 0, 0, false))
         out.push_back(mesh_quad(mesh));
       return;
     }

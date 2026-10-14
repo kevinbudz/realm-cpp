@@ -108,9 +108,12 @@ class Scene {
     ConnectedObjectGeometry geometry;
     std::list<std::int32_t>::iterator lru;
   };
-  static constexpr std::size_t maximum_connected_geometries = 1024;
+  // Above the wall count of a dense cull rectangle (~1500 tiles), so a full screen of walls never cycles the LRU.
+  static constexpr std::size_t maximum_connected_geometries = 4096;
   std::list<std::int32_t> connected_geometry_lru_;
   std::unordered_map<std::int32_t, ConnectedGeometryCacheEntry> connected_geometries_;
+  // Stalagmite geometry depends only on its entity id's seed: built once per id, cleared with the cache above.
+  std::unordered_map<std::int32_t, std::vector<ObjectFaceGeometry>> stalagmite_geometries_;
   struct Cached {
     std::weak_ptr<const Image> image;
     std::shared_ptr<SurfaceTexture> surface;

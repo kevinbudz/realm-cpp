@@ -2,6 +2,7 @@
 #include "realm/map/World.hpp"
 #include <algorithm>
 #include <numbers>
+#include <span>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -339,6 +340,7 @@ std::vector<ObjectFaceGeometry> cave_geometry(ConnectedShape shape, int rotation
   }
   return faces;
 }
+void finalize_object_faces(std::vector<ObjectFaceGeometry>& faces);
 }
 
 ConnectedShape connected_shape(std::uint32_t connect_stat, int* rotation) {
@@ -366,6 +368,7 @@ ConnectedObjectGeometry connected_object_geometry(const ObjectDef& definition, s
     result.shape = shape;
     result.rotation = rotation;
     result.faces = cave_geometry(shape, rotation, tile_x, tile_y, seed);
+    finalize_object_faces(result.faces);
     return result;
   }
   Builder builder(definition, shape, rotation);
@@ -392,6 +395,7 @@ ConnectedObjectGeometry connected_object_geometry(const ObjectDef& definition, s
       break;
   }
   builder.result.faces.shrink_to_fit();
+  finalize_object_faces(builder.result.faces);
   return std::move(builder.result);
 }
 
@@ -406,6 +410,7 @@ std::vector<ObjectFaceGeometry> stalagmite_geometry(std::uint32_t seed) {
   faces[0].vertices = {vertex(v0, 0, 1), vertex(v1, .5, 1), vertex(v3, .5, 0)};
   faces[1].vertices = {vertex(v1, .5, 1), vertex(v2, 1, 1), vertex(v3, .5, 0)};
   faces[2].vertices = {vertex(v2, 1, 1), vertex(v0, 0, 1), vertex(v3, .5, 0)};
+  finalize_object_faces(faces);
   return faces;
 }
 }
@@ -474,6 +479,19 @@ std::vector<Triangle> triangulate_object_face(const ObjectFaceGeometry& face) {
   result.push_back({live[0], live[1], live[2]});
   return result;
 }
+// Divide by sqrt(14) rather than multiply by its reciprocal: the division keeps shading bit-identical.
+const double sqrt14 = std::sqrt(14.0);
+std::vector<std::array<std::uint8_t, 3>> compact_triangulation(const ObjectFaceGeometry& face) {
+  std::vector<std::array<std::uint8_t, 3>> result;
+  for (const auto& tri : triangulate_object_face(face))
+    result.push_back({static_cast<std::uint8_t>(tri[0]), static_cast<std::uint8_t>(tri[1]),
+                      static_cast<std::uint8_t>(tri[2])});
+  return result;
+}
+void finalize_object_faces(std::vector<ObjectFaceGeometry>& faces) {
+  // Connected faces have at most 12 vertices, so the uint8 indices never truncate.
+  for (auto& face : faces) face.triangles = compact_triangulation(face);
+}
 
 }  // namespace
 
@@ -500,27 +518,32 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
                   static_cast<float>(sprite.width) * inv_page, static_cast<float>(sprite.height) * inv_page};
   draw->page = static_cast<float>(sprite.page);
   draw->color = {0, 0, 0};
-  const auto draw_face = [&](const ObjectFaceGeometry& face) {
-    if (face.material != material || face.vertices.size() < 3) return;
-    std::vector<Vec2> screen;
-    screen.reserve(face.vertices.size());
-    std::vector<std::array<double, 3>> points;
-    points.reserve(face.vertices.size());
-    for (const auto& v : face.vertices) {
-      const double x = v.x * cosine - v.y * sine, y = v.x * sine + v.y * cosine;
-      points.push_back({position.x + x, position.y + y, z + v.z});
-      screen.push_back(camera.world_to_screen({position.x + x, position.y + y}, z + v.z));
-    }
-    const auto& a = screen.front();
-    const auto& b = screen[1];
-    const auto& c = screen.back();
-    // ObjectFace3D.draw rejects this face when its first/second/last projected points wind backwards.
+  // An n-gon triangulates into n - 2 triangles, so the output size is known before any projection.
+  std::size_t vertex_count = 0;
+  for (const auto& face : faces)
+    if (face.material == material && face.vertices.size() >= 3) vertex_count += 3 * (face.vertices.size() - 2);
+  draw->vertices.reserve(vertex_count);
+  // Connected faces have at most 12 vertices (a cross cap), so projected corners live on the stack.
+  constexpr std::size_t stack_vertices = 16;
+  std::array<Vec2, stack_vertices> screen_stack;
+  std::array<std::array<double, 3>, stack_vertices> points_stack;
+  std::vector<Vec2> screen_heap;
+  std::vector<std::array<double, 3>> points_heap;
+  // ObjectFace3D.draw: a polygon is culled, lit and boundary-tested from its first (f), second (s) and last (l)
+  // vertices. Each triangle indexes the polygon's vertices and is textured from those three.
+  const auto draw_polygon = [&](const ObjectFaceGeometry& face, const Vec2* screen, const std::array<double, 3>* points,
+                                std::size_t f, std::size_t s, std::size_t l,
+                                std::span<const std::array<std::uint8_t, 3>> triangles) {
+    const auto& a = screen[f];
+    const auto& b = screen[s];
+    const auto& c = screen[l];
     const double ux = b.x - a.x, uy = b.y - a.y, vx = c.x - a.x, vy = c.y - a.y;
     const double determinant = ux * vy - uy * vx;
+    // ObjectFace3D.draw rejects this face when its first/second/last projected points wind backwards.
     if (determinant <= 1e-12) return;
-    const auto& pa = points.front();
-    const auto& pb = points[1];
-    const auto& pc = points.back();
+    const auto& pa = points[f];
+    const auto& pb = points[s];
+    const auto& pc = points[l];
     double nx = (pb[1] - pa[1]) * (pc[2] - pa[2]) - (pb[2] - pa[2]) * (pc[1] - pa[1]);
     double ny = (pb[2] - pa[2]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[2] - pa[2]);
     double nz = (pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0]);
@@ -530,7 +553,7 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
       ny /= length;
       nz /= length;
     }
-    const double shade = .75 + .25 * std::max(0.0, (nx + 3 * ny + 2 * nz) / std::sqrt(14.0));
+    const double shade = .75 + .25 * std::max(0.0, (nx + 3 * ny + 2 * nz) / sqrt14);
     double neighbor_nx = nx, neighbor_ny = ny;
     if (face.has_normal_local) {
       neighbor_nx = face.normal_local[0] * cosine - face.normal_local[1] * sine;
@@ -543,7 +566,9 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
       const auto* neighbor = world->tile(tile_x + dx, tile_y + dy);
       black_boundary = !neighbor || neighbor->type == 255 || !world->catalog().ground(neighbor->type);
     }
-    const auto triangles = triangulate_object_face(face);
+    const auto& uv0 = face.vertices[f];
+    const auto& uv1 = face.vertices[s];
+    const auto& uv2 = face.vertices[l];
     for (const auto& tri : triangles) {
       const auto first = static_cast<std::uint32_t>(draw->vertices.size());
       for (const auto index : tri) {
@@ -552,9 +577,6 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
         const double pixel_dx = screen[index].x - a.x, pixel_dy = screen[index].y - a.y;
         const double alpha = (pixel_dx * vy - pixel_dy * vx) / determinant;
         const double beta = (ux * pixel_dy - uy * pixel_dx) / determinant;
-        const auto& uv0 = face.vertices.front();
-        const auto& uv1 = face.vertices[1];
-        const auto& uv2 = face.vertices.back();
         const double u = uv0.u + alpha * (uv1.u - uv0.u) + beta * (uv2.u - uv0.u);
         const double v = uv0.v + alpha * (uv1.v - uv0.v) + beta * (uv2.v - uv0.v);
         draw->vertices.push_back({static_cast<float>(screen[index].x), static_cast<float>(screen[index].y),
@@ -568,16 +590,31 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
     }
   };
   for (const auto& face : faces) {
-    if (face.split_quad && face.vertices.size() == 4) {
-      // CaveWall.faceHelper creates independent ObjectFace3D triangles, each with its own culling and light.
-      for (const auto& triangle : triangulate_object_face(face)) {
-        auto split = face;
-        split.vertices = {face.vertices[triangle[0]], face.vertices[triangle[1]], face.vertices[triangle[2]]};
-        split.split_quad = false;
-        draw_face(split);
-      }
+    const auto n = face.vertices.size();
+    if (face.material != material || n < 3) continue;
+    if (n > stack_vertices) {
+      screen_heap.resize(n);
+      points_heap.resize(n);
+    }
+    Vec2* screen = n > stack_vertices ? screen_heap.data() : screen_stack.data();
+    std::array<double, 3>* points = n > stack_vertices ? points_heap.data() : points_stack.data();
+    for (std::size_t i = 0; i < n; ++i) {
+      const auto& v = face.vertices[i];
+      const double x = v.x * cosine - v.y * sine, y = v.x * sine + v.y * cosine;
+      points[i] = {position.x + x, position.y + y, z + v.z};
+      screen[i] = camera.world_to_screen({position.x + x, position.y + y}, z + v.z);
+    }
+    // Hand-built faces carry no precomputed triangulation and triangulate here.
+    std::vector<std::array<std::uint8_t, 3>> computed;
+    if (face.triangles.empty()) computed = compact_triangulation(face);
+    const auto& triangles = face.triangles.empty() ? computed : face.triangles;
+    if (face.split_quad && n == 4) {
+      // CaveWall.faceHelper creates independent ObjectFace3D triangles, each with its own culling and light. Each is
+      // drawn in place from its three indices rather than copying the quad.
+      for (const auto& tri : triangles)
+        draw_polygon(face, screen, points, tri[0], tri[1], tri[2], std::span(&tri, 1));
     } else {
-      draw_face(face);
+      draw_polygon(face, screen, points, 0, 1, n - 1, triangles);
     }
   }
   return draw->vertices.empty() ? nullptr : draw;

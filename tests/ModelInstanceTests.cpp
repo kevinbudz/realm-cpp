@@ -212,6 +212,60 @@ int main() {
         check(sample(capture, 110, repeat ? 2 : 0) == 255 && sample(capture, 290, repeat ? 0 : 2) == 255,
               "mesh bitmap repetition is sampled per fragment");
       }
+      // Consecutive meshes draw as one batch. It must match the same meshes split by transparent quads (one draw each),
+      // with an empty mesh, a mixed mesh and a clipped layer in the run, and also when the tail is an overlay or a
+      // draw_overlay pass. Every mesh covers its own area, so a misplaced span shows up as a hole or a stray triangle.
+      {
+        auto mixed = std::make_shared<MeshDraw>(*fill);
+        for (auto& v : mixed->vertices) v.y += 250;
+        mixed->color = {1, 0, 0};
+        mixed->groups = {{false, 0, 3, false}, {true, 3, 3, true}};
+        auto solid = std::make_shared<MeshDraw>();
+        solid->color = {0, 1, 0};
+        solid->vertices = {{350, 120, 0, 0, 1}, {520, 150, 0, 0, .6F}, {420, 260, 0, 0, .8F}};
+        solid->groups = {{true, 0, 3, true}};
+        auto tail = std::make_shared<MeshDraw>(*fill);
+        for (auto& v : tail->vertices) {
+          v.x += 400;
+          v.y += 250;
+        }
+        auto blue = std::make_shared<MeshDraw>();
+        blue->color = {0, 0, 1};
+        blue->vertices = {{560, 120, 0, 0, 1}, {760, 150, 0, 0, .6F}, {660, 260, 0, 0, .8F}};
+        blue->groups = {{true, 0, 3, true}};
+        auto layer = std::make_shared<QuadLayer>();
+        layer->quads = {mesh_quad(blue)};
+        Quad clip;
+        clip.kind = 14;
+        clip.owner = layer;
+        clip.axis_x = {static_cast<float>(width), 0};
+        clip.axis_y = {0, static_cast<float>(height)};
+        Quad hidden;
+        hidden.kind = 2;
+        hidden.axis_x = {1, 0};
+        hidden.axis_y = {0, 1};
+        hidden.multiply = {0, 0, 0, 0};
+        const std::array batched{mesh_quad(fill), mesh_quad(solid), mesh_quad(std::make_shared<MeshDraw>()),
+                                 mesh_quad(mixed), clip, mesh_quad(tail)};
+        std::vector<Quad> split;
+        for (const auto& q : batched) {
+          split.push_back(hidden);
+          split.push_back(q);
+        }
+        split.push_back(hidden);
+        renderer.draw(atlas, std::array{hidden}, width, height, width);
+        const auto background = renderer.capture(width, height);
+        renderer.draw(atlas, split, width, height, width);
+        const auto want = renderer.capture(width, height);
+        check(want.pixels != background.pixels, "batch check draws visible meshes");
+        renderer.draw(atlas, batched, width, height, width);
+        check(renderer.capture(width, height).pixels == want.pixels, "mesh batch matches one draw per mesh");
+        renderer.draw(atlas, std::span(batched).first(4), width, height, width, std::span(batched).subspan(4));
+        check(renderer.capture(width, height).pixels == want.pixels, "mesh batch continues into the overlay");
+        renderer.draw(atlas, std::span(batched).first(4), width, height, width);
+        renderer.draw_overlay(atlas, std::span(batched).subspan(4), width, height);
+        check(renderer.capture(width, height).pixels == want.pixels, "mesh batch continues into draw_overlay");
+      }
       // One real object (and its real sprite) per model.
       std::map<std::string, const ObjectDef*> objects;
       for (const auto& d : catalog.objects())

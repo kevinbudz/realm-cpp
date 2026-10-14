@@ -103,13 +103,29 @@ class Renderer {
   std::unique_ptr<RendererGpuTimers> gpu_timers_;
   std::unique_ptr<RendererStream> stream_;
   std::size_t draw_calls_{};
+  // Prepared meshes (kind 9 with a MeshDraw owner) are expanded per submission into one buffer, in painter order.
+  // Each vertex carries its mesh's sprite and color and its group's material, so a run of meshes is one draw.
+  struct MeshBatchVertex {
+    float x, y, u, v, shade;
+    std::array<float, 4> bounds;
+    float page;
+    std::array<float, 3> color;
+    float textured, repeat;
+  };
+  struct MeshBatchRange {
+    std::size_t first, count;
+  };
+  std::vector<MeshBatchVertex> mesh_vertices_;
+  std::vector<MeshBatchRange> mesh_ranges_;  // One per mesh quad, in the order draw_batch visits them.
+  std::size_t mesh_cursor_{};
 
   // Draws a painter-ordered quad list whose bytes start at offset in buffer.
   void draw_batch(std::span<const Quad> list, std::size_t offset, int width, int height, std::uint32_t buffer,
                   bool measure_models);
+  void collect_meshes(std::span<const Quad> list);
+  void upload_meshes(std::span<const Quad> quads, std::span<const Quad> overlay);
   void release_gl_resources() noexcept;
-  int viewport_location_{}, model_viewport_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{},
-      mesh_textured_{}, mesh_repeat_{};
+  int viewport_location_{}, model_viewport_{}, mesh_viewport_{};
   int standalone_location_{}, surface_location_{}, ground_location_{}, ground_origin_{}, ground_x_{}, ground_y_{},
       ground_time_{}, clip_location_{}, clip_rect_{};
 };

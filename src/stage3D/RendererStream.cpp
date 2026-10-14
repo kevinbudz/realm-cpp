@@ -96,11 +96,17 @@ std::uint32_t RendererStream::upload(std::span<const Quad> quads, std::span<cons
     if (!quads.empty()) std::memcpy(target, quads.data(), quads.size_bytes());
     if (!overlay.empty()) std::memcpy(target + quads.size_bytes(), overlay.data(), overlay.size_bytes());
   } else {
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(capacity_ * sizeof(Quad)), nullptr, GL_STREAM_DRAW);
-    if (!quads.empty()) glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(quads.size_bytes()), quads.data());
-    if (!overlay.empty())
+    // Orphaned at this submission's size: the driver allocates the bytes drawn, not the whole capacity.
+    const auto bytes = static_cast<GLsizeiptr>(quads.size_bytes() + overlay.size_bytes());
+    if (overlay.empty()) {
+      glBufferData(GL_ARRAY_BUFFER, bytes, quads.data(), GL_STREAM_DRAW);
+    } else {
+      glBufferData(GL_ARRAY_BUFFER, bytes, nullptr, GL_STREAM_DRAW);
+      if (!quads.empty())
+        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(quads.size_bytes()), quads.data());
       glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(quads.size_bytes()),
                       static_cast<GLsizeiptr>(overlay.size_bytes()), overlay.data());
+    }
   }
   return buffer;
 }

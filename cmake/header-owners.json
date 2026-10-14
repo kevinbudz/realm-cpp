@@ -15,6 +15,7 @@
   "include/realm/sound/SoundCues.hpp": "realm_support",
   "include/realm/stage3D/TextureResidency.hpp": "realm_support",
   "include/realm/stage3D/DrawTypes.hpp": "realm_support",
+  "include/realm/stage3D/WallGeometry.hpp": "realm_support",
   "include/realm/platform/Platform.hpp": "realm_platform",
   "include/realm/messaging/Protocol.hpp": "realm_network",
   "include/realm/messaging/Messages.hpp": "realm_network",

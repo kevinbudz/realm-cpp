@@ -41,6 +41,11 @@ uniform vec2 viewport;
 uniform bool groundSpace;
 uniform vec2 groundOrigin, groundX, groundY;
 uniform float groundTime;
+// Runs holding wall instances draw triangle lists: six vertices per quad, in strip order.
+uniform bool triangleList;
+// Wall corners of a WallGeometryStore: two RGBA32F texels each (x y z u, then v shade flags pad).
+uniform samplerBuffer geometry;
+const int stripCorner[6] = int[6](0, 1, 2, 2, 1, 3);
 out vec2 local;
 flat out vec4 bounds;
 flat out float layer;
@@ -49,10 +54,47 @@ flat out vec4 bias;
 flat out float mode;
 flat out vec2 scroll;
 void main() {
-    local = vec2(gl_VertexID & 1, (gl_VertexID >> 1) & 1);
+    bounds = spriteUV; layer = page; tint = multiply; bias = offset; mode = kind; scroll = uvOffset;
+    if (kind > 16.5 && kind < 17.5) {
+        // Wall instance: multiply = (first corner, corner count, neighbor black mask, unused). A triangle is kept when
+        // its screen determinant (b - a) x (c - a) is positive, the winding the software path culls by. Its three
+        // corners reach the same verdict, so the triangle is kept or clipped whole.
+        int vertex = gl_VertexID;
+        if (vertex >= int(multiply.y)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+        int first = (int(multiply.x) + vertex / 3 * 3) * 2;
+        vec4 g0 = texelFetch(geometry, first), h0 = texelFetch(geometry, first + 1);
+        vec4 g1 = texelFetch(geometry, first + 2), h1 = texelFetch(geometry, first + 3);
+        vec4 g2 = texelFetch(geometry, first + 4), h2 = texelFetch(geometry, first + 5);
+        vec2 p0 = origin + axisX * g0.x + axisY * g0.y + uvOffset * g0.z;
+        vec2 p1 = origin + axisX * g1.x + axisY * g1.y + uvOffset * g1.z;
+        vec2 p2 = origin + axisX * g2.x + axisY * g2.y + uvOffset * g2.z;
+        float det = (p1.x - p0.x) * (p2.y - p0.y) - (p1.y - p0.y) * (p2.x - p0.x);
+        if (det <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+        int corner = vertex % 3;
+        vec4 g = corner == 0 ? g0 : corner == 1 ? g1 : g2;
+        vec2 pixel = corner == 0 ? p0 : corner == 1 ? p1 : p2;
+        gl_Position = vec4(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0, 0.0, 1.0);
+        // flags = repeat + 2 * slot, slot 4 meaning no neighbor test; the mask says which neighbor slots are black.
+        // Every corner of a triangle belongs to one polygon, so corner 0 holds the flags and shade of the triangle.
+        int flags = int(h0.z);
+        int slot = flags / 2;
+        bool solid = slot != 4 && ((int(multiply.z) >> slot) & 1) != 0;
+        local = vec2(g.w, corner == 0 ? h0.x : corner == 1 ? h1.x : h2.x);
+        tint = vec4(h0.y, 0.0, 0.0, 1.0);
+        scroll = vec2(solid ? 0.0 : 1.0, (flags & 1) != 0 ? 1.0 : 0.0);
+        bias = vec4(0.0);
+        mode = 17.0;
+        return;
+    }
+    if (triangleList) {
+        if (gl_VertexID >= 6) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+        int corner = stripCorner[gl_VertexID];
+        local = vec2(corner & 1, (corner >> 1) & 1);
+    } else {
+        local = vec2(gl_VertexID & 1, (gl_VertexID >> 1) & 1);
+    }
     vec2 pixel = origin + axisX * local.x + axisY * local.y;
     gl_Position = vec4(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0, 0.0, 1.0);
-    bounds = spriteUV; layer = page; tint = multiply; bias = offset; mode = kind; scroll = uvOffset;
     if (groundSpace) {
         pixel = groundOrigin + groundX * pixel.x + groundY * pixel.y;
         gl_Position = vec4(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0, 0.0, 1.0);
@@ -81,6 +123,19 @@ out vec4 color;
 void main() {
     vec2 screen = vec2(gl_FragCoord.x, viewport.y - gl_FragCoord.y);
     if (clipped && (any(lessThan(screen,clipRect.xy)) || any(greaterThanEqual(screen,clipRect.xy+clipRect.zw)))) discard;
+    if (mode > 16.5 && mode < 17.5) {
+        // Wall corner (vertex_shader): solid faces are black; textured faces sample their sprite as the mesh program
+        // does.
+        if (scroll.x < 0.5) { color = vec4(0.0, 0.0, 0.0, 1.0); return; }
+        vec2 page = vec2(textureSize(sprites, 0).xy);
+        vec2 size = bounds.zw * page;
+        vec2 pixels = floor(local * size);
+        pixels = scroll.y > 0.5 ? mod(pixels, size) : clamp(pixels, vec2(0.0), size - 1.0);
+        vec2 coords = (bounds.xy * page + pixels + 0.5) / page;
+        vec4 texel = texture(sprites, vec3(coords, layer));
+        color = vec4(texel.rgb * tint.x, texel.a);
+        return;
+    }
     if (mode > 12.5 && mode < 13.5) {
         vec2 uv = bounds.xy + local * bounds.zw;
         color = any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,vec2(1)))
@@ -233,6 +288,8 @@ void main() {
     color = vec4(texel.rgb * lit, texel.a);
 }
 )glsl";
+
+
 
 std::array<float, 2> floats(Vec2 p) { return {static_cast<float>(p.x), static_cast<float>(p.y)}; }
 }
@@ -459,6 +516,9 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       }
       glBindVertexArray(0);
     }
+    glGenBuffers(1, &wall_geometry_);
+    glGenTextures(1, &wall_texture_);
+    glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &wall_texel_limit_);
     post_process_ = std::make_unique<RendererPostProcess>();
     gpu_timers_ = std::make_unique<RendererGpuTimers>();
     glUseProgram(program_);
@@ -473,6 +533,8 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
     ground_time_ = glGetUniformLocation(program_, "groundTime");
     clip_location_ = glGetUniformLocation(program_, "clipped");
     clip_rect_ = glGetUniformLocation(program_, "clipRect");
+    triangle_list_location_ = glGetUniformLocation(program_, "triangleList");
+    glUniform1i(glGetUniformLocation(program_, "geometry"), 2);
     glGenVertexArrays(1, &vao_);
     glBindVertexArray(vao_);
     stream_ = std::make_unique<RendererStream>(capacity, persistent_streaming, persistent_minimum_bytes);
@@ -481,6 +543,8 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       glEnableVertexAttribArray(i);
       glVertexAttribDivisor(i, 1);
     }
+    base_instance_supported_ = GLEW_VERSION_4_2 || GLEW_ARB_base_instance;
+    base_instance_ = base_instance_supported_;
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
@@ -501,11 +565,30 @@ void Renderer::release_gl_resources() noexcept {
   if (model_geometry_) glDeleteBuffers(1, &model_geometry_);
   if (model_vao_) glDeleteVertexArrays(1, &model_vao_);
   if (model_program_) glDeleteProgram(model_program_);
+  if (wall_geometry_) glDeleteBuffers(1, &wall_geometry_);
+  if (wall_texture_) glDeleteTextures(1, &wall_texture_);
   vao_ = program_ = mesh_buffer_ = mesh_vao_ = mesh_program_ = model_geometry_ = model_vao_ = model_program_ = 0;
+  wall_geometry_ = wall_texture_ = 0;
+}
+// Points the quad program's instance attributes at a list starting offset bytes into the bound array buffer.
+void Renderer::bind_quad_attributes(std::size_t offset) {
+  for (GLuint i = 0; i < quad_sizes.size(); ++i)
+    glVertexAttribPointer(i, quad_sizes[i], GL_FLOAT, GL_FALSE, sizeof(Quad),
+                          reinterpret_cast<void*>(offset + quad_offsets[i]));
+}
+// Instances of a run start at its first quad. Without base instances the caller has already moved the pointers there.
+void Renderer::draw_instanced(std::uint32_t mode, std::int32_t first_vertex, std::int32_t vertices,
+                              std::int32_t instances, std::size_t first_instance) const {
+  if (base_instance_)
+    glDrawArraysInstancedBaseInstance(mode, first_vertex, vertices, instances, static_cast<GLuint>(first_instance));
+  else
+    glDrawArraysInstanced(mode, first_vertex, vertices, instances);
 }
 void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int width, int height, std::uint32_t buffer,
                           bool measure_models) {
   const auto standalone = standalone_location_;
+  // Whether the quad pointers of vao_ address this list in buffer; terrain and layers rebind them.
+  bool quads_bound = false;
   for (std::size_t first = 0; first < list.size();) {
     if (list[first].kind == 10) {
       const auto& command = list[first];
@@ -518,9 +601,8 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       glUniform2fv(ground_y_, 1, command.axis_y.data());
       glUniform1f(ground_time_, command.uv_offset[0]);
       glBindBuffer(GL_ARRAY_BUFFER, terrain->buffer());
-      for (GLuint i = 0; i < quad_sizes.size(); ++i)
-        glVertexAttribPointer(i, quad_sizes[i], GL_FLOAT, GL_FALSE, sizeof(Quad),
-                              reinterpret_cast<void*>(quad_offsets[i]));
+      bind_quad_attributes(0);
+      quads_bound = false;
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, static_cast<GLsizei>(terrain->count()));
       ++draw_calls_;
       telemetry::add(telemetry::Counter::quads, terrain->count());
@@ -539,9 +621,11 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
       glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
       telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
+      // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before the kind branch.
       glUniform1i(clip_location_, 1);
       glUniform4f(clip_rect_, command.origin[0], command.origin[1], command.axis_x[0], command.axis_y[1]);
       draw_batch(layer->quads, 0, width, height, layer->buffer, false);
+      quads_bound = false;
       glUniform1i(clip_location_, 0);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
       ++first;
@@ -568,17 +652,23 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
                                                                    {1, offsetof(Quad, page)},
                                                                    {4, offsetof(Quad, multiply)},
                                                                    {4, offsetof(Quad, offset)}}};
+      // With base instances the pointers address the whole list once and each run starts at its own quad.
+      if (base_instance_)
+        for (GLuint i = 0; i < instance.size(); ++i)
+          glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
+                                reinterpret_cast<void*>(offset + instance[i].second));
       for (std::size_t run = first; run < end;) {
         const float model = list[run].offset[2];
         std::size_t next = run + 1;
         while (next < end && list[next].offset[2] == model) ++next;
         const auto range = model_range(static_cast<std::uint32_t>(model));
         const bool model_measure = measure_models && gpu_timers_->model_begin(next - run);
-        for (GLuint i = 0; i < instance.size(); ++i)
-          glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
-                                reinterpret_cast<void*>(offset + run * sizeof(Quad) + instance[i].second));
-        glDrawArraysInstanced(GL_TRIANGLES, static_cast<GLint>(range.first), static_cast<GLsizei>(range.count),
-                              static_cast<GLsizei>(next - run));
+        if (!base_instance_)
+          for (GLuint i = 0; i < instance.size(); ++i)
+            glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
+                                  reinterpret_cast<void*>(offset + run * sizeof(Quad) + instance[i].second));
+        draw_instanced(GL_TRIANGLES, static_cast<GLint>(range.first), static_cast<GLsizei>(range.count),
+                       static_cast<GLsizei>(next - run), run);
         ++draw_calls_;
         telemetry::add(telemetry::Counter::models, next - run);
         telemetry::add(telemetry::Counter::triangles, (next - run) * (range.count / 3));
@@ -628,18 +718,45 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     while (end < list.size() && list[end].texture == texture && list[end].kind != 9 && list[end].kind != 10 &&
            list[end].kind != 14)
       ++end;
+    // Wall instances (kind 17) draw in the same program. A run holding any of them is a triangle list, six vertices
+    // per instance: a wall's corners come from the store, and every other quad's two triangles from its strip order.
+    // Attribution: walls are not model runs, so their GPU time sits in the world bucket and models_ms excludes them.
+    // `models` counts wall instances, `triangles` adds corners / 3 as submitted (back faces are culled in the shader).
+    // Every instance of the run takes max(6, most) vertices, so shorter walls and sprites carry padded vertices.
+    std::size_t walls{};
+    GLsizei most = 0;
+    std::uint64_t wall_triangles{};
+    for (std::size_t i = first; i < end; ++i)
+      if (list[i].kind == 17) {
+        const auto count = static_cast<GLsizei>(list[i].multiply[1]);
+        ++walls;
+        most = std::max(most, count);
+        wall_triangles += static_cast<std::uint64_t>(count) / 3;
+      }
+    const auto sprites_in_run = end - first - walls;
     glUniform1i(standalone, texture != 0);
     if (texture) {
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, texture);
       glActiveTexture(GL_TEXTURE0);
     }
-    for (GLuint i = 0; i < quad_sizes.size(); ++i)
-      glVertexAttribPointer(i, quad_sizes[i], GL_FLOAT, GL_FALSE, sizeof(Quad),
-                            reinterpret_cast<void*>(offset + first * sizeof(Quad) + quad_offsets[i]));
-    telemetry::add(telemetry::Counter::quads, end - first);
-    telemetry::add(telemetry::Counter::triangles, 2 * (end - first));
-    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, static_cast<GLsizei>(end - first));
+    if (!base_instance_) {
+      bind_quad_attributes(offset + first * sizeof(Quad));
+    } else if (!quads_bound) {
+      glBindBuffer(GL_ARRAY_BUFFER, buffer);
+      bind_quad_attributes(offset);
+      quads_bound = true;
+    }
+    telemetry::add(telemetry::Counter::quads, sprites_in_run);
+    telemetry::add(telemetry::Counter::models, walls);
+    telemetry::add(telemetry::Counter::triangles, 2 * sprites_in_run + wall_triangles);
+    if (walls) {
+      glUniform1i(triangle_list_location_, 1);
+      draw_instanced(GL_TRIANGLES, 0, std::max<GLsizei>(6, most), static_cast<GLsizei>(end - first), first);
+      glUniform1i(triangle_list_location_, 0);
+    } else {
+      draw_instanced(GL_TRIANGLE_STRIP, 0, 4, static_cast<GLsizei>(end - first), first);
+    }
     ++draw_calls_;
     first = end;
   }
@@ -667,6 +784,7 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   glUniform1i(ground_location_, 0);
   glUniform1i(clip_location_, 0);
   upload_meshes(quads, overlay);
+  bind_walls();
   const auto stream_buffer = stream_->upload(quads, overlay);
   if (measure) gpu_timers_->phase(1);
   glUniform1i(surface_location_, 1);
@@ -728,13 +846,69 @@ void Renderer::collect_meshes(std::span<const Quad> list) {
     mesh_ranges_.push_back({first, mesh_vertices_.size() - first});
   }
 }
-// One submission's meshes (quads, then overlay, both drawn in that order) share one upload into mesh_buffer_.
+// The wall store's texture buffer stays on its texture unit for the whole submission (the main program samples it).
+void Renderer::bind_walls() {
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_BUFFER, wall_texture_);
+  glActiveTexture(GL_TEXTURE0);
+}
+// The one wall store a submission draws from, also inside layers. Invariant: one store per submission. Scene builds a
+// frame's walls into one store and replaces it only at the start of a build, so a second store is a caller error (the
+// texture buffer mirrors one store; a split would need one buffer per store and a run break per store).
+void Renderer::find_walls(std::span<const Quad> list, const WallGeometryStore*& store) {
+  for (const auto& quad : list) {
+    if (quad.kind == 14) {
+      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) find_walls(layer->quads, store);
+      continue;
+    }
+    if (quad.kind != 17) continue;
+    const auto* found = static_cast<const WallGeometryStore*>(quad.owner.get());
+    if (!found) throw std::logic_error("Wall instance without its geometry store");
+    if (store && store != found) throw std::logic_error("A submission draws walls from two geometry stores");
+    store = found;
+  }
+}
+void Renderer::upload_walls(const WallGeometryStore& store) {
+  const auto& corners = store.vertices();
+  const auto count = corners.size();
+  const auto generation = store.generation();
+  const auto limit = static_cast<std::size_t>(wall_texel_limit_) / 2;  // two texels per corner
+  if (count > limit) throw std::runtime_error("Wall geometry exceeds the GPU texture buffer limit");
+  if (generation != wall_generation_ || count < wall_uploaded_) wall_uploaded_ = 0;
+  if (generation == wall_generation_ && count == wall_uploaded_) return;
+  REALM_ZONE("render.wall_upload");
+  glBindBuffer(GL_TEXTURE_BUFFER, wall_geometry_);
+  if (count > wall_capacity_) {
+    wall_capacity_ = std::min(limit, std::max({count, 2 * wall_capacity_, std::size_t{4096}}));
+    glBufferData(GL_TEXTURE_BUFFER, static_cast<GLsizeiptr>(wall_capacity_ * sizeof(WallGpuVertex)), nullptr,
+                 GL_DYNAMIC_DRAW);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_BUFFER, wall_texture_);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, wall_geometry_);
+    glActiveTexture(GL_TEXTURE0);
+    wall_uploaded_ = 0;
+  }
+  if (count > wall_uploaded_) {
+    const auto bytes = (count - wall_uploaded_) * sizeof(WallGpuVertex);
+    glBufferSubData(GL_TEXTURE_BUFFER, static_cast<GLintptr>(wall_uploaded_ * sizeof(WallGpuVertex)),
+                    static_cast<GLsizeiptr>(bytes), corners.data() + wall_uploaded_);
+    telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
+  }
+  wall_generation_ = generation;
+  wall_uploaded_ = count;
+}
+// One submission's meshes (quads, then overlay, both drawn in that order) share one upload into mesh_buffer_, and its
+// wall instances' store is synced into the wall texture buffer.
 void Renderer::upload_meshes(std::span<const Quad> quads, std::span<const Quad> overlay) {
   mesh_vertices_.clear();
   mesh_ranges_.clear();
   mesh_cursor_ = 0;
   collect_meshes(quads);
   collect_meshes(overlay);
+  const WallGeometryStore* walls{};
+  find_walls(quads, walls);
+  find_walls(overlay, walls);
+  if (walls) upload_walls(*walls);
   if (mesh_vertices_.empty()) return;
   REALM_ZONE("render.mesh_upload");
   const auto bytes = mesh_vertices_.size() * sizeof(MeshBatchVertex);
@@ -769,6 +943,7 @@ void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, i
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);
   upload_meshes({}, overlay);
+  bind_walls();
   const auto overlay_buffer = stream_->upload_overlay(overlay);
   const auto before = draw_calls_;
   draw_batch(overlay, 0, width, height, overlay_buffer, false);

@@ -23,3 +23,12 @@ The reference path averaged 0.678 ms of CPU event/build/submission work. The fin
 To reproduce the moving-player fixture, copy `tests/fixtures/nexus-pan.json`, set `players` to `6` and `moving` to `true`, and make its relative `map` path absolute before saving the copy outside that directory. Run `realm_client --stress COPY.json --stress-summary SUMMARY.json --width 1920 --height 1080 --hidden --benchmark --frames 600 --telemetry TIMINGS.jsonl`.
 
 Focused validation (CTest names; recorded 2026-10-12, not a full-suite run): `frame_caches`, `minimap_cache`, `terrain_cache`, `inventory_actions`, and `client_boundaries`. The render check covers panning/rotation/zoom, tile and neighbour invalidation, both ground animation modes, map transitions, minimap HiDPI and edge clipping, mapped-stream growth/reuse, and comparison against orphan streaming. Raster edge rounding allows small pixel differences at fractional scale. All five checks passed; the full suite was not run.
+
+## Counters and GPU attribution
+
+- Walls (kind 17) draw inside sprite runs with the same texture, so their GPU time is in the world bucket (`world_ms`). `models_ms` and `models_measured`/`models_total` cover kind-9 model runs only.
+- `models` counts model instances and wall instances, one per instance. `quads` counts sprite quads and terrain instances, not walls.
+- `triangles` counts two per sprite quad and each wall's corners / 3 as submitted, before the shader's back-face cull, so culled triangles still count.
+- A triangle-list run (any run holding a wall) gives every instance `max(6, most corners in the run)` vertices. Shorter walls and sprites in that run carry padded vertices; the counters do not include the padding.
+- A clipped layer (kind 14, the minimap today) clips its walls as well as its sprites.
+- One wall store per submission: quads and overlay together may reference one `WallGeometryStore`. Scene builds a frame's walls into one store and replaces it only at the start of a build; a submission that mixes stores throws.

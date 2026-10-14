@@ -9,6 +9,7 @@
 // must equal that scan byte for byte.
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/map/Scene.hpp"
+#include "realm/stage3D/WallGeometry.hpp"
 #include "flash_assets.hpp"
 #include <SDL.h>
 #include <algorithm>
@@ -29,8 +30,20 @@ void grow(Box& b, double x, double y) {
   b.x1 = std::max(b.x1, x);
   b.y1 = std::max(b.y1, y);
 }
+// The corners a wall instance (kind 17) draws from its store.
+std::span<const WallGpuVertex> wall_corners(const Quad& q) {
+  const auto& store = *static_cast<const WallGeometryStore*>(q.owner.get());
+  return std::span(store.vertices())
+      .subspan(static_cast<std::size_t>(q.multiply[0]), static_cast<std::size_t>(q.multiply[1]));
+}
 Box bounds(const Quad& q) {
   Box b{1e300, 1e300, -1e300, -1e300};
+  if (q.kind == 17) {
+    for (const auto& v : wall_corners(q))
+      grow(b, q.origin[0] + q.axis_x[0] * v.x + q.axis_y[0] * v.y + q.uv_offset[0] * v.z,
+           q.origin[1] + q.axis_x[1] * v.x + q.axis_y[1] * v.y + q.uv_offset[1] * v.z);
+    return b;
+  }
   if (q.kind == 9 && q.owner) {
     for (const auto& v : std::static_pointer_cast<const MeshDraw>(q.owner)->vertices) grow(b, v.x, v.y);
     return b;
@@ -62,6 +75,15 @@ bool reaches(const Quad& q, int w, int h, double zoom) {
          cy < h + 400 * zoom - slack;
 }
 bool same(const Quad& a, const Quad& b) {
+  if (a.kind == 17 && b.kind == 17) {
+    // Two scenes keep separate stores, so a wall instance is compared by what it draws, not by where its corners sit.
+    if (a.origin != b.origin || a.axis_x != b.axis_x || a.axis_y != b.axis_y || a.uv_offset != b.uv_offset ||
+        a.uv != b.uv || a.page != b.page || a.multiply[1] != b.multiply[1] || a.multiply[2] != b.multiply[2] ||
+        a.texture != b.texture)
+      return false;
+    const auto x = wall_corners(a), y = wall_corners(b);
+    return x.size() == y.size() && (x.empty() || std::memcmp(x.data(), y.data(), x.size_bytes()) == 0);
+  }
   if (a.origin != b.origin || a.axis_x != b.axis_x || a.axis_y != b.axis_y || a.uv != b.uv || a.page != b.page ||
       a.multiply != b.multiply || a.offset != b.offset || a.kind != b.kind || a.uv_offset != b.uv_offset ||
       a.texture != b.texture)
@@ -76,6 +98,143 @@ bool same(const Quad& a, const Quad& b) {
   return true;
 }
 int checks{};
+void expect(bool ok, const char* message) {
+  ++checks;
+  if (!ok) throw std::runtime_error(message);
+}
+// Scene caches keyed by terrain revision: ground tops (per chunk), wall black masks (per wall) and the depth sort of
+// short draw lists. A scene that lives through tile changes must match a fresh scene after each one.
+void scene_cache_checks(const Catalog& catalog, const AnimationLibrary& animations, Atlas& atlas) {
+  constexpr int view_w = 800, view_h = 600;
+  const auto frame = [&](Scene& scene, const World& world, Vec2 at) {
+    Camera camera;
+    camera.configure(at, 0, view_w, view_h, 1.0, true);
+    std::vector<Quad> quads;
+    scene.build(world, camera, atlas, animations, nullptr, nullptr, nullptr, at, 0, 1.0, view_w, view_h, 1000, quads);
+    return quads;
+  };
+  const auto same_quads = [](const std::vector<Quad>& a, const std::vector<Quad>& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i)
+      if (!same(a[i], b[i])) return false;
+    return true;
+  };
+  const auto fill = [](World& world, std::uint16_t type) {
+    net::Update update;
+    for (int y = 0; y < world.height(); ++y)
+      for (int x = 0; x < world.width(); ++x)
+        update.tiles.push_back({static_cast<std::int16_t>(x), static_cast<std::int16_t>(y), type});
+    world.apply(update);
+  };
+  const auto set_tile = [](World& world, int x, int y, std::uint16_t type) {
+    net::Update update;
+    update.tiles.push_back({static_cast<std::int16_t>(x), static_cast<std::int16_t>(y), type});
+    world.apply(update);
+  };
+  const GroundDef *plain{}, *topped{};
+  for (const auto& g : catalog.grounds()) {
+    if (g.top.sheet >= 0 || g.top.animated >= 0)
+      topped = topped ? topped : &g;
+    else if (!plain && !g.animate)
+      plain = &g;
+  }
+  expect(plain && topped, "ground fixtures with and without tops");
+  // 1. Ground tops follow tile type changes (add, swap, remove, several per chunk) and a map reset.
+  {
+    World world(catalog);
+    world.initialize(24, 24);
+    fill(world, plain->type);
+    Scene live;
+    const Vec2 at{12.5, 12.5};
+    const auto check_frame = [&](const char* message) {
+      Scene fresh;
+      const auto got = frame(live, world, at), want = frame(fresh, world, at);
+      expect(same_quads(got, want), message);
+      return got.size();
+    };
+    const auto base = check_frame("plain ground: live scene matches a fresh scene");
+    set_tile(world, 12, 12, topped->type);
+    const auto one = check_frame("top added mid-session: live scene matches a fresh scene");
+    expect(one == base + 1, "one added top adds exactly one quad");
+    set_tile(world, 12, 12, plain->type);
+    expect(check_frame("top removed mid-session") == base, "removing the top removes its quad");
+    set_tile(world, 12, 12, topped->type);
+    set_tile(world, 13, 12, topped->type);
+    set_tile(world, 12, 13, topped->type);
+    set_tile(world, 8, 8, topped->type);  // a chunk corner
+    expect(check_frame("four tops across chunks") == base + 4, "four tops emit four quads");
+    set_tile(world, 13, 12, plain->type);
+    expect(check_frame("one of four tops removed") == base + 3, "one removed top removes one quad");
+    world.initialize(24, 24);  // map reset: the live scene's chunk lists must not survive it
+    fill(world, plain->type);
+    set_tile(world, 12, 12, topped->type);
+    expect(check_frame("new map with a top") == base + 1, "a new map shows only its own tops");
+  }
+  // 2. A ConnectedWall's black mask follows its eight neighbours, including one across a chunk border.
+  {
+    World field(catalog);
+    field.initialize(16, 16);
+    fill(field, plain->type);
+    const auto* wall = catalog.object("Tomb Wall");
+    expect(wall && wall->class_name == "ConnectedWall" && !catalog.ground(wall->type), "ConnectedWall object fixture");
+    auto& entity = field.add(1000, wall->type, {8.5, 8.5});
+    entity.profile.stats[static_cast<std::uint8_t>(flash::StatId::CONNECT_STAT)] = 0x01010101;  // cross
+    Scene live;
+    const Vec2 at{8.5, 8.5};
+    const auto check_mask = [&](std::uint32_t mask, const char* message) {
+      Scene fresh;
+      const auto got = frame(live, field, at), want = frame(fresh, field, at);
+      expect(same_quads(got, want), message);
+      expect(connected_black_mask(field, 8, 8) == mask, "connected_black_mask fixture");
+      std::size_t walls = 0;
+      for (const auto& q : got)
+        if (q.kind == 17) {
+          ++walls;
+          expect(static_cast<std::uint32_t>(q.multiply[2]) == mask, message);
+        }
+      expect(walls > 0, "the wall is drawn as wall instances");
+    };
+    check_mask(0, "open neighbours: no black");
+    set_tile(field, 7, 7, 255);  // void, diagonal: slot 0
+    check_mask(1U << 0, "a void diagonal turns its slot black");
+    set_tile(field, 9, 8, catalog.object("Tomb Wall")->type);  // ground-less tile, east: slot 5
+    check_mask((1U << 0) | (1U << 5), "a ground-less neighbour joins the mask");
+    set_tile(field, 7, 7, plain->type);
+    check_mask(1U << 5, "restoring the diagonal clears its slot");
+    set_tile(field, 9, 8, plain->type);
+    check_mask(0, "all neighbours restored");
+  }
+  // 3. Draw lists below the counting-sort minimum: equal depths, ids out of insertion order, same order as bucketing.
+  {
+    const ObjectDef* prop = nullptr;
+    for (const auto& d : catalog.objects())
+      if (d.class_name == "GameObject" && d.texture.sheet >= 0 && d.model.empty() && !d.draw_on_ground &&
+          !d.draw_under) {
+        prop = &d;
+        break;
+      }
+    expect(prop != nullptr, "static sprite object fixture");
+    World crowd(catalog);
+    crowd.initialize(16, 16);
+    // One row of sprites: equal screen depth, distinct quads. Ids fall as x rises, so only the id tie-break orders
+    // them.
+    for (int i = 0; i < 12; ++i) crowd.add(600 - i * 7, prop->type, {4.5 + i * .5, 8.5});
+    crowd.add(900, prop->type, {8.5, 10.5});
+    // Square particles on one row: the particle draw list is short too, and its order is (depth, emission order).
+    for (int i = 0; i < 6; ++i) {
+      Particle p;
+      p.position = {4.5 + i * .7, 6.5};
+      p.color = 0x102030U * static_cast<std::uint32_t>(i + 1);
+      crowd.particles().emit(p);
+    }
+    Scene comparison, bucketed;
+    bucketed.set_depth_bucket_minimum(0);
+    const Vec2 at{8.5, 8.5};
+    const auto small = frame(comparison, crowd, at), counted = frame(bucketed, crowd, at);
+    expect(small.size() >= 19, "the sprites and particles are drawn");
+    expect(same_quads(small, counted), "comparison sort of a short list matches the counting sort");
+  }
+}
 }
 int main() {
   try {
@@ -459,6 +618,9 @@ int main() {
       std::cout << "static grid: " << grid_builds << " builds over " << static_entities << " static entities ("
                 << static_moves << " moves), " << grid_quads << " quads identical to the culled full scan; "
                 << footprint_accepted << " accepted near-edge static placements inside the footprint\n";
+      scene_cache_checks(catalog, animations, atlas);
+      std::cout << "scene caches: ground tops, wall black masks and short-list depth order match fresh scenes ("
+                << checks << " checks so far)\n";
     }
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);

@@ -88,6 +88,14 @@ target_link_libraries(realm_session PRIVATE realm_game realm_ui)
 add_executable(realm_stress tools/StressInputs.cpp)
 target_link_libraries(realm_stress PRIVATE nlohmann_json::nlohmann_json realm_assets realm_fixtures realm_game realm_support)
 
+if(REALM_BUILD_VIEWER)
+    # Per-frame CPU timing of connected walls (Scene::build and project_object_faces). A benchmark, not a ctest.
+    add_executable(realm_wall_bench tools/WallBench.cpp)
+    target_link_libraries(realm_wall_bench PRIVATE realm_render realm_assets realm_game SDL2::SDL2 GLEW::GLEW
+        OpenGL::GL)
+    target_compile_definitions(realm_wall_bench PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 add_executable(realm_dye_session_inputs tests/DyeSessionInputs.cpp)
 target_link_libraries(realm_dye_session_inputs PRIVATE nlohmann_json::nlohmann_json realm_assets realm_game realm_ui)
 

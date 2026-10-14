@@ -6,11 +6,15 @@ VARIANT selects one side of a --compare run (current or compare); default all lo
 Per scenario (all repeats pooled, measured frames only): frame CPU p50/p95, the
 median per-frame duration (ms) of each requested zone, the median of each requested
 counter and the GPU total/world medians. Several directories print side by side.
+Attribution: walls (kind 17) draw inside sprite runs, so their GPU time is in gpu_world, not in models_ms (kind-9
+model runs only). `models` counts model and wall instances; `triangles` counts sprite triangles plus each wall's
+corners / 3 as submitted, before the back-face cull; `quads` counts sprite quads and terrain, not walls.
 """
 import argparse, collections, json, statistics
 from pathlib import Path
 
-ZONES = 'scene.build,model.prepare,render.submit,render.quad_upload,render.mesh_upload,render.mesh_submit'
+ZONES = ('scene.build,model.prepare,render.submit,render.quad_upload,render.mesh_upload,render.mesh_submit,'
+         'render.wall_upload')
 COUNTERS = 'models,draw_calls,mesh_upload_bytes,triangles,allocations'
 
 

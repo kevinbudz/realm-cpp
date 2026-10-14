@@ -21,7 +21,8 @@ struct Quad {
   std::array<float, 4> multiply{1, 1, 1, 1}, offset{};
   float kind{};  // 0 sprite, 1 shadow, 2 solid, 3 repeat, 4 crop, 5 UI bitmap, 6 world bitmap, 7 particle square, 8
                  // thrown fill, 9 model; 10 retained terrain command; 11/12 cached linear/sine ground; 13 minimap map;
-                 // 14 clipped QuadLayer command; 15 minimap marker; 16 minimap arrow
+                 // 14 clipped QuadLayer command; 15 minimap marker; 16 minimap arrow; 17 wall instance (WallGeometry.hpp:
+                 // a range of a WallGeometryStore owned by the quad; drawn as triangles by the main program)
   std::array<float, 2> uv_offset{};
   std::shared_ptr<const void> owner;  // Keeps lazy GPU storage alive through submission.
   std::uint32_t texture{};  // zero: shared sprite atlas (static sprites or dynamic-page bitmaps, kinds 5/6/8 clamp to

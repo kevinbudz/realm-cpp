@@ -1289,12 +1289,14 @@ void RmlHost::render(int drawable_width, int drawable_height) {
   if (drawable_width <= 0 || drawable_height <= 0) return;
   auto& i = *impl_;
   i.poll_queries();
+  // GPU time only feeds telemetry; a timer query stalls the pipeline at both ends, so none is issued without one.
   Impl::Query* query = nullptr;
-  for (auto& candidate : i.queries)
-    if (!candidate.pending) {
-      query = &candidate;
-      break;
-    }
+  if (telemetry::active)
+    for (auto& candidate : i.queries)
+      if (!candidate.pending) {
+        query = &candidate;
+        break;
+      }
   if (query) glBeginQuery(GL_TIME_ELAPSED, query->id);
   i.render.draws = 0;
   i.render.SetViewport(drawable_width, drawable_height);

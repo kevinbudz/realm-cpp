@@ -47,10 +47,13 @@ SpriteRegion texture(const TextureDef& definition, std::uint32_t id, const Entit
 }
 // Stable counting sort on the integer `depth` member, O(n + depth span). Screen-space depths of what is on screen span
 // about the viewport height, so this replaces comparison sorts of thousands of items. False (items untouched) when the
-// span is too wide to bucket cheaply; the caller then sorts.
+// span is too wide to bucket cheaply, or fewer than `minimum` items (clearing the counts costs more than sorting); the
+// caller then sorts with the same order.
 template <class T>
-bool bucket_by_depth(std::vector<T>& items, std::vector<T>& scratch, std::vector<std::uint32_t>& counts) {
+bool bucket_by_depth(std::vector<T>& items, std::vector<T>& scratch, std::vector<std::uint32_t>& counts,
+                     std::size_t minimum) {
   if (items.size() < 2) return true;
+  if (items.size() < minimum) return false;
   const auto [low, high] =
       std::minmax_element(items.begin(), items.end(), [](const T& a, const T& b) { return a.depth < b.depth; });
   const auto span = static_cast<std::size_t>(static_cast<std::int64_t>(high->depth) - low->depth) + 1;
@@ -97,6 +100,18 @@ bool clip_to_region(Quad& q, const SpriteRegion& r) {
     q.uv[k + 2] = static_cast<float>(d * (t1[k] - t0[k]));
   }
   return true;
+}
+// The ObjectDef classes that Scene::build branches on, resolved from ObjectDef::class_name once per entity.
+enum class DrawClass : std::uint8_t { other, merchant, sign, connected_wall, cave_wall, stalagmite, wall, spider_web };
+DrawClass draw_class(std::string_view name) {
+  if (name == "Merchant") return DrawClass::merchant;
+  if (name == "Sign") return DrawClass::sign;
+  if (name == "ConnectedWall") return DrawClass::connected_wall;
+  if (name == "CaveWall") return DrawClass::cave_wall;
+  if (name == "Stalagmite") return DrawClass::stalagmite;
+  if (name == "Wall") return DrawClass::wall;
+  if (name == "SpiderWeb") return DrawClass::spider_web;
+  return DrawClass::other;
 }
 }
 std::shared_ptr<SurfaceTexture> Scene::surface(std::shared_ptr<const Image> image) {
@@ -210,7 +225,7 @@ std::optional<Scene::Resident> Scene::resident_appearance(const Appearances::Key
     return Resident{{atlas.dynamic_first() + s.page, s.x, s.y, r.width, r.height}, r.density};
   };
   // Runs of identical projectiles ask for the same key back to back; the memo holds the entry the map would return.
-  if (memo_valid_ && key == memo_key_)
+  if (memo_valid_ && ResidentKeyEq{}(key, memo_key_))
     if (const auto* slot = residency_.find(memo_entry_.id)) return make(memo_entry_, *slot);
   if (const auto found = resident_appearances_.find(key); found != resident_appearances_.end()) {
     if (const auto* slot = residency_.find(found->second.id)) {
@@ -322,6 +337,36 @@ std::pair<Vec2, Vec2> Scene::static_footprint(const Catalog& catalog, const Came
   }
   return {low, high};
 }
+const Scene::TypeEntry& Scene::type_entry(const Catalog& catalog, std::uint16_t type) {
+  if (types_catalog_ != &catalog) {
+    types_.clear();
+    types_catalog_ = &catalog;
+  }
+  if (type >= types_.size()) types_.resize(static_cast<std::size_t>(type) + 1);
+  auto& entry = types_[type];
+  if (!entry.known) {
+    entry.def = catalog.object(type);
+    entry.draw_class = static_cast<std::uint8_t>(entry.def ? draw_class(entry.def->class_name) : DrawClass::other);
+    entry.known = true;
+  }
+  return entry;
+}
+const Scene::TopChunk& Scene::top_chunk(const World& world, int x, int y) {
+  auto& chunk = top_chunks_[x + y * ((world.width() + 7) / 8)];
+  const auto revision = world.terrain_chunk_revision(x * 8, y * 8);
+  if (!chunk.valid || chunk.revision != revision) {
+    chunk.tiles.clear();
+    for (int ty = y * 8; ty < std::min(world.height(), y * 8 + 8); ++ty)
+      for (int tx = x * 8; tx < std::min(world.width(), x * 8 + 8); ++tx) {
+        const auto* ground = world.catalog().ground(world.tile(tx, ty)->type);
+        if (ground && (ground->top.sheet >= 0 || ground->top.animated >= 0))
+          chunk.tiles.push_back(static_cast<std::uint32_t>(tx + ty * world.width()));
+      }
+    chunk.revision = revision;
+    chunk.valid = true;
+  }
+  return chunk;
+}
 void Scene::build_terrain(const World& world, const Terrain& terrain, const Camera& camera, Atlas& atlas, Vec2 position,
                           int distance, std::int32_t time, std::vector<Quad>& out) {
   // Connecting sessions have no map until MAPINFO arrives. Dividing the
@@ -420,16 +465,45 @@ void Scene::build_terrain(const World& world, const Terrain& terrain, const Came
     }
 }
 
+bool Scene::ensure_wall(WallRange& range, const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
+                        double rotation) {
+  if (range.generation == walls_->generation()) return true;
+  wall_scratch_.clear();
+  build_wall_gpu_vertices(faces, material, rotation, wall_scratch_);
+  const auto appended = walls_->append(wall_scratch_);
+  if (!appended) return false;
+  range = *appended;
+  return true;
+}
+
+void Scene::emit_wall(std::vector<Quad>& out, WallRange& range, const std::vector<ObjectFaceGeometry>& faces,
+                      std::uint8_t material, SpriteRegion sprite, const Camera& camera, Vec2 position, double rotation,
+                      const World* world, int tile_x, int tile_y, std::uint32_t black_mask) {
+  if (ensure_wall(range, faces, material, rotation)) {
+    if (range.count) out.push_back(wall_quad(walls_, range, camera, position, sprite, black_mask));
+    return;
+  }
+  // The store is full for this frame: the same triangles as a software mesh.
+  if (const auto mesh = project_object_faces(faces, material, sprite, camera, position, 0, rotation, world, tile_x,
+                                             tile_y, world != nullptr))
+    out.push_back(mesh_quad(mesh));
+}
+
 void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const AnimationLibrary& animations,
                   const ProcessedTextures* processed, const Terrain* terrain, const Appearances* appearances,
                   Vec2 position, double angle, double zoom, int width, int height, std::int32_t time,
                   std::vector<Quad>& out) {
   REALM_ZONE("scene.build");
   submitted_.fill(0);
+  // A nearly full store is replaced rather than cleared: quads of an earlier build that still reference it keep their
+  // contents.
+  if (!walls_ || walls_->vertices().size() > walls_->limit() / 4 * 3)
+    walls_ = std::make_shared<WallGeometryStore>(wall_limit_);
   if (dynamic_ready(atlas)) residency_.begin_frame();
   if (appearance_world_ != &world || generation_ != world.generation()) {
     ground_chunks_.clear();
     ground_buffer_.reset();
+    top_chunks_.clear();
     cached_source_ = terrain;
     reset_residency();
     // A map reset drops the working set, so the pages it needed go back too (the residency is rebuilt at the initial
@@ -444,6 +518,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     connected_geometries_.clear();
     connected_geometry_lru_.clear();
     stalagmite_geometries_.clear();
+    connected_wall_ranges_.clear();
+    walls_ = std::make_shared<WallGeometryStore>(wall_limit_);
     status_surfaces_.clear();
     status_list_.clear();
     status_surface_bytes_ = 0;
@@ -499,15 +575,20 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
   {
     REALM_ZONE("scene.visibility");
     visible_.clear();
+    // The cull rectangle in screen pixels, as Scene::build always had it (each bound is the same double expression).
+    const double cull_left = -400 * zoom, cull_right = width + 400 * zoom, cull_top = -100 * zoom,
+                 cull_bottom = height + 400 * zoom;
     const auto consider = [&](const Entity& e) {
-      const auto p = camera.world_to_screen(e.motion.position, e.motion.z);
-      const auto* def = world.catalog().object(e.type);
-      if (cull_ && !(p.x > -400 * zoom && p.x < width + 400 * zoom && p.y > -100 * zoom && p.y < height + 400 * zoom) &&
+      const auto& type = type_entry(world.catalog(), e.type);
+      const auto* def = type.def;
+      const auto at = camera.world_to_screen(e.motion.position, e.motion.z);
+      if (cull_ && !(at.x > cull_left && at.x < cull_right && at.y > cull_top && at.y < cull_bottom) &&
           !(def && !def->model.empty() && model_reaches(*def, e, camera, width, height)))
         return;
       negative_ids |= e.id < 0;
+      const auto ground = camera.world_to_screen(e.motion.position);
       visible_.push_back(
-          {&e, def, static_cast<int>(camera.world_to_screen(e.motion.position).y / zoom + camera.clip_rect().y), e.id});
+          {&e, def, static_cast<int>(ground.y / zoom + camera.clip_rect().y), e.id, at, ground, type.draw_class});
     };
     if (!cull_ || scan_visibility_)
       for (const auto& e : world.entities()) consider(e);
@@ -524,7 +605,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     REALM_ZONE("scene.sort_entities");
     // Bucket by depth, then order each (short) equal-depth run by id: the same (depth, id) order as one comparison
     // sort.
-    if (bucket_by_depth(visible_, visible_scratch_, depth_counts_)) {
+    if (bucket_by_depth(visible_, visible_scratch_, depth_counts_, depth_bucket_minimum_)) {
       for (auto run = visible_.begin(); run != visible_.end();) {
         const auto end = std::find_if(run + 1, visible_.end(), [&](const Visible& v) { return v.depth != run->depth; });
         if (end - run > 1) std::sort(run, end, [](const Visible& a, const Visible& b) { return a.id < b.id; });
@@ -574,10 +655,15 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     return found;
   }();
   TextureDef hallucinated;
-  auto draw_impl = [&](const Entity& e, const ObjectDef& d) {
-    auto dyes = world_dyes(world, e);
-    const TextureDef* t = e.player ? &world.catalog().player_texture(e.type, e.appearance.texture) : &d.texture;
-    if (d.class_name == "Merchant")
+  auto draw_impl = [&](const Entity& e, const ObjectDef& d, const Visible* visible) {
+    const auto cls = visible ? static_cast<DrawClass>(visible->draw_class) : draw_class(d.class_name);
+    // world_dyes returns the entity's own dyes unless it is the focus player.
+    auto dyes = e.player ? world_dyes(world, e) : std::array<std::uint32_t, 2>{e.appearance.tex1, e.appearance.tex2};
+    const auto screen = visible ? visible->at : camera.world_to_screen(e.motion.position, e.motion.z);
+    const TextureDef* const base_texture =
+        e.player ? &world.catalog().player_texture(e.type, e.appearance.texture) : &d.texture;
+    const TextureDef* t = base_texture;
+    if (cls == DrawClass::merchant)
       if (const auto it = e.profile.stats.find(static_cast<std::uint8_t>(flash::StatId::MERCHANDISE_TYPE_STAT));
           it != e.profile.stats.end())
         if (const auto* item = world.catalog().object(static_cast<std::uint16_t>(it->second))) {
@@ -596,13 +682,16 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
               world.catalog().object(hexes[static_cast<std::uint32_t>(e.id) * 2654435761U % hexes.size()]))
         t = &hex->texture;
     }
-    auto sprite = texture(*t, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
+    // The shadow pass reads this same sprite for this entity: reuse it while no substitution changed the texture.
+    auto sprite = t == base_texture && visible && visible->base_sprite_known
+                      ? visible->base_sprite
+                      : texture(*t, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
     int shown_size = e.appearance.size;
     // GameObject/Player.getTexture: while the focus player hallucinates, every ordinary object draws a random
     // lofiChar8x8 tile (stable per object); non-players are scaled by min(1.5, original width / 8).
-    if (hallucinating && !e.projectile && !d.draw_on_ground && d.model.empty() && d.class_name != "Wall" &&
-        d.class_name != "ConnectedWall" && d.class_name != "CaveWall" && d.class_name != "Sign" &&
-        d.class_name != "Stalagmite" && hallucination_sheet >= 0) {
+    if (hallucinating && !e.projectile && !d.draw_on_ground && d.model.empty() && cls != DrawClass::wall &&
+        cls != DrawClass::connected_wall && cls != DrawClass::cave_wall && cls != DrawClass::sign &&
+        cls != DrawClass::stalagmite && hallucination_sheet >= 0) {
       hallucinated = TextureDef{};
       hallucinated.sheet = hallucination_sheet;
       hallucinated.index = static_cast<int>(static_cast<std::uint32_t>(e.id) * 2654435761U % 239U);
@@ -616,7 +705,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
           ground_quad(sprite, {std::floor(e.motion.position.x), std::floor(e.motion.position.y)}, camera, e.motion.z));
       return;
     }
-    if (d.class_name == "Sign") {
+    if (cls == DrawClass::sign) {
       if (!status_art_ || e.profile.name.empty()) return;
       const auto label = status_art_->sign_text(e.profile.name, e.appearance.size);
       if (!label.image) return;
@@ -641,7 +730,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       }
       return;
     }
-    if (d.class_name == "ConnectedWall" || d.class_name == "CaveWall") {
+    if (cls == DrawClass::connected_wall || cls == DrawClass::cave_wall) {
       const auto found = e.profile.stats.find(static_cast<std::uint8_t>(flash::StatId::CONNECT_STAT));
       const int tile_x = static_cast<int>(std::floor(e.motion.position.x));
       const int tile_y = static_cast<int>(std::floor(e.motion.position.y));
@@ -667,7 +756,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
         auto geometry = connected_object_geometry(d, connect_stat, tile_x, tile_y, seed);
         cached = connected_geometries_
                      .emplace(e.id, ConnectedGeometryCacheEntry{e.type, connect_stat, seed, tile_x, tile_y,
-                                                                std::move(geometry), connected_geometry_lru_.begin()})
+                                                                std::move(geometry), connected_geometry_lru_.begin(),
+                                                                WallRange{}})
                      .first;
       } else {
         connected_geometry_lru_.splice(connected_geometry_lru_.begin(), connected_geometry_lru_, cached->second.lru);
@@ -677,34 +767,52 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       if (geometry.shape == ConnectedShape::none) return;
       const Vec2 object_position = e.motion.position;
       const double rotation = geometry.rotation * 90.0;
-      if (const auto mesh = project_object_faces(geometry.faces, 0, sprite, camera, object_position, 0, rotation,
-                                                 &world, tile_x, tile_y, true))
-        out.push_back(mesh_quad(mesh));
-      if (d.class_name == "ConnectedWall") {
+      // Off the map there is no chunk revision to key on, so the mask is recomputed.
+      auto& entry = cached->second;
+      const bool on_map = world.tile(tile_x, tile_y) != nullptr;
+      const auto revision = on_map ? world.terrain_chunk_revision(tile_x, tile_y) : 0;
+      if (!on_map || !entry.black_known || entry.black_revision != revision) {
+        entry.black_mask = connected_black_mask(world, tile_x, tile_y);
+        entry.black_revision = revision;
+        entry.black_known = on_map;
+      }
+      const auto black = entry.black_mask;
+      if (cls == DrawClass::connected_wall) {
+        // The body and cap ranges depend only on the definition, shape, rotation and material.
+        const auto key = [&](std::uint64_t material) {
+          return (static_cast<std::uint64_t>(e.type) << 16) | (static_cast<std::uint64_t>(geometry.shape) << 8) |
+                 (static_cast<std::uint64_t>(geometry.rotation) << 2) | material;
+        };
+        emit_wall(out, connected_wall_ranges_[key(0)], geometry.faces, 0, sprite, camera, object_position, rotation,
+                  &world, tile_x, tile_y, black);
         const auto index = static_cast<std::size_t>(geometry.shape) - 1;
         const auto& cap = d.connected_textures[index];
         const bool has_cap = cap.sheet >= 0 || cap.animated >= 0 || !cap.random.empty();
         const auto cap_sprite =
             has_cap ? texture(cap, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations) : sprite;
-        if (const auto mesh = project_object_faces(geometry.faces, 1, cap_sprite, camera, object_position, 0, rotation,
-                                                   &world, tile_x, tile_y, true))
-          out.push_back(mesh_quad(mesh));
+        emit_wall(out, connected_wall_ranges_[key(1)], geometry.faces, 1, cap_sprite, camera, object_position, rotation,
+                  &world, tile_x, tile_y, black);
+      } else {
+        emit_wall(out, cached->second.wall, geometry.faces, 0, sprite, camera, object_position, rotation, &world,
+                  tile_x, tile_y, black);
       }
       return;
     }
-    if (d.class_name == "Stalagmite") {
+    if (cls == DrawClass::stalagmite) {
       auto cached = stalagmite_geometries_.find(e.id);
       if (cached == stalagmite_geometries_.end()) {
         if (stalagmite_geometries_.size() >= maximum_connected_geometries) stalagmite_geometries_.clear();
         const auto seed = static_cast<std::uint32_t>(e.id) * 2654435761U ^ 0x7f4a7c15U;
-        cached = stalagmite_geometries_.emplace(e.id, stalagmite_geometry(seed)).first;
+        cached = stalagmite_geometries_.emplace(e.id, StalagmiteEntry{stalagmite_geometry(seed), d.rotation, {}}).first;
+      } else if (cached->second.rotation != d.rotation) {
+        cached->second.rotation = d.rotation;
+        cached->second.wall = {};
       }
-      if (const auto mesh = project_object_faces(cached->second, 0, sprite, camera, e.motion.position, 0, d.rotation,
-                                                 nullptr, 0, 0, false))
-        out.push_back(mesh_quad(mesh));
+      emit_wall(out, cached->second.wall, cached->second.faces, 0, sprite, camera, e.motion.position, d.rotation,
+                nullptr, 0, 0, 0U);
       return;
     }
-    if (d.class_name == "Wall") {
+    if (cls == DrawClass::wall) {
       const double x = std::floor(e.motion.position.x), y = std::floor(e.motion.position.y);
       constexpr int nx[4] = {0, 1, 0, -1}, ny[4] = {-1, 0, 1, 0};
       const Vec2 corners[4] = {{x, y}, {x + 1, y}, {x + 1, y + 1}, {x, y + 1}};
@@ -739,7 +847,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       std::optional<SpriteRegion> model_sprite;
       if (chosen.sheet >= 0 || chosen.animated >= 0) model_sprite = sprite;
       double rotation = std::isfinite(e.appearance.model_rotation) ? e.appearance.model_rotation : d.rotation;
-      if (d.class_name == "SpiderWeb") {
+      if (cls == DrawClass::spider_web) {
         // SpiderWeb.findWall: west, north, east, then south neighbor; the web turns away from its wall.
         auto found = webs_.find(e.id);
         if (found == webs_.end()) {
@@ -797,8 +905,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     }
     if (e.projectile) {
       const double rotation = d.rotation == 0 ? 0 : time / d.rotation;
-      auto q = projectile_quad(sprite, camera.world_to_screen(e.motion.position, e.motion.z),
-                               e.motion.facing - angle + d.angle_correction + rotation, e.appearance.size, zoom, baked);
+      auto q = projectile_quad(sprite, screen, e.motion.facing - angle + d.angle_correction + rotation,
+                               e.appearance.size, zoom, baked);
       if (lazy) {
         const auto base = lazy->quad({}, {}, {});
         q.texture = base.texture;
@@ -818,15 +926,20 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     }
     const double scale = baked ? zoom / density : 5 * shown_size / 100.0 * zoom;
     const double w = sprite.width * scale, h = sprite.height * scale;
-    const auto p = camera.world_to_screen(e.motion.position, e.motion.z);
+    const auto p = screen;
     int sink = e.motion.sink_level;
     const int tile_x = static_cast<int>(std::floor(e.motion.position.x)),
               tile_y = static_cast<int>(std::floor(e.motion.position.y));
-    if (terrain && world.tile(tile_x, tile_y)) sink += terrain->tile(tile_x, tile_y).sink;
     const auto* square = world.tile(tile_x, tile_y);
-    const auto* protector = square ? world.entity(square->object_id) : nullptr;
-    const auto* protector_def = protector ? world.catalog().object(protector->type) : nullptr;
-    if (d.flying || (protector_def && protector_def->protect_sink)) sink = 0;
+    if (terrain && square) sink += terrain->tile(tile_x, tile_y).sink;
+    // Flying, or standing on a protected object, cancels the sink; a zero sink has nothing to cancel.
+    if (d.flying)
+      sink = 0;
+    else if (sink != 0 && square) {
+      const auto* protector = world.entity(square->object_id);
+      const auto* protector_def = protector ? world.catalog().object(protector->type) : nullptr;
+      if (protector_def && protector_def->protect_sink) sink = 0;
+    }
     const double clipped = std::clamp(sink * zoom, 0.0, h);
     if (baked) sprite.height -= std::min(sink, sprite.height);
     if (sprite.height > 0) {
@@ -933,31 +1046,43 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       }
     }
   };
-  const auto draw = [&](const Entity& e, const ObjectDef& d) {
+  // The sprite height of the entity's base texture, read once per visible entity (the draw pass reuses the sprite).
+  const auto base_sprite_height = [&](Visible& v, const ObjectDef& d) {
+    if (!v.base_sprite_known) {
+      const auto& e = *v.entity;
+      v.base_sprite = texture(e.player ? world.catalog().player_texture(e.type, e.appearance.texture) : d.texture,
+                              static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
+      v.base_sprite_known = true;
+    }
+    return v.base_sprite.height;
+  };
+  const auto draw = [&](const Entity& e, const ObjectDef& d, const Visible* visible) {
     const auto before = out.size();
-    draw_impl(e, d);
+    draw_impl(e, d, visible);
     if (out.size() > before)
       ++submitted_[static_cast<std::size_t>(e.projectile ? 3 : e.player ? 0 : !d.model.empty() ? 2 : d.enemy ? 1 : 4)];
   };
   for (const auto& v : visible_)
-    if (v.def && v.def->draw_under) draw(*v.entity, *v.def);
+    if (v.def && v.def->draw_under) draw(*v.entity, *v.def, &v);
   {
     REALM_ZONE("scene.shadows");
     if (world.preferences().draw_shadows)
-      for (const auto& v : visible_) {
+      for (auto& v : visible_) {
         const auto* e = v.entity;
         const auto* d = v.def;
-        if (!d || d->draw_under || d->class_name == "Wall" || !d->shadow_size) continue;
+        // Deliberate deviation from Flash: 3D objects (walls, caves, stalagmites and OBJ models) never cast the radial
+        // shadow.
+        if (!d || d->draw_under || !d->model.empty() || !d->shadow_size) continue;
+        const auto cls = static_cast<DrawClass>(v.draw_class);
+        if (cls == DrawClass::wall || cls == DrawClass::connected_wall || cls == DrawClass::cave_wall ||
+            cls == DrawClass::stalagmite)
+          continue;
         // A projectile's shadow does not depend on its sprite.
         const double scale =
             e->projectile
                 ? d->shadow_size / 400.0 * zoom
-                : e->appearance.size / 100.0 * d->shadow_size / 100.0 *
-                      texture(e->player ? world.catalog().player_texture(e->type, e->appearance.texture) : d->texture,
-                              static_cast<std::uint32_t>(e->id), e, angle, time, atlas, animations)
-                          .height /
-                      8.0 * zoom;
-        const auto p = camera.world_to_screen(e->motion.position);
+                : e->appearance.size / 100.0 * d->shadow_size / 100.0 * base_sprite_height(v, *d) / 8.0 * zoom;
+        const auto p = v.ground;
         const auto color = d->shadow_color;
         out.push_back(
             radial_shadow({p.x - 30 * scale, p.y - 15 * scale}, {60 * scale, 0}, {0, 30 * scale},
@@ -979,7 +1104,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     particle_items_.clear();
     for (const auto& v : visible_)
       if (v.def && !v.def->draw_under)
-        ordered_.push_back({v.entity, nullptr, v.depth, static_cast<std::uint32_t>(v.id), v.def});
+        ordered_.push_back({v.entity, nullptr, v.depth, static_cast<std::uint32_t>(v.id), v.def, &v});
     for (const auto& p : world.particles().particles()) {
       if (p.motion == ParticleMotion::swirl && (p.z < 0 || p.z > 1)) continue;
       const auto at = camera.world_to_screen(p.position, p.z);
@@ -988,7 +1113,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
         continue;
       (negative_ids ? ordered_ : particle_items_)
           .push_back({nullptr, &p, static_cast<int>(camera.world_to_screen(p.position).y / zoom + camera.clip_rect().y),
-                      0x80000000ULL + p.order, nullptr});
+                      0x80000000ULL + p.order, nullptr, nullptr});
     }
   }
   {
@@ -999,7 +1124,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       // particle_items_ is gathered in pool order, which is emission (order) order, so the stable bucketing by depth
       // yields exactly the (depth, order) sequence. AOE-heavy fights keep thousands of particles live, where a
       // comparison sort was the largest single cost of the scene.
-      if (!bucket_by_depth(particle_items_, merged_, depth_counts_))
+      if (!bucket_by_depth(particle_items_, merged_, depth_counts_, depth_bucket_minimum_))
         std::sort(particle_items_.begin(), particle_items_.end(), before);
       merged_.resize(ordered_.size() + particle_items_.size());
       std::merge(ordered_.begin(), ordered_.end(), particle_items_.begin(), particle_items_.end(), merged_.begin(),
@@ -1011,7 +1136,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     REALM_ZONE("scene.draw_stream");
     for (const auto& item : ordered_) {
       if (item.entity) {
-        draw(*item.entity, *item.def);
+        draw(*item.entity, *item.def, item.visible);
         continue;
       }
       const auto& p = *item.particle;
@@ -1067,15 +1192,30 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
       }
     }
   }
-  for (int y = std::max(0, cy - distance); y < std::min(world.height(), cy + distance + 1); ++y)
-    for (int x = std::max(0, cx - distance); x < std::min(world.width(), cx + distance + 1); ++x) {
-      const auto* ground = world.catalog().ground(world.tile(x, y)->type);
-      if (!ground) continue;
-      if (ground->top.sheet >= 0 || ground->top.animated >= 0)
-        out.push_back(ground_quad(texture(ground->top, static_cast<std::uint32_t>(x + y * world.width()), nullptr,
-                                          angle, time, atlas, animations),
-                                  {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
+  {
+    REALM_ZONE("scene.ground_tops");
+    // Tops of the same view rectangle, in its row-major order: sorting the indices of the overlapping chunks' top tiles
+    // gives that order (index = x + y * map width).
+    const int x0 = std::max(0, cx - distance), y0 = std::max(0, cy - distance);
+    const int x1 = std::min(world.width() - 1, cx + distance), y1 = std::min(world.height() - 1, cy + distance);
+    const auto map_width = static_cast<std::uint32_t>(world.width());
+    top_tiles_.clear();
+    if (x0 <= x1 && y0 <= y1) {
+      for (int y = y0 / 8; y <= y1 / 8; ++y)
+        for (int x = x0 / 8; x <= x1 / 8; ++x)
+          for (const auto index : top_chunk(world, x, y).tiles) {
+            const auto tx = static_cast<int>(index % map_width), ty = static_cast<int>(index / map_width);
+            if (tx >= x0 && tx <= x1 && ty >= y0 && ty <= y1) top_tiles_.push_back(index);
+          }
+      std::sort(top_tiles_.begin(), top_tiles_.end());
     }
+    for (const auto index : top_tiles_) {
+      const auto x = static_cast<int>(index % map_width), y = static_cast<int>(index / map_width);
+      const auto* ground = world.catalog().ground(world.tile(x, y)->type);
+      out.push_back(ground_quad(texture(ground->top, index, nullptr, angle, time, atlas, animations),
+                                {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
+    }
+  }
   telemetry::set(telemetry::Counter::atlas_resident_bytes, residency_.used_bytes());
   telemetry::set(telemetry::Counter::atlas_shelf_bytes, residency_.occupied_area() * 4);
   telemetry::set(telemetry::Counter::atlas_pages, static_cast<std::uint64_t>(atlas.dynamic_pages()));

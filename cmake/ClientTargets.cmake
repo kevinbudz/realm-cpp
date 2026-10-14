@@ -31,7 +31,7 @@ find_package(nlohmann_json REQUIRED CONFIG)
 find_package(PNG REQUIRED)
 find_package(Freetype REQUIRED)
 
-realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp)
+realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp src/stage3D/WallGeometry.cpp)
 # Preserve the existing IPO scope; changing optimization policy needs its own evidence.
 if(REALM_IPO_AVAILABLE AND NOT REALM_SANITIZERS)
     set_property(TARGET realm_support PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)

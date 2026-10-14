@@ -265,7 +265,8 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
                                    {0, static_cast<double>(cs.credit_image.image.height)});
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
-      if (cs.hud_art && cs.game_session && cs.game_session->map_info().show_displays) {
+      // The rank/guild display yields to the Performance Stats panel while it is visible.
+      if (cs.hud_art && cs.game_session && cs.game_session->map_info().show_displays && !cs.perf_stats) {
         // Player.numStars_ defaults to 0 and GuildRank to -1; the server omits NumStars while it is 0.
         const int stars = player->profile.stats.value_or(realm::flash::StatId::NUM_STARS_STAT, 0),
                   rank = player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1);

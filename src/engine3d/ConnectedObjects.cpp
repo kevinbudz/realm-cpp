@@ -506,29 +506,32 @@ std::uint32_t connected_object_connections(const World& world, std::uint16_t typ
   return connections;
 }
 
-std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFaceGeometry>& faces,
-                                                     std::uint8_t material, SpriteRegion sprite, const Camera& camera,
-                                                     Vec2 position, double z, double rotation_degrees,
-                                                     const World* world, int tile_x, int tile_y, bool connected) {
+bool project_object_faces_into(MeshDraw& draw, const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
+                               SpriteRegion sprite, const Camera& camera, Vec2 position, double z,
+                               double rotation_degrees, const World* world, int tile_x, int tile_y, bool connected) {
   const double radians = rotation_degrees * std::numbers::pi / 180, cosine = std::cos(radians),
                sine = std::sin(radians);
-  auto draw = std::make_shared<MeshDraw>();
   constexpr float inv_page = 1.0F / sprite_page_size;
-  draw->bounds = {static_cast<float>(sprite.x) * inv_page, static_cast<float>(sprite.y) * inv_page,
-                  static_cast<float>(sprite.width) * inv_page, static_cast<float>(sprite.height) * inv_page};
-  draw->page = static_cast<float>(sprite.page);
-  draw->color = {0, 0, 0};
+  draw.bounds = {static_cast<float>(sprite.x) * inv_page, static_cast<float>(sprite.y) * inv_page,
+                 static_cast<float>(sprite.width) * inv_page, static_cast<float>(sprite.height) * inv_page};
+  draw.page = static_cast<float>(sprite.page);
+  draw.color = {0, 0, 0};
+  draw.vertices.clear();
+  draw.groups.clear();
   // An n-gon triangulates into n - 2 triangles, so the output size is known before any projection.
   std::size_t vertex_count = 0;
   for (const auto& face : faces)
     if (face.material == material && face.vertices.size() >= 3) vertex_count += 3 * (face.vertices.size() - 2);
-  draw->vertices.reserve(vertex_count);
+  draw.vertices.reserve(vertex_count);
   // Connected faces have at most 12 vertices (a cross cap), so projected corners live on the stack.
   constexpr std::size_t stack_vertices = 16;
   std::array<Vec2, stack_vertices> screen_stack;
   std::array<std::array<double, 3>, stack_vertices> points_stack;
   std::vector<Vec2> screen_heap;
   std::vector<std::array<double, 3>> points_heap;
+  // A neighbor's boundary state depends only on its (dx, dy) offset within this call: each of nine is looked up once.
+  enum class Edge : std::uint8_t { unknown, black, textured };
+  std::array<Edge, 9> edges{};
   // ObjectFace3D.draw: a polygon is culled, lit and boundary-tested from its first (f), second (s) and last (l)
   // vertices. Each triangle indexes the polygon's vertices and is textured from those three.
   const auto draw_polygon = [&](const ObjectFaceGeometry& face, const Vec2* screen, const std::array<double, 3>* points,
@@ -563,14 +566,17 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
     const int dy = neighbor_ny > .4 ? 1 : neighbor_ny < -.4 ? -1 : 0;
     bool black_boundary = false;
     if (connected && (dx || dy) && world) {
-      const auto* neighbor = world->tile(tile_x + dx, tile_y + dy);
-      black_boundary = !neighbor || neighbor->type == 255 || !world->catalog().ground(neighbor->type);
+      auto& edge = edges[static_cast<std::size_t>((dy + 1) * 3 + dx + 1)];
+      if (edge == Edge::unknown) {
+        edge = connected_black_neighbor(*world, tile_x + dx, tile_y + dy) ? Edge::black : Edge::textured;
+      }
+      black_boundary = edge == Edge::black;
     }
     const auto& uv0 = face.vertices[f];
     const auto& uv1 = face.vertices[s];
     const auto& uv2 = face.vertices[l];
     for (const auto& tri : triangles) {
-      const auto first = static_cast<std::uint32_t>(draw->vertices.size());
+      const auto first = static_cast<std::uint32_t>(draw.vertices.size());
       for (const auto index : tri) {
         // Software ObjectFace3D.tToS maps the entire polygon affinely from its first, second and last
         // projected vertices. Intermediate UVs in ConnectedWall caps are intentionally placeholders.
@@ -579,14 +585,14 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
         const double beta = (ux * pixel_dy - uy * pixel_dx) / determinant;
         const double u = uv0.u + alpha * (uv1.u - uv0.u) + beta * (uv2.u - uv0.u);
         const double v = uv0.v + alpha * (uv1.v - uv0.v) + beta * (uv2.v - uv0.v);
-        draw->vertices.push_back({static_cast<float>(screen[index].x), static_cast<float>(screen[index].y),
-                                  static_cast<float>(u), static_cast<float>(v), static_cast<float>(shade)});
+        draw.vertices.push_back({static_cast<float>(screen[index].x), static_cast<float>(screen[index].y),
+                                 static_cast<float>(u), static_cast<float>(v), static_cast<float>(shade)});
       }
       const bool solid = black_boundary;
-      if (!draw->groups.empty() && draw->groups.back().solid == solid && draw->groups.back().repeat == face.repeat)
-        draw->groups.back().count += 3;
+      if (!draw.groups.empty() && draw.groups.back().solid == solid && draw.groups.back().repeat == face.repeat)
+        draw.groups.back().count += 3;
       else
-        draw->groups.push_back({solid, first, 3, face.repeat});
+        draw.groups.push_back({solid, first, 3, face.repeat});
     }
   };
   for (const auto& face : faces) {
@@ -617,7 +623,121 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
       draw_polygon(face, screen, points, 0, 1, n - 1, triangles);
     }
   }
-  return draw->vertices.empty() ? nullptr : draw;
+  return !draw.vertices.empty();
+}
+
+bool connected_black_neighbor(const World& world, int x, int y) {
+  const auto* neighbor = world.tile(x, y);
+  return !neighbor || neighbor->type == 255 || !world.catalog().ground(neighbor->type);
+}
+std::uint32_t connected_black_mask(const World& world, int tile_x, int tile_y) {
+  std::uint32_t mask{};
+  for (int slot = 0; slot < 9; ++slot)
+    if (slot != 4 && connected_black_neighbor(world, tile_x + slot % 3 - 1, tile_y + slot / 3 - 1)) mask |= 1U << slot;
+  return mask;
+}
+
+std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFaceGeometry>& faces,
+                                                     std::uint8_t material, SpriteRegion sprite, const Camera& camera,
+                                                     Vec2 position, double z, double rotation_degrees,
+                                                     const World* world, int tile_x, int tile_y, bool connected) {
+  auto draw = std::make_shared<MeshDraw>();
+  if (!project_object_faces_into(*draw, faces, material, sprite, camera, position, z, rotation_degrees, world, tile_x,
+                                 tile_y, connected))
+    return nullptr;
+  return draw;
+}
+
+void build_wall_gpu_vertices(const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
+                             double rotation_degrees, std::vector<WallGpuVertex>& out) {
+  const double radians = rotation_degrees * std::numbers::pi / 180, cosine = std::cos(radians),
+               sine = std::sin(radians);
+  struct Point {
+    double x, y, z;
+  };
+  std::vector<Point> points;
+  std::vector<std::array<double, 2>> plane, uvs;  // a polygon's corners in its own plane, and their affine UVs
+  for (const auto& face : faces) {
+    const auto n = face.vertices.size();
+    if (face.material != material || n < 3) continue;
+    points.clear();
+    for (const auto& v : face.vertices) points.push_back({v.x * cosine - v.y * sine, v.x * sine + v.y * cosine, v.z});
+    std::vector<std::array<std::uint8_t, 3>> computed;
+    if (face.triangles.empty()) computed = compact_triangulation(face);
+    const auto& triangles = face.triangles.empty() ? computed : face.triangles;
+    // ObjectFace3D.draw for one polygon with first (f), second (s) and last (l) corners, without a camera. Screen
+    // projection is affine, so barycentric weights taken in the polygon's plane equal those taken on screen.
+    const auto polygon = [&](std::size_t f, std::size_t s, std::size_t l,
+                             std::span<const std::array<std::uint8_t, 3>> polygon_triangles) {
+      const auto& pa = points[f];
+      const auto& pb = points[s];
+      const auto& pc = points[l];
+      double nx = (pb.y - pa.y) * (pc.z - pa.z) - (pb.z - pa.z) * (pc.y - pa.y);
+      double ny = (pb.z - pa.z) * (pc.x - pa.x) - (pb.x - pa.x) * (pc.z - pa.z);
+      double nz = (pb.x - pa.x) * (pc.y - pa.y) - (pb.y - pa.y) * (pc.x - pa.x);
+      const double length = std::hypot(std::hypot(nx, ny), nz);
+      if (length <= 1e-12) return;
+      nx /= length;
+      ny /= length;
+      nz /= length;
+      const double shade = .75 + .25 * std::max(0.0, (nx + 3 * ny + 2 * nz) / sqrt14);
+      double neighbor_nx = nx, neighbor_ny = ny;
+      if (face.has_normal_local) {
+        neighbor_nx = face.normal_local[0] * cosine - face.normal_local[1] * sine;
+        neighbor_ny = face.normal_local[0] * sine + face.normal_local[1] * cosine;
+      }
+      const int dx = neighbor_nx > .4 ? 1 : neighbor_nx < -.4 ? -1 : 0;
+      const int dy = neighbor_ny > .4 ? 1 : neighbor_ny < -.4 ? -1 : 0;
+      const int slot = (dy + 1) * 3 + (dx + 1);
+      const float flags = (face.repeat ? 1.F : 0.F) + 2.F * static_cast<float>(slot);
+      // Plane basis: e1 along f -> s and e2 = n x e1 in the plane, so (e1, e2, n) is right-handed.
+      const double edge = std::hypot(std::hypot(pb.x - pa.x, pb.y - pa.y), pb.z - pa.z);
+      const std::array<double, 3> e1{(pb.x - pa.x) / edge, (pb.y - pa.y) / edge, (pb.z - pa.z) / edge};
+      const std::array<double, 3> e2{ny * e1[2] - nz * e1[1], nz * e1[0] - nx * e1[2], nx * e1[1] - ny * e1[0]};
+      const auto to_plane = [&](const Point& p) -> std::array<double, 2> {
+        const double x = p.x - pa.x, y = p.y - pa.y, z = p.z - pa.z;
+        return {x * e1[0] + y * e1[1] + z * e1[2], x * e2[0] + y * e2[1] + z * e2[2]};
+      };
+      plane.resize(n);
+      uvs.resize(n);
+      for (std::size_t k = 0; k < n; ++k) plane[k] = to_plane(points[k]);
+      // Plane coordinates of f are exactly zero, and the (f, s, l) orientation is positive by construction.
+      const double ux = plane[s][0] - plane[f][0], uy = plane[s][1] - plane[f][1];
+      const double vx = plane[l][0] - plane[f][0], vy = plane[l][1] - plane[f][1];
+      const double determinant = ux * vy - uy * vx;
+      const auto& uv0 = face.vertices[f];
+      const auto& uv1 = face.vertices[s];
+      const auto& uv2 = face.vertices[l];
+      for (std::size_t k = 0; k < n; ++k) {
+        const double pdx = plane[k][0] - plane[f][0], pdy = plane[k][1] - plane[f][1];
+        const double alpha = (pdx * vy - pdy * vx) / determinant;
+        const double beta = (ux * pdy - uy * pdx) / determinant;
+        uvs[k] = {uv0.u + alpha * (uv1.u - uv0.u) + beta * (uv2.u - uv0.u),
+                  uv0.v + alpha * (uv1.v - uv0.v) + beta * (uv2.v - uv0.v)};
+      }
+      for (const auto& tri : polygon_triangles) {
+        std::size_t a = tri[0], b = tri[1], c = tri[2];
+        const double orientation = (plane[b][0] - plane[a][0]) * (plane[c][1] - plane[a][1]) -
+                                   (plane[b][1] - plane[a][1]) * (plane[c][0] - plane[a][0]);
+        // A zero-area triangle (a repeated corner) covers no pixels from any camera, so it is not uploaded.
+        if (std::abs(orientation) <= 1e-12) continue;
+        // Every triangle takes the orientation of (f, s, l), so one screen-space winding test culls the whole polygon.
+        if (orientation * determinant < 0) std::swap(b, c);
+        for (const auto k : {a, b, c}) {
+          const auto& p = points[k];
+          out.push_back({static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z),
+                         static_cast<float>(uvs[k][0]), static_cast<float>(uvs[k][1]), static_cast<float>(shade),
+                         flags, 0.F});
+        }
+      }
+    };
+    if (face.split_quad && n == 4) {
+      // Each CaveWall triangle is its own polygon, as in project_object_faces.
+      for (const auto& tri : triangles) polygon(tri[0], tri[1], tri[2], std::span(&tri, 1));
+    } else {
+      polygon(0, 1, n - 1, triangles);
+    }
+  }
 }
 
 }

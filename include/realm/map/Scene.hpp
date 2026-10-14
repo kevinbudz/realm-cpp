@@ -7,6 +7,7 @@
 #include "realm/map/World.hpp"
 #include "realm/objects/StatusArt.hpp"
 #include "realm/engine3d/ConnectedObjects.hpp"
+#include "realm/stage3D/WallGeometry.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/TextureResidency.hpp"
 #include <list>
@@ -29,6 +30,16 @@ class Scene {
   // enabled in the client.
   void set_visibility_scan(bool enabled) { scan_visibility_ = enabled; }
   void set_cached_terrain(bool enabled) { cached_terrain_ = enabled; }
+  // Differential oracle: draw lists shorter than this are comparison-sorted by (depth, id) or (depth, order) instead of
+  // counting-sorted by depth. The order is identical either way. 0 counting-sorts every list. Never changed in the
+  // client.
+  void set_depth_bucket_minimum(std::size_t items) { depth_bucket_minimum_ = items; }
+  // Differential oracle: corner capacity of the wall stores this scene creates. A frame that outgrows it draws its
+  // remaining walls as software meshes. Never changed in the client.
+  void set_wall_store_limit(std::size_t corners) {
+    wall_limit_ = corners;
+    walls_.reset();
+  }
   [[nodiscard]] std::uint64_t terrain_rebuilds() const { return terrain_rebuilds_; }
   // World rectangle holding every static entity the camera cull test can accept: the margin rectangle on the ground
   // plane, widened by the catalog's static z range and largest static model reach, inverse-projected (plus 0.01 tile of
@@ -100,6 +111,17 @@ class Scene {
   bool cached_terrain_{};
   void build_terrain(const World& world, const Terrain& terrain, const Camera& camera, Atlas& atlas, Vec2 position,
                      int distance, std::int32_t time, std::vector<Quad>& out);
+  // Tiles of one terrain chunk whose ground has a top texture: row-major indices (x + y * map width), read at
+  // `revision`.
+  struct TopChunk {
+    std::uint64_t revision{};
+    bool valid{};
+    std::vector<std::uint32_t> tiles;
+  };
+  std::unordered_map<int, TopChunk> top_chunks_;
+  std::vector<std::uint32_t> top_tiles_;
+  [[nodiscard]] const TopChunk& top_chunk(const World& world, int x, int y);
+  std::size_t depth_bucket_minimum_{256};
   std::array<std::uint64_t, 5> submitted_{};
   struct ConnectedGeometryCacheEntry {
     std::uint16_t type{};
@@ -107,13 +129,39 @@ class Scene {
     int tile_x{}, tile_y{};
     ConnectedObjectGeometry geometry;
     std::list<std::int32_t>::iterator lru;
+    WallRange wall;  // the CaveWall body in walls_, current while its generation is
+    // connected_black_mask of the wall's tile, valid while the terrain revision of its chunk is black_revision (every
+    // change to the nine tiles it reads bumps that chunk).
+    std::uint64_t black_revision{};
+    std::uint32_t black_mask{};
+    bool black_known{};
   };
   // Above the wall count of a dense cull rectangle (~1500 tiles), so a full screen of walls never cycles the LRU.
   static constexpr std::size_t maximum_connected_geometries = 4096;
   std::list<std::int32_t> connected_geometry_lru_;
   std::unordered_map<std::int32_t, ConnectedGeometryCacheEntry> connected_geometries_;
-  // Stalagmite geometry depends only on its entity id's seed: built once per id, cleared with the cache above.
-  std::unordered_map<std::int32_t, std::vector<ObjectFaceGeometry>> stalagmite_geometries_;
+  // Stalagmite geometry depends only on its entity id's seed: built once per id, cleared with the cache above. Its wall
+  // range bakes in the definition's rotation, so it is appended again when that rotation changes.
+  struct StalagmiteEntry {
+    std::vector<ObjectFaceGeometry> faces;
+    double rotation{};
+    WallRange wall;
+  };
+  std::unordered_map<std::int32_t, StalagmiteEntry> stalagmite_geometries_;
+  // Every wall instance (kind 17) draws from this store. Build resets it when nearly full, and every map reset does.
+  std::shared_ptr<WallGeometryStore> walls_;
+  std::size_t wall_limit_{WallGeometryStore::capacity};
+  std::vector<WallGpuVertex> wall_scratch_;
+  // ConnectedWall triangles depend only on the definition, shape, rotation and material, so they are shared by key.
+  std::unordered_map<std::uint64_t, WallRange> connected_wall_ranges_;
+  // Appends the faces' triangles for one material unless `range` is current in the store. False when the store is full.
+  [[nodiscard]] bool ensure_wall(WallRange& range, const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
+                                 double rotation);
+  // Draws one object's triangles for one material: a store instance, or the software mesh when the store is full. World
+  // null means no boundary tests (Stalagmite).
+  void emit_wall(std::vector<Quad>& out, WallRange& range, const std::vector<ObjectFaceGeometry>& faces,
+                 std::uint8_t material, SpriteRegion sprite, const Camera& camera, Vec2 position, double rotation,
+                 const World* world, int tile_x, int tile_y, std::uint32_t black_mask);
   struct Cached {
     std::weak_ptr<const Image> image;
     std::shared_ptr<SurfaceTexture> surface;
@@ -141,7 +189,24 @@ class Scene {
     const ObjectDef* def;
     int depth;
     std::int32_t id;
+    // The entity's screen point at its z, and on the ground (z = 0, the depth's source). Projection is a pure function
+    // of the camera and position, so every pass reads these instead of projecting again.
+    Vec2 at, ground;
+    std::uint8_t draw_class;  // DrawClass of def, as TypeEntry::draw_class
+    // The base texture's sprite, once the shadow pass has read it (draw_impl reuses it: same call, same result).
+    SpriteRegion base_sprite{};
+    bool base_sprite_known{};
   };
+  // Per object type, filled on first use for one catalog: the definition and its DrawClass, so entities skip the
+  // catalog lookup and class-name compares. The catalog is immutable, so an entry holds for the catalog's lifetime.
+  struct TypeEntry {
+    const ObjectDef* def{};
+    std::uint8_t draw_class{};
+    bool known{};
+  };
+  std::vector<TypeEntry> types_;
+  const Catalog* types_catalog_{};
+  [[nodiscard]] const TypeEntry& type_entry(const Catalog& catalog, std::uint16_t type);
   std::vector<Visible> visible_, visible_scratch_;
   struct DrawItem {
     const Entity* entity{};
@@ -149,6 +214,7 @@ class Scene {
     int depth{};
     std::uint64_t order{};
     const ObjectDef* def{};
+    const Visible* visible{};
   };
   std::vector<DrawItem> ordered_, particle_items_, merged_;
   std::vector<std::uint32_t> depth_counts_;
@@ -198,7 +264,28 @@ class Scene {
   const Atlas* residency_atlas_{};
   std::uint32_t residency_texture_{};
   std::uint64_t next_resident_{1}, fallbacks_{};
-  std::unordered_map<Appearances::Key, ResidentAppearance, Appearances::KeyHash> resident_appearances_;
+  // Inline hash and equality over every Appearances::Key field (the map is only looked up, inserted and erased).
+  struct ResidentKeyHash {
+    [[nodiscard]] std::size_t operator()(const Appearances::Key& key) const noexcept {
+      std::uint64_t h = 0x9e3779b97f4a7c15ULL;
+      const auto mix = [&h](std::uint64_t v) {
+        h = (h ^ v) * 0xff51afd7ed558ccdULL;
+        h ^= h >> 29;
+      };
+      mix(static_cast<std::uint32_t>(key.a) | std::uint64_t{static_cast<std::uint32_t>(key.b)} << 32U);
+      mix(static_cast<std::uint32_t>(key.c) | std::uint64_t{static_cast<std::uint32_t>(key.d)} << 32U);
+      mix(static_cast<std::uint32_t>(key.size) | std::uint64_t{key.tex1} << 32U);
+      mix(key.tex2 | std::uint64_t{key.kind} << 32U | std::uint64_t{key.pad} << 40U);
+      return static_cast<std::size_t>(h);
+    }
+  };
+  struct ResidentKeyEq {
+    [[nodiscard]] bool operator()(const Appearances::Key& a, const Appearances::Key& b) const noexcept {
+      return a.a == b.a && a.b == b.b && a.c == b.c && a.d == b.d && a.size == b.size && a.tex1 == b.tex1 &&
+             a.tex2 == b.tex2 && a.kind == b.kind && a.pad == b.pad;
+    }
+  };
+  std::unordered_map<Appearances::Key, ResidentAppearance, ResidentKeyHash, ResidentKeyEq> resident_appearances_;
   // Last hit of resident_appearances_, cleared by every erase from it.
   Appearances::Key memo_key_{};
   ResidentAppearance memo_entry_{};

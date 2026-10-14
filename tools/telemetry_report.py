@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Summarize realm-frame-v1 JSONL; exclude warmup/capture and tainted intervals.
-CPU zones are inclusive; models_ms is a subset of GPU world/UI, never added.
+CPU zones are inclusive; models_ms is a subset of GPU world/UI, never added. models_ms covers kind-9 model
+runs only; wall instances (kind 17) are inside world_ms and counted in `models` and `triangles`
+(corners / 3 as submitted, before the cull).
 """
 import argparse, collections, json, math, pathlib, statistics
 

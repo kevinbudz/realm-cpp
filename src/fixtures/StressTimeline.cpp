@@ -1,5 +1,6 @@
 #include "realm/fixtures/StressTimeline.hpp"
 #include "realm/engine3d/Model3D.hpp"
+#include "realm/stage3D/WallGeometry.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -547,6 +548,15 @@ void StressTimeline::sample_scene(const Camera& camera, int width, int height, s
         hash_floats(quad_hash_, mesh.color);
         hash_floats(quad_hash_, mesh.bounds);
       }
+      if (q.kind == 17 && q.owner) {
+        // A wall instance also digests its corners, so the stream still covers the geometry the mesh path submitted.
+        const auto& store = *static_cast<const WallGeometryStore*>(q.owner.get());
+        const auto first = static_cast<std::size_t>(q.multiply[0]), count = static_cast<std::size_t>(q.multiply[1]);
+        for (std::size_t i = first; i < first + count; ++i) {
+          const auto& v = store.vertices().at(i);
+          hash_floats(quad_hash_, std::array<float, 8>{v.x, v.y, v.z, v.u, v.v, v.shade, v.flags, v.pad});
+        }
+      }
       hash(quad_hash_, 0xfeedULL);
     }
   for (const auto& q : quads) {
@@ -556,6 +566,8 @@ void StressTimeline::sample_scene(const Camera& camera, int width, int height, s
     else if (q.kind == 9)
       triangle_count_ +=
           model_range(static_cast<std::uint32_t>(q.offset[2])).count / 3;  // submitted, before GPU back-face culling
+    else if (q.kind == 17)
+      triangle_count_ += static_cast<std::uint64_t>(q.multiply[1]) / 3;  // a wall instance's corners, as mesh triangles
     else {
       triangle_count_ += 2;
       coverage_sum_ += std::min(static_cast<double>(width) * height,

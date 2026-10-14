@@ -1,6 +1,7 @@
 #pragma once
 #include "realm/objects/ObjectProperties.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
+#include "realm/stage3D/WallGeometry.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -41,6 +42,11 @@ struct ConnectedObjectGeometry {
                                                                 int tile_x, int tile_y, std::uint32_t seed);
 [[nodiscard]] ConnectedShape connected_shape(std::uint32_t connect_stat, int* rotation = nullptr);
 [[nodiscard]] std::vector<ObjectFaceGeometry> stalagmite_geometry(std::uint32_t seed);
+// Whether the boundary test makes faces next to tile (x, y) black: no tile, void (type 255), or a type without ground.
+[[nodiscard]] bool connected_black_neighbor(const World& world, int x, int y);
+// Bit `slot` = (dy + 1) * 3 + (dx + 1) is set where connected_black_neighbor holds for the tile at offset (dx, dy) from
+// (tile_x, tile_y); slot 4 (the tile itself) is never set.
+[[nodiscard]] std::uint32_t connected_black_mask(const World& world, int tile_x, int tile_y);
 // Offline maps have no server CONNECT_STAT; infer the same N/E/S/W bytes from neighboring static objects.
 [[nodiscard]] std::uint32_t connected_object_connections(const World& world, std::uint16_t type, int x, int y);
 
@@ -50,5 +56,17 @@ struct ConnectedObjectGeometry {
                                                                    const Camera& camera, Vec2 position, double z,
                                                                    double rotation_degrees, const World* world,
                                                                    int tile_x, int tile_y, bool connected);
+// The same projection into a caller-owned mesh: its vectors are cleared and keep their capacity, so a reused mesh does
+// not allocate. Returns false when nothing is emitted, leaving draw without vertices.
+[[nodiscard]] bool project_object_faces_into(MeshDraw& draw, const std::vector<ObjectFaceGeometry>& faces,
+                                             std::uint8_t material, SpriteRegion sprite, const Camera& camera,
+                                             Vec2 position, double z, double rotation_degrees, const World* world,
+                                             int tile_x, int tile_y, bool connected);
+
+// Camera-independent wall triangles for GPU drawing (WallGpuVertex, WallGeometry.hpp): three corners per triangle.
+// Appends the triangles of one material, with the same shading, neighbor slots, UVs and winding as
+// project_object_faces: every triangle has the orientation of its polygon's first, second and last corners.
+void build_wall_gpu_vertices(const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
+                             double rotation_degrees, std::vector<WallGpuVertex>& out);
 
 }

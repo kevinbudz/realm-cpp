@@ -1,6 +1,7 @@
 #include "StartupViewModel.hpp"
 #include "realm/game/view/CreditDisplay.hpp"
 #include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/ui/tooltip/ClassToolTip.hpp"
 #include "realm/util/FlashDraw.hpp"
 #include "realm/ui/tooltip/TextToolTip.hpp"
 #include "realm/util/GraphicsUtil.hpp"
@@ -711,6 +712,7 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
         character_tooltip_id_ = c.id;
         character_tooltip_density_ = fonts_.pixel_scale();
       }
+      tooltip_frame_ = {character_tooltip_.frame_width, character_tooltip_.frame_height};
       character_tooltip_element_ = elements_.size();
       add_image(character_tooltip_.image, 0, 0, 1 / character_tooltip_.image.pixel_scale);
       elements_.back().anchor = Anchor::window;
@@ -721,8 +723,8 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
 void StartupViewModel::position_character_tooltip(const StartupScreenState& state) {
   if (!character_tooltip_element_ || *character_tooltip_element_ >= elements_.size()) return;
   const double scale = height_ / 600;
-  const auto at = text_tooltip_position(state.character_pointer_, character_tooltip_.frame_width,
-                                        character_tooltip_.frame_height, width_, height_, scale);
+  const auto at =
+      text_tooltip_position(state.character_pointer_, tooltip_frame_.x, tooltip_frame_.y, width_, height_, scale);
   elements_[*character_tooltip_element_].position = {at.x / scale - 16, at.y / scale - 16};
 }
 void StartupViewModel::position_rank_tooltip(const StartupScreenState& state) {
@@ -736,28 +738,57 @@ void StartupViewModel::position_rank_tooltip(const StartupScreenState& state) {
 void StartupViewModel::class_screen(const StartupScreenState& state) {
   menu_frame(true);
   add_button("back", 36, 0, 524, back_action, false, true);
-  // NewCharacterScreen: five CharacterBoxes per row, 140 pixels apart.
-  constexpr double box = 100;
+  if (state.list_ && art_) {
+    const auto display = render_credit_display(fonts_, *art_, state.list_->credits, state.list_->fame);
+    add_image(display.image, display.origin_offset.x, 20, 1 / display.image.pixel_scale);
+    elements_.back().anchor = Anchor::window;
+    elements_.back().anchor_fraction = {1, 0};
+  }
+  // CharacterStats: a class without a ClassStats entry has no best fame or level.
+  const auto stat = [&](int type, bool fame) {
+    if (!state.list_) return 0;
+    const auto& values = fame ? state.list_->best_fame : state.list_->best_level;
+    const auto found = values.find(type);
+    return found == values.end() ? 0 : found->second;
+  };
+  // NewCharacterScreen: five CharacterBoxes per row, 140 pixels apart. A box is FullCharBoxGraphic's 105 pixel frame,
+  // and its origin is the box's center less half the frame.
+  constexpr double box = 105, star_margin = 8;
   for (std::size_t i = 0; i < state.player_types_.size(); ++i) {
-    const int action = class_action + static_cast<int>(i);
+    const int type = state.player_types_[i], action = class_action + static_cast<int>(i);
     const double x = 50 + 140 * static_cast<double>(i % 5) + 70 - box / 2, y = 88 + 140 * static_cast<double>(i / 5);
-    auto& border = add_solid(x, y, box, box, 0x7F7F7F, 1, action);
-    border.over = rgba(0x999999);
-    auto& fill = add_solid(x + 2, y + 2, box - 4, box - 4, 0x363636, 1, action);
-    fill.over = rgba(0x414141);
+    const auto* def = catalog_.object(static_cast<std::uint16_t>(type));
+    const std::string name = def ? def->id : "Unknown";
     if (art_) {
-      // SavedCharacter.getImage: a 6x redrawn sprite centered at the top of the box.
-      add_image(straight(art_->image("portrait" + std::to_string(state.player_types_[i]))),
-                x + (box - portrait_content * 1.5) / 2 - portrait_inset * 1.5, y + 10 - portrait_inset * 1.5, 1.5,
-                action);
+      add_image(straight(art_->image("classbox")), x - .5, y - .5, 1, action);
+      elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
+      // CharacterBox.setImage centers the portrait on the frame's middle at the top of the box.
+      const auto& portrait = art_->image("classportrait" + std::to_string(type));
+      add_image(straight(portrait), x + box / 2 - portrait.width / 2.0, y, 1, action);
       elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
     }
-    const auto* def = catalog_.object(static_cast<std::uint16_t>(state.player_types_[i]));
-    const std::string name = def ? def->id : "Unknown";
-    add_text(name, 14, true, white, x + (box - fonts_.layout(name, 14, true).width) / 2, y + 74, action);
+    // CharacterBox's name field autosizes around x 50 of the box, 74 pixels down.
+    add_text(name, 14, true, white, x + 50 - fonts_.layout(name, 14, true).width / 2, y + 74, action);
     elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
-    auto& h = add_solid(x, y, box, box, 0, 0, action);
+    if (art_) {
+      // CharacterBox.getStars: the stars sit 60 pixels down, centered on the frame.
+      const auto& stars = art_->image("classstars" + std::to_string(star_count(stat(type, true))));
+      add_image(straight(stars), x + box / 2 - stars.width / 2.0, y + 60 - star_margin, 1, action);
+      elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
+    }
+    auto& h = add_solid(x - .5, y - .5, box, box, 0, 0, action);
     h.hit = true;
+  }
+  // CharacterBox.getTooltip, shown while the pointer is over a box.
+  const int hovered = state.hovered_ - class_action;
+  if (art_ && hovered >= 0 && hovered < static_cast<int>(state.player_types_.size())) {
+    const int type = state.player_types_[static_cast<std::size_t>(hovered)];
+    const auto tooltip = render_class_tooltip(fonts_, *art_, catalog_, type, stat(type, true), stat(type, false));
+    tooltip_frame_ = {tooltip.frame_width, tooltip.frame_height};
+    character_tooltip_element_ = elements_.size();
+    add_image(tooltip.image, 0, 0, 1 / tooltip.image.pixel_scale);
+    elements_.back().anchor = Anchor::window;
+    position_character_tooltip(state);
   }
   account_header(state);
 }
@@ -975,6 +1006,7 @@ void StartupViewModel::refresh(const StartupScreenState& state, bool busy) {
   view.height = static_cast<int>(std::lround(height_));
   view.scale = height_ / 600;
   view.characters = state.screen_ == Screen::characters;
+  view.classes = state.screen_ == Screen::classes;
   view.busy = busy;
   view.dialog_insertion = dialog_begin_;
   view.menus = state.menus();

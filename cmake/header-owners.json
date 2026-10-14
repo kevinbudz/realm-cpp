@@ -102,6 +102,7 @@
   "src/core/ApplicationLoopDetail.hpp": "realm_application",
   "include/realm/game/view/CreditDisplay.hpp": "realm_ui",
   "include/realm/game/view/SafeAreaDisplay.hpp": "realm_ui",
+  "include/realm/ui/tooltip/ClassToolTip.hpp": "realm_ui",
   "include/realm/ui/tooltip/SavedCharacterTooltip.hpp": "realm_ui",
   "include/realm/ui/tooltip/RankToolTip.hpp": "realm_ui",
   "src/screens/StartupImpl.hpp": "realm_startup",

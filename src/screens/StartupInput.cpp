@@ -53,7 +53,9 @@ void Startup::Impl::pointer_move(Vec2 position) {
     const bool rank = over == rank_action || state_.hovered_ == rank_action;
     state_.hovered_ = over;
     view_model_.request_refresh();
-    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || rank) view_model_.invalidate();
+    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || state_.screen_ == Screen::classes ||
+        rank)
+      view_model_.invalidate();
   }
   if (state_.screen_ == Screen::skins && state_.dialog_ == Dialog::none && state_.skins_)
     state_.skins_->pointer_move(position);
@@ -155,7 +157,7 @@ void Startup::Impl::pointer_up(Vec2 position) {
     const bool rank = over == rank_action || state_.hovered_ == rank_action;
     state_.hovered_ = over;
     view_model_.request_refresh();
-    if (state_.screen_ == Screen::legends || rank) view_model_.invalidate();
+    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::classes || rank) view_model_.invalidate();
     view_model_.refresh(state_, tasks_.busy());
   }
 }
@@ -165,7 +167,8 @@ void Startup::Impl::cancel_pointer() {
     state_.delete_dialog_.focus_lost();
     if (state_.delete_dialog_.update(fonts_, view_model_.width(), view_model_.height())) view_model_.invalidate();
   }
-  if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || state_.hovered_ == rank_action)
+  if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || state_.screen_ == Screen::classes ||
+      state_.hovered_ == rank_action)
     view_model_.invalidate();
   state_.character_scroll_.focus_lost();
   state_.legends_scroll_.focus_lost();

@@ -83,7 +83,8 @@ struct StartupViewSnapshot {
   std::vector<StartupFieldSnapshot> fields;
   std::vector<HudRegion> sheet_dirty;
   std::size_t dialog_insertion{};
-  bool characters{}, busy{}, menus{}, dialog{}, skin_visible{}, skin_modal_input{}, fame{}, legends{}, deletion{};
+  bool characters{}, classes{}, busy{}, menus{}, dialog{}, skin_visible{}, skin_modal_input{}, fame{}, legends{},
+      deletion{};
   const Image* skin_image{};
   std::uint64_t skin_revision{};
   std::vector<HudRegion> skin_dirty;

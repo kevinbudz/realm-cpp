@@ -404,7 +404,7 @@ struct StartupRml::Impl {
       element.SetProperty("pointer-events",
                           !item.action || (view.dialog && i < view.dialog_insertion) ? "none" : "auto");
       if (item.solid || item.hit) element.SetProperty("background-color", css_color(item.color));
-      node.hovered = (view.fame || view.legends || view.characters) ? item.hovered : same_action(hovered, item.action);
+      node.hovered = tracks_hover(view) ? item.hovered : same_action(hovered, item.action);
       if (node.image || !item.text.empty() || (item.solid && !item.hit)) set_node_color(node, item, view);
       set_action(element, item.action);
     }
@@ -521,13 +521,18 @@ struct StartupRml::Impl {
     startup.play_click();
     startup.perform(*action);
   }
+  // Screens whose pointer is handled by Startup keep the hover that Startup gave each element, whatever RML reports.
+  [[nodiscard]] static bool tracks_hover(const StartupViewSnapshot& view) {
+    return view.fame || view.legends || view.characters || view.classes;
+  }
   void set_hover(const std::optional<StartupAction>& action) {
     hovered = action;
     const auto& view = startup.view();
     for (auto& node : nodes) {
       if (node.snapshot_index >= view.elements.size()) continue;
       const auto& item = view.elements[node.snapshot_index];
-      const bool over = same_action(hovered, item.action) && item.hover_color[3] > 0;
+      const bool over =
+          (tracks_hover(view) ? item.hovered : same_action(hovered, item.action)) && item.hover_color[3] > 0;
       node.hovered = over;
       set_node_color(node, item, view);
     }
@@ -540,8 +545,8 @@ struct StartupRml::Impl {
       host.layer().handle(event);
       return ui::Result::consumed;
     }
-    if ((view.characters && !view.dialog) || view.deletion || view.fame || view.legends || view.skin_modal_input ||
-        (view.skin_visible && !view.dialog)) {
+    if (((view.characters || view.classes) && !view.dialog) || view.deletion || view.fame || view.legends ||
+        view.skin_modal_input || (view.skin_visible && !view.dialog)) {
       switch (event.kind) {
         case ui::EventKind::pointer_move:
           startup.pointer_move(event.point);

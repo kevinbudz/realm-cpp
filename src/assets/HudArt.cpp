@@ -118,7 +118,7 @@ struct HudArt::Sources {
   const Catalog* catalog{};
   const Appearances* appearances{};
   std::unordered_map<int, Image> sheets;
-  std::optional<fd::Shape> star, cross;
+  std::optional<fd::Shape> star, cross, box;
   int classes{};
   Sources(const Appearances* shared_appearances, const Catalog* shared_catalog) {
     const std::filesystem::path root(flash::source_root);
@@ -224,6 +224,12 @@ struct HudArt::Sources {
       cross = fd::load_swf_shape(std::filesystem::path(flash::source_root) /
                                  "src/com/company/rotmg/graphics/DeleteXGraphic.swf");
     return *cross;
+  }
+  const fd::Shape& box_shape() {
+    if (!box)
+      box = fd::load_swf_shape(std::filesystem::path(flash::source_root) /
+                               "src/com/company/rotmg/graphics/FullCharBoxGraphic.swf");
+    return *box;
   }
   Field field(std::string_view text, int size, bool bold) const {
     const auto run = fonts.layout(text, size, bold);
@@ -776,6 +782,50 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
                    {179.0 / 255, 179.0 / 255, 179.0 / 255});
     fd::drop_shadow(image, 0, 0, 0, 1, 4, 4, 1);
     return image;
+  }
+  // NewCharacterScreen's CharacterBox frame: FullCharBoxGraphic's sprite places its shape at (-16, -13), so the art
+  // covers -0.5 to 104.5 around the box origin, and the canvas starts half a pixel before it.
+  if (key == "classbox") {
+    if (dry) return Image{};
+    auto image = fd::canvas(105, 105);
+    fd::draw_shape(image, s.box_shape(), -15.5, -12.5);
+    return image;
+  }
+  // CharacterBox.getStars: five StarGraphic symbols, the first N at fullCT (.8) and the rest at emptyCT (.2), under
+  // DropShadowFilter(0,0,0,1,4,4). The canvas carries an 8 pixel margin around the row.
+  if (keyed(key, "classstars", 0, 5, a)) {
+    if (dry) return Image{};
+    const auto& shape = s.star_shape();
+    constexpr int margin = 8, count = 5;
+    const double advance = shape.width();
+    auto image = fd::canvas(static_cast<int>(std::ceil(advance * count)) + margin * 2,
+                            static_cast<int>(std::ceil(shape.height())) + margin * 2);
+    for (int i = 0; i < count; ++i)
+      fd::draw_shape(image, shape, margin + i * advance - shape.left, margin - shape.top, 1,
+                     i < a ? fd::ColorTransform{.8, .8, .8} : fd::ColorTransform{.2, .2, .2});
+    fd::drop_shadow(image, 0, 0, 0, 1, 4, 4, 1);
+    return image;
+  }
+  // CharacterBox.setImage: SavedCharacter.getImage's standing frame facing down at size 100, tinted by selectedCT.
+  if (keyed(key, "classportrait", 1, 65535, a)) {
+    const auto* o = object(a);
+    if (!o || !o->player) return std::nullopt;
+    if (dry) return Image{};
+    const auto& t = catalog.player_texture(a, 0).select(0);
+    Image image;
+    if (const auto* character = s.appearances->animations().character(t.animated, t.index))
+      image = s.frame_texture(character->directions[2][0].front(), 100, false, 0, 0);
+    else
+      image = s.object_texture(a, 100, false);
+    fd::color_transform(image, {.75, .75, .75});
+    return image;
+  }
+  // ClassToolTip's portrait: GameObject.getPortrait's redrawn texture at its own size, without portrait<N>'s canvas.
+  if (keyed(key, "tooltipportrait", 1, 65535, a)) {
+    const auto* o = object(a);
+    if (!o || !o->player) return std::nullopt;
+    if (dry) return Image{};
+    return s.portrait(a, 0, 0, 0);
   }
   if (key == "skinfame" || key == "skincreditcoin") {
     if (dry) return Image{};

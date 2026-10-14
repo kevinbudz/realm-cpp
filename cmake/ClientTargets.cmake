@@ -79,7 +79,7 @@ target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::
 realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
     src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
     src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/SkinChooser.cpp
-    src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
+    src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp src/ui/panels/GuildInvite.cpp)
 target_link_libraries(realm_ui PUBLIC realm_assets)
 realm_library(realm_fixtures src/fixtures/StressTimeline.cpp)
 target_link_libraries(realm_fixtures PUBLIC realm_assets PRIVATE nlohmann_json::nlohmann_json)

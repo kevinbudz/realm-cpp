@@ -71,6 +71,7 @@
   "include/realm/ui/board/GuildBoard.hpp": "realm_ui",
   "include/realm/ui/guild/GuildMembers.hpp": "realm_ui",
   "include/realm/ui/Trade.hpp": "realm_ui",
+  "include/realm/ui/panels/GuildInvite.hpp": "realm_ui",
   "include/realm/ui/dialogs/InteractionDialog.hpp": "realm_ui",
   "include/realm/classes/SkinChooser.hpp": "realm_ui",
   "include/realm/ui/options/OptionsScreen.hpp": "realm_ui",

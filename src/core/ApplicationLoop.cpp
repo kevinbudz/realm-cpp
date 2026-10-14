@@ -165,44 +165,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     std::cout << "Last frame quads=" << cs.quads.size() + overlay.size() << " draws=" << cs.renderer.draw_calls()
               << " GPU_last_ms=" << cs.renderer.gpu_ms() << '\n';
   realm::check_graphics_error();
-  if (cs.perf_stats) {
-    // Measure completed swap intervals, including pacing and stalls;
-    // simulation dt can be clamped or use a fixed fixture clock.
-    if (cs.perf_previous_present) {
-      const double interval = milliseconds(presented - *cs.perf_previous_present);
-      ++cs.perf_frames;
-      cs.perf_clock += interval;
-      cs.perf_history.push_back({presented, interval});
-      while (milliseconds(presented - cs.perf_history.front().presented) >= cs.perf_history_ms)
-        cs.perf_history.pop_front();
-    }
-    cs.perf_previous_present = presented;
-    if (cs.perf_clock >= cs.perf_refresh_ms) {
-      // Reuse the scratch storage and calculate tails only when the text refreshes.
-      cs.perf_intervals.clear();
-      for (const auto& sample : cs.perf_history) cs.perf_intervals.push_back(sample.interval);
-      // Nearest-rank percentiles; progressively partition just the remaining tail.
-      std::size_t percentile_begin{};
-      const auto percentile = [&](double fraction) {
-        const auto index =
-            static_cast<std::size_t>(std::ceil(fraction * static_cast<double>(cs.perf_intervals.size()))) - 1;
-        std::nth_element(cs.perf_intervals.begin() + percentile_begin, cs.perf_intervals.begin() + index,
-                         cs.perf_intervals.end());
-        percentile_begin = index;
-        return cs.perf_intervals[index];
-      };
-      const double p90 = percentile(.90), p99 = percentile(.99);
-      std::ostringstream text;
-      text << std::fixed << std::setprecision(1) << cs.perf_frames * 1000 / cs.perf_clock << " FPS";
-      if (const double mb = realm::platform::resident_megabytes(); mb > 0) text << '\n' << mb << " MB";
-      text << std::setprecision(3) << "\navg " << cs.perf_clock / cs.perf_frames << " ms\n"
-           << "p90 " << p90 << " ms\np99 " << p99 << " ms";
-      cs.perf_text = text.str();
-      cs.perf_dirty = true;
-      cs.perf_frames = 0;
-      cs.perf_clock = 0;
-    }
-  }
+  cs.sample_perf(presented);
   // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap.
   if (!o.benchmark && !o.hidden && cs.settings.get("maxFPS") > 0) {
     const double target = 1000.0 / cs.settings.get("maxFPS");

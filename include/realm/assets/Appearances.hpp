@@ -1,6 +1,6 @@
 #pragma once
 // Flash: com/company/assembleegameclient/util/TextureRedrawer.as
-#include "realm/util/AnimationLibrary.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
 #include "realm/objects/Catalog.hpp"
 #include "realm/map/World.hpp"
 #include <array>

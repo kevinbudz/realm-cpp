@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/hud/HudState.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/map/World.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/objects/Party.hpp"

@@ -1,4 +1,4 @@
-#include "realm/classes/SkinChooser.hpp"
+#include "realm/ui/SkinChooser.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"

@@ -4,7 +4,7 @@
 // per-frame entity sets (moving, enemies, minimap markers, players, merchants, dynamic/static grid) must visit exactly
 // what the original full passes visited, in the same order; World::update is compared with the original whole-list
 // pass.
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/Appearances.hpp"
 #include "realm/minimap/Minimap.hpp"
 #include "realm/objects/Party.hpp"
 #include <cstring>

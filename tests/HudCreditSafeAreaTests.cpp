@@ -1,5 +1,5 @@
-#include "realm/game/view/CreditDisplay.hpp"
-#include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/hud/CreditDisplay.hpp"
+#include "realm/hud/SafeAreaDisplay.hpp"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>

@@ -1,6 +1,6 @@
 #pragma once
 // Flash: kabam/rotmg/minimap/view/MiniMap.as
-#include "realm/util/AnimationLibrary.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
 #include "realm/map/World.hpp"
 #include <unordered_map>
 namespace realm {

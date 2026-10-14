@@ -1,6 +1,6 @@
 #pragma once
 // Flash: com/company/assembleegameclient/util/AnimatedChars.as
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <array>
 #include <span>
 namespace realm {

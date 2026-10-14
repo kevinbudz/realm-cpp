@@ -1,9 +1,9 @@
 #pragma once
 #include "realm/appengine/SavedCharacter.hpp"
 #include "realm/appengine/SavedNewsItem.hpp"
-#include "realm/fame/CharacterFame.hpp"
-#include "realm/legends/Legend.hpp"
-#include "realm/ui/guild/GuildMemberList.hpp"
+#include "realm/appengine/CharacterFame.hpp"
+#include "realm/appengine/Legend.hpp"
+#include "realm/appengine/GuildMemberList.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>

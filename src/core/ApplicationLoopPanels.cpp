@@ -1,6 +1,6 @@
 #include "ApplicationLoop.hpp"
 #include "realm/util/Telemetry.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/ui/Trade.hpp"
 #include "realm/ui/dialogs/InteractionDialog.hpp"
@@ -128,75 +128,11 @@ void build_modal_overlays(ClientState& cs, const Options& o, Frame& f) {
     overlay_storage[overlay.size()] = quad;
     overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
   }
-  if (cs.perf_stats && o.world && !menus) {
-    // Toggle Performance Stats: recent FPS, rolling frame-time percentiles and resources.
-    if (cs.perf_dirty && !cs.perf_text.empty()) {
-      const double ui = height / 600.0;
-      constexpr int value_size = 12;
-      constexpr double label_scale = 10.0 / value_size;
-      constexpr unsigned outline_strength = 3;
-      constexpr double column_gap = 6, row_gap = 1;
-      const double label_y = cs.fonts.baseline(value_size, true) * (1 - label_scale);
-      const auto rasterize_label = [&](const std::string& label_text) {
-        // Render smaller labels directly from the native font at drawable density.
-        cs.fonts.set_pixel_scale(ui * label_scale);
-        auto label = cs.fonts.rasterize_glow(label_text, value_size, true, 0xd7dce2, outline_strength);
-        cs.fonts.set_pixel_scale(ui);
-        label.width *= label_scale;
-        label.height *= label_scale;
-        label.offset.x *= label_scale;
-        label.offset.y *= label_scale;
-        label.image.pixel_scale = ui;
-        label.redraw.reset();
-        return label;
-      };
-      struct PerfRow {
-        realm::TextBitmap label, value;
-        double height;
-        bool regular;
-      };
-      std::vector<PerfRow> rows;
-      double label_w = 0, value_w = 0, regular_w = 0, box_h = 0;
-      std::istringstream in(cs.perf_text);
-      for (std::string line; std::getline(in, line);) {
-        const auto split = line.find(' ');
-        if (split == std::string::npos) continue;
-        const bool regular = line.ends_with(" FPS") || line.ends_with(" MB");
-        auto label = regular ? realm::TextBitmap{} : rasterize_label(line.substr(0, split));
-        auto value = cs.fonts.rasterize_glow(regular ? line : line.substr(split + 1), value_size, true, 0xffffff,
-                                             outline_strength);
-        const double row_h = regular ? value.height : std::max(label.height + label_y, value.height);
-        if (regular)
-          regular_w = std::max(regular_w, value.width);
-        else {
-          label_w = std::max(label_w, label.width);
-          value_w = std::max(value_w, value.width);
-        }
-        box_h += row_h + row_gap;
-        rows.push_back({std::move(label), std::move(value), row_h, regular});
-      }
-      // Light black outlines and smaller frame-time labels aligned to the value baseline.
-      auto image = realm::ui_image(std::max(regular_w, label_w + column_gap + value_w) + 8, box_h + 8, ui);
-      double row_y = 4;
-      for (const auto& row : rows) {
-        if (!row.regular)
-          realm::ui_blit_text(image, row.label, 4 + label_w - row.label.width + row.label.offset.x,
-                              row_y + label_y + row.label.offset.y);
-        const double value_x = row.regular ? 4 : 4 + label_w + column_gap;
-        realm::ui_blit_text(image, row.value, value_x + row.value.offset.x, row_y + row.value.offset.y);
-        row_y += row.height + row_gap;
-      }
-      cs.perf_size = {static_cast<double>(image.width), static_cast<double>(image.height)};
-      cs.perf_texture.update(image);
-      cs.perf_dirty = false;
-    }
-    if (!cs.perf_text.empty()) {
-      auto quad =
-          cs.perf_texture.quad({4.0 * height / 600, 4.0 * height / 600}, {cs.perf_size.x, 0}, {0, cs.perf_size.y});
-      overlay_storage[overlay.size()] = quad;
+  if (o.world && !menus)
+    if (const auto quad = cs.perf_quad(height)) {
+      overlay_storage[overlay.size()] = *quad;
       overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
     }
-  }
   if (cs.hud && o.world && !menus && cs.hud_view.header.hover && !cs.options_screen.visible()) {
     // IconButton: TextToolTip(0x363636, 0x9B9B9B, title, "Hotkey: KEY", 200) at the pointer.
     const bool nexus = cs.hud_view.header.button == realm::HudState::Header::Button::nexus;

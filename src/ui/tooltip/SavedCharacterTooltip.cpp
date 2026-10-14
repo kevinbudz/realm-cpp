@@ -1,5 +1,5 @@
 #include "realm/ui/tooltip/SavedCharacterTooltip.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include "realm/hud/Hud.hpp"
 #include <algorithm>
 namespace realm {

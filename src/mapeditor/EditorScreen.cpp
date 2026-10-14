@@ -1,7 +1,7 @@
 #include "realm/mapeditor/EditorScreen.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/objects/Catalog.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cctype>

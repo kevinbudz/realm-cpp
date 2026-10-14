@@ -1,7 +1,7 @@
 #pragma once
-#include "realm/util/Appearances.hpp"
-#include "realm/util/ConditionEffect.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/Appearances.hpp"
+#include "realm/objects/ConditionEffect.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/map/World.hpp"
 #include <list>
 #include <memory>

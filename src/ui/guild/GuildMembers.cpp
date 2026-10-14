@@ -1,5 +1,5 @@
 #include "realm/ui/guild/GuildMembers.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <cmath>
 namespace realm {

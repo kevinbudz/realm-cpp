@@ -2,7 +2,7 @@
 // Flash: com/company/assembleegameclient/map/partyoverlay/PartyOverlay.as
 #include "realm/map/partyoverlay/GameObjectArrow.hpp"
 #include "realm/objects/Party.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <optional>
 
 namespace realm {

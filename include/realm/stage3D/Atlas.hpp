@@ -1,6 +1,6 @@
 #pragma once
 // Flash: kabam/rotmg/stage3D/graphic3D/SpriteAtlas.as
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
 #include <span>
 #include <filesystem>

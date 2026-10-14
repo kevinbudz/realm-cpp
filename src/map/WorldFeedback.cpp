@@ -1,5 +1,5 @@
 #include "realm/map/WorldFeedback.hpp"
-#include "realm/util/ConditionEffect.hpp"
+#include "realm/objects/ConditionEffect.hpp"
 #include <algorithm>
 #include <utility>
 

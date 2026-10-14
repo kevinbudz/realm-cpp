@@ -1,5 +1,5 @@
 #include "realm/ui/dialogs/Dialog.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <cmath>
 #include <utility>

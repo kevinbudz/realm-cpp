@@ -2,8 +2,8 @@
 #include "realm/map/Camera.hpp"
 #include "realm/map/World.hpp"
 #include "realm/messaging/Messages.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/FontBook.hpp"
+#include "realm/assets/Image.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>

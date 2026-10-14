@@ -1,5 +1,5 @@
 #include "realm/util/Telemetry.hpp"
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/Appearances.hpp"
 #include "flash_assets.hpp"
 #include <array>
 #include <algorithm>

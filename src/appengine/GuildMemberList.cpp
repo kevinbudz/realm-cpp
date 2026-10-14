@@ -1,6 +1,6 @@
-#include "realm/ui/guild/GuildMemberList.hpp"
+#include "realm/appengine/GuildMemberList.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
-#include "../../appengine/AppEngineXml.hpp"
+#include "AppEngineXml.hpp"
 #include <stdexcept>
 namespace realm {
 using namespace appengine_xml;

@@ -1,7 +1,7 @@
 #pragma once
 // Flash: com/company/assembleegameclient/ui/panels/GuildInvitePanel.as
 #include "realm/hud/Hud.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>

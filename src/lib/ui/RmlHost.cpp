@@ -1,6 +1,6 @@
 #include "realm/lib/ui/RmlHost.hpp"
 #include "realm/util/Telemetry.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include "realm/util/Utf8.hpp"
 #include <GL/glew.h>
 #include <RmlUi/Core.h>

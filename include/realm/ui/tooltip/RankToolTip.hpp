@@ -1,7 +1,7 @@
 #pragma once
 #include "realm/assets/HudArt.hpp"
 #include "realm/objects/Catalog.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 
 namespace realm {
 

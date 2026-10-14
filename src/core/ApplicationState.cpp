@@ -1,7 +1,12 @@
 #include "ApplicationState.hpp"
+#include "ApplicationLoopDetail.hpp"
 #include "flash_assets.hpp"
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -237,6 +242,111 @@ void ClientState::reset_perf() {
   perf_previous_present.reset();
   perf_text.clear();
   perf_dirty = true;
+}
+
+void ClientState::sample_perf(Clock::time_point presented) {
+  if (!perf_stats) return;
+  // Measure completed swap intervals, including pacing and stalls;
+  // simulation dt can be clamped or use a fixed fixture clock.
+  if (perf_previous_present) {
+    const double interval = detail::milliseconds(presented - *perf_previous_present);
+    ++perf_frames;
+    perf_clock += interval;
+    perf_history.push_back({presented, interval});
+    while (detail::milliseconds(presented - perf_history.front().presented) >= perf_history_ms)
+      perf_history.pop_front();
+  }
+  perf_previous_present = presented;
+  if (perf_clock >= perf_refresh_ms) {
+    // Reuse the scratch storage and calculate tails only when the text refreshes.
+    perf_intervals.clear();
+    for (const auto& sample : perf_history) perf_intervals.push_back(sample.interval);
+    // Nearest-rank percentiles; progressively partition just the remaining tail.
+    std::size_t percentile_begin{};
+    const auto percentile = [&](double fraction) {
+      const auto index = static_cast<std::size_t>(std::ceil(fraction * static_cast<double>(perf_intervals.size()))) - 1;
+      std::nth_element(perf_intervals.begin() + percentile_begin, perf_intervals.begin() + index, perf_intervals.end());
+      percentile_begin = index;
+      return perf_intervals[index];
+    };
+    const double p90 = percentile(.90), p99 = percentile(.99);
+    std::ostringstream text;
+    text << std::fixed << std::setprecision(1) << perf_frames * 1000 / perf_clock << " FPS";
+    if (const double mb = realm::platform::resident_megabytes(); mb > 0) text << '\n' << mb << " MB";
+    text << std::setprecision(3) << "\navg " << perf_clock / perf_frames << " ms\n"
+         << "p90 " << p90 << " ms\np99 " << p99 << " ms";
+    perf_text = text.str();
+    perf_dirty = true;
+    perf_frames = 0;
+    perf_clock = 0;
+  }
+}
+
+std::optional<realm::Quad> ClientState::perf_quad(int height) {
+  if (!perf_stats) return std::nullopt;
+  // Toggle Performance Stats: recent FPS, rolling frame-time percentiles and resources.
+  if (perf_dirty && !perf_text.empty()) {
+    const double ui = height / 600.0;
+    constexpr int value_size = 12;
+    constexpr double label_scale = 10.0 / value_size;
+    constexpr unsigned outline_strength = 3;
+    constexpr double column_gap = 6, row_gap = 1;
+    const double label_y = fonts.baseline(value_size, true) * (1 - label_scale);
+    const auto rasterize_label = [&](const std::string& label_text) {
+      // Render smaller labels directly from the native font at drawable density.
+      fonts.set_pixel_scale(ui * label_scale);
+      auto label = fonts.rasterize_glow(label_text, value_size, true, 0xd7dce2, outline_strength);
+      fonts.set_pixel_scale(ui);
+      label.width *= label_scale;
+      label.height *= label_scale;
+      label.offset.x *= label_scale;
+      label.offset.y *= label_scale;
+      label.image.pixel_scale = ui;
+      label.redraw.reset();
+      return label;
+    };
+    struct PerfRow {
+      realm::TextBitmap label, value;
+      double height;
+      bool regular;
+    };
+    std::vector<PerfRow> rows;
+    double label_w = 0, value_w = 0, regular_w = 0, box_h = 0;
+    std::istringstream in(perf_text);
+    for (std::string line; std::getline(in, line);) {
+      const auto split = line.find(' ');
+      if (split == std::string::npos) continue;
+      const bool regular = line.ends_with(" FPS") || line.ends_with(" MB");
+      auto label = regular ? realm::TextBitmap{} : rasterize_label(line.substr(0, split));
+      auto value =
+          fonts.rasterize_glow(regular ? line : line.substr(split + 1), value_size, true, 0xffffff, outline_strength);
+      const double row_h = regular ? value.height : std::max(label.height + label_y, value.height);
+      if (regular)
+        regular_w = std::max(regular_w, value.width);
+      else {
+        label_w = std::max(label_w, label.width);
+        value_w = std::max(value_w, value.width);
+      }
+      box_h += row_h + row_gap;
+      rows.push_back({std::move(label), std::move(value), row_h, regular});
+    }
+    // Light black outlines and smaller frame-time labels aligned to the value baseline.
+    auto image = realm::ui_image(std::max(regular_w, label_w + column_gap + value_w) + 8, box_h + 8, ui);
+    double row_y = 4;
+    for (const auto& row : rows) {
+      if (!row.regular)
+        realm::ui_blit_text(image, row.label, 4 + label_w - row.label.width + row.label.offset.x,
+                            row_y + label_y + row.label.offset.y);
+      const double value_x = row.regular ? 4 : 4 + label_w + column_gap;
+      realm::ui_blit_text(image, row.value, value_x + row.value.offset.x, row_y + row.value.offset.y);
+      row_y += row.height + row_gap;
+    }
+    perf_size = {static_cast<double>(image.width), static_cast<double>(image.height)};
+    perf_texture.update(image);
+    perf_dirty = false;
+  }
+  if (perf_text.empty()) return std::nullopt;
+  return perf_texture.quad({4.0 * height / 600, 4.0 * height / 600}, {perf_size.x, 0}, {0, perf_size.y});
 }
 
 realm::ui::Viewport ClientState::window_viewport() {

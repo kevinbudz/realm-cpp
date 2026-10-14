@@ -1,5 +1,5 @@
 #include "realm/ui/tooltip/ItemTooltip.hpp"
-#include "realm/util/ItemData.hpp"
+#include "realm/objects/ItemData.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>

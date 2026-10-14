@@ -1,6 +1,6 @@
 #pragma once
 #include "realm/map/Camera.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <cstdint>
 #include <optional>
 

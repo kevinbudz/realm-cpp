@@ -1,6 +1,6 @@
 // ui_rectangle against the original per-pixel implementation (kept here verbatim as the oracle): identical bytes for
 // random geometry, scales, colors, premultiplied and straight destinations, partially transparent backgrounds.
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

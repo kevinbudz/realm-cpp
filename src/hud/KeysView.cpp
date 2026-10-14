@@ -1,6 +1,6 @@
 #include "realm/hud/KeysView.hpp"
 #include "flash_assets.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <array>
 #include <filesystem>
 

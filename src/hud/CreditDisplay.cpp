@@ -1,4 +1,4 @@
-#include "realm/game/view/CreditDisplay.hpp"
+#include "realm/hud/CreditDisplay.hpp"
 #include <algorithm>
 
 namespace realm {

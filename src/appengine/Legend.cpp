@@ -1,6 +1,6 @@
-#include "realm/legends/Legend.hpp"
+#include "realm/appengine/Legend.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
-#include "../appengine/AppEngineXml.hpp"
+#include "AppEngineXml.hpp"
 #include <stdexcept>
 #include <cerrno>
 #include <limits>

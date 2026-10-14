@@ -71,15 +71,15 @@ if(REALM_AUDIO)
 endif()
 realm_library(realm_game src/mapeditor/MapDocument.cpp src/tutorial/Tutorial.cpp src/game/IdleWatcher.cpp src/objects/Catalog.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
     src/map/WorldSoundEvents.cpp src/map/World.cpp src/map/Quest.cpp src/messaging/Session.cpp src/objects/Movement.cpp
-    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/fame/CharacterFame.cpp src/legends/Legend.cpp src/ui/guild/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
+    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/appengine/CharacterFame.cpp src/appengine/Legend.cpp src/appengine/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_assets src/engine3d/Model3D.cpp src/engine3d/ConnectedObjects.cpp src/util/Image.cpp src/util/AnimationLibrary.cpp src/util/ProcessedTextures.cpp src/util/Appearances.cpp
-    src/map/Terrain.cpp src/ui/fonts/FontBook.cpp src/util/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
+realm_library(realm_assets src/engine3d/Model3D.cpp src/engine3d/ConnectedObjects.cpp src/assets/Image.cpp src/assets/AnimationLibrary.cpp src/assets/ProcessedTextures.cpp src/assets/Appearances.cpp
+    src/map/Terrain.cpp src/assets/FontBook.cpp src/assets/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
 target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::Freetype ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_ui src/mapeditor/EditorScreen.cpp src/tutorial/TutorialView.cpp src/hud/KeysView.cpp src/ui/panels/GuildInvite.cpp src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/ui/tooltip/RankToolTip.cpp src/ui/tooltip/ClassToolTip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
+realm_library(realm_ui src/mapeditor/EditorScreen.cpp src/tutorial/TutorialView.cpp src/hud/KeysView.cpp src/ui/panels/GuildInvite.cpp src/hud/Hud.cpp src/hud/HudState.cpp src/hud/CreditDisplay.cpp src/hud/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/ui/tooltip/RankToolTip.cpp src/ui/tooltip/ClassToolTip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
     src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/map/partyoverlay/GameObjectArrow.cpp src/map/partyoverlay/QuestArrow.cpp
-    src/ui/tooltip/QuestToolTip.cpp src/ui/tooltip/PortraitToolTip.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
-    src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/SkinChooser.cpp
+    src/ui/tooltip/QuestToolTip.cpp src/ui/tooltip/PortraitToolTip.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/ui/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
+    src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/ui/SkinChooser.cpp
     src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
 target_link_libraries(realm_ui PUBLIC realm_assets)
 realm_library(realm_fixtures src/fixtures/StressTimeline.cpp)

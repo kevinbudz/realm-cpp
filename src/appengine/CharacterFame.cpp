@@ -1,6 +1,6 @@
-#include "realm/fame/CharacterFame.hpp"
+#include "realm/appengine/CharacterFame.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
-#include "../appengine/AppEngineXml.hpp"
+#include "AppEngineXml.hpp"
 #include <stdexcept>
 #include <algorithm>
 #include <cmath>

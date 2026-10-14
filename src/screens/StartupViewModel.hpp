@@ -1,7 +1,7 @@
 #pragma once
 
 #include "realm/objects/Catalog.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/ui/tooltip/SavedCharacterTooltip.hpp"

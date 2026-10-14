@@ -1,8 +1,8 @@
 #pragma once
 
 #include "realm/mapeditor/MapDocument.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/FontBook.hpp"
+#include "realm/assets/Image.hpp"
 #include <filesystem>
 #include <string>
 #include <string_view>

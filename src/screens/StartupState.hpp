@@ -3,7 +3,7 @@
 #include "realm/appengine/SavedCharactersList.hpp"
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/messaging/Session.hpp"
-#include "realm/classes/SkinChooser.hpp"
+#include "realm/ui/SkinChooser.hpp"
 #include "realm/mapeditor/EditorScreen.hpp"
 #include "realm/ui/Scrollbar.hpp"
 #include "realm/sound/SoundCues.hpp"

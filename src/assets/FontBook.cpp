@@ -1,5 +1,5 @@
 #include "realm/util/Telemetry.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <fstream>

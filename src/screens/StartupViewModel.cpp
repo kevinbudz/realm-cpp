@@ -1,10 +1,10 @@
 #include "StartupViewModel.hpp"
-#include "realm/game/view/CreditDisplay.hpp"
-#include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/hud/CreditDisplay.hpp"
+#include "realm/hud/SafeAreaDisplay.hpp"
 #include "realm/ui/tooltip/ClassToolTip.hpp"
-#include "realm/util/FlashDraw.hpp"
+#include "realm/assets/FlashDraw.hpp"
 #include "realm/ui/tooltip/TextToolTip.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <cctype>
 #include <array>

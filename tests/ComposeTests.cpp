@@ -1,7 +1,7 @@
 // Appearances::compose against compose_reference (the original per-pixel implementation): identical bytes and density
 // for every animation frame with its mask, random sizes/dyes/padding, and random synthetic art including odd and very
 // large sizes.
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/Appearances.hpp"
 #include "flash_assets.hpp"
 #include <chrono>
 #include <iostream>

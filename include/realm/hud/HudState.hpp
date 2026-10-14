@@ -2,7 +2,7 @@
 #include "realm/map/World.hpp"
 #include "realm/objects/Entity.hpp"
 #include "realm/objects/Party.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include <array>
 #include <cstdint>
 #include <limits>

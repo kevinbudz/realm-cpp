@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include "realm/map/Camera.hpp"
 namespace realm {
 // Mirrors the Scrollbar class. Local design coordinates; normalized finite position even

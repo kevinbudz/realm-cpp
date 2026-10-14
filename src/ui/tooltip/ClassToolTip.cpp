@@ -1,6 +1,6 @@
 #include "realm/ui/tooltip/ClassToolTip.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <array>
 #include <string>

@@ -1,6 +1,6 @@
 #include "realm/map/mapoverlay/SpeechBalloons.hpp"
 #include "realm/ui/Chat.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>

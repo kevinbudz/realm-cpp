@@ -1,5 +1,5 @@
 #include "StartupImpl.hpp"
-#include "realm/util/FlashDraw.hpp"
+#include "realm/assets/FlashDraw.hpp"
 #include "realm/net/Http.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
 #include "realm/map/World.hpp"

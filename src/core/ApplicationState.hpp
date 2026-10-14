@@ -2,18 +2,18 @@
 #include "ApplicationAudio.hpp"
 #include "ApplicationOptions.hpp"
 #include "ApplicationScript.hpp"
-#include "realm/util/AnimationLibrary.hpp"
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
+#include "realm/assets/Appearances.hpp"
 #include "realm/stage3D/Atlas.hpp"
 #include "realm/background/Backdrop.hpp"
 #include "realm/map/Camera.hpp"
 #include "realm/objects/Catalog.hpp"
 #include "realm/ui/Chat.hpp"
 #include "realm/objects/Combat.hpp"
-#include "realm/game/view/CreditDisplay.hpp"
+#include "realm/hud/CreditDisplay.hpp"
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/ui/board/GuildBoard.hpp"
 #include "realm/ui/guild/GuildMembers.hpp"
 #include "realm/hud/Hud.hpp"
@@ -37,11 +37,11 @@
 #include "realm/platform/Platform.hpp"
 #include "realm/platform/PlatformSdl.hpp"
 #include "realm/stage3D/Renderer.hpp"
-#include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/hud/SafeAreaDisplay.hpp"
 #include "realm/map/Scene.hpp"
 #include "realm/messaging/Session.hpp"
 #include "realm/parameters/Settings.hpp"
-#include "realm/classes/SkinChooser.hpp"
+#include "realm/ui/SkinChooser.hpp"
 #include "realm/screens/Startup.hpp"
 #include "realm/screens/StartupRml.hpp"
 #include "realm/fixtures/StressTimeline.hpp"
@@ -97,6 +97,8 @@ struct ClientState {
   void save_settings();
   void open_options();
   void reset_perf();
+  void sample_perf(Clock::time_point presented);
+  std::optional<realm::Quad> perf_quad(int height);
   realm::ui::Viewport window_viewport();
 
   // A modal panel re-rasterizes at the new density when the window is resized under it.
@@ -108,7 +110,7 @@ struct ClientState {
     }
   }
 
-  // The parsed options. Moved in; run() reads it through a reference.
+  // --- Options, settings, window/GL context, and shared asset libraries ---
   Options o;
   const bool persist_settings;
   const std::filesystem::path settings_path;
@@ -119,79 +121,103 @@ struct ClientState {
   realm::Catalog catalog;
   realm::Appearances appearances;
   realm::FontBook fonts;
+
+  // --- Persistent GPU surfaces and RmlUi host ---
   realm::SurfaceTexture hud_texture, perf_texture;
   std::unique_ptr<realm::SurfaceTexture> death_background;
   realm::MinimapGpu minimap_gpu;
-  realm::ui::RetainedSurface tooltip_texture, player_tooltip_texture, player_menu_texture, chat_texture, trade_texture,
-      trade_request_texture, guild_invite_texture, keys_texture, interaction_texture, dialog_texture, board_texture,
-      members_texture, group_texture, skin_texture, options_texture, header_tip_texture, drag_surface, credit_texture,
-      tutorial_texture, safe_area_texture;
-  realm::CreditDisplayImage credit_image;
-  realm::SafeAreaDisplayImage safe_area_image;
-  std::string displayed_guild;
-  int displayed_stars = -2, displayed_guild_rank = -1;
-  double safe_area_density{};
-  int displayed_credits = -1, displayed_fame = -1;
-  double credit_density{};
   std::unique_ptr<realm::HudArt> hud_art;
   std::unique_ptr<realm::ui::RetainedUi> production_ui;
   realm::ui::RmlStats previous_ui_stats;
+
+  // --- HUD sidebar, readouts, drag icon, and hover tooltips/menus ---
   std::unique_ptr<realm::Hud> hud;
   std::unique_ptr<realm::Minimap> minimap;
+  realm::CreditDisplayImage credit_image;
+  realm::ui::RetainedSurface credit_texture;
+  int displayed_credits = -1, displayed_fame = -1;
+  double credit_density{};
+  realm::SafeAreaDisplayImage safe_area_image;
+  realm::ui::RetainedSurface safe_area_texture;
+  std::string displayed_guild;
+  int displayed_stars = -2, displayed_guild_rank = -1;
+  double safe_area_density{};
   realm::Image drag_bitmap;
+  realm::ui::RetainedSurface drag_surface;
+  std::string drag_key;
   std::unique_ptr<realm::ItemTooltip> tooltip;
+  realm::ui::RetainedSurface tooltip_texture;
   realm::PartyHover party_hover;
   std::unique_ptr<realm::PlayerTooltip> player_tooltip;
+  realm::ui::RetainedSurface player_tooltip_texture;
   std::unique_ptr<realm::PlayerMenu> player_menu;
+  realm::ui::RetainedSurface player_menu_texture;
   std::unique_ptr<realm::PlayerGroup> player_group;
+  realm::ui::RetainedSurface group_texture;
   std::unique_ptr<realm::QuestToolTip> quest_tooltip;
   std::unique_ptr<realm::PortraitToolTip> portrait_tooltip;
   std::unique_ptr<realm::SkinChooser> skins;
+  realm::ui::RetainedSurface skin_texture;
   bool skin_press_guard{};
   bool header_pressed{};
   std::string header_tip_key;
   realm::TextToolTipImage header_tip;
+  realm::ui::RetainedSurface header_tip_texture;
+
+  // --- Off-screen party and quest arrows ---
   realm::PartyArrows party_arrows;
   std::array<realm::SurfaceTexture, realm::Party::members_shown> arrow_textures;
   std::array<double, realm::Party::members_shown> arrow_rotations{}, arrow_densities{};
   std::array<bool, realm::Party::members_shown> arrow_hovers{};
-  // QuestArrow and its tooltip surfaces; the arrow redraws only for a new rotation or density.
   realm::QuestArrow quest_arrow;
   realm::SurfaceTexture quest_arrow_texture, quest_tooltip_texture;
   double quest_arrow_rotation{}, quest_arrow_density{};
   realm::QuestArrow::Tooltip quest_tooltip_kind{};
-  // TextBox lines persist for the whole run, across maps and characters.
+
+  // --- Chat, speech balloons, trade, and guild invite ---
   realm::Chat chat;
-  // The old setup built trade_view before chat_view; declaration order now builds chat_view first. Both constructors
-  // are side-effect free, and destruction order is unchanged.
   std::unique_ptr<realm::ChatView> chat_view;
+  realm::ui::RetainedSurface chat_texture;
   realm::SpeechBalloons balloons;
   std::array<realm::SurfaceTexture, realm::SpeechBalloons::capacity> balloon_textures;
   std::array<std::uint64_t, realm::SpeechBalloons::capacity> balloon_uploaded{};
   realm::Trade trade;
   std::unique_ptr<realm::TradeView> trade_view;
+  realm::ui::RetainedSurface trade_texture, trade_request_texture;
   realm::GuildInvite guild_invite;
   std::unique_ptr<realm::GuildInviteView> guild_invite_view;
+  realm::ui::RetainedSurface guild_invite_texture;
   int trade_pressed{-1};
+
+  // --- Dungeon keys and modal screens ---
   realm::KeysView keys_view;
+  realm::ui::RetainedSurface keys_texture;
   double keys_density{};
   std::uint64_t keys_revision{~0ULL};
   realm::OptionsScreen options_screen;
+  realm::ui::RetainedSurface options_texture;
   realm::platform::CursorSet cursors;
   realm::InteractionDialog interaction;
+  realm::ui::RetainedSurface interaction_texture;
   realm::Dialog dialog;
+  realm::ui::RetainedSurface dialog_texture;
   realm::GuildBoard board;
+  realm::ui::RetainedSurface board_texture;
   realm::HudArt members_art;
   realm::GuildMembers members;
+  realm::ui::RetainedSurface members_texture;
+
+  // --- HUD input and last-drawn snapshot ---
   bool tooltip_pointer_valid{}, hud_mouse_down{};
   realm::HudInput hud_input;
-  std::string drag_key;
   std::int32_t hud_container = -1;
-  // The interaction panel as last drawn; clicks hit what is on screen.
   realm::HudState hud_view;
   realm::HudStateCache hud_state_cache;
+
+  // --- World simulation, session, startup, audio, and renderer ---
   realm::World world;
   std::unique_ptr<realm::Tutorial> tutorial;
+  realm::ui::RetainedSurface tutorial_texture;
   realm::Scene scene;
   realm::StatusArt status_art;
   realm::StatusTexts status_texts;
@@ -201,7 +227,6 @@ struct ClientState {
   realm::IdleWatcher idle_watcher;
   std::unique_ptr<realm::Startup> startup;
   std::unique_ptr<realm::StartupRml> startup_rml;
-  // World holds MapBackground's map until a session's MAPINFO replaces it.
   bool background_world{};
   realm::application::AudioBridge audio_bridge;
   std::unique_ptr<realm::quality::StressTimeline> stress;
@@ -214,12 +239,13 @@ struct ClientState {
   realm::Renderer renderer;
   std::vector<realm::Quad> quads;
   std::vector<double> cpu_samples, present_samples;
+
+  // --- Camera, player control, performance overlay, and script replay ---
   realm::Camera camera;
   realm::Vec2 position;
   double angle, zoom = 1;
   bool centered, running = true, leaving_game{};
   bool applied_centering, autofire{}, perf_stats{};
-  std::set<SDL_Scancode> script_keys;
   int perf_frames{};
   double perf_clock{};
   std::string perf_text;
@@ -228,6 +254,7 @@ struct ClientState {
   std::deque<PerfSample> perf_history;
   std::vector<double> perf_intervals;
   std::optional<Clock::time_point> perf_previous_present;
+  std::set<SDL_Scancode> script_keys;
   std::vector<ScriptStep> script;
   std::size_t script_next{};
   bool script_ability_down{};

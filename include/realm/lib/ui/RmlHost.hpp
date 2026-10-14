@@ -1,8 +1,8 @@
 #pragma once
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/assets/HudArt.hpp"
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include "realm/lib/ui/Stack.hpp"
 #include <array>
 #include <cstdint>

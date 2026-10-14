@@ -1,6 +1,6 @@
 #include "realm/ui/tooltip/PortraitToolTip.hpp"
-#include "realm/util/AnimationLibrary.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 
 namespace realm {
 bool PortraitToolTip::update(const QuestTarget& target) {

@@ -1,6 +1,6 @@
 #include "realm/assets/HudArt.hpp"
-#include "realm/util/FlashDraw.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FlashDraw.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>

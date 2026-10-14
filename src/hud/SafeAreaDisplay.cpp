@@ -1,4 +1,4 @@
-#include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/hud/SafeAreaDisplay.hpp"
 #include <algorithm>
 #include <cmath>
 

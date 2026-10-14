@@ -1,6 +1,6 @@
 #pragma once
-#include "realm/util/Image.hpp"
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/Image.hpp"
+#include "realm/assets/Appearances.hpp"
 #include <list>
 #include <memory>
 #include <optional>

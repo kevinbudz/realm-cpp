@@ -1,6 +1,6 @@
 #include "realm/ui/board/GuildBoard.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <cmath>
 namespace realm {

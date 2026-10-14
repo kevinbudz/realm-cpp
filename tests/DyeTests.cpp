@@ -1,4 +1,4 @@
-#include "realm/util/Appearances.hpp"
+#include "realm/assets/Appearances.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/ui/tooltip/PlayerTooltip.hpp"
 #include "flash_assets.hpp"

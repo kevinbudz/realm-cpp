@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include "realm/map/Camera.hpp"
 #include <string_view>
 #include <unordered_map>

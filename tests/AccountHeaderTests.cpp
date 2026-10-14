@@ -1,7 +1,7 @@
 #include "realm/appengine/SavedCharactersList.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/objects/Catalog.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/ui/tooltip/RankToolTip.hpp"
 #include "flash_assets.hpp"
 #include <cmath>

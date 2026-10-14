@@ -1,7 +1,7 @@
 #pragma once
-#include "realm/util/AnimationLibrary.hpp"
-#include "realm/util/Appearances.hpp"
-#include "realm/util/ProcessedTextures.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
+#include "realm/assets/Appearances.hpp"
+#include "realm/assets/ProcessedTextures.hpp"
 #include "realm/map/Terrain.hpp"
 #include "realm/stage3D/Renderer.hpp"
 #include "realm/map/World.hpp"

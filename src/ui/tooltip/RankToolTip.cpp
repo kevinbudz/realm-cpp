@@ -1,5 +1,5 @@
 #include "realm/ui/tooltip/RankToolTip.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <array>
 #include <string>

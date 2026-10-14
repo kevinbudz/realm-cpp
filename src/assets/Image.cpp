@@ -1,4 +1,4 @@
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <png.h>
 #include <stdexcept>
 #include <algorithm>

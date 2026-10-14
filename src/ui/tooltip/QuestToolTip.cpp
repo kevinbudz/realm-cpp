@@ -1,6 +1,6 @@
 #include "realm/ui/tooltip/QuestToolTip.hpp"
 #include "realm/ui/menu/PlayerMenu.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 

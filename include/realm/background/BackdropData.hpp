@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/util/Image.hpp"
+#include "realm/assets/Image.hpp"
 #include <cstdint>
 #include <vector>
 

@@ -1,6 +1,6 @@
 #pragma once
 // Flash: com/company/assembleegameclient/ui/TradePanel.as
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/messaging/Messages.hpp"

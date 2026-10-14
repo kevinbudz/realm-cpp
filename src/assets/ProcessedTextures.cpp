@@ -1,4 +1,4 @@
-#include "realm/util/ProcessedTextures.hpp"
+#include "realm/assets/ProcessedTextures.hpp"
 #include "flash_assets.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>

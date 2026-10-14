@@ -1,5 +1,5 @@
 #pragma once
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/messaging/Messages.hpp"
 #include <array>

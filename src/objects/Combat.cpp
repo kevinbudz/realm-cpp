@@ -1,7 +1,7 @@
 #include "realm/util/Telemetry.hpp"
 #include "realm/objects/Combat.hpp"
 #include "realm/objects/Movement.hpp"
-#include "realm/util/ItemData.hpp"
+#include "realm/objects/ItemData.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>

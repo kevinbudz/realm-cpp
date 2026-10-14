@@ -1,5 +1,5 @@
 #include "realm/ui/panels/GuildInvite.hpp"
-#include "realm/util/GraphicsUtil.hpp"
+#include "realm/ui/GraphicsUtil.hpp"
 
 namespace realm {
 namespace {

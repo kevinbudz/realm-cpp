@@ -2,7 +2,7 @@
 // Flash: com/company/assembleegameclient/ui/tooltip/MyPlayerToolTip.as
 #include "realm/appengine/SavedCharactersList.hpp"
 #include "realm/objects/Catalog.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include "realm/assets/HudArt.hpp"
 namespace realm {
 struct SavedCharacterTooltipImage {

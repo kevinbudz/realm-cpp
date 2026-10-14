@@ -2,7 +2,7 @@
 #include "realm/assets/HudArt.hpp"
 #include "realm/map/World.hpp"
 #include "realm/objects/Catalog.hpp"
-#include "realm/ui/fonts/FontBook.hpp"
+#include "realm/assets/FontBook.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>

@@ -13,8 +13,8 @@
 #include "realm/ui/tooltip/QuestToolTip.hpp"
 #include "realm/tutorial/TutorialView.hpp"
 #include "realm/screens/Startup.hpp"
-#include "realm/game/view/CreditDisplay.hpp"
-#include "realm/game/view/SafeAreaDisplay.hpp"
+#include "realm/hud/CreditDisplay.hpp"
+#include "realm/hud/SafeAreaDisplay.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>

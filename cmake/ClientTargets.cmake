@@ -76,7 +76,7 @@ target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 Z
 realm_library(realm_assets src/engine3d/Model3D.cpp src/util/Image.cpp src/util/AnimationLibrary.cpp src/util/ProcessedTextures.cpp src/util/Appearances.cpp
     src/map/Terrain.cpp src/ui/fonts/FontBook.cpp src/util/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
 target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::Freetype ZLIB::ZLIB nlohmann_json::nlohmann_json)
-realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
+realm_library(realm_ui src/hud/Hud.cpp src/hud/HudState.cpp src/game/view/CreditDisplay.cpp src/game/view/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/ui/tooltip/RankToolTip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
     src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/util/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
     src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/classes/SkinChooser.cpp
     src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)

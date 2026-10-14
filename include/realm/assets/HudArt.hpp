@@ -22,6 +22,8 @@ class HudArt {
   // FameUtil.numStarsToBigImage, used by GameSprite's large safe-area RankText.
   [[nodiscard]] Vec2 rank_star_size(double scale = 1.4) const;
   [[nodiscard]] Image rank_star_icon(int stars, double scale = 1.4) const;
+  // StarGraphic without filters, tinted by RGB multipliers (0xffffff keeps the star's own color).
+  [[nodiscard]] Image star_graphic(std::uint32_t tint, double scale = 1) const;
   [[nodiscard]] const Image& image(const std::string& key) const;
   [[nodiscard]] bool contains(const std::string& key) const;
   [[nodiscard]] std::size_t cache_entries() const { return cache_.size(); }

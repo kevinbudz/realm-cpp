@@ -225,6 +225,8 @@ if(BUILD_TESTING)
         SOURCES tests/UiStackTests.cpp LINK realm_ui)
     realm_add_test(NAME hud_credit_safe_area TARGET realm_hud_credit_safe_area_tests LABELS unit
         SOURCES tests/HudCreditSafeAreaTests.cpp LINK realm_ui)
+    realm_add_test(NAME account_header TARGET realm_account_header_tests LABELS unit
+        SOURCES tests/AccountHeaderTests.cpp LINK realm_ui)
     realm_add_test(NAME ui_surfaces TARGET realm_ui_resize_tests LABELS unit
         SOURCES tests/UiResizeTests.cpp LINK realm_ui)
     realm_add_test(NAME core_parity TARGET realm_core_tests LABELS unit

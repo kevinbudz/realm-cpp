@@ -1,5 +1,6 @@
 #include "StartupViewModel.hpp"
 #include "realm/game/view/CreditDisplay.hpp"
+#include "realm/game/view/SafeAreaDisplay.hpp"
 #include "realm/util/FlashDraw.hpp"
 #include "realm/ui/tooltip/TextToolTip.hpp"
 #include "realm/util/GraphicsUtil.hpp"
@@ -161,6 +162,8 @@ std::optional<StartupAction> StartupViewModel::typed_action(const StartupScreenS
       return StartupAction{Kind::submit};
     case link_action:
       return StartupAction{Kind::link};
+    case sound_action:
+      return StartupAction{Kind::sound};
     default:
       return std::nullopt;
   }
@@ -283,8 +286,9 @@ void StartupViewModel::menu_frame(bool background) {
     e.anchor = Anchor::window;
     e.full_width = true;
   };
-  // MenuBackground dims the scrolling map; MenuFrame adds the glow band and the bar.
+  // MenuBackground dims the scrolling map and holds the SoundIcon; MenuFrame adds the glow band and the bar.
   if (background) window(add_solid(0, 0, 0, 600, 0x2B2B2B, .8));
+  if (background && art_) sound_icon();
   Element glow;
   glow.source = store(glow_gradient());
   glow.position = {0, 508};
@@ -292,6 +296,15 @@ void StartupViewModel::menu_frame(bool background) {
   window(glow);
   elements_.push_back(glow);
   window(add_solid(0, 524, 0, 52, 0x545454));
+}
+void StartupViewModel::sound_icon() {
+  // SoundIcon: the speaker at the window's top-left corner. Its image carries the 8-pixel glow around the icon.
+  const auto image = straight(art_->image(play_sfx_ ? "soundicon-on" : "soundicon-off"));
+  add_image(image, -8, -8, 1, sound_action);
+  elements_.back().anchor = Anchor::window;
+  auto& hit_area = add_solid(0, 0, image.width - 16, image.height - 16, 0, 0, sound_action);
+  hit_area.hit = true;
+  hit_area.anchor = Anchor::window;
 }
 void StartupViewModel::loading_screen(std::string_view text) {
   const auto width = fonts_.layout(text, 30, true).width;
@@ -523,6 +536,34 @@ void StartupViewModel::account_header(const StartupScreenState& state) {
       elements_[i].pixels = {-10, 0};
     }
   }
+  if (!art_ || !state.list_) return;
+  // AccountScreen: RankText at (36, 4) and GuildText at (92, 6). render_safe_area_display lays the same text out
+  // from the in-game safe area's origin, 28 pixels to the left of these positions.
+  constexpr double header_x = 28;
+  const auto rank = render_safe_area_display(fonts_, *art_, state.list_->stars(), {}, 0);
+  add_image(rank.image, header_x + rank.origin_offset.x, rank.origin_offset.y, 1 / rank.image.pixel_scale);
+  elements_.back().anchor = Anchor::window;
+  auto& rank_area = add_solid(header_x + rank.layout_bounds.x, rank.layout_bounds.y, rank.layout_bounds.width,
+                              rank.layout_bounds.height, 0, 0, rank_action);
+  rank_area.hit = true;
+  rank_area.anchor = Anchor::window;
+  if (!state.list_->guild_name.empty()) {
+    const auto guild = render_safe_area_display(fonts_, *art_, -1, state.list_->guild_name, state.list_->guild_rank);
+    add_image(guild.image, header_x + guild.origin_offset.x, guild.origin_offset.y, 1 / guild.image.pixel_scale);
+    elements_.back().anchor = Anchor::window;
+  }
+  if (state.hovered_ == rank_action && state.dialog_ == Dialog::none) {
+    const int stars = state.list_->stars();
+    if (rank_tooltip_stars_ != stars || rank_tooltip_density_ != fonts_.pixel_scale()) {
+      rank_tooltip_ = render_rank_tooltip(fonts_, *art_, catalog_, stars);
+      rank_tooltip_stars_ = stars;
+      rank_tooltip_density_ = fonts_.pixel_scale();
+    }
+    rank_tooltip_element_ = elements_.size();
+    add_image(rank_tooltip_.image, 0, 0, 1 / rank_tooltip_.image.pixel_scale);
+    elements_.back().anchor = Anchor::window;
+    position_rank_tooltip(state);
+  }
 }
 void StartupViewModel::title_screen(const StartupScreenState& state) {
   menu_frame(true);
@@ -684,6 +725,14 @@ void StartupViewModel::position_character_tooltip(const StartupScreenState& stat
                                         character_tooltip_.frame_height, width_, height_, scale);
   elements_[*character_tooltip_element_].position = {at.x / scale - 16, at.y / scale - 16};
 }
+void StartupViewModel::position_rank_tooltip(const StartupScreenState& state) {
+  if (!rank_tooltip_element_ || *rank_tooltip_element_ >= elements_.size()) return;
+  const double scale = height_ / 600;
+  const auto at = text_tooltip_position(state.character_pointer_, rank_tooltip_.frame_width, rank_tooltip_.frame_height,
+                                        width_, height_, scale);
+  elements_[*rank_tooltip_element_].position = {at.x / scale - RankToolTipImage::margin,
+                                                at.y / scale - RankToolTipImage::margin};
+}
 void StartupViewModel::class_screen(const StartupScreenState& state) {
   menu_frame(true);
   add_button("back", 36, 0, 524, back_action, false, true);
@@ -843,6 +892,8 @@ void StartupViewModel::rebuild(StartupScreenState& state, bool busy) {
   elements_.clear();
   field_views_.clear();
   character_tooltip_element_.reset();
+  rank_tooltip_element_.reset();
+  play_sfx_ = state.play_sfx_;
   switch (state.screen_) {
     case Screen::account_loading:
       menu_frame(false);

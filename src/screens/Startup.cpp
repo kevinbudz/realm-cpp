@@ -159,6 +159,13 @@ void Startup::Impl::left_game(const std::string& message) {
 void Startup::Impl::activate(int action) {
   // Typed adapter actions must obey the same modal guard as native hit testing.
   if (state_.dialog_ != Dialog::none && action < dialog_actions) return;
+  // SoundIcon.onIconClick: the icon works on every MenuBackground screen, so it comes before the screen branches.
+  if (action == sound_action) {
+    state_.play_sfx_ = !state_.play_sfx_;
+    state_.play_sfx_request_ = state_.play_sfx_;
+    view_model_.invalidate();
+    return;
+  }
   if (state_.dialog_ == Dialog::deleting || state_.dialog_ == Dialog::slot_buying ||
       (state_.dialog_ != Dialog::none && tasks_.busy()))
     return;
@@ -433,6 +440,9 @@ void Startup::Impl::perform(StartupAction action) {
     case StartupAction::Kind::account_logout:
       value = account_logout_action;
       break;
+    case StartupAction::Kind::sound:
+      value = sound_action;
+      break;
     case StartupAction::Kind::none:
       break;
   }
@@ -461,6 +471,12 @@ void Startup::update(std::int32_t time_ms, double dt_ms, double width, double he
   impl_->update(time_ms, dt_ms, width, height);
 }
 std::optional<SessionOptions> Startup::take_launch() { return std::exchange(impl_->state_.launch_, std::nullopt); }
+void Startup::set_play_sfx(bool play_sfx) {
+  if (impl_->state_.play_sfx_ == play_sfx) return;
+  impl_->state_.play_sfx_ = play_sfx;
+  impl_->view_model_.invalidate();
+}
+std::optional<bool> Startup::take_play_sfx() { return std::exchange(impl_->state_.play_sfx_request_, std::nullopt); }
 void Startup::entered_game() { impl_->entered_game(); }
 std::optional<std::string> Startup::take_skin_error() {
   return std::exchange(impl_->state_.skin_error_, std::optional<std::string>{});

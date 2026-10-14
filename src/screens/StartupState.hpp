@@ -107,6 +107,9 @@ struct StartupScreenState {
   std::string background_map_;
   double background_x_{10}, background_y_{10}, background_width_{};
   int hovered_{-1}, pressed_{-1};
+  // SoundIcon: the mirrored playSFX value, and the value a click asked the app to store.
+  bool play_sfx_{true};
+  std::optional<bool> play_sfx_request_;
   std::unique_ptr<SkinChooser> skins_;
 };
 }

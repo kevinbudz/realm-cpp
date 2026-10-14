@@ -49,14 +49,20 @@ void Startup::Impl::pointer_move(Vec2 position) {
   }
   const int over = view_model_.hit(state_, position);
   if (over != state_.hovered_) {
+    // The rank tooltip is an element of the header, so entering or leaving the rank rebuilds the view.
+    const bool rank = over == rank_action || state_.hovered_ == rank_action;
     state_.hovered_ = over;
     view_model_.request_refresh();
-    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters) view_model_.invalidate();
+    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || rank) view_model_.invalidate();
   }
   if (state_.screen_ == Screen::skins && state_.dialog_ == Dialog::none && state_.skins_)
     state_.skins_->pointer_move(position);
   if (view_model_.has_character_tooltip()) {
     view_model_.position_character_tooltip(state_);
+    view_model_.request_refresh();
+  }
+  if (view_model_.has_rank_tooltip()) {
+    view_model_.position_rank_tooltip(state_);
     view_model_.request_refresh();
   }
   if (view_model_.pending()) view_model_.refresh(state_, tasks_.busy());
@@ -139,15 +145,17 @@ void Startup::Impl::pointer_up(Vec2 position) {
   }
   const int target = view_model_.hit(state_, position);
   if (target >= 0 && target == state_.pressed_) {
-    state_.sounds_.play("button_click");
+    // The header's rank and SoundIcon are not buttons, so Flash plays no button_click for them.
+    if (target != rank_action && target != sound_action) state_.sounds_.play("button_click");
     activate(target);
   }
   state_.pressed_ = -1;
   const int over = view_model_.hit(state_, position);
   if (over != state_.hovered_) {
+    const bool rank = over == rank_action || state_.hovered_ == rank_action;
     state_.hovered_ = over;
     view_model_.request_refresh();
-    if (state_.screen_ == Screen::legends) view_model_.invalidate();
+    if (state_.screen_ == Screen::legends || rank) view_model_.invalidate();
     view_model_.refresh(state_, tasks_.busy());
   }
 }
@@ -157,7 +165,8 @@ void Startup::Impl::cancel_pointer() {
     state_.delete_dialog_.focus_lost();
     if (state_.delete_dialog_.update(fonts_, view_model_.width(), view_model_.height())) view_model_.invalidate();
   }
-  if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters) view_model_.invalidate();
+  if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || state_.hovered_ == rank_action)
+    view_model_.invalidate();
   state_.character_scroll_.focus_lost();
   state_.legends_scroll_.focus_lost();
   state_.fame_scroll_.focus_lost();

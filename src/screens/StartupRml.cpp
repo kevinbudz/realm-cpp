@@ -91,6 +91,8 @@ std::string action_name(ActionKind kind) {
       return "field";
     case ActionKind::delete_character:
       return "delete-character";
+    case ActionKind::sound:
+      return "sound";
     case ActionKind::none:
       return {};
   }
@@ -122,6 +124,7 @@ std::optional<StartupAction> event_action(const Rml::Element* element) {
   if (name == "link") return StartupAction{ActionKind::link};
   if (name == "field") return StartupAction{ActionKind::field, index};
   if (name == "delete-character") return StartupAction{ActionKind::delete_character, index};
+  if (name == "sound") return StartupAction{ActionKind::sound};
   return std::nullopt;
 }
 bool acts_on_down(ActionKind kind) { return kind == ActionKind::new_character || kind == ActionKind::field; }
@@ -518,7 +521,8 @@ struct StartupRml::Impl {
       return;
     if (!action || acts_on_down(action->kind)) return;
     if (action->kind == ActionKind::submit) sync_fields();
-    startup.play_click();
+    // SoundIcon plays no button_click.
+    if (action->kind != ActionKind::sound) startup.play_click();
     startup.perform(*action);
   }
   void set_hover(const std::optional<StartupAction>& action) {
@@ -595,9 +599,12 @@ struct StartupRml::Impl {
         return host.layer().handle(event);
       case ui::EventKind::key_up:
         return host.layer().handle(event);
+      case ui::EventKind::pointer_move:
+        // The header's rank tooltip is hit-tested by the controller on every menu, while the DOM keeps hover styling.
+        startup.pointer_move(event.point);
+        return host.layer().handle(event);
       case ui::EventKind::text:
       case ui::EventKind::composition:
-      case ui::EventKind::pointer_move:
       case ui::EventKind::pointer_down:
       case ui::EventKind::pointer_up:
       case ui::EventKind::pointer_left:

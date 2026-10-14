@@ -17,6 +17,9 @@ namespace realm {
 struct CharList {
   std::string name;
   int account_id{}, next_char_id{}, max_num_chars{1}, credits{}, fame{}, total_fame{};
+  // Account/Guild: empty and 0 when the account has no guild.
+  std::string guild_name;
+  int guild_rank{};
   std::vector<SavedCharacter> characters;
   std::vector<NewsItem> news;
   // ClassStats objectType -> BestFame.

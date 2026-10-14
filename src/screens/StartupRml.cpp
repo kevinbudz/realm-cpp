@@ -1,4 +1,5 @@
 #include "realm/screens/StartupRml.hpp"
+#include "realm/mapeditor/EditorScreen.hpp"
 #include "realm/util/Utf8.hpp"
 #include "realm/util/TextFormat.hpp"
 #include <RmlUi/Core.h>
@@ -91,6 +92,8 @@ std::string action_name(ActionKind kind) {
       return "field";
     case ActionKind::delete_character:
       return "delete-character";
+    case ActionKind::news:
+      return "news";
     case ActionKind::sound:
       return "sound";
     case ActionKind::none:
@@ -124,12 +127,68 @@ std::optional<StartupAction> event_action(const Rml::Element* element) {
   if (name == "link") return StartupAction{ActionKind::link};
   if (name == "field") return StartupAction{ActionKind::field, index};
   if (name == "delete-character") return StartupAction{ActionKind::delete_character, index};
+  if (name == "news") return StartupAction{ActionKind::news, index};
   if (name == "sound") return StartupAction{ActionKind::sound};
   return std::nullopt;
 }
 bool acts_on_down(ActionKind kind) { return kind == ActionKind::new_character || kind == ActionKind::field; }
 bool same_action(const std::optional<StartupAction>& a, const std::optional<StartupAction>& b) {
   return a && b && *a == *b;
+}
+EditorInputKey editor_key(int key, std::uint16_t modifiers) {
+  if (key == SDLK_LSHIFT || key == SDLK_RSHIFT) return EditorInputKey::shift;
+  if (key == SDLK_LCTRL || key == SDLK_RCTRL) return EditorInputKey::control;
+  const bool control = (modifiers & KMOD_CTRL) != 0;
+  if (control && key == SDLK_z) return EditorInputKey::undo;
+  if (control && key == SDLK_y) return EditorInputKey::redo;
+  switch (key) {
+    case SDLK_ESCAPE:
+      return EditorInputKey::escape;
+    case SDLK_RETURN:
+    case SDLK_KP_ENTER:
+      return EditorInputKey::enter;
+    case SDLK_BACKSPACE:
+      return EditorInputKey::backspace;
+    case SDLK_TAB:
+      return EditorInputKey::tab;
+    case SDLK_LEFT:
+      return EditorInputKey::left;
+    case SDLK_RIGHT:
+      return EditorInputKey::right;
+    case SDLK_UP:
+      return EditorInputKey::up;
+    case SDLK_DOWN:
+      return EditorInputKey::down;
+    case SDLK_d:
+      return EditorInputKey::draw;
+    case SDLK_e:
+      return EditorInputKey::erase;
+    case SDLK_a:
+      return EditorInputKey::sample;
+    case SDLK_i:
+      return EditorInputKey::name;
+    case SDLK_c:
+      return EditorInputKey::clear;
+    case SDLK_l:
+      return EditorInputKey::load;
+    case SDLK_s:
+      return EditorInputKey::save;
+    case SDLK_t:
+      return EditorInputKey::test;
+    case SDLK_b:
+      return EditorInputKey::back;
+    case SDLK_EQUALS:
+    case SDLK_PLUS:
+      return EditorInputKey::zoom_in;
+    case SDLK_MINUS:
+      return EditorInputKey::zoom_out;
+    case SDLK_u:
+      return EditorInputKey::undo;
+    case SDLK_r:
+      return EditorInputKey::redo;
+    default:
+      return EditorInputKey::none;
+  }
 }
 
 struct Node {
@@ -189,6 +248,7 @@ struct StartupRml::Impl {
     host.listen(element, name, std::move(callback), capture);
   }
   void update() {
+    if (auto url = startup.take_open_url()) SDL_OpenURL(url->c_str());
     const auto& view = startup.view();
     if (!view.menus) {
       if (document->IsVisible()) host.hide(*document);
@@ -211,7 +271,9 @@ struct StartupRml::Impl {
       sync(view);
   }
   [[nodiscard]] Rml::ElementDocument* get_document() const { return document; }
-  [[nodiscard]] bool wants_text() const { return startup.wants_text() || host.layer().wants_text(); }
+  [[nodiscard]] bool wants_text() const {
+    return startup.editor_wants_text() || startup.wants_text() || host.layer().wants_text();
+  }
 
   [[nodiscard]] std::vector<NodeSignature> signature(const StartupViewSnapshot& view) const {
     std::vector<NodeSignature> result;
@@ -224,7 +286,8 @@ struct StartupRml::Impl {
       if (item.field_value) continue;
       // The editable field itself replaces the native transparent hit rectangle.
       if (item.hit && item.action && item.action->kind == ActionKind::field) continue;
-      const int type = item.hit                           ? 4
+      const int type = item.bitmap                        ? 2
+                       : item.hit                         ? 4
                        : item.pulse && !item.text.empty() ? 3
                        : item.solid                       ? 0
                        : !item.text.empty()               ? 1
@@ -284,6 +347,12 @@ struct StartupRml::Impl {
   void set_node_color(Node& node, const StartupElementSnapshot& item, const StartupViewSnapshot& view) {
     const bool over = node.hovered && item.hover_color[3] > 0;
     if (node.image) {
+      if (item.bitmap) {
+        ui::set_native_image(*node.element, *item.bitmap, item.bitmap_revision);
+        ui::set_native_source(*node.element, item.source);
+        ui::set_native_tint(*node.element, over ? item.hover_color : item.color);
+        return;
+      }
       if (over && needs_bright_image(item)) {
         prepare_bright_image(node, item, view);
         ui::set_native_image(*node.element, node.brightened, view.sheet_revision);
@@ -347,7 +416,8 @@ struct StartupRml::Impl {
       if (i == view.elements.size()) break;
       const auto& item = view.elements[i];
       if (item.field_value || (item.hit && item.action && item.action->kind == ActionKind::field)) continue;
-      const int type = item.hit                           ? 4
+      const int type = item.bitmap                        ? 2
+                       : item.hit                         ? 4
                        : item.pulse && !item.text.empty() ? 3
                        : item.solid                       ? 0
                        : !item.text.empty()               ? 1
@@ -546,8 +616,90 @@ struct StartupRml::Impl {
     if (!view.menus) return ui::Result::pass;
     if (event.kind == ui::EventKind::focus_lost || event.kind == ui::EventKind::pointer_left) {
       startup.cancel_pointer();
+      if (view.editor) {
+        EditorInput input;
+        input.kind =
+            event.kind == ui::EventKind::focus_lost ? EditorInput::Kind::focus_lost : EditorInput::Kind::pointer_left;
+        (void)startup.editor_event(input);
+      }
       host.layer().handle(event);
       return ui::Result::consumed;
+    }
+    if (view.editor) {
+      const auto modifiers = event.modifiers;
+      const bool in_editor = startup.editor_covers(event.point);
+      switch (event.kind) {
+        case ui::EventKind::pointer_move:
+          if (startup.editor_captured() || in_editor) {
+            EditorInput input;
+            input.kind = EditorInput::Kind::pointer_move;
+            input.point = event.point;
+            input.shift = (modifiers & KMOD_SHIFT) != 0;
+            input.control = (modifiers & KMOD_CTRL) != 0;
+            (void)startup.editor_event(input);
+            return ui::Result::consumed;
+          }
+          startup.pointer_move(event.point);
+          return host.layer().handle(event);
+        case ui::EventKind::pointer_down:
+          if (!in_editor) {
+            return host.layer().handle(event);
+          } else {
+            EditorInput input;
+            input.kind = EditorInput::Kind::pointer_down;
+            input.point = event.point;
+            input.button = event.button;
+            input.shift = (modifiers & KMOD_SHIFT) != 0;
+            input.control = (modifiers & KMOD_CTRL) != 0;
+            (void)startup.editor_event(input);
+            return startup.editor_captured() ? ui::Result::capture : ui::Result::consumed;
+          }
+        case ui::EventKind::pointer_up:
+          if (startup.editor_captured() || in_editor) {
+            EditorInput input;
+            input.kind = EditorInput::Kind::pointer_up;
+            input.point = event.point;
+            input.button = event.button;
+            (void)startup.editor_event(input);
+            return ui::Result::consumed;
+          }
+          return host.layer().handle(event);
+        case ui::EventKind::wheel:
+          if (in_editor) {
+            EditorInput input;
+            input.kind = EditorInput::Kind::wheel;
+            input.point = event.point;
+            input.wheel = event.wheel;
+            (void)startup.editor_event(input);
+            return ui::Result::consumed;
+          }
+          return host.layer().handle(event);
+        case ui::EventKind::key_down:
+        case ui::EventKind::key_up: {
+          EditorInput input;
+          input.kind = event.kind == ui::EventKind::key_down ? EditorInput::Kind::key_down : EditorInput::Kind::key_up;
+          input.key = editor_key(event.key, modifiers);
+          input.shift = (modifiers & KMOD_SHIFT) != 0;
+          input.control = (modifiers & KMOD_CTRL) != 0;
+          input.repeat = event.repeat;
+          (void)startup.editor_event(input);
+          if (input.key != EditorInputKey::none || startup.editor_wants_text()) return ui::Result::consumed;
+          return host.layer().handle(event);
+        }
+        case ui::EventKind::text:
+          if (startup.editor_wants_text()) {
+            EditorInput input;
+            input.kind = EditorInput::Kind::text;
+            input.text = event.text;
+            (void)startup.editor_event(input);
+            return ui::Result::consumed;
+          }
+          return host.layer().handle(event);
+        case ui::EventKind::composition:
+          return startup.editor_wants_text() ? ui::Result::consumed : host.layer().handle(event);
+        default:
+          return ui::Result::pass;
+      }
     }
     if (((view.characters || view.classes) && !view.dialog) || view.deletion || view.fame || view.legends ||
         view.skin_modal_input || (view.skin_visible && !view.dialog)) {

@@ -465,7 +465,9 @@ void World::apply(const net::Update& u) {
     // GameServerConnection.dropObject: only an exploding Character plays its death sound (Character.explode).
     if (d.explode) {
       const auto* e = entity(d.id);
-      sound_events_.game_object_dropped(e ? catalog_.object(e->type) : nullptr, d.explode);
+      const auto* definition = e ? catalog_.object(e->type) : nullptr;
+      sound_events_.game_object_dropped(definition, d.explode);
+      if (e) particle_effects_.exploded(*this, *e, definition);
     }
     remove(d.id);
   }
@@ -568,9 +570,10 @@ void World::load_jm_text(std::string_view source, int wrap_border) {
           for (const auto& obj : entry["objs"]) {
             const auto id = obj.at("id").get<std::string>();
             const auto* d = catalog_.object(id);
-            if (d)
-              add(fake_id++, d->type, {x + .5, y + .5}, obj.value("size", -1));
-            else if (std::find(unresolved_.begin(), unresolved_.end(), id) == unresolved_.end())
+            if (d) {
+              auto& entity = add(fake_id++, d->type, {x + .5, y + .5}, obj.value("size", -1));
+              entity.profile.name = obj.value("name", std::string{});
+            } else if (std::find(unresolved_.begin(), unresolved_.end(), id) == unresolved_.end())
               unresolved_.push_back(id);
           }
       }

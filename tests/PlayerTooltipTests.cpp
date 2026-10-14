@@ -25,6 +25,9 @@ int main(int argc, char** argv) {
     world.add(2, type("Knight"), {4, 3});
     world.add(3, type("Priest"), {5, 3});
     world.add(4, type("Rogue"), {6, 3});
+    const auto unranked = player_tooltip_target(world, 3);
+    check(unranked && unranked->stars == 0 && unranked->guild_rank == -1,
+          "missing rank stats use Flash zero-star and unknown-guild-rank defaults");
     auto* member = world.entity(2);
     member->profile.name = "Tank";
     member->profile.guild = "Native Guild";

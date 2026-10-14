@@ -322,6 +322,13 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& e, std
 void Particles::hit(const World& world, const Entity& e, int amount, std::int32_t time, double angle, double speed,
                     bool directional, int count) {
   if (!enabled_ || static_cast<std::int64_t>(e.combat.hp) - amount <= 0) return;
+  burst(world, e, time, count, directional, angle, speed);
+}
+void Particles::explode(const World& world, const Entity& e, std::int32_t time) {
+  if (enabled_) burst(world, e, time, 30, false, 0, 0);
+}
+void Particles::burst(const World& world, const Entity& e, std::int32_t time, int count, bool directional, double angle,
+                      double speed) {
   const auto* d = world.catalog().object(e.type);
   if (!d) return;
   const auto& texture = e.player ? world.catalog().player_texture(e.type, e.appearance.texture) : d->texture;

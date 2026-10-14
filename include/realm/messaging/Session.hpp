@@ -3,6 +3,7 @@
 #include "realm/messaging/Messages.hpp"
 #include "realm/net/Http.hpp"
 #include "realm/net/Transport.hpp"
+#include "realm/map/Quest.hpp"
 #include "realm/map/World.hpp"
 #include "realm/objects/Combat.hpp"
 #include "realm/game/Inventory.hpp"
@@ -100,6 +101,9 @@ class Session {
   void leave_guild(const std::string& name) {
     if (state_ == SessionState::playing) send(net::outgoing::GuildRemove{name});
   }
+  void join_guild(const std::string& name) {
+    if (state_ == SessionState::playing) send(net::outgoing::JoinGuild{name});
+  }
   // Player.teleportTo: one TELEPORT per MS_BETWEEN_TELEPORT, never to an
   // invisible player or on a map that disables teleport. Returns a refusal, if any.
   [[nodiscard]] std::optional<std::string> teleport(std::int32_t object_id, std::int32_t time_ms);
@@ -153,6 +157,8 @@ class Session {
     return {{"username", options_.username}, {"password", options_.password}};
   }
   [[nodiscard]] const Party& party() const { return party_; }
+  // Map.quest_: the current quest target and its arrow timing.
+  [[nodiscard]] const Quest& quest() const { return quest_; }
 
  private:
   void send_packet(const net::Packet& packet);
@@ -163,6 +169,7 @@ class Session {
   Combat combat_;
   Inventory inventory_;
   Party party_;
+  Quest quest_;
   // GameServerConnection.outstandingBuy_.
   bool buy_pending_{};
   std::int32_t next_teleport_at_{};

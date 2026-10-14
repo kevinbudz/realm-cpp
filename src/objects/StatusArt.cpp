@@ -45,6 +45,40 @@ StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t col
 StatusArt::Label StatusArt::name(std::string_view text) {
   return label("n:" + std::string(text), text, 16, 0xffffffU, 2);
 }
+StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size) {
+  if (!text_) return {};
+  const std::string key =
+      "s:" + std::to_string(object_size) + ':' + std::string(text) + ':' + std::to_string(fonts_.pixel_scale());
+  if (const auto it = labels_.find(key); it != labels_.end()) {
+    lru_.splice(lru_.begin(), lru_, it->second.lru);
+    return it->second.label;
+  }
+  std::string multiline(text);
+  std::replace(multiline.begin(), multiline.end(), '|', '\n');
+  double widest{};
+  for (std::size_t start = 0; start <= multiline.size();) {
+    const auto newline = multiline.find('\n', start);
+    const auto end = newline == std::string::npos ? multiline.size() : newline;
+    widest = std::max(widest, fonts_.measure(std::string_view(multiline).substr(start, end - start), 24, true));
+    if (newline == std::string::npos) break;
+    start = newline + 1;
+  }
+  const int field_width = std::clamp(static_cast<int>(std::ceil(widest)) + 4, 4, 8192);
+  const auto bitmap = fonts_.rasterize_centered(multiline, 24, true, false, 0xffffffU, field_width);
+  Label result{std::make_shared<const Image>(bitmap.image), bitmap.width, bitmap.height, bitmap.offset};
+  const std::size_t bytes = result.image->pixels.size();
+  while (!labels_.empty() && (labels_.size() >= maximum_labels || bytes_ + bytes > maximum_bytes)) {
+    const auto victim = labels_.find(lru_.back());
+    bytes_ -= victim->second.label.image->pixels.size();
+    labels_.erase(victim);
+    lru_.pop_back();
+    ++evictions_;
+  }
+  lru_.push_front(key);
+  labels_.emplace(key, Entry{result, lru_.begin()});
+  bytes_ += bytes;
+  return result;
+}
 std::shared_ptr<const Image> StatusArt::icon(int frame) {
   if (!appearances_) return {};
   auto& slot = icons_[frame];

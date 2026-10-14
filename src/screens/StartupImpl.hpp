@@ -32,6 +32,10 @@ struct Startup::Impl {
   void finish_task(startup_detail::HttpTaskService::Completion completion);
   void with_valid_data(Screen next);
   void play(const SavedCharacter* character, int class_type);
+  void test_editor_map();
+  bool editor_event(const EditorInput& event);
+  [[nodiscard]] bool editor_covers(Vec2 point) const;
+  [[nodiscard]] bool editor_captured() const;
   void entered_game();
   void renamed_account(const std::string& name);
   void left_game(const std::string& message);

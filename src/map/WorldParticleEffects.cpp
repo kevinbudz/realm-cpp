@@ -12,6 +12,11 @@ void WorldParticleEffects::damaged(const World& world, const Entity& target, int
   particles_.hit(world, target, amount, time, hit_angle, hit_speed, hit_speed >= 0);
 }
 
+void WorldParticleEffects::exploded(const World& world, const Entity& entity, const ObjectDef* definition) {
+  if (definition && (definition->class_name == "Character" || definition->class_name == "Player"))
+    particles_.explode(world, entity, static_cast<std::int32_t>(particles_.time()));
+}
+
 void WorldParticleEffects::level_up(std::int32_t id) {
   particles_.level_up(id, static_cast<std::int32_t>(particles_.time()));
 }

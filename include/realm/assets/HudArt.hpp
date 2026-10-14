@@ -18,6 +18,8 @@ class HudArt {
   // Shares the caller's compositor and catalog; otherwise private copies are loaded on first use.
   void appearances(const Appearances* value, const Catalog* catalog);
   [[nodiscard]] Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const;
+  // GameObject.getPortrait: the live object's texture at portrait scale, including non-player quest targets.
+  [[nodiscard]] Image game_object_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const;
   [[nodiscard]] Image fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2, int size = 250) const;
   // FameUtil.numStarsToBigImage, used by GameSprite's large safe-area RankText.
   [[nodiscard]] Vec2 rank_star_size(double scale = 1.4) const;

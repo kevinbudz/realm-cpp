@@ -540,6 +540,7 @@ void StressTimeline::sample_scene(const Camera& camera, int width, int height, s
         }
         for (const auto& g : mesh.groups) {
           hash(quad_hash_, g.solid);
+          hash(quad_hash_, g.repeat);
           hash(quad_hash_, g.first);
           hash(quad_hash_, g.count);
         }

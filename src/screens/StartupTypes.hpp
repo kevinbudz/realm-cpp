@@ -1,7 +1,19 @@
 #pragma once
 
 namespace realm::startup_detail {
-enum class Screen { account_loading, loading, title, characters, classes, skins, entering, game, fame, legends };
+enum class Screen {
+  account_loading,
+  loading,
+  title,
+  characters,
+  classes,
+  skins,
+  entering,
+  game,
+  fame,
+  legends,
+  editor
+};
 enum class Modal {
   none,
   login,
@@ -47,6 +59,7 @@ enum Action : int {
   legend_tab_action = 300,
   legend_row_action = 400,
   delete_character_action = 700,
+  news_action = 800,
   dialog_actions = 1000,
   cancel_action = dialog_actions,
   submit_action,

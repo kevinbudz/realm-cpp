@@ -35,6 +35,7 @@ struct MeshVertex {
 struct MeshGroup {
   bool solid{};
   std::uint32_t first{}, count{};
+  bool repeat{true};
 };
 struct MeshDraw {
   std::vector<MeshVertex> vertices;

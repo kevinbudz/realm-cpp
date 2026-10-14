@@ -12,9 +12,11 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--cases', default='password,rejected,logout,slot,poor,hover,scroll')
+p.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
+p.add_argument('--cases', default='password,rejected,logout,slot,poor,hover,scroll,news')
 a = p.parse_args()
-output = ROOT / 'build/startup-parity'
+binary_dir = a.binary_dir.resolve()
+output = binary_dir / 'startup-parity'
 output.mkdir(parents=True, exist_ok=True)
 
 
@@ -43,9 +45,17 @@ def run(case):
                          '<CurrentFame>200</CurrentFame><Exp>100</Exp><MaxHitPoints>670</MaxHitPoints><HitPoints>500</HitPoints>'
                          '<MaxMagicPoints>385</MaxMagicPoints><MagicPoints>200</MagicPoints><Equipment>2816,2588,-1,-1</Equipment>'
                          '<ItemDatas>-1,-1,-1,-1</ItemDatas></Char></Chars>')
+                if case == 'news':
+                    reply = reply.replace('</Chars>', '<News><Item><Icon>fame</Icon><Title>Hall of Fame</Title>'
+                                          '<TagLine>Your fallen hero</TagLine><Link>fame:7</Link><Date>1700000000</Date></Item>'
+                                          '<Item><Icon>oryx</Icon><Title>Realm news</Title><TagLine>Open the news</TagLine>'
+                                          '<Link>https://example.com/realm-news</Link><Date>1700000000</Date></Item></News></Chars>')
                 if case == 'scroll':
                     character = reply[reply.index('<Char id='):reply.index('</Char>') + 7]
                     reply = reply.replace(character, ''.join(character.replace('id="1"', f'id="{i}"') for i in range(1, 9)))
+            elif self.path == '/char/fame':
+                assert fields == {'accountId': ['42'], 'charId': ['7']}, fields
+                reply = (ROOT / 'tests/fixtures/death-fame.xml').read_text()
             elif self.path == '/account/changePassword':
                 assert fields == {'username': ['Fixture'], 'password': ['fixture-password'], 'newPassword': ['updated-password']}, fields
                 if case == 'rejected':
@@ -110,6 +120,18 @@ def run(case):
                 add(3600, 'key Escape')
                 shot(3900, 'after-escape')
                 add(4000, 'quit')
+        elif case == 'news':
+            add(1000, 'click 400 544')
+            add(1200, 'move 300 90')
+            shot(1500, 'news')
+            add(1600, 'move 500 138')
+            shot(1900, 'news-hover')
+            add(2000, 'click 500 138')
+            add(2300, 'move 300 90')
+            shot(2700, 'news-fame')
+            add(2800, 'key Escape')
+            shot(3200, 'news-back')
+            add(3300, 'quit')
         elif case in ('hover', 'scroll'):
             add(1000, 'click 400 544')
             add(1200, 'move 600 300')
@@ -144,7 +166,7 @@ def run(case):
 
         script = temporary / 'input.script'
         script.write_text('\n'.join(steps) + '\n')
-        result = subprocess.run([str(ROOT / 'build/realm_client'), '--hidden',
+        result = subprocess.run([str(binary_dir / 'realm_client'), '--hidden',
                                  '--server', '127.0.0.1', '--app-port', str(server.server_port),
                                  '--account-file', str(account), '--settings-file', str(temporary / 'settings.json'),
                                  '--script', str(script)], cwd=ROOT, capture_output=True, text=True, timeout=30)
@@ -164,6 +186,15 @@ def run(case):
         elif case == 'slot':
             assert len(purchases) == 1 and slots == 3 and balance == 3000, posts
             assert len([path for path, _ in posts if path == '/char/list']) == 2, posts
+        elif case == 'news':
+            assert [f for path, f in posts if path == '/char/fame'] == [{'accountId': ['42'], 'charId': ['7']}], posts
+            assert not any(path == '/fame/list' for path, _ in posts), 'news fame back opened legends'
+            normal = Image.open(folder / 'news.png').convert('RGB')
+            hover = Image.open(folder / 'news-hover.png').convert('RGB')
+            assert ImageChops.difference(normal.crop((461, 116, 788, 164)), hover.crop((461, 116, 788, 164))).getbbox(), 'news hover color missing'
+            assert any(r > 120 and g > 80 for r, g, b in normal.crop((400, 112, 460, 170)).get_flattened_data()), 'news icon missing'
+            restored = Image.open(folder / 'news-back.png').convert('RGB')
+            assert any(r > 180 and 70 < g < 190 and b < 60 for r, g, b in restored.crop((400, 112, 460, 170)).get_flattened_data()), 'news back did not restore character screen'
         elif case == 'hover':
             assert not changes and not purchases
             before = Image.open(folder / 'characters.png').convert('RGB')
@@ -184,7 +215,7 @@ def run(case):
         # Currency is visible on character selection, with its source fame/coin colors.
         if case in ('slot', 'poor'):
             crop = Image.open(folder / 'characters.png').convert('RGB').crop((610, 23, 797, 53))
-            assert any(r > 170 and g > 100 and b < 90 for r, g, b in crop.getdata()), 'gold coin missing'
+            assert any(r > 170 and g > 100 and b < 90 for r, g, b in crop.get_flattened_data()), 'gold coin missing'
         print(f'{case}: account state, HTTP actions and captures passed')
     server.shutdown()
     server.server_close()

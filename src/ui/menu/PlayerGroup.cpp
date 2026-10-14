@@ -1,4 +1,5 @@
 #include "realm/ui/menu/PlayerGroup.hpp"
+#include "realm/map/partyoverlay/GameObjectArrow.hpp"
 #include "realm/util/GraphicsUtil.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
@@ -89,19 +90,8 @@ bool PlayerGroup::arrow_tooltip(std::vector<PlayerMenuTarget> players, Vec2 anch
                                 double scale) {
   const bool changed = tooltip(std::move(players), anchor, 1, 1, scale);
   if (!visible() || menu()) return changed;
-  const double w = (frame_width_ - 12) * scale, h = (frame_height_ - 12) * scale;
-  const double x0 = 26 * arrow_scale * std::cos(rotation), y0 = 26 * arrow_scale * std::sin(rotation);
-  const double degrees = rotation * 180 / std::acos(-1.0);
-  Vec2 offset;
-  if (degrees >= 45 && degrees <= 135)
-    offset = {x0 + w / (2 * std::tan(rotation)) - w / 2, y0};
-  else if (degrees <= -45 && degrees >= -135)
-    offset = {x0 - w / (2 * std::tan(rotation)) - w / 2, y0 - h};
-  else if (degrees < 45 && degrees > -45)
-    offset = {x0, y0 + h * std::tan(rotation) / 2 - h / 2};
-  else
-    offset = {x0 - w, y0 - h * std::tan(rotation) / 2 - h / 2};
-  position_ = {anchor.x + offset.x, anchor.y + offset.y};
+  position_ = GameObjectArrow::tooltip_position(anchor, rotation, (frame_width_ - 12) * scale,
+                                                (frame_height_ - 12) * scale, arrow_scale);
   return changed;
 }
 bool PlayerGroup::open(std::vector<PlayerMenuTarget> players, bool allow, Vec2 pointer, int width, int height,

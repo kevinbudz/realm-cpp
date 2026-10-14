@@ -109,7 +109,7 @@ class Renderer {
                   bool measure_models);
   void release_gl_resources() noexcept;
   int viewport_location_{}, model_viewport_{}, mesh_viewport_{}, mesh_bounds_{}, mesh_color_{}, mesh_page_{},
-      mesh_textured_{};
+      mesh_textured_{}, mesh_repeat_{};
   int standalone_location_{}, surface_location_{}, ground_location_{}, ground_origin_{}, ground_x_{}, ground_y_{},
       ground_time_{}, clip_location_{}, clip_rect_{};
 };

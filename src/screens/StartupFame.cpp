@@ -5,6 +5,10 @@ namespace realm {
 using namespace startup_detail;
 
 void Startup::Impl::died(const net::incoming::Death& death, std::int32_t time) {
+  if (state_.editor_test_) {
+    left_game("the test character died");
+    return;
+  }
   state_.session_changed();
   cancel_delete();
   if (state_.screen_ == Screen::fame) return;
@@ -12,6 +16,7 @@ void Startup::Impl::died(const net::incoming::Death& death, std::int32_t time) {
   state_.sounds_.play("death_screen");
   ++state_.fame_generation_;
   state_.fresh_fame_ = true;
+  state_.fame_from_news_ = false;
   state_.fame_account_id_ = death.account_id;
   state_.fame_character_id_ = death.account_id == -1 ? -1 : death.character_id;
   state_.death_ = death;
@@ -64,6 +69,7 @@ void Startup::Impl::open_legends(bool from_death) {
   state_.legends_from_death_ = from_death;
   state_.legends_span_ = 0;
   state_.fresh_fame_ = false;
+  state_.fame_from_news_ = false;
   ++state_.fame_generation_;
   state_.fame_.reset();
   state_.fame_portrait_ = {};
@@ -98,6 +104,7 @@ void Startup::Impl::show_legend(std::size_t index) {
   state_.fame_character_id_ = row.character_id;
   ++state_.fame_generation_;
   state_.fresh_fame_ = false;
+  state_.fame_from_news_ = false;
   state_.fame_.reset();
   state_.fame_portrait_ = {};
   state_.fame_error_.clear();

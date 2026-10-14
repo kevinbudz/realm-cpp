@@ -21,6 +21,10 @@ void update_session(ClientState& cs, Frame& f) {
     if (auto launch = cs.startup->take_launch()) {
       cs.game_session = std::make_unique<realm::Session>(cs.world);
       cs.background_world = false;
+      cs.idle_watcher.reset();
+      cs.keys_view.game_closed();
+      if (cs.tutorial) cs.tutorial->reset();
+      cs.guild_invite.close();
       try {
         cs.game_session->connect(std::move(*launch));
       } catch (const std::exception& e) {
@@ -36,6 +40,12 @@ void update_session(ClientState& cs, Frame& f) {
     for (const auto& message : cs.game_session->take_events()) {
       // A new map drops plays still waiting for a load (plays never outlive their map's objects).
       if (message.id == realm::flash::PacketId::MAPINFO) cs.audio_bridge.map_changed();
+      if (message.id == realm::flash::PacketId::MAPINFO) cs.keys_view.map_changed(cs.game_session->map_info().name);
+      if (message.id == realm::flash::PacketId::DEATH) {
+        cs.keys_view.game_closed();
+        cs.guild_invite.close();
+        if (cs.tutorial) cs.tutorial->reset();
+      }
       if (message.id == realm::flash::PacketId::MAPINFO || message.id == realm::flash::PacketId::RECONNECT ||
           message.id == realm::flash::PacketId::DEATH) {
         cs.ui_stack.reset(realm::ui::Reset::map_change);
@@ -60,11 +70,27 @@ void update_session(ClientState& cs, Frame& f) {
       switch (message.id) {
         case realm::flash::PacketId::TRADEREQUESTED: {
           const auto& name = std::get<realm::net::incoming::TradeRequested>(message.data).name;
-          if (cs.trade_view && !cs.trade.active() && cs.settings.flag("showTradePopup")) cs.trade.requested(name, time);
+          if (cs.trade_view && !cs.trade.active() && cs.settings.flag("showTradePopup")) {
+            cs.guild_invite.close();
+            cs.trade.requested(name, time);
+          }
           cs.chat.add("", name + " wants to trade with you.  Type \"/trade " + name + "\" to trade.", time);
           break;
         }
+        case realm::flash::PacketId::INVITEDTOGUILD: {
+          const auto& invitation = std::get<realm::net::incoming::InvitedToGuild>(message.data);
+          if (cs.guild_invite_view && cs.settings.flag("showGuildInvitePopup")) {
+            cs.trade.close_request();
+            cs.guild_invite.invited(invitation.name, invitation.guild_name, time);
+          }
+          cs.chat.add("",
+                      "You have been invited by " + invitation.name + " to join the guild " + invitation.guild_name +
+                          ".\n  If you wish to join type \"/join " + invitation.guild_name + "\"",
+                      time);
+          break;
+        }
         case realm::flash::PacketId::TRADESTART:
+          cs.guild_invite.close();
           cs.trade.start(std::get<realm::net::incoming::TradeStart>(message.data), cs.own_name(), time);
           cs.trade_pressed = -1;
           break;
@@ -82,11 +108,36 @@ void update_session(ClientState& cs, Frame& f) {
         default:
           break;
       }
+      if (message.id == realm::flash::PacketId::GLOBAL_NOTIFICATION)
+        cs.keys_view.notification(std::get<realm::net::incoming::GlobalNotification>(message.data).text);
       if (message.id == realm::flash::PacketId::TEXT) {
         const auto& text = std::get<realm::net::incoming::Text>(message.data);
         cs.members.receive(text, cs.world.player_id());
         cs.balloons.add(cs.world, text);
         cs.chat.add(text, cs.own_name(), time);
+      }
+    }
+    if (cs.game_session->state() == realm::SessionState::playing && cs.world.entity(cs.world.player_id())) {
+      switch (cs.idle_watcher.update(static_cast<std::int32_t>(dt * 1000))) {
+        case realm::IdleWatcher::Event::warning_10_minutes:
+          cs.chat.add(
+              std::string(realm::error_chat_name),
+              "You have been idle for 10 minutes, you will be disconnected if you are idle for more than 20 minutes.",
+              time);
+          break;
+        case realm::IdleWatcher::Event::warning_15_minutes:
+          cs.chat.add(
+              std::string(realm::error_chat_name),
+              "You have been idle for 15 minutes, you will be disconnected if you are idle for more than 20 minutes.",
+              time);
+          break;
+        case realm::IdleWatcher::Event::disconnect_20_minutes:
+          cs.chat.add(std::string(realm::error_chat_name), "You have been idle for 20 minutes, disconnecting.", time);
+          cs.game_session->disconnect();
+          cs.keys_view.game_closed();
+          break;
+        case realm::IdleWatcher::Event::none:
+          break;
       }
     }
     const auto state = cs.game_session->state();
@@ -106,6 +157,10 @@ void update_session(ClientState& cs, Frame& f) {
           message = "Disconnected from the game server.";
         // Leaving, disconnecting or dying ends every voice; the death screen's sound is queued after this.
         cs.audio_bridge.stop();
+        cs.keys_view.game_closed();
+        cs.guild_invite.close();
+        cs.idle_watcher.reset();
+        if (cs.tutorial) cs.tutorial->reset();
         cs.game_session.reset();
         cs.ui_stack.reset(realm::ui::Reset::session_end);
         cs.leaving_game = false;
@@ -126,6 +181,7 @@ void update_session(ClientState& cs, Frame& f) {
 
 void update_panels(ClientState& cs, Frame& f) {
   auto& dt = f.dt;
+  auto& time = f.time;
   auto& menus = f.menus;
   if (cs.startup)
     if (auto error = cs.startup->take_skin_error())
@@ -146,7 +202,7 @@ void update_panels(ClientState& cs, Frame& f) {
   if (cs.members.visible() && cs.game_session)
     if (const auto* player = cs.world.entity(cs.world.player_id()))
       cs.members.permissions(player->profile.guild,
-                             player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, 0));
+                             player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1));
   if (auto action = cs.members.take_request(); action && cs.game_session) {
     if (action->action == realm::GuildMembers::Action::remove)
       cs.game_session->leave_guild(action->name);
@@ -155,7 +211,8 @@ void update_panels(ClientState& cs, Frame& f) {
   }
   if (cs.board.visible() && cs.game_session)
     if (const auto* player = cs.world.entity(cs.world.player_id()))
-      cs.board.permissions(player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, 0));
+      cs.board.permissions(player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1));
+  cs.guild_invite.update(time);
   menus = cs.startup && cs.startup->menus();
   cs.ui_stack.update();
 }

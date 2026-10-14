@@ -9,14 +9,18 @@ using namespace startup_detail;
 
 void Startup::Impl::update(std::int32_t time, double dt, double width, double height) {
   if (state_.screen_ == Screen::fame && death_fade(state_.time_) > 0 && death_fade(time) == 0) view_model_.invalidate();
-  if (view_model_.width() != width || view_model_.height() != height) {
+  const bool resized = view_model_.width() != width || view_model_.height() != height;
+  if (resized) {
     view_model_.request_refresh();
     cancel_pointer();
     if (state_.delete_dialog_.visible()) view_model_.invalidate();
   }
   state_.time_ = time;
   view_model_.set_window(width, height);
-  if (view_model_.set_pixel_scale(fonts_.pixel_scale())) view_model_.invalidate();
+  const bool scale_changed = view_model_.set_pixel_scale(fonts_.pixel_scale());
+  if (scale_changed) view_model_.invalidate();
+  if (state_.editor_) state_.editor_->resize(width, height, fonts_.pixel_scale());
+  if (state_.screen_ == Screen::editor && (resized || scale_changed)) view_model_.invalidate();
   if (state_.background() && state_.background_width_ > 0) {
     state_.background_x_ += dt / 1000;
     if (state_.background_x_ > state_.background_width_ + 10) state_.background_x_ -= state_.background_width_;

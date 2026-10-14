@@ -16,6 +16,7 @@ class WorldParticleEffects {
   void remove_entity(std::int32_t id) { particles_.remove_target(id); }
   void damaged(const World& world, const Entity& target, int amount, std::int32_t time, double hit_angle,
                double hit_speed);
+  void exploded(const World& world, const Entity& entity, const ObjectDef* definition);
   void level_up(std::int32_t id);
   void condition_changed(const Entity& entity);
   void texture_changed(const Entity& entity, const ObjectDef* definition);

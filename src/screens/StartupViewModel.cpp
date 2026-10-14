@@ -6,6 +6,7 @@
 #include "realm/ui/tooltip/TextToolTip.hpp"
 #include "realm/util/GraphicsUtil.hpp"
 #include <algorithm>
+#include <cctype>
 #include <array>
 #include <cctype>
 #include <chrono>
@@ -123,6 +124,8 @@ std::optional<StartupAction> StartupViewModel::typed_action(const StartupScreenS
   if (state.list_ && action >= delete_character_action &&
       action < delete_character_action + static_cast<int>(state.list_->characters.size()))
     return StartupAction{Kind::delete_character, static_cast<std::size_t>(action - delete_character_action)};
+  if (state.list_ && action >= news_action && action < news_action + 100)
+    return StartupAction{Kind::news, static_cast<std::size_t>(action - news_action)};
   if (action >= legend_tab_action && action < legend_tab_action + 3)
     return StartupAction{Kind::legend_tab, static_cast<std::size_t>(action - legend_tab_action)};
   if (action >= legend_row_action && action < legend_row_action + 256)
@@ -263,6 +266,16 @@ void StartupViewModel::add_image(const Image& image, double x, double y, double 
   e.position = {x, y};
   e.size = {image.width * scale, image.height * scale};
   e.group = group;
+  elements_.push_back(e);
+}
+void StartupViewModel::add_bitmap(const Image& image, std::uint64_t revision, double x, double y, double width,
+                                  double height) {
+  Element e;
+  e.bitmap = &image;
+  e.bitmap_revision = revision;
+  e.source = {0, 0, image.width, image.height};
+  e.position = {x, y};
+  e.size = {width, height};
   elements_.push_back(e);
 }
 void StartupViewModel::add_window_text(std::string_view value, int size, bool bold, std::uint32_t color, Vec2 anchor,
@@ -595,14 +608,27 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
   add_text("News", 18, true, gray, 410, 79);
   add_solid(399, 107, 2, 419, dark_line);
   if (state.list_) {
-    // NewsList: NewsLine rows of 52 pixels, 4 apart.
-    for (std::size_t i = 0; i < state.list_->news.size(); ++i) {
+    // NewsLine rows have an icon and one hit area so the text shares its hover color.
+    for (std::size_t i = 0; i < std::min<std::size_t>(state.list_->news.size(), 7); ++i) {
       const auto& item = state.list_->news[i];
-      const double y = 112 + 4 + static_cast<double>(i) * 56;
-      add_text(item.title, 18, false, gray, 400 + 61, y);
-      add_text(item.tagline, 14, false, gray, 400 + 61, y + 24);
+      const int action = news_action + static_cast<int>(i);
+      const double y = 116 + static_cast<double>(i) * 56;
+      const auto color = state.hovered_ == action ? 16762880U : gray;
+      if (art_) {
+        auto icon_name = item.icon;
+        std::transform(icon_name.begin(), icon_name.end(), icon_name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const auto& icon = art_->image(icon_name == "fame"   ? "newsfame"
+                                       : icon_name == "oryx" ? "newsoryx"
+                                                             : "newsforum");
+        add_image(straight(icon), 400, y + 26 - icon.height / 2.0 - 3, 1, action);
+      }
+      add_text(item.title, 18, false, color, 461, y, action);
+      add_text(item.tagline, 14, false, color, 461, y + 24, action);
       const auto when = time_difference(item.date);
-      add_text(when, 16, false, gray, 400 + 388 - fonts_.layout(when, 16, false).width, y);
+      add_text(when, 16, false, color, 788 - fonts_.layout(when, 16, false).width, y, action);
+      auto& hit = add_solid(400, y, 388, 52, 0, 0, action);
+      hit.hit = true;
     }
     // CharacterList masks the full 430-pixel viewport, including partial
     // first/last rows while its 399-pixel scrollbar moves the 400-pixel range.
@@ -953,6 +979,11 @@ void StartupViewModel::rebuild(StartupScreenState& state, bool busy) {
     case Screen::legends:
       legends_screen(state, busy);
       break;
+    case Screen::editor:
+      menu_frame(true);
+      if (state.editor_) add_bitmap(state.editor_->image(), state.editor_->revision(), 0, 0, 800, 600);
+      account_header(state);
+      break;
     case Screen::game:
       break;
   }
@@ -1014,12 +1045,15 @@ void StartupViewModel::refresh(const StartupScreenState& state, bool busy) {
   view.sheet_dirty = view_uploads_;
   view.fame = state.screen_ == Screen::fame;
   view.legends = state.screen_ == Screen::legends;
+  view.editor = state.screen_ == Screen::editor;
   view.deletion = state.delete_dialog_.visible();
   view.elements.reserve(elements_.size());
   const double scale = height_ / 600;
   for (const auto& e : elements_) {
     StartupElementSnapshot item;
     item.source = e.source;
+    item.bitmap = e.bitmap;
+    item.bitmap_revision = e.bitmap_revision;
     item.position = to_window(e, e.position);
     item.size = {e.size.x * scale, e.size.y * scale};
     item.text_position = to_window(e, e.text_origin);

@@ -4,12 +4,13 @@ A native C++20 client for the RotMG game served by `../realm-server`. It renders
 
 ## Coverage
 
-- **Startup:** loading, title, sign-in and registration, character selection and creation, saved accounts.
-- **Play:** movement, shooting and abilities, inventory and potions, portals, parties with edge arrows, player menus, trading, chat and speech balloons.
+- **Startup:** loading, title, sign-in and registration, character selection and creation, saved accounts, and clickable news with fame details or browser links.
+- **Play:** movement, shooting and abilities, inventory and potions, portals, parties and quest targets with edge arrows and tooltips, player menus, trading, guild invitations, chat and speech balloons. Davy Jones's Locker has its key HUD; idle players receive warnings and disconnect after 20 minutes.
 - **Guilds:** registrar, guild hall entry, guild board, chronicle, and account name changes.
-- **World:** JM and WMAP maps, terrain transitions, 3D models, particles, status effects, Drunk and Blind filters, dyes, and skins.
-- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and an Options screen with rebindable keys.
+- **World:** JM and WMAP maps, terrain transitions, 3D models, connected walls, cave walls, stalagmites, multiline signs, death particles, status effects, Drunk and Blind filters, dyes, and skins. Tutorial maps show proximity-driven HUD highlights.
+- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and an Options screen with rebindable keys. Item tooltips retain the Astrum styling.
 - **Audio:** one-shot sound effects through the vendored miniaudio output.
+- **Map editor:** ground, object and region palettes with original art; draw, erase, sample, named objects, rectangles, pan/zoom, undo/redo, JM load/save, and existing-character map testing.
 
 ## Build
 
@@ -72,6 +73,16 @@ Controls, from `realm_client --help`. They use the Flash defaults and can be reb
 - O opens the Options screen. Escape in game returns to character selection.
 
 Options are saved to `settings.json` beside the account file. `--settings-file` overrides the path.
+
+### Map editor
+
+Choose **EDITOR** on the title screen. D draws, E erases, A samples, I edits an object's name, U/R undo and redo,
+and C clears the map. Shift-drag draws a rectangle, Ctrl-drag or the middle mouse button pans, and the wheel zooms.
+The palette has Ground, Object and Region tabs, a filter, tooltips, and its own wheel scrolling.
+
+L and S open path dialogs for loading and saving Flash `.jm` maps. T tests the current map using the first saved
+character; testing requires a registered account and a character. Ending the test, dying or following a portal
+returns to the editor with the document preserved. Escape or Back returns to the title screen.
 
 ### Product flags
 
@@ -213,6 +224,7 @@ Folders follow Flash, and libraries follow CMake. A folder does not tell you whi
 | `ui/` and subpackages | `Chat`, `Trade`, `Scrollbar`, `dialogs/`, `tooltip/`, `menu/`, `options/OptionsScreen`, `guild/`, `board/`, `fonts/FontBook` (FreeType with the original Myriad fonts) | `assembleegameclient/ui`, `com/company/ui/fonts` |
 | `minimap/` | `Minimap` and its GPU composition | `kabam/rotmg/minimap` |
 | `screens/` | Startup screens. `Startup.cpp` is the public controller. `StartupUpdate`, `StartupInput`, `StartupDialogs` and `StartupFame` hold the rest of its implementation. `StartupState.hpp` holds screen and account state, `StartupHttpTasks` HTTP task ownership, `StartupViewModel` the retained view model, and `StartupRml` the RmlUi presentation | `assembleegameclient/screens`, `kabam/rotmg/account/web/view` |
+| `mapeditor/`, `tutorial/` | `MapDocument` (JM files and edit history), `EditorScreen` (headless editor UI), proximity requirements and HUD highlights | `assembleegameclient/mapeditor`, `tutorial` |
 | `stage3D/` | `Renderer` (GL resources and frame submission) with `RendererStream`, `RendererPostProcess`, `RendererGpuTimers` and `RendererShader`, plus `Atlas`, `TextureResidency` (dynamic-atlas allocator) and `DrawTypes` | `kabam/rotmg/stage3D` |
 | `engine3d/`, `background/`, `assets/` | `Model3D`, `Backdrop` and `BackdropData`, `HudArt` (native drawing of Flash UI art) | `assembleegameclient/engine3d`, `background`, `kabam/rotmg/assets` |
 | `util/` | `Image`, `AnimationLibrary`, `Appearances` (dye and skin composition), `ProcessedTextures`, `FlashDraw`, `GraphicsUtil`, `ConditionEffect`, `ItemData`, `Random` (`FlashRandom`), `Xml`, `Telemetry`, small text helpers | `com/company/util`, `assembleegameclient/util` |
@@ -291,4 +303,5 @@ Not Flash-derived: "flash" in `Particles.hpp` and `Hud.cpp` means a visual flash
 
 - [docs/fps-optimizations.md](docs/fps-optimizations.md): the GPU minimap, terrain chunk, and streaming design. Measurements are in [docs/fps-optimization-results.json](docs/fps-optimization-results.json).
 - [tests/README.md](tests/README.md): test labels, fixtures, and the checksum oracle.
+- [Completed Flash gap audit](docs/history/flash-gap-audit.md): implemented parity gaps, source findings and validation.
 - [docs/history/](docs/history/README.md): historical records, not current process. These include the [port spec](docs/history/port-spec.md), [progress log](docs/history/progress.md), [Flash UI specs](docs/history/flash-specs.md), [UI parity audit](docs/history/ui-parity-audit.md), and the [task](docs/history/client-task-chain.md) and [quality](docs/history/client-quality-chain.md) chains.

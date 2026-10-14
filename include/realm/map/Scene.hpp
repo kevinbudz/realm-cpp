@@ -6,8 +6,10 @@
 #include "realm/stage3D/Renderer.hpp"
 #include "realm/map/World.hpp"
 #include "realm/objects/StatusArt.hpp"
+#include "realm/engine3d/ConnectedObjects.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/TextureResidency.hpp"
+#include <list>
 #include <optional>
 #include <unordered_map>
 namespace realm {
@@ -99,6 +101,16 @@ class Scene {
   void build_terrain(const World& world, const Terrain& terrain, const Camera& camera, Atlas& atlas, Vec2 position,
                      int distance, std::int32_t time, std::vector<Quad>& out);
   std::array<std::uint64_t, 5> submitted_{};
+  struct ConnectedGeometryCacheEntry {
+    std::uint16_t type{};
+    std::uint32_t connect_stat{}, seed{};
+    int tile_x{}, tile_y{};
+    ConnectedObjectGeometry geometry;
+    std::list<std::int32_t>::iterator lru;
+  };
+  static constexpr std::size_t maximum_connected_geometries = 1024;
+  std::list<std::int32_t> connected_geometry_lru_;
+  std::unordered_map<std::int32_t, ConnectedGeometryCacheEntry> connected_geometries_;
   struct Cached {
     std::weak_ptr<const Image> image;
     std::shared_ptr<SurfaceTexture> surface;

@@ -79,6 +79,7 @@ class Particles {
   void aoe(Vec2 position, double radius, std::uint32_t color, std::int32_t time);
   void hit(const World& world, const Entity& target, int amount, std::int32_t time, double angle = 0, double speed = 0,
            bool directional = false, int count = 10);
+  void explode(const World& world, const Entity& target, std::int32_t time);
   void impact(const TextureDef& texture, Vec2 position, double angle, double speed, std::int32_t time);
   void trail(Vec2 position, std::int32_t time, int count = 3);
   void level_up(std::int32_t target, std::int32_t time);
@@ -104,6 +105,8 @@ class Particles {
   Particle spark(Vec2 at, std::uint32_t color, double size, int life, double z, Vec2 velocity, std::int64_t time);
   void path(Vec2 start, Vec2 end, std::uint32_t color, int life, double size, std::int32_t time,
             ParticleMotion motion = ParticleMotion::sparker);
+  void burst(const World& world, const Entity& target, std::int32_t time, int count, bool directional, double angle,
+             double speed);
   void heal(const Entity& target, std::uint32_t color, std::int32_t time, int count);
   std::optional<std::uint32_t> color(const TextureDef& texture, std::uint32_t id);
   std::vector<Particle> particles_;

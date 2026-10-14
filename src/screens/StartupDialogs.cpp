@@ -177,7 +177,9 @@ std::string Startup::Impl::field_value(std::size_t index) const {
 }
 
 bool Startup::Impl::wants_text() const {
-  return state_.dialog_ == Dialog::login || state_.dialog_ == Dialog::reg || state_.dialog_ == Dialog::change_password;
+  return state_.dialog_ == Dialog::login || state_.dialog_ == Dialog::reg ||
+         state_.dialog_ == Dialog::change_password ||
+         (state_.screen_ == Screen::editor && state_.editor_ && state_.editor_->wants_text());
 }
 
 }  // namespace realm

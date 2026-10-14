@@ -1,39 +1,13 @@
 #include "realm/map/partyoverlay/PartyArrows.hpp"
-#include "realm/util/GraphicsUtil.hpp"
 #include <algorithm>
-#include <numbers>
 
 namespace realm {
 std::optional<PartyArrow> PartyArrows::project(const Camera& camera, Vec2 target) {
-  const auto origin = camera.origin(), screen = camera.world_to_screen(target);
-  const double x = screen.x - origin.x, y = screen.y - origin.y;
-  const double left = -origin.x, right = camera.playable_width() - origin.x, top = -origin.y;
-  const double bottom = (camera.clip_rect().height * camera.scale()) - origin.y;
-  // RectangleUtil.lineSegmentIntersectXY, from the camera origin to the member.
-  double t = 1;
-  if (x <= left)
-    t = std::min(t, left / x);
-  else if (x >= right)
-    t = std::min(t, right / x);
-  if (y <= top)
-    t = std::min(t, top / y);
-  else if (y >= bottom)
-    t = std::min(t, bottom / y);
-  if (t == 1 && screen.x > 0 && screen.x < camera.playable_width() && screen.y > 0 && screen.y < bottom + origin.y)
-    return {};
+  const auto placed = GameObjectArrow::project(camera, target);
+  if (!placed) return {};
   PartyArrow a;
-  a.position = {origin.x + t * x, origin.y + t * y};
-  double rot = std::remainder(270 - 180 / std::numbers::pi * std::atan2(x, y), 360.0);
-  const double margin = 5 * camera.scale();
-  if (a.position.x < margin)
-    rot = std::clamp(rot, -45.0, 45.0);
-  else if (a.position.x > camera.playable_width() - margin)
-    rot = rot > 0 ? std::max(rot, 135.0) : std::min(rot, -135.0);
-  if (a.position.y < margin)
-    rot = std::clamp(rot, 45.0, 135.0);
-  else if (a.position.y > bottom + origin.y - margin)
-    rot = std::clamp(rot, -135.0, -45.0);
-  a.rotation = rot * std::numbers::pi / 180;
+  a.position = placed->position;
+  a.rotation = placed->rotation;
   return a;
 }
 bool PartyArrows::drawn(const World& world, const Entity& p, const Camera& camera, int height) {
@@ -48,11 +22,8 @@ bool PartyArrows::drawn(const World& world, const Entity& p, const Camera& camer
 }
 bool PartyArrows::contains(const PartyArrow& a, Vec2 p) const {
   if (a.players.empty()) return false;
-  const double dx = (p.x - a.position.x) / scale_, dy = (p.y - a.position.y) / scale_;
-  const double x = dx * std::cos(a.rotation) + dy * std::sin(a.rotation),
-               y = -dx * std::sin(a.rotation) + dy * std::cos(a.rotation);
-  const double size = a.hover ? 11 : 8;
-  return x >= 2.5 && x <= size + 3.5 && std::abs(y) <= x - 3 + .71;
+  return GameObjectArrow::contains(a.position, a.rotation,
+                                   a.hover ? GameObjectArrow::big_size : GameObjectArrow::small_size, p, scale_);
 }
 const PartyArrow* PartyArrows::hit(Vec2 p) const {
   // Display-list hit order is the reverse of party slots.
@@ -104,16 +75,8 @@ void PartyArrows::update(const World& world, const Party& party, const Camera& c
     }
 }
 Image PartyArrows::image(double rotation, bool hover, double density) {
-  auto result = ui_image(canvas_size, canvas_size, density);
-  const double size = hover ? 11 : 8;
-  std::array<Vec2, 3> points{Vec2{3, 0}, Vec2{size + 3, size}, Vec2{size + 3, -size}};
-  for (auto& p : points) {
-    const double x = p.x;
-    p = {origin + x * std::cos(rotation) - p.y * std::sin(rotation),
-         origin + x * std::sin(rotation) + p.y * std::cos(rotation)};
-  }
-  ui_path(result, points, 0x3fc752, 0xffffff);
-  ui_shadow(result, 4, canvas_size, canvas_size);
-  return result;
+  // PlayerArrow: white line, 0x3fc752 fill.
+  return GameObjectArrow::image(rotation, hover ? GameObjectArrow::big_size : GameObjectArrow::small_size, 0xffffff,
+                                0x3fc752, density);
 }
 }

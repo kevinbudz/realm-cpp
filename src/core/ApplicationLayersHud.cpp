@@ -121,14 +121,15 @@ void configure_hud_layer(ClientState& cs, ClientLayers& layers) {
       // GuildBoardPanel opens with the current authoritative rank.
       else if (panel.button.kind == 0) {
         cs.board.open(cs.app_host, o.app_port, cs.game_session->credentials(),
-                      player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, 0));
+                      player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1));
         cs.chat.close();
         if (cs.player_menu) cs.player_menu->close();
         if (cs.player_group) cs.player_group->close();
         cs.party_arrows.reset();
       } else if (panel.button.kind == 1) {
         cs.members.open(cs.app_host, o.app_port, cs.game_session->credentials(), player->profile.guild,
-                        player->profile.name, player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, 0));
+                        player->profile.name,
+                        player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1));
         cs.chat.close();
         if (cs.player_menu) cs.player_menu->close();
         if (cs.player_group) cs.player_group->close();
@@ -244,21 +245,27 @@ void configure_minimap_layer(ClientState& cs, ClientLayers& layers) {
   };
 }
 
-// Party arrows at the playfield edge open the group menu for the players they point at.
+// Party arrows at the playfield edge open the group menu for the players they point at. The quest arrow sits above
+// them and takes presses without a menu, as QuestArrow stops its MOUSE_DOWN from reaching the map.
 void configure_arrows_layer(ClientState& cs, ClientLayers& layers) {
   auto& arrows_layer = layers.arrows_layer;
   arrows_layer.is_active = [&] { return cs.player_group && cs.game_session; };
-  arrows_layer.is_covering = [&](realm::Vec2 p) { return cs.party_arrows.hit(p) != nullptr; };
-  arrows_layer.on_reset = [&](UiReset) { cs.party_arrows.reset(); };
+  arrows_layer.is_covering = [&](realm::Vec2 p) { return cs.party_arrows.hit(p) != nullptr || cs.quest_arrow.hit(p); };
+  arrows_layer.on_reset = [&](UiReset) {
+    cs.party_arrows.reset();
+    cs.quest_arrow.reset();
+  };
   arrows_layer.on_event = [&](const UiEvent& e) -> UiResult {
     if (e.kind == UiKind::focus_lost) {
       cs.party_arrows.reset();
+      cs.quest_arrow.reset();
       return UiResult::pass;
     }
     if (!left_button(e)) return UiResult::pass;
     if (e.kind == UiKind::pointer_up)
       return cs.ui_stack.capture() == &arrows_layer ? UiResult::consumed : UiResult::pass;
     if (cs.player_menu && cs.player_menu->contains(e.point)) return UiResult::pass;
+    if (cs.quest_arrow.hit(e.point)) return e.kind == UiKind::pointer_down ? UiResult::consumed : UiResult::pass;
     const auto* arrow = cs.party_arrows.hit(e.point);
     if (!arrow) return UiResult::pass;
     auto players = realm::player_group_targets(cs.world, arrow->players);

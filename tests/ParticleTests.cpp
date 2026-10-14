@@ -81,6 +81,32 @@ int main() {
     world.report_damage(99, 200, 0);
     check(particles.particles().size() == 10, "fatal damage source suppresses blood");
     particles.clear();
+    world.add(98, catalog.object("Wizard")->type, {40, 40}).combat.hp = 0;
+    net::Update exploding;
+    exploding.drops = {{98, true}};
+    world.apply(exploding);
+    check(!world.entity(98) && particles.particles().size() == 30,
+          "exploding player drop emits death burst even at zero HP");
+    for (const auto& p : particles.particles())
+      check(p.position.x == 40 && p.position.y == 40 && p.z == .5 && p.lifetime >= 200 && p.lifetime <= 300 &&
+                std::abs(p.velocity.x) <= 4 && std::abs(p.velocity.y) <= 4,
+            "death burst preserves Flash position, lifetime and spread");
+    particles.update(world, static_cast<std::int32_t>(particles.time()) + 301);
+    check(particles.particles().empty(), "unattached death debris survives removal and then expires");
+    world.add(98, catalog.object("Wizard")->type, {40, 40});
+    exploding.drops = {{98, false}, {123456, true}};
+    world.apply(exploding);
+    check(particles.particles().empty(), "ordinary and unknown drops have no death burst");
+    world.add(98, catalog.object("Loot Bag")->type, {40, 40});
+    exploding.drops = {{98, true}};
+    world.apply(exploding);
+    check(particles.particles().empty(), "exploding non-character drop has no death burst");
+    particles.set_enabled(false);
+    world.add(98, catalog.object("Wizard")->type, {40, 40});
+    world.apply(exploding);
+    check(particles.particles().empty(), "particle preference suppresses death burst");
+    particles.set_enabled(true);
+    particles.clear();
     particles.level_up(99, 0);
     particles.update(world, 1000);
     check(particles.particles().size() == 40, "level up two swirls");

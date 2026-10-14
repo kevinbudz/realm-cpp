@@ -192,6 +192,26 @@ int main() {
       Atlas atlas(flash::source_root, animations.images(), animations.images().size());
       Renderer renderer(65536);
       renderer.clear_color({54 / 255.F, 54 / 255.F, 54 / 255.F, 1});
+      // ConnectedWall NoWallTextureRepeat clamps at the bitmap edge, while ordinary meshes still tile.
+      atlas.resize_dynamic(1);
+      atlas.upload_dynamic(0, 0, 0, Image{2, 1, {255, 0, 0, 255, 0, 0, 255, 255}});
+      auto fill = std::make_shared<MeshDraw>();
+      fill->bounds = {0, 0, 2.0F / sprite_page_size, 1.0F / sprite_page_size};
+      fill->page = static_cast<float>(atlas.dynamic_first());
+      fill->vertices = {{100, 100, -.5F, 0, 1}, {300, 100, 1.5F, 0, 1}, {100, 200, -.5F, 1, 1},
+                        {300, 100, 1.5F, 0, 1}, {300, 200, 1.5F, 1, 1}, {100, 200, -.5F, 1, 1}};
+      fill->groups = {{false, 0, 6, false}};
+      const auto sample = [](const Image& image, int x, int channel) {
+        return image.pixels[static_cast<std::size_t>(150 * image.width + x) * 4 + static_cast<std::size_t>(channel)];
+      };
+      for (const bool repeat : {false, true}) {
+        fill->groups[0].repeat = repeat;
+        const std::array quads{mesh_quad(fill)};
+        renderer.draw(atlas, quads, width, height, width);
+        const auto capture = renderer.capture(width, height);
+        check(sample(capture, 110, repeat ? 2 : 0) == 255 && sample(capture, 290, repeat ? 0 : 2) == 255,
+              "mesh bitmap repetition is sampled per fragment");
+      }
       // One real object (and its real sprite) per model.
       std::map<std::string, const ObjectDef*> objects;
       for (const auto& d : catalog.objects())

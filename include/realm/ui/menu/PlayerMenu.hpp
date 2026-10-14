@@ -22,6 +22,10 @@ struct PlayerMenuTarget {
   std::vector<PlayerMenuAction> options;
   bool operator==(const PlayerMenuTarget&) const = default;
 };
+// GameObjectListItem's long-version label: the name in bold, then the display id and level in parentheses (the
+// level only when at least 1). Without a name the display id alone is bold. `color` is the text color.
+[[nodiscard]] TextBitmap object_row_label(const Catalog& catalog, const FontBook& fonts, int type,
+                                          std::string_view name, int level, std::uint32_t color);
 // Shared GameObjectListItem long-version label used by player and group menus.
 [[nodiscard]] TextBitmap player_row_label(const Catalog& catalog, const FontBook& fonts, const PlayerMenuTarget& row);
 // The options PlayerMenu builds for another player; fixed while it stays open.

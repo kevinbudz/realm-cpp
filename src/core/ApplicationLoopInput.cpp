@@ -273,6 +273,9 @@ void dispatch_events(ClientState& cs, const Options& o, Frame& f) {
       cs.ui_viewport = cs.window_viewport();
       const auto converted = to_ui_event(cs, event);
       if (!converted) continue;
+      if (cs.game_session &&
+          (converted->kind == realm::ui::EventKind::pointer_move || converted->kind == realm::ui::EventKind::key_down))
+        cs.idle_watcher.reset();
       realm::ui::Dispatch dispatched;
       dispatched = cs.ui_stack.dispatch(*converted);
       if (dispatched.consumed || event.type != SDL_KEYDOWN) continue;

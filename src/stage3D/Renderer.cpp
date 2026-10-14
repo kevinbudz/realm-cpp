@@ -154,13 +154,16 @@ uniform vec4 bounds;
 uniform float layer;
 uniform vec3 flat_color;
 uniform bool textured;
+uniform bool repeat_texture;
 out vec4 color;
 void main() {
     if (!textured) { color = vec4(flat_color * lit, 1.0); return; }
     // Nearest sampling with the sprite repeated over the face, as a tiled bitmap fill.
     vec2 page = vec2(textureSize(sprites, 0).xy);
     vec2 size = bounds.zw * page;
-    vec2 coords = (bounds.xy * page + mod(floor(uv * size), size) + 0.5) / page;
+    vec2 pixels = floor(uv * size);
+    pixels = repeat_texture ? mod(pixels, size) : clamp(pixels, vec2(0.0), size - 1.0);
+    vec2 coords = (bounds.xy * page + pixels + 0.5) / page;
     vec4 texel = texture(sprites, vec3(coords, layer));
     color = vec4(texel.rgb * lit, texel.a);
 }
@@ -380,6 +383,7 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       mesh_color_ = glGetUniformLocation(mesh_program_, "flat_color");
       mesh_page_ = glGetUniformLocation(mesh_program_, "layer");
       mesh_textured_ = glGetUniformLocation(mesh_program_, "textured");
+      mesh_repeat_ = glGetUniformLocation(mesh_program_, "repeat_texture");
       glGenVertexArrays(1, &mesh_vao_);
       glBindVertexArray(mesh_vao_);
       glGenBuffers(1, &mesh_buffer_);
@@ -594,6 +598,7 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
                      mesh->vertices.data(), GL_STREAM_DRAW);
         for (const auto& group : mesh->groups) {
           glUniform1i(mesh_textured_, group.solid ? 0 : 1);
+          glUniform1i(mesh_repeat_, group.repeat ? 1 : 0);
           glDrawArrays(GL_TRIANGLES, static_cast<GLint>(group.first), static_cast<GLsizei>(group.count));
           ++draw_calls_;
           telemetry::add(telemetry::Counter::triangles, group.count / 3);

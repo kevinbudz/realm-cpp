@@ -2,10 +2,13 @@
 
 namespace realm::application {
 
-// TradePanel covers the HUD below the minimap; TradeRequestPanel covers the interaction panel.
+// TradePanel covers the HUD below the minimap. Trade and guild requests share the interaction panel's override slot.
 void configure_trade_layer(ClientState& cs, ClientLayers& layers) {
   auto& trade_layer = layers.trade_layer;
-  trade_layer.is_active = [&] { return cs.trade_view && cs.game_session && (cs.trade.active() || cs.trade.request()); };
+  trade_layer.is_active = [&] {
+    return cs.game_session && ((cs.trade_view && (cs.trade.active() || cs.trade.request())) ||
+                               (cs.guild_invite_view && cs.guild_invite.invitation()));
+  };
   trade_layer.is_covering = [&](realm::Vec2 p) {
     if (!cs.ui_viewport.valid()) return false;
     const auto s = cs.ui_viewport.sidebar(p);
@@ -14,6 +17,7 @@ void configure_trade_layer(ClientState& cs, ClientLayers& layers) {
   trade_layer.on_cancel = [&] { cs.trade_pressed = -1; };
   trade_layer.on_reset = [&](UiReset) {
     cs.trade.end();
+    cs.guild_invite.close();
     cs.trade_pressed = -1;
   };
   trade_layer.on_event = [&](const UiEvent& e) -> UiResult {
@@ -40,6 +44,19 @@ void configure_trade_layer(ClientState& cs, ClientLayers& layers) {
         if (pressed == 1 && hit(realm::TradeView::trade_button))
           if (const auto offers = cs.trade.accept(cs.ui_time))
             cs.game_session->accept_trade(offers->first, offers->second);
+      }
+    } else if (cs.guild_invite.invitation()) {
+      const auto buttons = cs.guild_invite_view->buttons();
+      if (down)
+        cs.trade_pressed = hit(buttons.reject) ? 2 : hit(buttons.accept) ? 3 : -1;
+      else {
+        const int pressed = std::exchange(cs.trade_pressed, -1);
+        if (pressed == 2 && hit(buttons.reject)) cs.guild_invite.close();
+        if (pressed == 3 && hit(buttons.accept)) {
+          const auto guild = cs.guild_invite.invitation()->guild;
+          cs.game_session->join_guild(guild);
+          cs.guild_invite.close();
+        }
       }
     } else if (cs.trade.request()) {
       const auto buttons = cs.trade_view->request_buttons();

@@ -4,6 +4,7 @@
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/messaging/Session.hpp"
 #include "realm/classes/SkinChooser.hpp"
+#include "realm/mapeditor/EditorScreen.hpp"
 #include "realm/ui/Scrollbar.hpp"
 #include "realm/sound/SoundCues.hpp"
 #include "StartupTypes.hpp"
@@ -85,7 +86,7 @@ struct StartupScreenState {
   Scrollbar fame_scroll_{16, 150};
   int fame_account_id_{}, fame_character_id_{};
   std::uint64_t fame_generation_{};
-  bool fresh_fame_{}, legends_from_death_{};
+  bool fresh_fame_{}, legends_from_death_{}, fame_from_news_{};
   // One bounded list per tab; generations distinguish close/reopen while a request drains.
   std::uint64_t legends_generation_{};
   std::size_t legends_span_{};
@@ -110,6 +111,9 @@ struct StartupScreenState {
   // SoundIcon: the mirrored playSFX value, and the value a click asked the app to store.
   bool play_sfx_{true};
   std::optional<bool> play_sfx_request_;
+  std::optional<std::string> open_url_;
   std::unique_ptr<SkinChooser> skins_;
+  std::unique_ptr<EditorScreen> editor_;
+  bool editor_test_{};
 };
 }

@@ -162,8 +162,18 @@ if(BUILD_TESTING)
         SOURCES tests/StatusRulesTests.cpp LINK realm_assets)
     realm_add_test(NAME postfx_rules TARGET realm_postfx_rules_tests LABELS unit
         SOURCES tests/PostfxRulesTests.cpp LINK realm_assets realm_game)
+    realm_add_test(NAME connected_projection TARGET realm_connected_projection_tests LABELS unit
+        SOURCES tests/ConnectedProjectionTests.cpp LINK realm_assets)
     realm_add_test(NAME models TARGET realm_model_tests LABELS unit
         SOURCES tests/ModelTests.cpp LINK realm_assets realm_game)
+    realm_add_test(NAME editor_session TARGET realm_editor_session_tests LABELS unit
+        SOURCES tests/EditorSessionTests.cpp LINK realm_game)
+    realm_add_test(NAME map_document TARGET realm_map_document_tests LABELS unit
+        SOURCES tests/MapDocumentTests.cpp LINK realm_game)
+    realm_add_test(NAME editor_screen TARGET realm_editor_screen_tests LABELS unit
+        SOURCES tests/EditorScreenTests.cpp LINK realm_ui)
+    realm_add_test(NAME tutorial TARGET realm_tutorial_tests LABELS unit
+        SOURCES tests/TutorialTests.cpp LINK realm_ui)
     realm_add_test(NAME particles TARGET realm_particle_tests LABELS unit
         SOURCES tests/ParticleTests.cpp LINK realm_game)
     realm_add_test(NAME dyes_masks TARGET realm_dye_tests LABELS unit
@@ -188,6 +198,10 @@ if(BUILD_TESTING)
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_render
             DEFINES SDL_MAIN_HANDLED)
         realm_add_python_test(NAME status_gpu LABELS gpu SCRIPT tests/status_gpu_tests.py)
+        realm_add_python_test(NAME editor_gpu LABELS gpu SCRIPT tests/editor_gpu_tests.py
+            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/editor-gpu")
+        realm_add_python_test(NAME startup_news_gpu LABELS gpu SCRIPT tests/startup_parity_gpu_tests.py
+            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --cases news)
         realm_add_python_test(NAME options_gpu LABELS gpu SCRIPT tests/options_gpu_tests.py)
         # The RmlUi host's retained invalidation, input, clipping and lifetime on real fonts, art and GL.
         realm_add_test(NAME ui_rml_host TARGET realm_ui_rml_host_tests LABELS gpu
@@ -206,6 +220,8 @@ if(BUILD_TESTING)
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/legends-gpu")
         realm_add_python_test(NAME death_fame_gpu LABELS gpu SCRIPT tests/death_fame_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/death-fame-gpu")
+        realm_add_python_test(NAME flash_gap_gpu LABELS gpu SCRIPT tests/flash_gap_gpu_tests.py
+            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/flash-gap-gpu")
         realm_add_python_test(NAME delete_character_gpu LABELS gpu SCRIPT tests/delete_character_gpu_tests.py
             ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/delete-character-gpu")
         add_executable(realm_delete_stale_inputs tests/DeleteStaleInputs.cpp)
@@ -300,6 +316,14 @@ if(BUILD_TESTING)
     target_link_libraries(realm_party_arrow_session_inputs PRIVATE realm_game realm_ui)
     realm_add_test(NAME party_arrows TARGET realm_party_arrow_tests LABELS unit
         SOURCES tests/PartyArrowTests.cpp LINK realm_ui)
+    realm_add_test(NAME quest_arrows TARGET realm_quest_arrow_tests LABELS unit
+        SOURCES tests/QuestArrowTests.cpp LINK realm_ui)
+    realm_add_test(NAME quest_session_inputs TARGET realm_quest_session_inputs LABELS unit
+        SOURCES tests/QuestSessionInputs.cpp LINK realm_game)
+    realm_add_test(NAME idle_watcher TARGET realm_idle_watcher_tests LABELS unit
+        SOURCES tests/IdleWatcherTests.cpp LINK realm_game)
+    realm_add_test(NAME social_hud TARGET realm_social_hud_tests LABELS unit
+        SOURCES tests/SocialHudTests.cpp LINK realm_ui)
     realm_add_test(NAME player_groups TARGET realm_player_group_tests LABELS unit
         SOURCES tests/PlayerGroupTests.cpp LINK realm_ui)
     realm_add_test(NAME minimap_cache TARGET realm_minimap_cache_tests LABELS unit
@@ -312,8 +336,8 @@ if(BUILD_TESTING)
     # never overlap; CPU-only tests keep running in parallel. Names missing from this configuration are skipped.
     # delete_character_stale is not listed: it drives Startup headlessly through a Python HTTP mock.
     set(REALM_GPU_TESTS stress_rendered telemetry_gpu postfx visibility_culling frame_caches model_instances
-        dynamic_atlas status_gpu options_gpu sdl_keys legends_gpu death_fame_gpu delete_character_gpu
-        ui_rml_host ui_retained ui_bundle_gpu)
+        dynamic_atlas status_gpu options_gpu sdl_keys legends_gpu death_fame_gpu flash_gap_gpu delete_character_gpu
+        ui_rml_host ui_retained ui_bundle_gpu startup_news_gpu editor_gpu)
     foreach(gpu_test IN LISTS REALM_GPU_TESTS)
         if(TEST ${gpu_test})
             set_tests_properties(${gpu_test} PROPERTIES RESOURCE_LOCK realm_gpu)

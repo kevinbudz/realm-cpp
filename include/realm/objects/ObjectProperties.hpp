@@ -33,6 +33,9 @@ struct ObjectDef {
   std::uint16_t type{};
   std::string id, display_id, class_name, model;
   TextureDef texture, top;
+  // ConnectedWall's per-pattern cap art: dot, short line, L, line, T and cross. These XML nodes contain
+  // bare File/Index children rather than the usual Texture wrapper.
+  std::array<TextureDef, 6> connected_textures;
   int shadow_size{100}, size{100}, min_size{100}, max_size{100}, size_step{5}, max_hp{}, defense{}, slot_type{-1},
       tier{-1};
   int max_hp_cap{}, max_mp{}, max_mp_cap{};
@@ -42,11 +45,14 @@ struct ObjectDef {
   double rate_of_fire{}, arc_gap{};
   bool usable{}, consumable{}, inventory_use{}, ability_target{}, ability_teleport{}, ability_shoot{};
   double z{}, rotation{}, angle_correction{}, blood_probability{};
+  // ConnectedWall's local extrusion dimensions, copied from ConnectedWall.as.
+  double wall_base_indent{0.5}, wall_top_indent{0.25}, wall_height{1};
   std::uint32_t color{0xffffff}, blood_color{0xff0000}, shadow_color{};
   bool player{}, enemy{}, draw_on_ground{}, draw_under{}, occupy{}, full_occupy{}, enemy_occupy{}, stationary{},
       no_minimap{}, protect_ground{}, protect_sink{}, flying{}, show_name{}, dont_face_attacks{}, hexable{};
   // Classes implementing IInteractiveObject, and the Container subclasses among them.
   bool interactive{}, container{};
+  bool wall_texture_repeat{true}, top_texture_repeat{true};
   // Sounds (Flash names, see SoundCues): HitSound and DeathSound exist for Character and Player classes only, with
   // Character.as defaults when the XML omits them; OldSound is a weapon's first-shot sound; <Sound> tags are preloaded
   // with the object; Loot marks a container that plays loot_appears when it appears near the player.

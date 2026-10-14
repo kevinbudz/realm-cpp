@@ -104,7 +104,7 @@ HudState HudState::player(const World& world, const Entity& entity, const realm:
       if (entity.profile.guild.empty())
         panel = {K::create_guild, target->id, "Create a Guild", "", "Create 1000", 1000, 1, true, false};
       else {
-        const int rank = entity.profile.stats.value_or(S::GUILD_RANK_STAT, 0);
+        const int rank = entity.profile.stats.value_or(S::GUILD_RANK_STAT, -1);
         const std::string rank_name = rank == 0    ? "Initiate"
                                       : rank == 10 ? "Member"
                                       : rank == 20 ? "Officer"

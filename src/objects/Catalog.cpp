@@ -54,6 +54,16 @@ TextureDef Catalog::texture(Xml xml) {
   TextureDef t;
   if (!xml) return t;
   const auto kind = xml.name();
+  // ConnectedWall's DotTexture/ShortLineTexture/LTexture/LineTexture/TTexture/CrossTexture
+  // elements use a bare <File>/<Index> pair, unlike the normal <Texture> wrapper.
+  if (kind != "Texture" && kind != "AnimatedTexture" && kind != "Mask" && xml.has("File")) {
+    const auto file = xml.child("File").text();
+    t.sheet = sheet(file, false);
+    t.index = xml.integer("Index");
+    if (t.sheet < 0 && std::find(unresolved_.begin(), unresolved_.end(), file) == unresolved_.end())
+      unresolved_.push_back(file);
+    return t;
+  }
   if (kind == "Texture" || kind == "AnimatedTexture" || kind == "Mask") {
     const auto file = xml.child("File").text();
     t.index = xml.integer("Index");
@@ -174,6 +184,15 @@ Catalog::Catalog(const std::filesystem::path& root)
         d.interactive = d.container || interactive_class(d.class_name);
         d.texture = texture(o);
         d.top = texture(o.child("Top"));
+        constexpr std::array<std::string_view, 6> connected_texture_names{
+            "DotTexture", "ShortLineTexture", "LTexture", "LineTexture", "TTexture", "CrossTexture"};
+        for (std::size_t i = 0; i < connected_texture_names.size(); ++i)
+          d.connected_textures[i] = texture(o.child(connected_texture_names[i]));
+        if (o.has("BaseIndent")) d.wall_base_indent = 0.5 - o.number("BaseIndent");
+        if (o.has("TopIndent")) d.wall_top_indent = 0.5 - o.number("TopIndent");
+        d.wall_height = o.number("Height", 1);
+        d.wall_texture_repeat = !o.has("NoWallTextureRepeat");
+        d.top_texture_repeat = !o.has("NoTopTextureRepeat");
         d.shadow_size = o.integer("ShadowSize", 100);
         d.player = o.has("Player");
         d.enemy = o.has("Enemy");

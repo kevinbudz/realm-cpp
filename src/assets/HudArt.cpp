@@ -354,6 +354,32 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
     const auto* o = object(type);
     return o && o->class_name == "Equipment" ? o : nullptr;
   };
+  // Map-editor previews use the original unoutlined sprite so tile thumbnails retain their useful area.
+  if (keyed(key, "editorground", 0, 65535, a) || keyed(key, "editorobject", 0, 65535, a)) {
+    const bool ground = key.starts_with("editorground");
+    const auto* ground_def = ground ? catalog.ground(static_cast<std::uint16_t>(a)) : nullptr;
+    const auto* object_def = ground ? nullptr : catalog.object(static_cast<std::uint16_t>(a));
+    if (!ground_def && !object_def) return std::nullopt;
+    if (dry) return Image{};
+    const auto& texture = (ground ? ground_def->texture : object_def->texture).select(0);
+    Image image;
+    if (const auto* character = s.appearances->animations().character(texture.animated, texture.index)) {
+      image = s.appearances->animations().images().at(character->directions[0][0].front().image);
+      normalize_flash_png(image);
+    } else if (texture.sheet >= 0 && static_cast<std::size_t>(texture.sheet) < flash::sheets.size()) {
+      image = s.sprite(flash::sheets[static_cast<std::size_t>(texture.sheet)].name, texture.index);
+    } else {
+      image = s.sprite("lofiObj3", 255);
+    }
+    premultiply(image);
+    return image;
+  }
+  if (key == "newsfame" || key == "newsoryx" || key == "newsforum") {
+    if (dry) return Image{};
+    if (key == "newsfame") return s.redraw(s.sprite("lofiObj3", 224), 80, true);
+    if (key == "newsoryx") return s.redraw(s.sprite("lofiChar16x16", 0x54), 40, true);
+    return s.redraw(s.sprite("lofiInterface2", 4), 80, true);
+  }
   // Item tiles: ItemTileSprite (with the dose count) and its dimmed state.
   for (const std::string_view prefix : {"item", "dim"})
     if (keyed(key, prefix, 1, 65535, a)) {
@@ -866,6 +892,9 @@ bool HudArt::contains(const std::string& key) const { return cache_.contains(key
 Image HudArt::portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const {
   if (tex1 || tex2) return sources().portrait(type, skin, tex1, tex2);
   return image("portrait" + std::to_string(sources().catalog->portrait_type(type, skin)));
+}
+Image HudArt::game_object_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const {
+  return sources().portrait(type, skin, tex1, tex2);
 }
 Image HudArt::fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2, int size) const {
   auto& s = sources();

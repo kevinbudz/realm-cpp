@@ -29,6 +29,8 @@ class StatusArt {
       : fonts_(fonts), appearances_(appearances), text_(text) {}
   [[nodiscard]] Label status_text(std::string_view text, std::uint32_t color);
   [[nodiscard]] Label name(std::string_view text);
+  // Sign.getTexture: centered 24 px bold white text; `|` starts a new TextField line.
+  [[nodiscard]] Label sign_text(std::string_view text, int object_size);
   [[nodiscard]] std::shared_ptr<const Image> icon(int frame);
   [[nodiscard]] double scale() const { return fonts_.pixel_scale(); }
   [[nodiscard]] std::size_t entries() const { return labels_.size(); }

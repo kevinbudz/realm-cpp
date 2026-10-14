@@ -47,8 +47,8 @@ std::optional<PlayerTooltipTarget> player_tooltip_target(const World& world, std
   result.tex1 = member->appearance.tex1;
   result.tex2 = member->appearance.tex2;
   result.level = member->profile.stats.value_or(flash::StatId::LEVEL_STAT, 1);
-  result.stars = member->profile.stats.value_or(flash::StatId::NUM_STARS_STAT, -1);
-  result.guild_rank = member->profile.stats.value_or(flash::StatId::GUILD_RANK_STAT, 0);
+  result.stars = member->profile.stats.value_or(flash::StatId::NUM_STARS_STAT, 0);
+  result.guild_rank = member->profile.stats.value_or(flash::StatId::GUILD_RANK_STAT, -1);
   result.name = member->profile.name;
   result.guild = member->profile.guild;
   result.fellow_guild = !local->profile.guild.empty() && local->profile.guild == member->profile.guild;

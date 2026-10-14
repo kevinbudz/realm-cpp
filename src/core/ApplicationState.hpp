@@ -22,11 +22,18 @@
 #include "realm/minimap/Minimap.hpp"
 #include "realm/minimap/MinimapGpu.hpp"
 #include "realm/objects/Movement.hpp"
+#include "realm/game/IdleWatcher.hpp"
+#include "realm/tutorial/Tutorial.hpp"
+#include "realm/tutorial/TutorialView.hpp"
+#include "realm/hud/KeysView.hpp"
 #include "realm/ui/options/OptionsScreen.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
+#include "realm/map/partyoverlay/QuestArrow.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/ui/menu/PlayerMenu.hpp"
 #include "realm/ui/tooltip/PlayerTooltip.hpp"
+#include "realm/ui/tooltip/PortraitToolTip.hpp"
+#include "realm/ui/tooltip/QuestToolTip.hpp"
 #include "realm/platform/Platform.hpp"
 #include "realm/platform/PlatformSdl.hpp"
 #include "realm/stage3D/Renderer.hpp"
@@ -43,6 +50,7 @@
 #include "realm/ui/tooltip/TextToolTip.hpp"
 #include "realm/ui/tooltip/ItemTooltip.hpp"
 #include "realm/ui/Trade.hpp"
+#include "realm/ui/panels/GuildInvite.hpp"
 #include "realm/lib/ui/RetainedUi.hpp"
 #include "realm/lib/ui/Stack.hpp"
 #include "realm/map/World.hpp"
@@ -115,8 +123,9 @@ struct ClientState {
   std::unique_ptr<realm::SurfaceTexture> death_background;
   realm::MinimapGpu minimap_gpu;
   realm::ui::RetainedSurface tooltip_texture, player_tooltip_texture, player_menu_texture, chat_texture, trade_texture,
-      trade_request_texture, interaction_texture, dialog_texture, board_texture, members_texture, group_texture,
-      skin_texture, options_texture, header_tip_texture, drag_surface, credit_texture, safe_area_texture;
+      trade_request_texture, guild_invite_texture, keys_texture, interaction_texture, dialog_texture, board_texture,
+      members_texture, group_texture, skin_texture, options_texture, header_tip_texture, drag_surface, credit_texture,
+      tutorial_texture, safe_area_texture;
   realm::CreditDisplayImage credit_image;
   realm::SafeAreaDisplayImage safe_area_image;
   std::string displayed_guild;
@@ -135,6 +144,8 @@ struct ClientState {
   std::unique_ptr<realm::PlayerTooltip> player_tooltip;
   std::unique_ptr<realm::PlayerMenu> player_menu;
   std::unique_ptr<realm::PlayerGroup> player_group;
+  std::unique_ptr<realm::QuestToolTip> quest_tooltip;
+  std::unique_ptr<realm::PortraitToolTip> portrait_tooltip;
   std::unique_ptr<realm::SkinChooser> skins;
   bool skin_press_guard{};
   bool header_pressed{};
@@ -144,6 +155,11 @@ struct ClientState {
   std::array<realm::SurfaceTexture, realm::Party::members_shown> arrow_textures;
   std::array<double, realm::Party::members_shown> arrow_rotations{}, arrow_densities{};
   std::array<bool, realm::Party::members_shown> arrow_hovers{};
+  // QuestArrow and its tooltip surfaces; the arrow redraws only for a new rotation or density.
+  realm::QuestArrow quest_arrow;
+  realm::SurfaceTexture quest_arrow_texture, quest_tooltip_texture;
+  double quest_arrow_rotation{}, quest_arrow_density{};
+  realm::QuestArrow::Tooltip quest_tooltip_kind{};
   // TextBox lines persist for the whole run, across maps and characters.
   realm::Chat chat;
   // The old setup built trade_view before chat_view; declaration order now builds chat_view first. Both constructors
@@ -154,7 +170,12 @@ struct ClientState {
   std::array<std::uint64_t, realm::SpeechBalloons::capacity> balloon_uploaded{};
   realm::Trade trade;
   std::unique_ptr<realm::TradeView> trade_view;
+  realm::GuildInvite guild_invite;
+  std::unique_ptr<realm::GuildInviteView> guild_invite_view;
   int trade_pressed{-1};
+  realm::KeysView keys_view;
+  double keys_density{};
+  std::uint64_t keys_revision{~0ULL};
   realm::OptionsScreen options_screen;
   realm::platform::CursorSet cursors;
   realm::InteractionDialog interaction;
@@ -170,12 +191,14 @@ struct ClientState {
   realm::HudState hud_view;
   realm::HudStateCache hud_state_cache;
   realm::World world;
+  std::unique_ptr<realm::Tutorial> tutorial;
   realm::Scene scene;
   realm::StatusArt status_art;
   realm::StatusTexts status_texts;
   realm::Backdrop backdrop;
   std::uint64_t backdrop_generation{~0ULL};
   std::unique_ptr<realm::Session> game_session;
+  realm::IdleWatcher idle_watcher;
   std::unique_ptr<realm::Startup> startup;
   std::unique_ptr<realm::StartupRml> startup_rml;
   // World holds MapBackground's map until a session's MAPINFO replaces it.

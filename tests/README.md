@@ -22,6 +22,17 @@ The `sanitize` preset configures with `REALM_BUILD_VIEWER=OFF`, so it has no `gp
 
 To list a label's tests: `ctest --test-dir build -N -L unit`.
 
+## Flash gap regression coverage
+
+Headless tests include `quest_arrows`, `quest_session_inputs`, `social_hud`, `idle_watcher`, `tutorial`,
+`map_document`, `editor_screen`, `editor_session`, and `connected_projection`. Existing particle, tooltip, model
+and status tests also cover the ported behavior. `model_instances` checks both tiled and nonrepeating mesh sampling on the GPU.
+
+`flash_gap_gpu` uses disposable loopback peers to exercise guild invitations, the Locker key HUD, quest arrows and
+Tutorial highlights. `startup_news_gpu` checks news icons, hover colors and a fame link through the startup flow.
+`editor_gpu` checks Startup editor input, file save/load, HELLO/LOAD map testing, reconnect return and resize.
+These GPU tests share the same resource lock as the rest of the suite.
+
 ## Running one test
 
 ```sh

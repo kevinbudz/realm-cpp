@@ -255,6 +255,15 @@ void art_cache(FontBook& fonts, const std::filesystem::path& root) {
   check(art.status_text("-37", 0x00ff00U).image != a.image && art.status_text("-38", 0xff0000U).image != a.image,
         "color and text are part of the key");
   check(art.status_text("-37", 0xff000000U | 0xff0000U).image == a.image, "alpha byte of server colors is ignored");
+  const auto sign = art.sign_text("Realm|of|the Mad God", 100);
+  const auto sign_newlines = art.sign_text("Realm\nof\nthe Mad God", 100);
+  const auto single_line = art.sign_text("Realm of the Mad God", 100);
+  check(sign.image && sign.image->width > 0 && sign.height > single_line.height &&
+            sign.image->pixels == sign_newlines.image->pixels,
+        "sign text uses centered 24 px multiline font and maps vertical bars to line breaks");
+  check(art.sign_text("Realm|of|the Mad God", 100).image == sign.image &&
+            art.sign_text("Realm|of|the Mad God", 200).image != sign.image,
+        "sign text is cached by text and object size");
   // Names are 16 pt, status text 24 pt: the same string is taller as status text.
   check(art.name("-37").height < a.height && art.name("-37").image != a.image, "names use their own size");
   fonts.set_pixel_scale(2);

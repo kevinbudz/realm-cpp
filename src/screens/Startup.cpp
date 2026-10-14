@@ -4,6 +4,7 @@
 #include "realm/appengine/SavedCharactersList.hpp"
 #include "realm/map/World.hpp"
 #include <chrono>
+#include <charconv>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -33,6 +34,7 @@ Startup::Impl::Impl(const FontBook& fonts, const HudArt* art, const Catalog& cat
       root_(root),
       options_(std::move(options)),
       view_model_(fonts, art, catalog, options_.build_version) {
+  state_.editor_ = std::make_unique<EditorScreen>(catalog_, fonts_, root_, art_);
   if (options_.account_file.empty()) options_.account_file = account_path();
   auto logo = load_png(root_ / "src/kabam/rotmg/ui/view/TitleView_Logo.png");
   normalize_flash_png(logo);
@@ -109,9 +111,43 @@ void Startup::Impl::play(const SavedCharacter* character, int class_type) {
   } catch (const std::exception&) {
   }
   state_.launch_ = std::move(session);
+  state_.editor_test_ = false;
   state_.screen_ = Screen::entering;
   state_.loading_text_ = "Loading...";
   view_model_.invalidate();
+}
+void Startup::Impl::test_editor_map() {
+  if (!state_.editor_) return;
+  if (!state_.account_.registered()) {
+    state_.editor_->set_status("Map testing requires a registered account. Log in, then return to the editor.");
+    view_model_.invalidate();
+    return;
+  }
+  if (!state_.list_) {
+    state_.editor_->set_status("The character list is still loading. Try Test again in a moment.");
+    view_model_.invalidate();
+    return;
+  }
+  if (state_.list_->characters.empty()) {
+    state_.editor_->set_status("Create a character before testing a map.");
+    view_model_.invalidate();
+    return;
+  }
+  try {
+    auto map = state_.editor_->document().serialize();
+    play(&state_.list_->characters.front(), 0);
+    if (!state_.launch_) {
+      state_.editor_->set_status("Could not start map test. Check the account and character list.");
+      view_model_.invalidate();
+      return;
+    }
+    state_.launch_->game_id = -4;
+    state_.launch_->map_json = std::move(map);
+    state_.editor_test_ = true;
+  } catch (const std::exception& error) {
+    state_.editor_->set_status(error.what());
+    view_model_.invalidate();
+  }
 }
 void Startup::Impl::entered_game() {
   state_.session_changed();
@@ -133,6 +169,7 @@ void Startup::Impl::renamed_account(const std::string& name) {
   state_.invalidated_ = true;
 }
 void Startup::Impl::left_game(const std::string& message) {
+  const bool from_editor_test = state_.editor_test_;
   state_.session_changed();
   cancel_delete();
   clear_legends();
@@ -149,6 +186,15 @@ void Startup::Impl::left_game(const std::string& message) {
   if (state_.skins_) state_.skins_->close();
   state_.invalidated_ = true;
   state_.hovered_ = state_.pressed_ = -1;
+  if (from_editor_test) {
+    state_.editor_test_ = false;
+    state_.screen_ = Screen::editor;
+    if (state_.editor_)
+      state_.editor_->set_status(message.empty() ? "Map test ended. Edit the map or test it again."
+                                                 : "Map test ended: " + message);
+    view_model_.invalidate();
+    return;
+  }
   with_valid_data(Screen::characters);
   const auto notice =
       message + (message.empty() || state_.account_save_error_.empty() ? "" : "\n") + state_.account_save_error_;
@@ -198,7 +244,8 @@ void Startup::Impl::activate(int action) {
       if (state_.fresh_fame_)
         open_legends(true);
       else {
-        state_.screen_ = Screen::legends;
+        state_.screen_ = state_.fame_from_news_ ? Screen::characters : Screen::legends;
+        state_.fame_from_news_ = false;
         state_.fame_.reset();
         state_.fame_portrait_ = {};
         state_.fame_error_.clear();
@@ -245,6 +292,39 @@ void Startup::Impl::activate(int action) {
       }
     } else if (action >= legend_row_action && action < legend_row_action + 256)
       show_legend(static_cast<std::size_t>(action - legend_row_action));
+    return;
+  }
+  if (state_.screen_ == Screen::characters && state_.dialog_ == Dialog::none && state_.list_ && action >= news_action &&
+      action < news_action + 100) {
+    const auto index = static_cast<std::size_t>(action - news_action);
+    if (index >= state_.list_->news.size() || tasks_.busy()) return;
+    const auto& link = state_.list_->news[index].link;
+    if (link.starts_with("fame:")) {
+      int character_id{};
+      const auto value = std::string_view(link).substr(5);
+      const auto parsed = std::from_chars(value.data(), value.data() + value.size(), character_id);
+      if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || character_id <= 0) return;
+      state_.fame_account_id_ = state_.list_->account_id;
+      state_.fame_character_id_ = character_id;
+      ++state_.fame_generation_;
+      state_.fresh_fame_ = false;
+      state_.fame_from_news_ = true;
+      state_.fame_.reset();
+      state_.fame_portrait_ = {};
+      state_.fame_error_.clear();
+      state_.fame_attempts_ = 0;
+      state_.fame_skip_ = true;
+      state_.score_at_ = -1;
+      state_.fame_animation_frame_ = -1;
+      state_.fame_scroll_.focus_lost();
+      state_.retry_at_ = -1;
+      state_.screen_ = Screen::fame;
+      state_.hovered_ = state_.pressed_ = -1;
+      view_model_.invalidate();
+      request_fame();
+    } else if (link.starts_with("http://") || link.starts_with("https://")) {
+      state_.open_url_ = link;
+    }
     return;
   }
   if (action >= field_action) {
@@ -303,7 +383,11 @@ void Startup::Impl::activate(int action) {
       open_legends(false);
       return;
     case editor_action:
-      open_dialog(Dialog::message, "The map editor is not available in the C++ client yet.");
+      state_.screen_ = Screen::editor;
+      state_.dialog_ = Dialog::none;
+      state_.hovered_ = state_.pressed_ = -1;
+      if (state_.editor_) state_.editor_->set_status("Draw tiles, use the palette, then save or test your map.");
+      view_model_.invalidate();
       return;
     case buy_slot_action:
       if (!state_.account_.registered()) {
@@ -440,6 +524,10 @@ void Startup::Impl::perform(StartupAction action) {
     case StartupAction::Kind::account_logout:
       value = account_logout_action;
       break;
+    case StartupAction::Kind::news:
+      if (state_.list_ && action.index < std::min<std::size_t>(state_.list_->news.size(), 100))
+        value = news_action + static_cast<int>(action.index);
+      break;
     case StartupAction::Kind::sound:
       value = sound_action;
       break;
@@ -484,6 +572,13 @@ std::optional<std::string> Startup::take_skin_error() {
 const CharList* Startup::char_list() const { return impl_->state_.list_ ? &*impl_->state_.list_ : nullptr; }
 const StartupViewSnapshot& Startup::view() const { return impl_->view_model_.snapshot(); }
 void Startup::perform(StartupAction action) { impl_->perform(std::move(action)); }
+bool Startup::editor_event(const EditorInput& event) { return impl_->editor_event(event); }
+bool Startup::editor_covers(Vec2 point) const { return impl_->editor_covers(point); }
+bool Startup::editor_wants_text() const {
+  return impl_->state_.screen_ == startup_detail::Screen::editor && impl_->state_.editor_ &&
+         impl_->state_.editor_->wants_text();
+}
+bool Startup::editor_captured() const { return impl_->editor_captured(); }
 void Startup::set_field_value(std::size_t index, std::string value) { impl_->set_field_value(index, std::move(value)); }
 std::string Startup::field_value(std::size_t index) const { return impl_->field_value(index); }
 void Startup::acknowledge_sheet_upload(std::uint64_t revision) {
@@ -498,3 +593,7 @@ void Startup::play_click() { impl_->state_.sounds_.play("button_click"); }
 double Startup::death_fade(std::int32_t time_ms) const { return impl_->death_fade(time_ms); }
 
 }  // namespace realm
+
+namespace realm {
+std::optional<std::string> Startup::take_open_url() { return std::exchange(impl_->state_.open_url_, std::nullopt); }
+}

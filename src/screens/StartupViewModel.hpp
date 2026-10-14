@@ -53,6 +53,8 @@ class StartupViewModel {
   enum class Anchor { content, window };
   struct Element {
     HudRegion source{};
+    const Image* bitmap{};
+    std::uint64_t bitmap_revision{};
     // A hit element is the invisible input rectangle of its group.
     bool solid{}, pulse{}, full_width{}, hit{};
     std::array<float, 4> color{1, 1, 1, 1}, over{};
@@ -78,6 +80,7 @@ class StartupViewModel {
   Vec2 add_button(std::string_view label, int size, double x, double y, int action, bool pulse = false,
                   bool center = false);
   void add_image(const Image& image, double x, double y, double scale = 1, int group = -1);
+  void add_bitmap(const Image& image, std::uint64_t revision, double x, double y, double width, double height);
   void add_window_text(std::string_view value, int size, bool bold, std::uint32_t color, Vec2 anchor, Vec2 offset,
                        Vec2 pixels, bool align_right, bool align_bottom, int action = -1);
   void menu_frame(bool background);

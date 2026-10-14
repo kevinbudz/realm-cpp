@@ -13,6 +13,28 @@ void pop_utf8(std::string& value) {
 }
 }  // namespace
 
+bool Startup::Impl::editor_event(const EditorInput& event) {
+  if (state_.screen_ != Screen::editor || !state_.editor_) return false;
+  state_.editor_->handle(event);
+  if (state_.editor_->take_test_request())
+    test_editor_map();
+  else if (state_.editor_->take_exit_request()) {
+    state_.editor_->cancel_pointer();
+    state_.screen_ = Screen::title;
+    state_.dialog_ = Dialog::none;
+    state_.hovered_ = state_.pressed_ = -1;
+    view_model_.invalidate();
+  } else
+    view_model_.invalidate();
+  return true;
+}
+bool Startup::Impl::editor_covers(Vec2 point) const {
+  return state_.screen_ == Screen::editor && state_.editor_ && state_.editor_->covers(point);
+}
+bool Startup::Impl::editor_captured() const {
+  return state_.screen_ == Screen::editor && state_.editor_ && state_.editor_->captured();
+}
+
 void Startup::Impl::pointer_move(Vec2 position) {
   state_.character_pointer_ = position;
   state_.character_pointer_valid_ = true;
@@ -53,8 +75,8 @@ void Startup::Impl::pointer_move(Vec2 position) {
     const bool rank = over == rank_action || state_.hovered_ == rank_action;
     state_.hovered_ = over;
     view_model_.request_refresh();
-    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters || state_.screen_ == Screen::classes ||
-        rank)
+    if (state_.screen_ == Screen::legends || state_.screen_ == Screen::characters ||
+        state_.screen_ == Screen::classes || rank)
       view_model_.invalidate();
   }
   if (state_.screen_ == Screen::skins && state_.dialog_ == Dialog::none && state_.skins_)
@@ -162,6 +184,7 @@ void Startup::Impl::pointer_up(Vec2 position) {
   }
 }
 void Startup::Impl::cancel_pointer() {
+  if (state_.editor_) state_.editor_->cancel_pointer();
   state_.character_pointer_valid_ = false;
   if (state_.delete_dialog_.visible()) {
     state_.delete_dialog_.focus_lost();

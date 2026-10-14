@@ -1,11 +1,13 @@
 #include "realm/util/Telemetry.hpp"
 #include "realm/map/Scene.hpp"
+#include "realm/engine3d/ConnectedObjects.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/objects/Movement.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <utility>
 namespace realm {
 namespace {
 std::array<float, 2> floats(Vec2 v) { return {static_cast<float>(v.x), static_cast<float>(v.y)}; }
@@ -439,6 +441,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     appearances_.clear();
     appearance_index_.clear();
     webs_.clear();
+    connected_geometries_.clear();
+    connected_geometry_lru_.clear();
     status_surfaces_.clear();
     status_list_.clear();
     status_surface_bytes_ = 0;
@@ -592,7 +596,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     // GameObject/Player.getTexture: while the focus player hallucinates, every ordinary object draws a random
     // lofiChar8x8 tile (stable per object); non-players are scaled by min(1.5, original width / 8).
     if (hallucinating && !e.projectile && !d.draw_on_ground && d.model.empty() && d.class_name != "Wall" &&
-        hallucination_sheet >= 0) {
+        d.class_name != "ConnectedWall" && d.class_name != "CaveWall" && d.class_name != "Sign" &&
+        d.class_name != "Stalagmite" && hallucination_sheet >= 0) {
       hallucinated = TextureDef{};
       hallucinated.sheet = hallucination_sheet;
       hallucinated.index = static_cast<int>(static_cast<std::uint32_t>(e.id) * 2654435761U % 239U);
@@ -604,6 +609,90 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas, const 
     if (d.draw_on_ground) {
       out.push_back(
           ground_quad(sprite, {std::floor(e.motion.position.x), std::floor(e.motion.position.y)}, camera, e.motion.z));
+      return;
+    }
+    if (d.class_name == "Sign") {
+      if (!status_art_ || e.profile.name.empty()) return;
+      const auto label = status_art_->sign_text(e.profile.name, e.appearance.size);
+      if (!label.image) return;
+      const double scale = 5 * e.appearance.size / 100.0 * zoom;
+      const double w = label.width * scale, h = label.height * scale;
+      const auto at = camera.world_to_screen(e.motion.position);
+      const Vec2 origin{at.x - w / 2 + label.offset.x * scale, at.y - h / 2 + label.offset.y * scale};
+      if (const auto region = resident_label(label.image, atlas)) {
+        auto q = sprite_quad(*region, origin, {w, 0}, {0, h});
+        q.kind = 6;
+        flash_tint(q, e);
+        condition_tint(q, e);
+        out.push_back(std::move(q));
+      } else {
+        const auto surface = status_surface(label.image);
+        auto q = surface->quad(origin, {w, 0}, {0, h}, 0, 0, label.image->width, label.image->height);
+        q.kind = 6;
+        q.owner = surface;
+        flash_tint(q, e);
+        condition_tint(q, e);
+        out.push_back(std::move(q));
+      }
+      return;
+    }
+    if (d.class_name == "ConnectedWall" || d.class_name == "CaveWall") {
+      const auto found = e.profile.stats.find(static_cast<std::uint8_t>(flash::StatId::CONNECT_STAT));
+      const int tile_x = static_cast<int>(std::floor(e.motion.position.x));
+      const int tile_y = static_cast<int>(std::floor(e.motion.position.y));
+      const auto connect_stat = found != e.profile.stats.end()
+                                    ? static_cast<std::uint32_t>(found->second)
+                                    : connected_object_connections(world, e.type, tile_x, tile_y);
+      const auto seed = static_cast<std::uint32_t>(e.id) * 2654435761U ^ static_cast<std::uint32_t>(tile_x) * 1259U ^
+                        static_cast<std::uint32_t>(tile_y) * 2957U;
+      auto cached = connected_geometries_.find(e.id);
+      if (cached == connected_geometries_.end() || cached->second.type != e.type ||
+          cached->second.connect_stat != connect_stat || cached->second.tile_x != tile_x ||
+          cached->second.tile_y != tile_y || cached->second.seed != seed) {
+        if (cached != connected_geometries_.end()) {
+          connected_geometry_lru_.erase(cached->second.lru);
+          connected_geometries_.erase(cached);
+        }
+        if (connected_geometries_.size() >= maximum_connected_geometries) {
+          const auto victim = connected_geometry_lru_.back();
+          connected_geometry_lru_.pop_back();
+          connected_geometries_.erase(victim);
+        }
+        connected_geometry_lru_.push_front(e.id);
+        auto geometry = connected_object_geometry(d, connect_stat, tile_x, tile_y, seed);
+        cached = connected_geometries_
+                     .emplace(e.id, ConnectedGeometryCacheEntry{e.type, connect_stat, seed, tile_x, tile_y,
+                                                                std::move(geometry), connected_geometry_lru_.begin()})
+                     .first;
+      } else {
+        connected_geometry_lru_.splice(connected_geometry_lru_.begin(), connected_geometry_lru_, cached->second.lru);
+        cached->second.lru = connected_geometry_lru_.begin();
+      }
+      const auto& geometry = cached->second.geometry;
+      if (geometry.shape == ConnectedShape::none) return;
+      const Vec2 object_position = e.motion.position;
+      const double rotation = geometry.rotation * 90.0;
+      if (const auto mesh = project_object_faces(geometry.faces, 0, sprite, camera, object_position, 0, rotation,
+                                                 &world, tile_x, tile_y, true))
+        out.push_back(mesh_quad(mesh));
+      if (d.class_name == "ConnectedWall") {
+        const auto index = static_cast<std::size_t>(geometry.shape) - 1;
+        const auto& cap = d.connected_textures[index];
+        const bool has_cap = cap.sheet >= 0 || cap.animated >= 0 || !cap.random.empty();
+        const auto cap_sprite =
+            has_cap ? texture(cap, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations) : sprite;
+        if (const auto mesh = project_object_faces(geometry.faces, 1, cap_sprite, camera, object_position, 0, rotation,
+                                                   &world, tile_x, tile_y, true))
+          out.push_back(mesh_quad(mesh));
+      }
+      return;
+    }
+    if (d.class_name == "Stalagmite") {
+      const auto seed = static_cast<std::uint32_t>(e.id) * 2654435761U ^ 0x7f4a7c15U;
+      const auto geometry = stalagmite_geometry(seed);
+      if (const auto mesh =
+              project_object_faces(geometry, 0, sprite, camera, e.motion.position, 0, d.rotation, nullptr, 0, 0, false))
+        out.push_back(mesh_quad(mesh));
       return;
     }
     if (d.class_name == "Wall") {

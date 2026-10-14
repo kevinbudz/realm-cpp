@@ -10,6 +10,8 @@
 #include "realm/ui/Trade.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
+#include "realm/ui/tooltip/QuestToolTip.hpp"
+#include "realm/tutorial/TutorialView.hpp"
 #include "realm/screens/Startup.hpp"
 #include "realm/game/view/CreditDisplay.hpp"
 #include "realm/game/view/SafeAreaDisplay.hpp"
@@ -97,7 +99,8 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
       const bool hover_enabled = !cs.dialog.visible() && !cs.board.visible() && !cs.members.visible() &&
                                  !(cs.skins && cs.skins->visible()) && cs.tooltip_pointer_valid && !cs.hud_mouse_down &&
                                  !cs.interaction.visible() && !cs.trade.active() && !cs.trade.request() &&
-                                 cs.game_session && cs.game_session->state() == realm::SessionState::playing;
+                                 !cs.guild_invite.invitation() && cs.game_session &&
+                                 cs.game_session->state() == realm::SessionState::playing;
       if (cs.game_session)
         cs.party_hover.update(cs.world, cs.game_session->party(), state, cs.hud_view, cs.hud_input.pointer(),
                               hover_enabled, time);
@@ -125,8 +128,9 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
                                 ? realm::HudState::Header::Button::nexus
                                 : realm::HudState::Header::Button::options;
       state.header.hover = !cs.trade.active() && cs.tooltip_pointer_valid && !cs.hud_mouse_down &&
-                           !cs.options_screen.visible() && !cs.dialog.visible() && !cs.board.visible() &&
-                           !cs.members.visible() && !(cs.skins && cs.skins->visible()) && !cs.interaction.visible() &&
+                           !cs.trade.request() && !cs.guild_invite.invitation() && !cs.options_screen.visible() &&
+                           !cs.dialog.visible() && !cs.board.visible() && !cs.members.visible() &&
+                           !(cs.skins && cs.skins->visible()) && !cs.interaction.visible() &&
                            realm::HudInput::button_at(realm::header_button, cs.hud_input.pointer());
       const auto panel_button = state.panel_button(cs.fonts);
       const bool hovered =
@@ -156,7 +160,8 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
               target = realm::item_tooltip_target(
                   cs.world, realm::InventoryItem{items.at(static_cast<std::size_t>(slot)).item, -1},
                   realm::TooltipOwner::other_player);
-          } else if (!(cs.trade.request() && pointer.y >= realm::TradeView::request_top))
+          } else if (!((cs.trade.request() || cs.guild_invite.invitation()) &&
+                       pointer.y >= realm::TradeView::request_top))
             target = realm::item_tooltip_target(cs.world, state, pointer);
         }
         if (target) target->use_special = cs.settings.get("useSpecial");
@@ -226,6 +231,17 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
       q.kind = 5;
       overlay_storage[overlay.size()] = q;
       overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+      if (cs.keys_view.visible()) {
+        if (cs.keys_revision != cs.keys_view.revision() || cs.keys_density != ui_scale) {
+          cs.keys_texture.update(realm::render_keys_view(cs.keys_view, ui_scale));
+          cs.keys_revision = cs.keys_view.revision();
+          cs.keys_density = ui_scale;
+        }
+        overlay_storage[overlay.size()] =
+            cs.keys_texture.quad({realm::keys_view_margin * ui_scale, realm::keys_view_margin * ui_scale},
+                                 {176 * ui_scale, 0}, {0, 36 * ui_scale});
+        overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+      }
       if (cs.hud_art) {
         const int credits = player->profile.stats.value_or(realm::flash::StatId::CREDITS_STAT, 0),
                   fame = player->profile.stats.value_or(realm::flash::StatId::FAME_STAT, 0);
@@ -268,6 +284,15 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
                                                                {width - 196 * ui_scale, 4 * ui_scale}, ui_scale);
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
+      if (cs.tutorial) {
+        const auto strokes = cs.tutorial->update(cs.world, time);
+        if (!strokes.empty()) {
+          cs.tutorial_texture.update(realm::render_tutorial(strokes, time));
+          overlay_storage[overlay.size()] =
+              cs.tutorial_texture.quad({width - 800 * ui_scale, 0}, {800 * ui_scale, 0}, {0, 600 * ui_scale});
+          overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+        }
+      }
       if (cs.trade_view) {
         cs.trade.update(time);
         if (cs.trade_view->update(cs.trade, cs.hud_input.pointer(), time)) {
@@ -287,6 +312,19 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
           overlay_storage[overlay.size()] = trade_quad;
           overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
         }
+      }
+      // HUDView hides the interaction panel throughout a live trade. Its override stays queued and is shown when
+      // the trade ends, provided its 20-second invitation timer has not expired.
+      if (cs.guild_invite_view && cs.guild_invite.invitation() && !cs.trade.active()) {
+        if (cs.guild_invite_view->update(cs.guild_invite, cs.hud_input.pointer()))
+          cs.guild_invite_texture.update(cs.guild_invite_view->image());
+        const auto& image = cs.guild_invite_view->image();
+        const auto invite_quad = cs.guild_invite_texture.quad(
+            {width - realm::GuildInviteView::width * ui_scale, realm::GuildInvite::override_top * ui_scale},
+            {realm::GuildInviteView::width * ui_scale, 0}, {0, realm::GuildInvite::override_height * ui_scale}, 0, 0,
+            image.width, image.height);
+        overlay_storage[overlay.size()] = invite_quad;
+        overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
       if (cs.hud_art && cs.hud_input.dragging() >= 0) {
         const auto slot = static_cast<std::size_t>(cs.hud_input.dragging());
@@ -370,6 +408,7 @@ void build_group_overlays(ClientState& cs, const Options& o, Frame& f) {
     if (!enabled) {
       cs.player_group->close();
       cs.party_arrows.reset();
+      cs.quest_arrow.reset();
     } else {
       cs.party_arrows.update(cs.world, cs.game_session->party(), cs.camera, screen_pointer, cs.tooltip_pointer_valid,
                              width, height);
@@ -392,6 +431,54 @@ void build_group_overlays(ClientState& cs, const Options& o, Frame& f) {
         overlay_storage[overlay.size()] = quad;
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
+      // PartyOverlay draws its QuestArrow after the party arrows, so the quest arrow and tooltip sit on top of them.
+      cs.quest_arrow.update(cs.world, cs.game_session->quest(), cs.camera, screen_pointer, cs.tooltip_pointer_valid,
+                            width, height, time);
+      if (cs.quest_arrow.visible()) {
+        const double density = std::max(1.0, cs.camera.scale());
+        const double rotation = cs.quest_arrow.rotation();
+        if (cs.quest_arrow_density != density || cs.quest_arrow_rotation != rotation) {
+          cs.quest_arrow_texture.update(realm::QuestArrow::image(rotation, density));
+          cs.quest_arrow_density = density;
+          cs.quest_arrow_rotation = rotation;
+        }
+        const double a_scale = cs.camera.scale();
+        const auto arrow = cs.quest_arrow.position();
+        const auto quad = cs.quest_arrow_texture.quad(
+            {arrow.x - realm::GameObjectArrow::origin * a_scale, arrow.y - realm::GameObjectArrow::origin * a_scale},
+            {realm::GameObjectArrow::canvas_size * a_scale, 0}, {0, realm::GameObjectArrow::canvas_size * a_scale});
+        overlay_storage[overlay.size()] = quad;
+        overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+      }
+      if (cs.quest_arrow.visible() && cs.quest_arrow.tooltip() != realm::QuestArrow::Tooltip::none)
+        if (const auto target = realm::quest_target(cs.world, cs.quest_arrow.target())) {
+          // The tooltip draws in its own scale, as the party arrow's group tooltip does.
+          const double tip_scale = scale * cs.camera.scale();
+          const auto kind = cs.quest_arrow.tooltip();
+          const auto show = [&](auto& tip) {
+            cs.fonts.set_pixel_scale(tip_scale);
+            const bool changed = tip.update(*target);
+            cs.fonts.set_pixel_scale(scale);
+            if (changed || cs.quest_tooltip_kind != kind) {
+              cs.quest_tooltip_texture.update(tip.image());
+              cs.quest_tooltip_kind = kind;
+            }
+            const auto content = realm::GameObjectArrow::tooltip_position(
+                cs.quest_arrow.position(), cs.quest_arrow.rotation(), tip.content_width() * tip_scale,
+                tip.content_height() * tip_scale, cs.camera.scale());
+            const auto quad =
+                cs.quest_tooltip_texture.quad({content.x - realm::QuestToolTip::origin * tip_scale,
+                                               content.y - realm::QuestToolTip::origin * tip_scale},
+                                              {tip.canvas_width() * tip_scale, 0}, {0, tip.canvas_height() * tip_scale},
+                                              0, 0, tip.image().width, tip.image().height);
+            overlay_storage[overlay.size()] = quad;
+            overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+          };
+          if (kind == realm::QuestArrow::Tooltip::portrait)
+            show(*cs.portrait_tooltip);
+          else
+            show(*cs.quest_tooltip);
+        }
     }
     if (enabled && cs.player_group->menu()) {
       if (cs.player_group->refresh_appearance(cs.world)) cs.group_texture.update(cs.player_group->image());

@@ -13,6 +13,7 @@
 
 namespace realm {
 class Catalog;
+struct EditorInput;
 class FontBook;
 class HudArt;
 class SoundCues;
@@ -52,7 +53,8 @@ struct StartupAction {
     legend_row,
     delete_character,
     account_logout,
-    sound
+    sound,
+    news
   };
   Kind kind{Kind::none};
   std::size_t index{};
@@ -68,6 +70,8 @@ struct StartupFieldSnapshot {
 };
 struct StartupElementSnapshot {
   HudRegion source{};
+  const Image* bitmap{};
+  std::uint64_t bitmap_revision{};
   Vec2 position{}, size{}, text_position{}, pulse_center{};  // Drawable pixels.
   std::array<float, 4> color{1, 1, 1, 1}, font_color{1, 1, 1, 1}, hover_color{};
   std::optional<StartupAction> action;
@@ -85,7 +89,7 @@ struct StartupViewSnapshot {
   std::vector<HudRegion> sheet_dirty;
   std::size_t dialog_insertion{};
   bool characters{}, classes{}, busy{}, menus{}, dialog{}, skin_visible{}, skin_modal_input{}, fame{}, legends{},
-      deletion{};
+      editor{}, deletion{};
   const Image* skin_image{};
   std::uint64_t skin_revision{};
   std::vector<HudRegion> skin_dirty;
@@ -131,10 +135,16 @@ class Startup {
   [[nodiscard]] const StartupViewSnapshot& view() const;
   // Typed action entry point used by the RmlUi view.
   void perform(StartupAction action);
+  // Headless map-editor input is normalized by the UI adapter before crossing this boundary.
+  [[nodiscard]] bool editor_event(const EditorInput& event);
+  [[nodiscard]] bool editor_covers(Vec2 point) const;
+  [[nodiscard]] bool editor_wants_text() const;
+  [[nodiscard]] bool editor_captured() const;
   // SoundIcon: the app mirrors Parameters.playSFX here each frame, and takes the value a click asked for, which it
   // stores as playSFX and playPewPew.
   void set_play_sfx(bool play_sfx);
   [[nodiscard]] std::optional<bool> take_play_sfx();
+  [[nodiscard]] std::optional<std::string> take_open_url();
   // Keep the controller's credential and validation model synchronized with an editable RmlUi input.
   void set_field_value(std::size_t index, std::string value);
   [[nodiscard]] std::string field_value(std::size_t index) const;

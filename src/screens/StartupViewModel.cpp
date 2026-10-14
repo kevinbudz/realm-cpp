@@ -20,7 +20,6 @@ namespace {
 constexpr std::uint32_t white = 0xffffff, gray = 11776947, dark_line = 5526612;
 constexpr std::array<float, 4> over_text{1, 220.0F / 255, 133.0F / 255, 1};
 constexpr int frame_width = 288, register_width = 326;
-constexpr double portrait_inset = 5, portrait_content = 34;
 std::array<float, 4> rgba(std::uint32_t color, double alpha = 1) {
   return {static_cast<float>((color >> 16U) & 255U) / 255, static_cast<float>((color >> 8U) & 255U) / 255,
           static_cast<float>(color & 255U) / 255, static_cast<float>(alpha)};
@@ -296,11 +295,15 @@ void StartupViewModel::add_window_text(std::string_view value, int size, bool bo
   }
 }
 void StartupViewModel::menu_frame(bool background) {
+  menu_backdrop(background);
+  menu_bottom_bar();
+}
+void StartupViewModel::menu_backdrop(bool background) {
   const auto window = [&](Element& e) {
     e.anchor = Anchor::window;
     e.full_width = true;
   };
-  // MenuBackground dims the scrolling map and holds the SoundIcon; MenuFrame adds the glow band and the bar.
+  // MenuBackground dims the scrolling map and holds the SoundIcon; MenuFrame adds the glow band, then the bar.
   if (background) window(add_solid(0, 0, 0, 600, 0x2B2B2B, .8));
   if (background && art_) sound_icon();
   Element glow;
@@ -309,7 +312,11 @@ void StartupViewModel::menu_frame(bool background) {
   glow.size = {0, 80};
   window(glow);
   elements_.push_back(glow);
-  window(add_solid(0, 524, 0, 52, 0x545454));
+}
+void StartupViewModel::menu_bottom_bar() {
+  auto& bar = add_solid(0, 524, 0, 52, 0x545454);
+  bar.anchor = Anchor::window;
+  bar.full_width = true;
 }
 void StartupViewModel::sound_icon() {
   // SoundIcon: the speaker at the window's top-left corner. Its image carries the 8-pixel glow around the icon.
@@ -411,7 +418,7 @@ void StartupViewModel::fame_screen(StartupScreenState& state, bool busy) {
   if (death_fade(state, state.time_) == 0) add_button("continue", 36, 0, 520, back_action, false, true);
 }
 void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
-  menu_frame(true);
+  menu_backdrop(true);
   add_text("Legends", 32, true, gray, (800 - fonts_.layout("Legends", 32, true).width) / 2, 24);
   auto& divider = add_solid(0, 99, 0, 2, dark_line);
   divider.anchor = Anchor::window;
@@ -427,7 +434,12 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
                            0, 0, action);
     area.hit = true;
   }
-  add_button("done", 36, 0, 524, back_action, false, true);
+  // The bottom bar and done button draw over the list's lower edge, so they are emitted after the list. Being last,
+  // the done button also wins hit tests over the rows.
+  const auto finish = [&] {
+    menu_bottom_bar();
+    add_button("done", 36, 0, 524, back_action, false, true);
+  };
   const auto message = [&](std::string_view value, int size, double y) {
     while (size > 12 && fonts_.layout(value, size, true).width > 744) --size;
     add_text(value, size, true, gray, (800 - fonts_.layout(value, size, true).width) / 2, y);
@@ -442,10 +454,12 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
       else
         add_button("retry", 28, 0, 365, play_action, false, true);
     }
+    finish();
     return;
   }
   if (rows->empty()) {
     message("No legends yet", 22, 286);
+    finish();
     return;
   }
   // Compose only the clipped viewport, never an unbounded bitmap of all rows.
@@ -512,8 +526,12 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
         }
       }
     }
-    auto& area = add_solid(10, 110 + std::max(y, 0.0), 756, std::min(y + 56, 430.0) - std::max(y, 0.0), 0, 0, action);
-    area.hit = true;
+    // Rows stop at the bottom bar (window y 524), so the bar covers their lower edge without taking clicks.
+    const double first = std::max(y, 0.0), last = std::min({y + 56, 430.0, 524.0 - 110.0});
+    if (last > first) {
+      auto& area = add_solid(10, 110 + first, 756, last - first, 0, 0, action);
+      area.hit = true;
+    }
   }
   add_image(panel, 10, 110, 1 / panel.pixel_scale);
   if (rows->size() * 56 > 400) {
@@ -521,6 +539,7 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
     state.legends_scroll_.draw(scroll, {0, 0});
     add_image(scroll, 780, 104, 1 / scroll.pixel_scale);
   }
+  finish();
 }
 void StartupViewModel::account_header(const StartupScreenState& state) {
   // AccountScreen anchors WebAccountInfoView 10 pixels from the right edge,
@@ -649,13 +668,13 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
       hit_area.hit = true;
       return top;
     };
+    // CurrentCharacterRect's icon: CharacterFactory.makeIcon, the right-facing stand frame at size 100 with its
+    // outline, cropped by 6 pixels on the sides and top, drawn at the row origin.
     const auto portrait = [&](int type, double top, int skin = 0, int tex1 = 0, int tex2 = 0) {
-      if (art_) {
-        auto icon = art_->portrait(type, skin, static_cast<std::uint32_t>(tex1), static_cast<std::uint32_t>(tex2));
-        icon.pixel_scale /= 1.25;
-        ui_blit(panel, icon, 4 - portrait_inset * 1.25,
-                top + (59 - portrait_content * 1.25) / 2 - portrait_inset * 1.25, true, true);
-      }
+      if (!art_) return;
+      const auto icon =
+          art_->fame_portrait(type, skin, static_cast<std::uint32_t>(tex1), static_cast<std::uint32_t>(tex2), 100);
+      ui_blit(panel, icon, 0, top, true, true);
     };
     const auto quest = [&](std::string_view label, double top) {
       double icon_width = 12;
@@ -693,7 +712,12 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
     for (int i = 0; i < state.list_->available_slots(); ++i) {
       const double top = rect(5526612, 7829367, new_character_action);
       if (top < -900) continue;
-      portrait(state.new_character_type_, top);
+      if (art_) {
+        // CreateNewCharacterRect: the same icon through SavedCharacter.getImage's dimmed ColorTransform(0, 0, 0, .5).
+        auto silhouette = art_->fame_portrait(state.new_character_type_, 0, 0, 0, 100);
+        flash_draw::color_transform(silhouette, {0, 0, 0, .5});
+        ui_blit(panel, silhouette, 0, top, true, true);
+      }
       text("New Character", 18, true, white, 58, top);
       const int remaining = static_cast<int>(state.player_types_.size()) * 5 - state.list_->stars();
       if (remaining > 0) quest(std::to_string(remaining) + " Class quests not yet completed", top);
@@ -707,7 +731,8 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
       ui_rectangle(plus, 12, 18, 16, 4, 2039583);
       ui_rectangle(plus, 18, 12, 4, 16, 2039583);
       ui_blit(panel, plus, 6, top + 6, true, true);
-      if (art_) ui_blit(panel, art_->image("skinfame"), 356 - 43, top + 18, true, true);
+      // BuyCharacterRect's currency_: IconFactory.makeFame, the 20 pixel cropped fame icon at (WIDTH - 43, 18).
+      if (art_) ui_blit(panel, art_->image("currency1"), 356 - 43, top + 18, true, true);
       text("Buy " + ordinal(state.list_->max_num_chars + 1) + " Character Slot", 18, true, white, 58, top + 2);
       text("2000", 18, false, white, 356 - 43 - fonts_.layout("2000", 18, false).width, top + 15);
     }
@@ -783,10 +808,12 @@ void StartupViewModel::class_screen(const StartupScreenState& state) {
   for (std::size_t i = 0; i < state.player_types_.size(); ++i) {
     const int type = state.player_types_[i], action = class_action + static_cast<int>(i);
     const double x = 50 + 140 * static_cast<double>(i % 5) + 70 - box / 2, y = 88 + 140 * static_cast<double>(i / 5);
+    // The frame's origin lands on whole pixels: Flash's x is half a pixel past it, and its y is already whole.
+    const double frame_x = x - .5;
     const auto* def = catalog_.object(static_cast<std::uint16_t>(type));
     const std::string name = def ? def->id : "Unknown";
     if (art_) {
-      add_image(straight(art_->image("classbox")), x - .5, y - .5, 1, action);
+      add_image(straight(art_->image("classbox")), frame_x, y, 1, action);
       elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
       // CharacterBox.setImage centers the portrait on the frame's middle at the top of the box.
       const auto& portrait = art_->image("classportrait" + std::to_string(type));
@@ -802,7 +829,7 @@ void StartupViewModel::class_screen(const StartupScreenState& state) {
       add_image(straight(stars), x + box / 2 - stars.width / 2.0, y + 60 - star_margin, 1, action);
       elements_.back().over = {1.2F, 1.2F, 1.2F, 1};
     }
-    auto& h = add_solid(x - .5, y - .5, box, box, 0, 0, action);
+    auto& h = add_solid(frame_x, y, box, box, 0, 0, action);
     h.hit = true;
   }
   // CharacterBox.getTooltip, shown while the pointer is over a box.
@@ -825,9 +852,11 @@ void StartupViewModel::skin_screen(const StartupScreenState& state) {
   const auto first = elements_.size();
   const bool available = state.list_ && state.list_->available_slots() > 0;
   add_button("play", 36, 0, 520, available ? play_action : -1, false, true);
+  // TitleMenuOption.deactivate: the label alone is tinted 0x363636, with no hover tint. The hit area stays transparent.
   if (!available)
     for (auto i = first; i < elements_.size(); ++i) {
-      elements_[i].color = rgba(0x363636);
+      if (elements_[i].hit) continue;
+      elements_[i].font_color = rgba(0x363636);
       elements_[i].over = {};
     }
   add_button("back", 22, 30, 534, back_action);

@@ -71,7 +71,8 @@ std::optional<TextBitmap> tier_bitmap(const FontBook& fonts, const ObjectDef& it
     if (activation.text() == "PermaPet") return {};
   const bool set = !item.xml.attribute("setType").empty();
   const auto label = item.tier >= 0 ? "T" + std::to_string(item.tier) : set ? "ST" : "UT";
-  return fonts.rasterize_glow(label, 12, true, item.tier >= 0 ? 0xffffffU : set ? 0xff9900U : 0x8a2be2U);
+  // ItemTile tier tag: GlowFilter(0,1,2,2,10), blur 2 and strength 10.
+  return fonts.rasterize_glow(label, 12, true, item.tier >= 0 ? 0xffffffU : set ? 0xff9900U : 0x8a2be2U, 10, 2);
 }
 void Hud::tier(const ObjectDef& item, int x, int y) {
   if (auto label = tier_bitmap(fonts_, item)) draw(*label, x + 40 - label->width, y + 24);

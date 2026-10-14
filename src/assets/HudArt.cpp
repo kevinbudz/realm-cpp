@@ -820,12 +820,14 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry) const {
     fd::drop_shadow(image, 0, 0, 0, 1, 4, 4, 1);
     return image;
   }
-  // NewCharacterScreen's CharacterBox frame: FullCharBoxGraphic's sprite places its shape at (-16, -13), so the art
-  // covers -0.5 to 104.5 around the box origin, and the canvas starts half a pixel before it.
+  // NewCharacterScreen's CharacterBox frame: FullCharBoxGraphic's fill and 1 pixel stroke lie on the whole box pixels
+  // 0 to 104 (load_swf_shape's bounds add the stroke's half pixel, -0.5 to 104.5). fd::stroke already places odd whole
+  // pixel strokes on the pixel below and right of their path, so the canvas origin is the box origin. An extra half
+  // pixel here would split every stroke across two pixels.
   if (key == "classbox") {
     if (dry) return Image{};
     auto image = fd::canvas(105, 105);
-    fd::draw_shape(image, s.box_shape(), -15.5, -12.5);
+    fd::draw_shape(image, s.box_shape(), 0, 0);
     return image;
   }
   // CharacterBox.getStars: five StarGraphic symbols, the first N at fullCT (.8) and the rest at emptyCT (.2), under

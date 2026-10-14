@@ -84,6 +84,8 @@ class StartupViewModel {
   void add_window_text(std::string_view value, int size, bool bold, std::uint32_t color, Vec2 anchor, Vec2 offset,
                        Vec2 pixels, bool align_right, bool align_bottom, int action = -1);
   void menu_frame(bool background);
+  void menu_backdrop(bool background);
+  void menu_bottom_bar();
   void sound_icon();
   void loading_screen(std::string_view text);
   void fame_screen(StartupScreenState& state, bool busy);

@@ -43,7 +43,7 @@ class StatusArt {
     Label label;
     std::list<std::string>::iterator lru;
   };
-  Label label(std::string key, std::string_view text, int size, std::uint32_t color, unsigned strength);
+  Label label(std::string key, std::string_view text, int size, std::uint32_t color, unsigned strength, double blur);
   const FontBook& fonts_;
   const Appearances* appearances_;
   bool text_{true};

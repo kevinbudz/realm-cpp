@@ -208,21 +208,24 @@ TextBitmap FontBook::rasterize_at_scale(std::string_view text, int size, double 
     throw std::invalid_argument("Invalid animated font density or phase");
   return rasterize_native(text, size, bold, shadow, color, 0, 0, 1, 0, 0, scale, pixel_phase);
 }
-TextBitmap FontBook::rasterize_glow(std::string_view text, int size, bool bold, std::uint32_t color,
-                                    unsigned strength) const {
+TextBitmap FontBook::rasterize_glow(std::string_view text, int size, bool bold, std::uint32_t color, unsigned strength,
+                                    double blur) const {
+  if (!std::isfinite(blur) || blur <= 0 || blur > 16) throw std::invalid_argument("Invalid glow blur");
   const double scale = pixel_scale_;
-  auto render = [this, text = std::string(text), size, bold, color, strength, scale](Vec2 pp) {
-    constexpr double padding = 2;
+  auto render = [this, text = std::string(text), size, bold, color, strength, blur, scale](Vec2 pp) {
+    // The glow reaches blur/2 logical pixels past the ink; padding=ceil(blur) keeps that reach inside the bitmap.
+    const double padding = std::ceil(blur);
     // The glyph origin sits padding+pp inside the bitmap: whole pixels placed by the blit, remainder by the glyphs.
     const double dx = padding * scale + pp.x, dy = padding * scale + pp.y, nx = std::floor(dx), ny = std::floor(dy);
     const auto core = rasterize_at_scale(text, size, scale, bold, false, color, {dx - nx, dy - ny});
-    TextBitmap result{ui_image(core.image.width / scale + padding * 2 + pp.x / scale,
+    // One extra column on the right: auto-sized glyph ink and glow are not cut by the bitmap edge.
+    TextBitmap result{ui_image(core.image.width / scale + padding * 2 + 2 + pp.x / scale,
                                core.image.height / scale + padding * 2 + pp.y / scale, scale),
                       {-padding, -padding},
                       core.width,
                       core.height};
     ui_blit(result.image, core.image, nx / scale, ny / scale, false, true);
-    finish(result.image, true, strength, 2);
+    finish(result.image, true, strength, blur);
     return result;
   };
   auto result = render({});
@@ -320,9 +323,10 @@ TextBitmap FontBook::rasterize_native(std::string_view text, int size, bool bold
     for (unsigned row = 0; row < bitmap.rows; ++row)
       for (unsigned col = 0; col < bitmap.width; ++col) {
         const int px = ox + static_cast<int>(col), py = oy + static_cast<int>(row);
+        // Fixed fields keep a 2 px gutter on the right and bottom; auto-sized text is clipped by its bitmap only.
         if (px < padding * s + pixel_phase.x || py < padding * s + pixel_phase.y ||
-            px >= (padding + w - 2 + phase) * s + pixel_phase.x ||
-            py >= (padding + h - 2 + vertical_phase) * s + pixel_phase.y || px < 0 || py < 0 ||
+            (field_width > 0 && px >= (padding + w - 2 + phase) * s + pixel_phase.x) ||
+            (field_height > 0 && py >= (padding + h - 2 + vertical_phase) * s + pixel_phase.y) || px < 0 || py < 0 ||
             px >= result.image.width || py >= result.image.height)
           continue;
         const auto dst = (static_cast<std::size_t>(py) * static_cast<std::size_t>(result.image.width) +
@@ -520,9 +524,12 @@ TextBitmap FontBook::rasterize(std::string_view text, int size, bool bold, bool 
                     run.height};
   result.image.pixels.resize(static_cast<std::size_t>(result.image.width) *
                              static_cast<std::size_t>(result.image.height) * 4);
+  // Auto-sized text (zero field size) is clipped by its bitmap only; fixed fields keep a 2 px gutter.
+  const double right = field_width ? width - 2 + phase : width + padding,
+               bottom = field_height ? height - 2 + vertical_phase : height + padding;
   for (const auto& glyph : run.glyphs)
     composite(result.image, image(glyph.image), static_cast<int>(glyph.position.x), static_cast<int>(glyph.position.y),
-              padding, width - 2 + phase, height - 2 + vertical_phase, color);
+              padding, right, bottom, color);
   finish(result.image, shadow, shadow_strength);
   return result;
 }
@@ -589,9 +596,10 @@ TextBitmap FontBook::rasterize_spans(std::span<const TextSpan> spans, int size, 
                     combined.height};
   result.image.pixels.resize(static_cast<std::size_t>(result.image.width) *
                              static_cast<std::size_t>(result.image.height) * 4);
+  // Auto-sized spans, like auto-sized text, are clipped by their bitmap only.
   for (const auto& glyph : combined.glyphs)
     composite(result.image, image(glyph.image), static_cast<int>(glyph.position.x), static_cast<int>(glyph.position.y),
-              padding, w - 2, h - 2, color);
+              padding, w + padding, h + padding, color);
   finish(result.image, shadow, 1);
   return result;
 }

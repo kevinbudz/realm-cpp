@@ -83,8 +83,10 @@ class FontBook {
   [[nodiscard]] TextBitmap rasterize_at_scale(std::string_view text, int size, double scale, bool bold = false,
                                               bool shadow = false, std::uint32_t color = 0xffffff,
                                               Vec2 pixel_phase = {}) const;
+  // GlowFilter blur (blurX = blurY) and strength. blur 4 is the 5-tap filter at 1x (CharacterStatusText); blur 2 is
+  // the legacy radius-1 filter (ItemTile tier tags). The default stays at 2 for existing glow callers.
   [[nodiscard]] TextBitmap rasterize_glow(std::string_view text, int size, bool bold, std::uint32_t color,
-                                          unsigned strength = 10) const;
+                                          unsigned strength = 10, double blur = 2) const;
   // Chat's CFF TextLine uses natural font advances and a baseline origin,
   // rather than SimpleText's TextField metrics and gutters.
   [[nodiscard]] double line_measure(std::string_view text, int size = 14, bool bold = true) const;

@@ -16,14 +16,14 @@ int texture_height(const ObjectDef& definition) {
 }
 
 StatusArt::Label StatusArt::label(std::string key, std::string_view text, int size, std::uint32_t color,
-                                  unsigned strength) {
+                                  unsigned strength, double blur) {
   if (!text_) return {};
   key += ':' + std::to_string(fonts_.pixel_scale());
   if (const auto it = labels_.find(key); it != labels_.end()) {
     lru_.splice(lru_.begin(), lru_, it->second.lru);
     return it->second.label;
   }
-  const auto bitmap = fonts_.rasterize_glow(text, size, true, color, strength);
+  const auto bitmap = fonts_.rasterize_glow(text, size, true, color, strength, blur);
   Label result{std::make_shared<const Image>(bitmap.image), bitmap.width, bitmap.height, bitmap.offset};
   const std::size_t bytes = result.image->pixels.size();
   while (!labels_.empty() && (labels_.size() >= maximum_labels || bytes_ + bytes > maximum_bytes)) {
@@ -40,10 +40,11 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
 }
 StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t color) {
   color &= 0xffffffU;
-  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2);
+  // CharacterStatusText: GlowFilter(0,1,4,4,2,1), blur 4 and strength 2.
+  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2, 4);
 }
 StatusArt::Label StatusArt::name(std::string_view text) {
-  return label("n:" + std::string(text), text, 16, 0xffffffU, 2);
+  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2);
 }
 StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size) {
   if (!text_) return {};

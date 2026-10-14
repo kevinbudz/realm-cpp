@@ -207,7 +207,10 @@ def run(case):
             assert not purchases
             before = Image.open(folder / 'characters.png').convert('RGB')
             partial = Image.open(folder / 'partial-row.png').convert('RGB')
-            assert partial.getpixel((12, 118)) == before.getpixel((12, 118)), 'partially visible first row vanished'
+            # (300, 130) is the first row's background before and after the wheel scroll. The former probe at (12, 118)
+            # fell in the glow of the class icon, which now matches CurrentCharacterRect's 52 pixel frame.
+            assert partial.getpixel((300, 130)) == before.getpixel((300, 130)) == (92, 92, 92), \
+                'partially visible first row vanished'
             assert ImageChops.difference(before.crop((10, 112, 391, 512)), partial.crop((10, 112, 391, 512))).getbbox(), 'wheel did not scroll'
         else:
             assert not purchases, posts

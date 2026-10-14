@@ -203,8 +203,10 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
         if (!realm::StatusTexts::visible(text, status_time) || !text.label.image || overlay.size() >= 100) continue;
         const auto* speaker = cs.world.entity(text.object_id);
         if (!speaker) continue;
-        const auto at = realm::StatusTexts::position(text, cs.camera.world_to_screen(speaker->motion.position),
-                                                     speaker->appearance.size, cs.zoom, status_time);
+        const auto drawn = realm::StatusTexts::position(text, cs.camera.world_to_screen(speaker->motion.position),
+                                                        speaker->appearance.size, cs.zoom, status_time);
+        // Whole device pixels for the top-left corner, so the label's texels stay 1:1 with the screen as it drifts.
+        const realm::Vec2 at{std::round(drawn.x), std::round(drawn.y)};
         const double w = text.label.image->width / text.label.image->pixel_scale * cs.zoom,
                      h = text.label.image->height / text.label.image->pixel_scale * cs.zoom;
         const auto placed = cs.scene.status_quad(text.label.image, cs.atlas, at, {w, 0}, {0, h});
@@ -227,7 +229,11 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
           overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
         }
       }
-      auto q = cs.hud_texture.quad({width - 200 * ui_scale, 0}, {200 * ui_scale, 0}, {0, static_cast<double>(height)});
+      // The HUD image is ceil(200 x 600 at the density) texels. Its quad covers those device pixels 1:1 on whole
+      // pixels: the left edge rounds to the nearest pixel, keeping the sidebar's hit mapping within half a pixel.
+      // Any overhang past the right edge is clipped.
+      const double hud_w = cs.hud->image().width, hud_h = cs.hud->image().height;
+      auto q = cs.hud_texture.quad({std::round(width - 200 * ui_scale), 0}, {hud_w, 0}, {0, hud_h});
       q.kind = 5;
       overlay_storage[overlay.size()] = q;
       overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);

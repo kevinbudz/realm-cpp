@@ -103,6 +103,7 @@ void Session::receive(net::Event event, std::int32_t time) {
       combat_.reset(map_info_.seed);
       inventory_.reset();
       party_.reset();
+      quest_.reset();
       buy_pending_ = false;
       next_teleport_at_ = 0;
       pending_moves_ = 0;
@@ -175,8 +176,15 @@ void Session::receive(net::Event event, std::int32_t time) {
       // Notifications aimed at other players are dropped when Ally Notifications is off.
       if (!world_.allows_notification(note.object_id)) break;
       world_.notify(note.object_id, note.text, note.color & 0xffffffU, 2000);
+      // onNotification: the player's own "Quest Complete!" starts the wait for the next target.
+      if (note.object_id == world_.player_id() && world_.entity(note.object_id) && note.text == "Quest Complete!")
+        quest_.completed(time);
       break;
     }
+    // GameServerConnection.onQuestObjId.
+    case flash::PacketId::QUESTOBJID:
+      quest_.set_object(std::get<incoming::QuestObject>(event.data).object_id, time);
+      break;
     case flash::PacketId::SHOWEFFECT:
       world_.particles().show(world_, std::get<incoming::ShowEffect>(event.data), time);
       break;

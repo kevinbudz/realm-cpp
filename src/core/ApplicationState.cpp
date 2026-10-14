@@ -140,6 +140,8 @@ ClientState::ClientState(Options options)
                       ? std::make_unique<realm::PlayerMenu>(catalog, fonts, *hud_art)
                       : nullptr),
       player_group(hud && hud_art ? std::make_unique<realm::PlayerGroup>(catalog, fonts, *hud_art) : nullptr),
+      quest_tooltip(hud && hud_art ? std::make_unique<realm::QuestToolTip>(catalog, fonts, *hud_art) : nullptr),
+      portrait_tooltip(hud && hud_art ? std::make_unique<realm::PortraitToolTip>(fonts, *hud_art) : nullptr),
       skins(hud && hud_art ? std::make_unique<realm::SkinChooser>(catalog, fonts, *hud_art) : nullptr),
       chat_view(hud ? std::make_unique<realm::ChatView>(fonts, hud_art.get()) : nullptr),
       trade_view(hud && hud_art && hud_art->contains("tradefill0") ? std::make_unique<realm::TradeView>(fonts, *hud_art)

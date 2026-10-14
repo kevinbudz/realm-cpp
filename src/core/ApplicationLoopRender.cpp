@@ -10,6 +10,7 @@
 #include "realm/ui/Trade.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
+#include "realm/ui/tooltip/QuestToolTip.hpp"
 #include "realm/screens/Startup.hpp"
 #include "realm/game/view/CreditDisplay.hpp"
 #include "realm/game/view/SafeAreaDisplay.hpp"
@@ -369,6 +370,7 @@ void build_group_overlays(ClientState& cs, const Options& o, Frame& f) {
     if (!enabled) {
       cs.player_group->close();
       cs.party_arrows.reset();
+      cs.quest_arrow.reset();
     } else {
       cs.party_arrows.update(cs.world, cs.game_session->party(), cs.camera, screen_pointer, cs.tooltip_pointer_valid,
                              width, height);
@@ -391,6 +393,53 @@ void build_group_overlays(ClientState& cs, const Options& o, Frame& f) {
         overlay_storage[overlay.size()] = quad;
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
+      // PartyOverlay draws its QuestArrow after the party arrows, so the quest arrow and tooltip sit on top of them.
+      cs.quest_arrow.update(cs.world, cs.game_session->quest(), cs.camera, screen_pointer, cs.tooltip_pointer_valid,
+                            width, height, time);
+      if (cs.quest_arrow.visible()) {
+        const double density = std::max(1.0, cs.camera.scale());
+        const double rotation = cs.quest_arrow.rotation();
+        if (cs.quest_arrow_density != density || cs.quest_arrow_rotation != rotation) {
+          cs.quest_arrow_texture.update(realm::QuestArrow::image(rotation, density));
+          cs.quest_arrow_density = density;
+          cs.quest_arrow_rotation = rotation;
+        }
+        const double a_scale = cs.camera.scale();
+        const auto arrow = cs.quest_arrow.position();
+        const auto quad = cs.quest_arrow_texture.quad(
+            {arrow.x - realm::GameObjectArrow::origin * a_scale, arrow.y - realm::GameObjectArrow::origin * a_scale},
+            {realm::GameObjectArrow::canvas_size * a_scale, 0}, {0, realm::GameObjectArrow::canvas_size * a_scale});
+        overlay_storage[overlay.size()] = quad;
+        overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+      }
+      if (cs.quest_arrow.visible() && cs.quest_arrow.tooltip() != realm::QuestArrow::Tooltip::none)
+        if (const auto target = realm::quest_target(cs.world, cs.quest_arrow.target())) {
+          // The tooltip draws in its own scale, as the party arrow's group tooltip does.
+          const double tip_scale = scale * cs.camera.scale();
+          const auto kind = cs.quest_arrow.tooltip();
+          const auto show = [&](auto& tip) {
+            cs.fonts.set_pixel_scale(tip_scale);
+            const bool changed = tip.update(*target);
+            cs.fonts.set_pixel_scale(scale);
+            if (changed || cs.quest_tooltip_kind != kind) {
+              cs.quest_tooltip_texture.update(tip.image());
+              cs.quest_tooltip_kind = kind;
+            }
+            const auto content = realm::GameObjectArrow::tooltip_position(
+                cs.quest_arrow.position(), cs.quest_arrow.rotation(), tip.content_width() * tip_scale,
+                tip.content_height() * tip_scale, cs.camera.scale());
+            const auto quad = cs.quest_tooltip_texture.quad(
+                {content.x - realm::QuestToolTip::origin * tip_scale, content.y - realm::QuestToolTip::origin * tip_scale},
+                {tip.canvas_width() * tip_scale, 0}, {0, tip.canvas_height() * tip_scale}, 0, 0, tip.image().width,
+                tip.image().height);
+            overlay_storage[overlay.size()] = quad;
+            overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+          };
+          if (kind == realm::QuestArrow::Tooltip::portrait)
+            show(*cs.portrait_tooltip);
+          else
+            show(*cs.quest_tooltip);
+        }
     }
     if (enabled && cs.player_group->menu()) {
       if (cs.player_group->refresh_appearance(cs.world)) cs.group_texture.update(cs.player_group->image());

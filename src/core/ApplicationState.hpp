@@ -24,9 +24,12 @@
 #include "realm/objects/Movement.hpp"
 #include "realm/ui/options/OptionsScreen.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
+#include "realm/map/partyoverlay/QuestArrow.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/ui/menu/PlayerMenu.hpp"
 #include "realm/ui/tooltip/PlayerTooltip.hpp"
+#include "realm/ui/tooltip/PortraitToolTip.hpp"
+#include "realm/ui/tooltip/QuestToolTip.hpp"
 #include "realm/platform/Platform.hpp"
 #include "realm/platform/PlatformSdl.hpp"
 #include "realm/stage3D/Renderer.hpp"
@@ -135,6 +138,8 @@ struct ClientState {
   std::unique_ptr<realm::PlayerTooltip> player_tooltip;
   std::unique_ptr<realm::PlayerMenu> player_menu;
   std::unique_ptr<realm::PlayerGroup> player_group;
+  std::unique_ptr<realm::QuestToolTip> quest_tooltip;
+  std::unique_ptr<realm::PortraitToolTip> portrait_tooltip;
   std::unique_ptr<realm::SkinChooser> skins;
   bool skin_press_guard{};
   bool header_pressed{};
@@ -144,6 +149,11 @@ struct ClientState {
   std::array<realm::SurfaceTexture, realm::Party::members_shown> arrow_textures;
   std::array<double, realm::Party::members_shown> arrow_rotations{}, arrow_densities{};
   std::array<bool, realm::Party::members_shown> arrow_hovers{};
+  // QuestArrow and its tooltip surfaces; the arrow redraws only for a new rotation or density.
+  realm::QuestArrow quest_arrow;
+  realm::SurfaceTexture quest_arrow_texture, quest_tooltip_texture;
+  double quest_arrow_rotation{}, quest_arrow_density{};
+  realm::QuestArrow::Tooltip quest_tooltip_kind{};
   // TextBox lines persist for the whole run, across maps and characters.
   realm::Chat chat;
   // The old setup built trade_view before chat_view; declaration order now builds chat_view first. Both constructors

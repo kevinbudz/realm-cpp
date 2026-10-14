@@ -1,5 +1,6 @@
 #pragma once
 // Flash: com/company/assembleegameclient/map/partyoverlay/PartyOverlay.as
+#include "realm/map/partyoverlay/GameObjectArrow.hpp"
 #include "realm/objects/Party.hpp"
 #include "realm/util/Image.hpp"
 #include <optional>
@@ -14,7 +15,7 @@ struct PartyArrow {
 // Six retained, ordered ID groups. No Entity pointers survive a frame.
 class PartyArrows {
  public:
-  static constexpr int canvas_size = 48, origin = 24;
+  static constexpr int canvas_size = GameObjectArrow::canvas_size, origin = GameObjectArrow::origin;
   void reset() {
     arrows_ = {};
     hovered_ = -1;

@@ -24,13 +24,19 @@ constexpr int officer_rank = 20;
 constexpr int option_y(std::size_t index) { return 40 + 28 * static_cast<int>(index); }
 }
 
-TextBitmap player_row_label(const Catalog& catalog, const FontBook& fonts, const PlayerMenuTarget& row) {
-  const auto* def = catalog.object(static_cast<std::uint16_t>(row.type));
-  const std::string name = row.name.empty() ? def->display_id : row.name;
+TextBitmap object_row_label(const Catalog& catalog, const FontBook& fonts, int type, std::string_view name_text,
+                            int level, std::uint32_t color) {
+  const auto* def = catalog.object(static_cast<std::uint16_t>(type));
+  const std::string name = name_text.empty() ? def->display_id : std::string(name_text);
   const std::string suffix =
-      row.name.empty() ? "" : " (" + def->display_id + (row.level > 0 ? " " + std::to_string(row.level) : "") + ")";
+      name_text.empty() ? "" : " (" + def->display_id + (level > 0 ? " " + std::to_string(level) : "") + ")";
   const std::array spans{TextSpan{name, true}, TextSpan{suffix, false}};
-  return fonts.rasterize_spans(spans, 13, true, row.fellow_guild ? 10944349U : 16572160U, suffix.empty() ? 0 : .5);
+  return fonts.rasterize_spans(spans, 13, true, color, suffix.empty() ? 0 : .5);
+}
+
+TextBitmap player_row_label(const Catalog& catalog, const FontBook& fonts, const PlayerMenuTarget& row) {
+  return object_row_label(catalog, fonts, row.type, row.name, row.level,
+                          row.fellow_guild ? 10944349U : 16572160U);
 }
 
 std::optional<PlayerMenuTarget> player_menu_target(const World& world, const Party& party, std::int32_t id,

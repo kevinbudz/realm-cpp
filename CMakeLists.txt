@@ -298,6 +298,8 @@ if(BUILD_TESTING)
     target_link_libraries(realm_party_arrow_session_inputs PRIVATE realm_game realm_ui)
     realm_add_test(NAME party_arrows TARGET realm_party_arrow_tests LABELS unit
         SOURCES tests/PartyArrowTests.cpp LINK realm_ui)
+    realm_add_test(NAME quest_arrows TARGET realm_quest_arrow_tests LABELS unit
+        SOURCES tests/QuestArrowTests.cpp LINK realm_ui)
     realm_add_test(NAME player_groups TARGET realm_player_group_tests LABELS unit
         SOURCES tests/PlayerGroupTests.cpp LINK realm_ui)
     realm_add_test(NAME minimap_cache TARGET realm_minimap_cache_tests LABELS unit

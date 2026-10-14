@@ -244,8 +244,9 @@ void build_hud_overlays(ClientState& cs, const Options& o, Frame& f) {
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
       if (cs.hud_art && cs.game_session && cs.game_session->map_info().show_displays) {
-        const int stars = player->profile.stats.value_or(realm::flash::StatId::NUM_STARS_STAT, -1),
-                  rank = player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, 0);
+        // Player.numStars_ defaults to 0 and GuildRank to -1; the server omits NumStars while it is 0.
+        const int stars = player->profile.stats.value_or(realm::flash::StatId::NUM_STARS_STAT, 0),
+                  rank = player->profile.stats.value_or(realm::flash::StatId::GUILD_RANK_STAT, -1);
         if (stars != cs.displayed_stars || rank != cs.displayed_guild_rank ||
             player->profile.guild != cs.displayed_guild || cs.safe_area_density != ui_scale) {
           cs.safe_area_image =

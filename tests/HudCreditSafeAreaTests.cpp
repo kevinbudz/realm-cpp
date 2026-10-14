@@ -62,6 +62,9 @@ int main(int argc, char** argv) {
               std::abs(rank.layout_bounds.width - 47) <= 1 && std::abs(rank.layout_bounds.height - 26) <= 1,
           "rank logical bounds match Flash RankText");
     capture("safe-rank.png", rank.image);
+    const auto zero_rank = render_safe_area_display(fonts, art, 0, "", -1);
+    check(zero_rank.image.width > empty.image.width && zero_rank.image.height > empty.image.height,
+          "zero stars render the Flash RankText star and count");
     const auto guild = render_safe_area_display(fonts, art, -1, "Native Guild", 20);
     check(guild.image.width > 0 && guild.image.height > 0, "guild name and rank icon render when rank text is absent");
     check(std::abs(guild.layout_bounds.x - 56) < 1 && std::abs(guild.layout_bounds.y + 2) < 1 &&

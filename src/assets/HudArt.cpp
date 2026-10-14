@@ -126,6 +126,31 @@ Raster raster(int width, int height, double scale) {
   result.image.pixel_scale = scale;
   return result;
 }
+// Moves a premultiplied image sideways by whole pixels; columns shifted past either edge are dropped.
+Image shifted_horizontally(const Image& source, int shift) {
+  Image result{source.width, source.height, std::vector<unsigned char>(source.pixels.size()), source.pixel_scale};
+  for (int y = 0; y < source.height; ++y)
+    for (int x = 0; x < source.width; ++x) {
+      const int from = x - shift;
+      if (from < 0 || from >= source.width) continue;
+      const auto src = static_cast<std::size_t>((y * source.width + from) * 4),
+                 dst = static_cast<std::size_t>((y * source.width + x) * 4);
+      std::copy_n(source.pixels.data() + src, 4, result.pixels.data() + dst);
+    }
+  return result;
+}
+// Content center minus cell center across the opaque columns of an 8-pixel cell, in source pixels; 0 when empty.
+double opaque_column_offset(const Image& source) {
+  int left = source.width, right = 0;
+  for (int y = 0; y < source.height; ++y)
+    for (int x = 0; x < source.width; ++x)
+      if (source.pixels[static_cast<std::size_t>((y * source.width + x) * 4 + 3)]) {
+        left = std::min(left, x);
+        right = std::max(right, x + 1);
+      }
+  if (right <= left) return 0;
+  return (left + right) / 2.0 - source.width / 2.0;
+}
 // SimpleText field metrics: updateMetrics sizes are the truncated line width/height plus the 4 pixel gutters.
 struct Field {
   double width{}, height{}, text_width{}, text_height{};
@@ -224,6 +249,19 @@ struct HudArt::Sources {
     if (t.mask_sheet >= 0 && static_cast<std::size_t>(t.mask_sheet) < flash::sheets.size())
       mask = sprite(flash::sheets[static_cast<std::size_t>(t.mask_sheet)].name, t.mask_index);
     return redraw(source, mask.pixels.empty() ? nullptr : &mask, size, pad, object->tex1, object->tex2);
+  }
+  // Item tiles center the visible columns of their 8-pixel cell, not the cell: a 7-wide sprite drawn at columns 1-7
+  // sits half a cell right of center. Returns the horizontal shift, in whole pixels at `size`, that centers it.
+  int item_center_shift(int type, int size) {
+    const auto* object = catalog->object(static_cast<std::uint16_t>(type));
+    if (!object) return 0;
+    const auto& t = object->texture.select(0);
+    if (appearances->animations().character(t.animated, t.index) || t.sheet < 0 ||
+        static_cast<std::size_t>(t.sheet) >= flash::sheets.size())
+      return 0;
+    const auto source = sprite(flash::sheets[static_cast<std::size_t>(t.sheet)].name, t.index);
+    // compose scales the cell by 5 * size / 100.
+    return static_cast<int>(std::lround(-opaque_column_offset(source) * 5 * size / 100.0));
   }
   const fd::Shape& star_shape() {
     if (!star)
@@ -334,9 +372,11 @@ struct HudArt::Sources {
     const auto art = slot_art(type, equipment_tile);
     if (art.index >= 0) {
       auto image = sprite(art.sheet, art.index);
+      // Equipped silhouettes center their visible columns in the slot, as item icons do. Slot keeps its hand-tuned
+      // offsets below, and equipped silhouettes keep their rows.
+      double dx = equipment_tile ? -4 * opaque_column_offset(image) : 0, dy = 0;
       premultiply(image);
       fd::color_matrix(image, {0, 0, 0, 0, 54, 0, 0, 0, 0, 54, 0, 0, 0, 0, 54, 0, 0, 0, 1, 0});
-      double dx = 0, dy = 0;
       if (!equipment_tile && type == 9) {
         dx = -2;
         dy = -2;
@@ -412,6 +452,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       if (dry) return Image{};
       auto image = s.object_texture(a, 80, true);
       if (o->xml.has("Doses")) s.text(image, o->xml.child("Doses").text(), 12, false, 16777215, 10, 5);
+      if (const int shift = s.item_center_shift(a, 80)) image = shifted_horizontally(image, shift);
       if (prefix == "dim") fd::color_matrix(image, {.4, 0, 0, 0, 0, 0, .4, 0, 0, 0, 0, 0, .4, 0, 0, 0, 0, 0, 1, 0});
       return image;
     }

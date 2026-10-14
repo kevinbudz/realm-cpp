@@ -251,6 +251,8 @@ if(BUILD_TESTING)
         SOURCES tests/HudCreditSafeAreaTests.cpp LINK realm_ui)
     realm_add_test(NAME account_header TARGET realm_account_header_tests LABELS unit
         SOURCES tests/AccountHeaderTests.cpp LINK realm_ui)
+    realm_add_test(NAME item_icon TARGET realm_item_icon_tests LABELS unit
+        SOURCES tests/ItemIconTests.cpp LINK realm_assets)
     realm_add_test(NAME ui_surfaces TARGET realm_ui_resize_tests LABELS unit
         SOURCES tests/UiResizeTests.cpp LINK realm_ui)
     realm_add_test(NAME core_parity TARGET realm_core_tests LABELS unit

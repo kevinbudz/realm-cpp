@@ -128,6 +128,7 @@ m.stars = r.i32();
 m.bubble_time = r.u8();
 m.recipient = r.utf();
 m.text = r.utf();
+if (r.remaining()) { m.name_color = r.u32(); m.text_color = r.u32(); }
 r.finish(); return {id, std::move(m)}; }
 case flash::PacketId::TRADEACCEPTED: { incoming::TradeAccepted m;
 m.my_offer = bools(r);

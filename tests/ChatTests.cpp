@@ -48,6 +48,31 @@ int main() {
     chat.add(Text{"Carl", 3, 3, 0, "*Guild*", "guild"}, "Me", 0);
     check(chat.lines().back().recipient == "*Guild*" && chat.lines()[chat.lines().size() - 3].to_me,
           "tell direction recorded");
+    // betterSkillys colors: packet colors apply unless a system name, enemy, guild or tell overrides.
+    {
+      const auto style = [&](Text text) {
+        Chat colored;
+        colored.add(std::move(text), "Me", 0);
+        return chat_line_style(colored.lines().back());
+      };
+      auto s = style(Text{"Tank", 1, 3, 5, "", "hi", 0x123456, 0xffffff});
+      check(s.name == "Tank" && s.name_color == 0x00fe00 && s.text_color == 0xffffff,
+            "default name color marker draws as 0x00fe00");
+      s = style(Text{"Tank", 1, 3, 5, "", "hi", 0xff00ff, 0x112233});
+      check(s.name_color == 0xff00ff && s.text_color == 0x112233, "custom name and text colors apply");
+      s = style(Text{"Oryx the Mad God", 0, -1, 0, "", "x", 0xff681f, 0xffffff});
+      check(s.name_color == 0xff681f && s.text_color == 0xffffff, "colored announcer name");
+      s = style(Text{"#Oryx the Mad God", 0, -1, 0, "", "x"});
+      check(s.name == "Oryx the Mad God" && s.name_color == 0xffa800 && s.text_color == 0xffffff,
+            "enemy names use the enemy color");
+      s = style(Text{"", 0, -1, 0, "", "x", 0, 0xff0000});
+      check(s.name.empty() && s.text_color == 0xffff00, "server lines keep the server color");
+      s = style(Text{"Carl", 3, 3, 0, "*Guild*", "g", 0xff00ff, 0x112233});
+      check(s.name_color == 0xa6ff5d && s.text_color == 0xa6ff5d, "guild chat colors name and text");
+      s = style(Text{"Me", 2, 3, 0, "Bob", "yo"});
+      check(s.name == "Bob" && s.name_color == 0x00f0ff && s.text_color == 0x00f0ff,
+            "outgoing tells name the recipient in the tell color");
+    }
     chat.tell(false);
     check(chat.typing() && chat.input() == "/tell Bob ", "Tab inserts the newest teller");
     chat.tell(true);

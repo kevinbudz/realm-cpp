@@ -23,8 +23,23 @@ struct ChatLine {
   std::string recipient;
   bool to_me{};
   std::string text;
+  // betterSkillys TEXT colors; 0 keeps the ElementFormats default.
+  std::uint32_t name_color{};
+  std::uint32_t text_color{};
   bool operator==(const ChatLine&) const = default;
 };
+
+// betterSkillys asks for the default player name color with this value; it draws as 0x00fe00.
+inline constexpr std::uint32_t default_name_color = 0x123456;
+
+// TextBoxLine.getTextBlock: the shown sender name and its colors.
+struct ChatLineStyle {
+  std::string name;
+  std::uint32_t name_color{};
+  std::uint32_t text_color{};
+};
+
+[[nodiscard]] ChatLineStyle chat_line_style(const ChatLine& line);
 
 // TextBox.as: stored lines, the visible window, tell history and the input field.
 // The native log keeps the newest `capacity` lines, far more than PageUp

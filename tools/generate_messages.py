@@ -17,7 +17,7 @@ incoming = [
 ('QuestObject','QUESTOBJID','i object_id'),('Reconnect','RECONNECT','i game_id'),
 ('ServerPlayerShoot','SERVERPLAYERSHOOT','i bullet_id,i owner_id,h container_type,p position,f angle,f angle_increment,d damages'),
 ('ShowEffect','SHOWEFFECT','b type,i target_id,u color,p position,p position2,B has_position2'),
-('Text','TEXT','s name,i object_id,i stars,b bubble_time,s recipient,s text'),
+('Text','TEXT','s name,i object_id,i stars,b bubble_time,s recipient,s text,u name_color,u text_color'),
 ('TradeAccepted','TRADEACCEPTED','v my_offer,v their_offer'),('TradeChanged','TRADECHANGED','v offer'),
 ('TradeDone','TRADEDONE','i code,s text'),('TradeRequested','TRADEREQUESTED','s name'),('TradeStart','TRADESTART','t my_items,s their_name,t their_items')]
 outgoing = [
@@ -60,6 +60,7 @@ for name, enum, fs in incoming:
     for k,f in fields(fs):
         if name=='EnemyShoot' and f=='num_shots': source.append('if (r.remaining()) { m.num_shots = r.u8(); m.angle_increment = r.f32(); } else m.num_shots = 1;');break
         if name=='ShowEffect' and f=='position2': source.append('if (r.remaining()) { m.position2 = position(r); m.has_position2 = true; }');break
+        if name=='Text' and f=='name_color': source.append('if (r.remaining()) { m.name_color = r.u32(); m.text_color = r.u32(); }');break
         source.append('m.'+f+' = '+read[k]+';')
     source.append('r.finish(); return {id, std::move(m)}; }')
 source += ['default: throw ProtocolError("Unknown or outgoing packet ID");','} }','namespace outgoing {']

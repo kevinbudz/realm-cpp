@@ -30,6 +30,7 @@ constexpr std::uint32_t player_color = 0x00ff00;
 constexpr std::uint32_t separator_color = 0x363636;
 constexpr std::uint32_t tell_color = 0x00f0ff;
 constexpr std::uint32_t guild_color = 0xa6ff5d;
+constexpr std::uint32_t default_name_draw_color = 0x00fe00;
 }
 
 void Chat::push(ChatLine line) {
@@ -48,7 +49,8 @@ void Chat::add(std::string name, std::string text, std::int32_t time) {
 void Chat::add(const net::incoming::Text& message, std::string_view own_name, std::int32_t time) {
   const bool from_me = !message.recipient.empty() && message.name == own_name;
   const bool to_me = message.recipient == own_name;
-  push({time, message.name, message.stars, message.recipient, to_me, message.text});
+  push({time, message.name, message.stars, message.recipient, to_me, message.text, message.name_color,
+        message.text_color});
 
   const auto remember = [&](const std::string& name) {
     if (tellers_.empty() || tellers_.back() != name) {
@@ -167,32 +169,52 @@ std::optional<std::string> Chat::submit() {
   return result;
 }
 
-std::vector<ChatView::Row> ChatView::layout(const ChatLine& line) const {
-  // TextBoxLine.getTextBlock.
-  std::string name = line.name;
-  std::uint32_t name_color = player_color;
-  std::uint32_t text_color = normal_color;
+ChatLineStyle chat_line_style(const ChatLine& line) {
+  // betterSkillys TextBoxLine.getTextBlock: packet colors first; system names,
+  // enemies, admins, guild chat and tells then override them.
+  ChatLineStyle style{line.name, player_color, normal_color};
+  if (line.name_color != 0) {
+    style.name_color =
+        line.name_color == default_name_color ? default_name_draw_color : line.name_color;
+  }
+  if (line.text_color != 0) {
+    style.text_color = line.text_color;
+  }
   if (line.name == server_chat_name) {
-    name.clear();
-    text_color = server_color;
+    style.name.clear();
+    style.text_color = server_color;
   } else if (line.name == client_chat_name) {
-    name.clear();
-    text_color = client_color;
+    style.name.clear();
+    style.text_color = client_color;
   } else if (line.name == help_chat_name) {
-    name.clear();
-    text_color = help_color;
+    style.name.clear();
+    style.text_color = help_color;
   } else if (line.name == error_chat_name) {
-    name.clear();
-    text_color = error_color;
+    style.name.clear();
+    style.text_color = error_color;
   }
   if (!line.name.empty() && line.name.front() == '#') {
-    name = line.name.substr(1);
-    name_color = enemy_color;
+    style.name = line.name.substr(1);
+    style.name_color = enemy_color;
   }
   if (!line.name.empty() && line.name.front() == '@') {
-    name = line.name.substr(1);
-    name_color = text_color = admin_color;
+    style.name = line.name.substr(1);
+    style.name_color = style.text_color = admin_color;
   }
+  if (line.recipient == guild_chat_name) {
+    style.name_color = style.text_color = guild_color;
+  } else if (!line.recipient.empty()) {
+    style.name_color = style.text_color = tell_color;
+    if (!line.to_me) {
+      style.name = line.recipient;
+    }
+  }
+  return style;
+}
+
+std::vector<ChatView::Row> ChatView::layout(const ChatLine& line) const {
+  // TextBoxLine.getTextBlock.
+  const auto [name, name_color, text_color] = chat_line_style(line);
   int icon = line.stars >= 0 ? std::min(line.stars, 99) : -1;
 
   struct Token {
@@ -215,15 +237,9 @@ std::vector<ChatView::Row> ChatView::layout(const ChatLine& line) const {
       begin = end;
     }
   };
-  if (line.recipient == guild_chat_name) {
-    text_color = guild_color;
-  } else if (!line.recipient.empty()) {
-    text_color = tell_color;
-    if (!line.to_me) {
-      words("To: ", normal_color);
-      name = line.recipient;
-      icon = -1;
-    }
+  if (line.recipient != guild_chat_name && !line.recipient.empty() && !line.to_me) {
+    words("To: ", tell_color);
+    icon = -1;
   }
   if (icon >= 0 && art_ && art_->contains("chatstar" + std::to_string(icon))) {
     tokens.push_back({"", 0, icon});

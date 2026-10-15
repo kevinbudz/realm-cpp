@@ -27,7 +27,7 @@ struct QuestObject { std::int32_t object_id{}; };
 struct Reconnect { std::int32_t game_id{}; };
 struct ServerPlayerShoot { std::int32_t bullet_id{}; std::int32_t owner_id{}; std::int16_t container_type{}; Position position{}; float angle{}; float angle_increment{}; std::vector<std::int16_t> damages{}; };
 struct ShowEffect { std::uint8_t type{}; std::int32_t target_id{}; std::uint32_t color{}; Position position{}; Position position2{}; bool has_position2{}; };
-struct Text { std::string name{}; std::int32_t object_id{}; std::int32_t stars{}; std::uint8_t bubble_time{}; std::string recipient{}; std::string text{}; };
+struct Text { std::string name{}; std::int32_t object_id{}; std::int32_t stars{}; std::uint8_t bubble_time{}; std::string recipient{}; std::string text{}; std::uint32_t name_color{}; std::uint32_t text_color{}; };
 struct TradeAccepted { std::vector<bool> my_offer{}; std::vector<bool> their_offer{}; };
 struct TradeChanged { std::vector<bool> offer{}; };
 struct TradeDone { std::int32_t code{}; std::string text{}; };

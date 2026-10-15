@@ -21,7 +21,7 @@ class HudArt {
   void appearances(const Appearances* value, const Catalog* catalog);
   [[nodiscard]] Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const;
   // GameObject.getPortrait: the live object's texture at portrait scale, including non-player quest
-  // targets.
+  // targets, at the same size for every texture width.
   [[nodiscard]] Image game_object_portrait(int type, int skin, std::uint32_t tex1,
                                            std::uint32_t tex2) const;
   [[nodiscard]] Image fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,

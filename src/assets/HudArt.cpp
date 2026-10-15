@@ -307,8 +307,27 @@ struct HudArt::Sources {
     return object_texture(type, 50, true);
   }
 
-  // ObjectLibrary.getRedrawnTextureFromType, premultiplied.
-  Image object_texture(int type, int size, bool pad) {
+  // GameObject.getPortrait: 4 / width * 100 percent, so every texture width draws at the same
+  // size. Integer truncation as the Flash int.
+  static int portrait_size(int width) { return 400 / std::max(width, 1); }
+
+  // GameObject.getPortrait for the quest tooltips: sheet textures scale by width too, not a fixed
+  // 50, so 16x16 and 32x32 quests are no larger than 8x8 ones.
+  Image game_object_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) {
+    const auto& texture = catalog->player_texture(type, skin).select(0);
+    if (const auto* character =
+            appearances->animations().character(texture.animated, texture.index)) {
+      const auto frame = character->frame(0, 0, Action::stand, 0);
+      return frame_texture(
+          frame, portrait_size(appearances->animations().images().at(frame.image).width), true,
+          tex1, tex2);
+    }
+    return object_texture(type, 0, true, true);
+  }
+
+  // ObjectLibrary.getRedrawnTextureFromType, premultiplied. `fixed_portrait` draws at
+  // portrait_size of the texture's width instead of `size`.
+  Image object_texture(int type, int size, bool pad, bool fixed_portrait = false) {
     const auto* object = catalog->object(static_cast<std::uint16_t>(type));
     if (!object) {
       throw std::runtime_error("Unknown object type");
@@ -316,21 +335,27 @@ struct HudArt::Sources {
     const auto& texture = object->texture.select(0);
     if (const auto* character =
             appearances->animations().character(texture.animated, texture.index)) {
-      return frame_texture(character->frame(0, 0, Action::stand, 0), size, pad, object->tex1,
-                           object->tex2);
+      const auto frame = character->frame(0, 0, Action::stand, 0);
+      return frame_texture(
+          frame,
+          fixed_portrait ? portrait_size(appearances->animations().images().at(frame.image).width)
+                         : size,
+          pad, object->tex1, object->tex2);
     }
     if (texture.sheet < 0 || static_cast<std::size_t>(texture.sheet) >= flash::sheets.size()) {
-      return redraw(sprite("lofiObj3", 255), size, pad);
+      const auto source = sprite("lofiObj3", 255);
+      return redraw(source, fixed_portrait ? portrait_size(source.width) : size, pad);
     }
     const auto source =
         sprite(flash::sheets[static_cast<std::size_t>(texture.sheet)].name, texture.index);
+    const int scaled = fixed_portrait ? portrait_size(source.width) : size;
     Image mask;
     if (texture.mask_sheet >= 0 &&
         static_cast<std::size_t>(texture.mask_sheet) < flash::sheets.size()) {
       mask = sprite(flash::sheets[static_cast<std::size_t>(texture.mask_sheet)].name,
                     texture.mask_index);
     }
-    return redraw(source, mask.pixels.empty() ? nullptr : &mask, size, pad, object->tex1,
+    return redraw(source, mask.pixels.empty() ? nullptr : &mask, scaled, pad, object->tex1,
                   object->tex2);
   }
 
@@ -1354,7 +1379,7 @@ Image HudArt::portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex
 
 Image HudArt::game_object_portrait(int type, int skin, std::uint32_t tex1,
                                    std::uint32_t tex2) const {
-  return sources().portrait(type, skin, tex1, tex2);
+  return sources().game_object_portrait(type, skin, tex1, tex2);
 }
 
 Image HudArt::fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,

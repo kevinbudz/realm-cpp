@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "realm/map/partyoverlay/QuestArrow.hpp"
 #include "realm/ui/tooltip/PortraitToolTip.hpp"
 #include "realm/ui/tooltip/QuestToolTip.hpp"
@@ -131,9 +132,15 @@ int main() {
     check(portrait.update(*target), "portrait tooltip renders");
     const auto full =
         art.game_object_portrait(target->type, target->skin, target->tex1, target->tex2);
-    check(portrait.content_width() == full.width - 20 &&
-              portrait.content_height() == full.height - 20,
-          "portrait is cropped ten pixels from each side");
+    // The HP bar hangs three pixels under the cropped portrait, at least its minimum width.
+    const int bar = target->max_hp > 0 ? 3 + static_cast<int>(quest_hp_bar_height) : 0;
+    const int width = full.width - 20;
+    check(portrait.content_width() ==
+                  (target->max_hp > 0
+                       ? std::max(width, static_cast<int>(quest_hp_bar_min_width))
+                       : width) &&
+              portrait.content_height() == full.height - 20 + bar,
+          "portrait is cropped ten pixels from each side, with the HP bar below");
     const auto player = quest_target(world, 99);
     check(player && player->player, "local player target keeps its player identity");
     check(!art.game_object_portrait(player->type, player->skin, player->tex1, player->tex2)

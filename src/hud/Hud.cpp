@@ -313,7 +313,10 @@ void Hud::portal(const HudState::Portal& state) {
   draw(std::move(name), 6, y);
   if (image_.pixel_scale != 1) {
     if (!state.locked && state.active) {
-      native_button(portal_button, "Enter", state.hover);
+      // TextButton centers its label in the field width plus 12.
+      const double text_x =
+          portal_button.x + portal_button.width / 2 - fonts_.measure("Enter", 16, true) / 2 - 2;
+      native_button(portal_button, "Enter", state.hover, text_x);
     } else {
       auto full = fonts_.rasterize_centered(state.locked ? "Locked" : "Full", 18, true, true,
                                             0xff0000, 188);
@@ -338,7 +341,11 @@ void Hud::button(const HudState::Button& state) {
        kind == 3 ? 508 : 514);
   if (image_.pixel_scale != 1) {
     constexpr std::array labels{"View", "View", "Change", "Choose"};
-    native_button(button_panel_buttons.at(kind), labels.at(kind), state.hover);
+    const auto area = button_panel_buttons.at(kind);
+    const auto label = labels.at(kind);
+    // TextButton centers its label in the field width plus 12.
+    const double text_x = area.x + area.width / 2 - fonts_.measure(label, 16, true) / 2 - 2;
+    native_button(area, label, state.hover, text_x);
   } else {
     blit(art_->image("buttonpanel" + std::to_string(kind) + "h" + std::to_string(state.hover)), 0,
          500);
@@ -422,17 +429,15 @@ void Hud::sellable(const HudState::Sellable& state) {
   }
 }
 
-void Hud::native_button(HudRect area, std::string_view label, bool hover) {
-  const int x0 = static_cast<int>(std::floor(area.x));
-  const int w = static_cast<int>(std::ceil(area.width));
+void Hud::native_button(HudRect area, std::string_view label, bool hover, double text_x) {
+  // Each 1-unit row snaps its edges to device pixels, so rows stay contiguous and opaque at any
+  // density; fractional rows blended into a checker pattern.
   for (int y = 0; y < 26; ++y) {
-    const int cut = std::max(0, 4 - std::min(y, 25 - y));
-    rectangle(x0 + cut, static_cast<int>(area.y) + y, w - cut * 2, 1,
-              image_.pixel_scale != 1 ? (hover ? 16768133U : 0xffffffU)
-                                      : (hover ? 0xffffffU : 0xb3b3b3U));
+    const double cut = std::max(0, 4 - std::min(y, 25 - y));
+    snapped_rectangle(area.x + cut, area.y + y, area.width - cut * 2, 1,
+                      hover ? 16768133U : 0xffffffU);
   }
-  draw_direct(fonts_.rasterize(label, 16, true, false, 0x363636U), area.x + 9, area.y + 1,
-              0x363636U);
+  draw(fonts_.rasterize(label, 16, true, false, 0x363636U), text_x, area.y + 1);
 }
 
 void Hud::social(const HudState::Social& state) {
@@ -461,7 +466,7 @@ void Hud::social(const HudState::Social& state) {
     const double width =
         std::ceil(fonts_.measure(state.label, 16, true)) + 18 + (state.currency >= 0 ? 24 : 0);
     const HudRect area{100 - width / 2, 562, width, 26};
-    native_button(area, state.label, state.hover);
+    native_button(area, state.label, state.hover, area.x + 9);
     if (art_ && state.currency >= 0) {
       blit(art_->image("currency" + std::to_string(state.currency)),
            static_cast<int>(area.x + width - 26), 565);

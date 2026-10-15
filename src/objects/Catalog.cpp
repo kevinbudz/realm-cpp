@@ -254,6 +254,7 @@ Catalog::Catalog(const std::filesystem::path& root)
         object.protect_sink = node.has("ProtectFromSink");
         object.flying = node.has("Flying");
         object.show_name = node.has("ShowName");
+        object.nexus_portal = node.has("NexusPortal");
         object.dont_face_attacks = node.has("DontFaceAttacks");
         object.hexable = node.child("Group").text() == "Hexable";
 

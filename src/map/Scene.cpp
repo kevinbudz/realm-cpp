@@ -1269,7 +1269,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       }
     }
     if (status_art_ && !e.profile.name.empty() &&
-        (d.show_name || (d.player && e.id != world.player_id()))) {
+        (d.show_name || d.nexus_portal || (d.player && e.id != world.player_id()))) {
       // GameObject.drawName: the name bitmap is centered on the object, top at its ground position.
       const auto label = status_art_->name(e.profile.name);
       if (label.image) {

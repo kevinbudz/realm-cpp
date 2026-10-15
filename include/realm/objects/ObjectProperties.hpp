@@ -116,6 +116,8 @@ struct ObjectDef {
   bool protect_sink{};
   bool flying{};
   bool show_name{};
+  // Portal.nexusPortal_: the server-named portal label (e.g. "Medusa (12/85)") is always drawn.
+  bool nexus_portal{};
   bool dont_face_attacks{};
   bool hexable{};
   // Classes implementing IInteractiveObject, and the Container subclasses among them.

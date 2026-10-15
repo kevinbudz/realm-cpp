@@ -243,7 +243,7 @@ void ItemTooltip::shadow() {
               horizontal[static_cast<std::size_t>((y + k) * image_width + x)];
         }
       }
-      auto& alpha = image_.pixels[static_cast<std::size_t>(y * w + x) * 4 + 3];
+      auto& alpha = image_.pixels[static_cast<std::size_t>(y * image_width + x) * 4 + 3];
       alpha = static_cast<unsigned char>(alpha + ((sum >> 5U) * (256U - alpha) >> 8U));
     }
   }

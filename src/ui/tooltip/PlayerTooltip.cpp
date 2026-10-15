@@ -289,7 +289,7 @@ void PlayerTooltip::render(const PlayerTooltipTarget& target) {
                      : y >= frame_height - 24 ? 80 - (frame_height - y)
                                               : 40;
       std::copy_n(frame.pixels.begin() + static_cast<std::ptrdiff_t>(sy * 80 + sx) * 4, 4,
-                  shell.pixels.begin() + static_cast<std::ptrdiff_t>(y * fw + x) * 4);
+                  shell.pixels.begin() + static_cast<std::ptrdiff_t>(y * frame_width + x) * 4);
     }
   }
   blit(shell, -22, -22, true);

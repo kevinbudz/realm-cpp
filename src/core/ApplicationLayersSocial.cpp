@@ -185,12 +185,17 @@ void configure_interaction_layer(ClientState& cs, ClientLayers& layers) {
     } else if (e.kind == UiKind::text) {
       cs.interaction.text(e.text);
     } else if (e.kind == UiKind::key_down) {
+      // ChooseNameFrame has no key handling in Flash; only its buttons cancel or choose.
       if (e.key == SDLK_ESCAPE) {
-        cs.interaction.cancel();
+        if (!cs.interaction.name_frame()) {
+          cs.interaction.cancel();
+        }
       } else if (e.key == SDLK_BACKSPACE) {
         cs.interaction.backspace();
       } else if (!e.repeat && (e.key == SDLK_RETURN || e.key == SDLK_KP_ENTER)) {
-        cs.interaction.submit();
+        if (!cs.interaction.name_frame()) {
+          cs.interaction.submit();
+        }
       }
     } else if (e.kind == UiKind::focus_lost) {
       cs.interaction.focus_lost();

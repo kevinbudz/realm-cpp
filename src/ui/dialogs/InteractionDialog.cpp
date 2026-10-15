@@ -21,11 +21,8 @@ bool InteractionDialog::open(const HudState::Social& panel, const Entity& player
     title_ = "Create a new Guild";
     note_ = "Maximum 20 characters. Letters and spaces only.\nCreation costs 1000 fame.";
   } else {
+    // ChooseNameFrame: the cost lives on NameChangerPanel's buy button, not in the frame.
     title_ = "Choose a unique account name";
-    note_ = "Maximum 10 characters. Letters only.\n";
-    // This fork's server always charges for a changed name, even if
-    // NAME_CHOSEN is false; present the actual server rule in the frame.
-    note_ += "Changing your name costs 1000 gold.";
   }
   dirty_ = true;
   return true;
@@ -79,7 +76,8 @@ void InteractionDialog::submit() {
   if (!visible() || pending_) {
     return;
   }
-  if (kind_ != Kind::leave_guild && value_.find_first_not_of(' ') == std::string::npos) {
+  // ChooseNameFrame.onChoose sends whatever is typed, so only guild creation checks for blanks.
+  if (kind_ == Kind::create_guild && value_.find_first_not_of(' ') == std::string::npos) {
     error_ = "Please enter a name.";
     dirty_ = true;
     return;
@@ -91,11 +89,11 @@ void InteractionDialog::submit() {
   dirty_ = true;
 }
 
-int InteractionDialog::hit(Vec2 point) {
-  if (HudInput::button_at(cancel_button, point)) {
+int InteractionDialog::hit(Vec2 point) const {
+  if (HudInput::button_at(name_frame() ? name_cancel_ : cancel_button, point)) {
     return 0;
   }
-  if (HudInput::button_at(submit_button, point)) {
+  if (HudInput::button_at(name_frame() ? name_submit_ : submit_button, point)) {
     return 1;
   }
   return -1;
@@ -159,7 +157,8 @@ void InteractionDialog::receive(const net::Event& event) {
     accepted_name_ = name;
   } else {
     pending_ = false;
-    error_ = message.empty() ? "The request was rejected." : message.substr(0, 512);
+    // ChooseNameFrame.setError shows the server's errorText as is.
+    error_ = message.empty() && !name_frame() ? "The request was rejected." : message.substr(0, 512);
     dirty_ = true;
   }
 }
@@ -244,6 +243,63 @@ void InteractionDialog::paint(const Image& source, int x, int y) {
   }
 }
 
+void InteractionDialog::draw_text(const FontBook& fonts, std::string_view value, int size,
+                                  bool bold, std::uint32_t color, int x, int y, int field) {
+  const auto bitmap = fonts.rasterize(value, size, bold, true, color, 0, 0, 1, field);
+  if (image_.pixel_scale != 1) {
+    ui_blit_text(image_, bitmap, x + bitmap.offset.x, y + bitmap.offset.y);
+  } else {
+    paint(bitmap.image, x + static_cast<int>(bitmap.offset.x), y + static_cast<int>(bitmap.offset.y));
+  }
+}
+
+// Flash ChooseNameFrame built on Frame and TextInputField: a 288x248 box with 4px cut corners
+// and a 1px white outline, centered on the canvas. The canvas outside the box stays transparent.
+void InteractionDialog::draw_name_frame(const FontBook& fonts) {
+  constexpr int box_x = 76, box_y = 46, box_w = 288, box_h = 248;
+  // Flash's frame origin (0,0) is 6px inside the box edge.
+  constexpr int ox = box_x + 6, oy = box_y + 6;
+  std::fill(image_.pixels.begin(), image_.pixels.end(), static_cast<unsigned char>(0));
+  const auto cut_box = [&](int x, int y, int w, int h, std::uint32_t color, bool top_only) {
+    for (int row = 0; row < h; ++row) {
+      const int from_edge = top_only ? row : std::min(row, h - 1 - row);
+      const int inset = std::max(0, 4 - from_edge);
+      rectangle(x + inset, y + row, w - 2 * inset, 1, color);
+    }
+  };
+  cut_box(box_x, box_y, box_w, box_h, 0xffffff, false);
+  cut_box(box_x + 1, box_y + 1, box_w - 2, box_h - 2, 0x363636, false);
+  // Frame title bar: 32px tall, fill #4D4D4D, top corners cut.
+  cut_box(box_x + 1, box_y + 1, box_w - 2, 31, 0x4d4d4d, true);
+
+  // Frame.titleText_: 12px, not bold, #B3B3B3, x=5.
+  draw_text(fonts, title_, 12, false, 0xb3b3b3, ox + 5, oy);
+  // TextInputField at frame (17,40): bold 18px #B3B3B3 label, then the 238x30 box at field (0,30)
+  // with a 2px #454545 stroke and #333333 fill.
+  draw_text(fonts, "Name", 18, true, 0xb3b3b3, ox + 17, oy + 40);
+  rectangle(ox + 16, oy + 69, 240, 32, 0x454545);
+  rectangle(ox + 18, oy + 71, 236, 28, 0x333333);
+  draw_text(fonts, value_, 20, false, 0xb3b3b3, ox + 23, oy + 70, 238);
+  // TextInputField.errorText_: 12px #FC8642 at field (0,62).
+  draw_text(fonts, error_, 12, false, 0xfc8642, ox + 17, oy + 102);
+
+  // Frame.addPlainText lines, 12px white at frame x=17.
+  draw_text(fonts, "Maximum 10 characters", 12, false, 0xffffff, ox + 17, oy + 122);
+  draw_text(fonts, "No numbers, spaces or punctuation", 12, false, 0xffffff, ox + 17, oy + 142);
+  draw_text(fonts, "Racism or profanity gets you banned", 12, false, 0xffffff, ox + 17, oy + 162);
+
+  // Frame buttons: 18px bold text at y=h-52. Cancel at x=109, Choose right-aligned 26px from the
+  // right edge. Both turn #B3B3B3 while pending, like Frame.disable().
+  const std::uint32_t button_color = pending_ ? 0xb3b3b3 : 0xffffff;
+  const int button_y = oy + 196;
+  const double submit_width = fonts.measure("Choose", 18, true);
+  name_cancel_ = {static_cast<double>(ox + 109), static_cast<double>(button_y),
+                  fonts.measure("Cancel", 18, true), 24};
+  name_submit_ = {ox + 262 - submit_width, static_cast<double>(button_y), submit_width, 24};
+  draw_text(fonts, "Cancel", 18, true, button_color, ox + 109, button_y);
+  draw_text(fonts, "Choose", 18, true, button_color, static_cast<int>(name_submit_.x), button_y);
+}
+
 bool InteractionDialog::render(const FontBook& fonts) {
   if (image_.pixel_scale != fonts.pixel_scale()) {
     image_ = ui_image(width, height, fonts.pixel_scale());
@@ -253,17 +309,19 @@ bool InteractionDialog::render(const FontBook& fonts) {
     return false;
   }
 
+  if (name_frame()) {
+    draw_name_frame(fonts);
+    dirty_ = false;
+    ++rebuilds_;
+    return true;
+  }
+
   rectangle(0, 0, width, height, 0xffffff);
   rectangle(1, 1, width - 2, height - 2, 0x363636);
   rectangle(1, 1, width - 2, 34, 0x4d4d4d);
   const auto text = [&](std::string_view value, int size, bool bold, std::uint32_t color, int x,
                         int y, int field = 0) {
-    const auto bitmap = fonts.rasterize(value, size, bold, true, color, 0, 0, 1, field);
-    if (image_.pixel_scale != 1) {
-      ui_blit_text(image_, bitmap, x + bitmap.offset.x, y + bitmap.offset.y);
-    } else {
-      paint(bitmap.image, x + static_cast<int>(bitmap.offset.x), y + static_cast<int>(bitmap.offset.y));
-    }
+    draw_text(fonts, value, size, bold, color, x, y, field);
   };
   text(title_, 18, true, 0xffffff, 16, 5, width - 32);
 

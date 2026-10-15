@@ -27,6 +27,11 @@ class InteractionDialog {
     return visible() && kind_ != Kind::leave_guild && !pending_;
   }
 
+  // ChooseNameFrame: Flash has no Enter/Escape handling, only its buttons act.
+  [[nodiscard]] bool name_frame() const {
+    return kind_ == Kind::choose_name || kind_ == Kind::change_name;
+  }
+
   [[nodiscard]] const std::string& value() const { return value_; }
 
   [[nodiscard]] const std::string& error() const { return error_; }
@@ -65,9 +70,12 @@ class InteractionDialog {
   inline static constexpr HudRect submit_button{220, 292, 200, 28};
 
  private:
-  static int hit(Vec2 point);
+  [[nodiscard]] int hit(Vec2 point) const;
   void paint(const Image& source, int x, int y);
   void rectangle(int x, int y, int w, int h, std::uint32_t color);
+  void draw_text(const FontBook& fonts, std::string_view value, int size, bool bold,
+                 std::uint32_t color, int x, int y, int field = 0);
+  void draw_name_frame(const FontBook& fonts);
   Kind kind_{Kind::none};
   std::int32_t player_id_{-1};
   std::string guild_;
@@ -80,6 +88,9 @@ class InteractionDialog {
   int pressed_{-1};
   std::optional<Request> request_;
   std::optional<std::string> accepted_name_;
+  // Measured text buttons of the name frame, in canvas coordinates.
+  HudRect name_cancel_{};
+  HudRect name_submit_{};
   Image image_{width, height, std::vector<unsigned char>(width* height * 4)};
   std::uint64_t rebuilds_{};
 };

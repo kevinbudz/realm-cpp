@@ -62,10 +62,10 @@ bool axis_aligned(const Quad& quad) {
 }
 
 HudRegion source_region(const Quad& quad, const Image& image) {
-  return {static_cast<int>(std::lround(quad.uv[0] * image.width)),
-          static_cast<int>(std::lround(quad.uv[1] * image.height)),
-          static_cast<int>(std::lround(quad.uv[2] * image.width)),
-          static_cast<int>(std::lround(quad.uv[3] * image.height))};
+  return {static_cast<int>(std::lround(quad.uv[0] * static_cast<float>(image.width))),
+          static_cast<int>(std::lround(quad.uv[1] * static_cast<float>(image.height))),
+          static_cast<int>(std::lround(quad.uv[2] * static_cast<float>(image.width))),
+          static_cast<int>(std::lround(quad.uv[3] * static_cast<float>(image.height)))};
 }
 }
 
@@ -142,10 +142,10 @@ Quad RetainedSurface::quad(Vec2 origin, Vec2 axis_x, Vec2 axis_y, int x, int y, 
   quad.kind = 5;
   quad.page = -1;
   quad.owner = state_;
-  quad.uv = {static_cast<float>(x) / state_->image.width,
-             static_cast<float>(y) / state_->image.height,
-             static_cast<float>(width) / state_->image.width,
-             static_cast<float>(height) / state_->image.height};
+  quad.uv = {static_cast<float>(x) / static_cast<float>(state_->image.width),
+             static_cast<float>(y) / static_cast<float>(state_->image.height),
+             static_cast<float>(width) / static_cast<float>(state_->image.width),
+             static_cast<float>(height) / static_cast<float>(state_->image.height)};
   return quad;
 }
 

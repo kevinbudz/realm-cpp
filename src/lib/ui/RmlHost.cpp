@@ -1022,10 +1022,10 @@ class NativeImageElement final : public Rml::Element {
       Rml::Mesh mesh;
       Rml::MeshUtilities::GenerateQuad(
           mesh, {0, 0}, box, color,
-          {static_cast<float>(source_x) / image_->width,
-           static_cast<float>(source_y) / image_->height},
-          {static_cast<float>(source_x + source_width) / image_->width,
-           static_cast<float>(source_y + source_height) / image_->height});
+          {static_cast<float>(source_x) / static_cast<float>(image_->width),
+           static_cast<float>(source_y) / static_cast<float>(image_->height)},
+          {static_cast<float>(source_x + source_width) / static_cast<float>(image_->width),
+           static_cast<float>(source_y + source_height) / static_cast<float>(image_->height)});
       if (auto* manager = GetRenderManager()) {
         geometry_ = manager->MakeGeometry(std::move(mesh));
       } else {

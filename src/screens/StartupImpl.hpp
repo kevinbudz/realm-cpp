@@ -20,8 +20,8 @@ struct Startup::Impl {
   using Task = startup_detail::Task;
   using DeleteSelection = startup_detail::StartupScreenState::DeleteSelection;
 
-  Impl(const FontBook& fonts, const HudArt* art, const Catalog& catalog, const std::filesystem::path& root,
-       StartupOptions options);
+  Impl(const FontBook& fonts, const HudArt* art, const Catalog& catalog,
+       const std::filesystem::path& root, StartupOptions options);
   ~Impl();
 
   void load_background(World& world);

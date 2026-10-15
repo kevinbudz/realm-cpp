@@ -5,8 +5,11 @@
 
 namespace {
 void check(bool value, const char* message) {
-  if (!value) throw std::runtime_error(message);
+  if (!value) {
+    throw std::runtime_error(message);
+  }
 }
+
 realm::net::Packet packet(realm::flash::PacketId id, realm::net::Bytes body) {
   return {static_cast<std::uint8_t>(id), std::move(body)};
 }
@@ -43,7 +46,8 @@ int main() {
     net::Writer target;
     target.i32(7);
     session.replay(packet(flash::PacketId::QUESTOBJID, target.bytes()), 1000);
-    check(session.quest().object_id() == 7 && session.quest().target(4999) == -1 && session.quest().target(5000) == 7,
+    check(session.quest().object_id() == 7 && session.quest().target(4999) == -1 &&
+              session.quest().target(5000) == 7,
           "QUESTOBJID reaches the delayed quest target model");
 
     net::Writer completed;
@@ -51,13 +55,15 @@ int main() {
     completed.utf("Quest Complete!");
     completed.u32(0xffffff);
     session.replay(packet(flash::PacketId::NOTIFICATION, completed.bytes()), 2000);
-    check(
-        session.quest().target(2000) == -1 && session.quest().target(6999) == -1 && session.quest().target(17000) == 7,
-        "the player's own Quest Complete notification delays the next target by five to fifteen seconds");
+    check(session.quest().target(2000) == -1 && session.quest().target(6999) == -1 &&
+              session.quest().target(17000) == 7,
+          "the player's own Quest Complete notification delays the next target by five to fifteen "
+          "seconds");
 
     session.join_guild("Guild Name");
-    check(sent.size() >= 2 && sent.back().id == static_cast<std::uint8_t>(flash::PacketId::JOINGUILD),
-          "accepting a guild invitation sends JOINGUILD");
+    check(
+        sent.size() >= 2 && sent.back().id == static_cast<std::uint8_t>(flash::PacketId::JOINGUILD),
+        "accepting a guild invitation sends JOINGUILD");
     net::Reader join(sent.back().body);
     check(join.utf() == "Guild Name", "join request carries the invited guild name");
 

@@ -2,8 +2,10 @@
 // Flash: kabam/lib/net/impl/SocketServer.as
 #include "realm/messaging/Protocol.hpp"
 #include <memory>
+
 namespace realm::net {
 enum class ConnectionState { closed, connecting, connected };
+
 class Transport {
  public:
   Transport();

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+
 namespace realm {
 // Native Options screen (ui/options/Options.as): six tabs of key mappers and choice boxes,
 // "continue", "reset to defaults" and "back to home". Coordinates stay in the 800x600
@@ -15,27 +16,39 @@ namespace realm {
 class OptionsScreen {
  public:
   // Hit identifiers: tabs 0-5, key/choice boxes 100+, labels 200+, buttons 300-302.
-  static constexpr int tab_hit = 0, box_hit = 100, label_hit = 200, continue_hit = 300, reset_hit = 301, home_hit = 302;
+  static constexpr int tab_hit = 0;
+  static constexpr int box_hit = 100;
+  static constexpr int label_hit = 200;
+  static constexpr int continue_hit = 300;
+  static constexpr int reset_hit = 301;
+  static constexpr int home_hit = 302;
   // The settings are owned by the caller and must outlive the open screen.
   void open(Settings& settings);
   void close();
+
   [[nodiscard]] bool visible() const { return settings_ != nullptr; }
+
   [[nodiscard]] OptionsTab tab() const { return tab_; }
+
   void set_tab(OptionsTab tab);
+
   // Whether a KeyCodeBox is waiting for a key ("[Hit Key]").
   [[nodiscard]] bool capturing() const { return capture_ >= 0; }
+
   // A value or binding changed since the last call; the caller applies and saves.
   [[nodiscard]] bool take_changed() {
     const bool value = changed_;
     changed_ = false;
     return value;
   }
+
   // "back to home" was clicked (the screen is already closed).
   [[nodiscard]] bool take_home() {
     const bool value = home_;
     home_ = false;
     return value;
   }
+
   bool update(const FontBook& fonts, double stage_width, double stage_height, std::int32_t time_ms);
   void pointer_move(Vec2 point);
   void pointer_down(Vec2 point);
@@ -45,25 +58,50 @@ class OptionsScreen {
   bool key_down(int flash_code);
 
   [[nodiscard]] const Image& image() const { return image_; }
+
   [[nodiscard]] double scale() const { return scale_; }
+
   [[nodiscard]] Vec2 position() const { return position_; }
+
   // Geometry (design units, relative to the 800x600 content) is ready after update().
-  [[nodiscard]] HudRect tab_rect(int index) const { return tab_rects_.at(static_cast<std::size_t>(index)); }
-  [[nodiscard]] HudRect box_rect(int index) const { return rows_.at(static_cast<std::size_t>(index)).box; }
-  [[nodiscard]] HudRect label_rect(int index) const { return rows_.at(static_cast<std::size_t>(index)).label; }
-  [[nodiscard]] HudRect button_rect(int hit) const { return buttons_.at(static_cast<std::size_t>(hit - continue_hit)); }
+  [[nodiscard]] HudRect tab_rect(int index) const {
+    return tab_rects_.at(static_cast<std::size_t>(index));
+  }
+
+  [[nodiscard]] HudRect box_rect(int index) const {
+    return rows_.at(static_cast<std::size_t>(index)).box;
+  }
+
+  [[nodiscard]] HudRect label_rect(int index) const {
+    return rows_.at(static_cast<std::size_t>(index)).label;
+  }
+
+  [[nodiscard]] HudRect button_rect(int hit) const {
+    return buttons_.at(static_cast<std::size_t>(hit - continue_hit));
+  }
+
   [[nodiscard]] std::size_t option_count() const { return rows_.size(); }
-  [[nodiscard]] const OptionDef& option(int index) const { return *rows_.at(static_cast<std::size_t>(index)).def; }
+
+  [[nodiscard]] const OptionDef& option(int index) const {
+    return *rows_.at(static_cast<std::size_t>(index)).def;
+  }
+
   [[nodiscard]] int hover() const { return hover_; }
+
   [[nodiscard]] bool tooltip_visible() const { return tooltip_; }
+
   // The design-space point under a drawable-pixel point.
-  [[nodiscard]] Vec2 local(Vec2 point) const { return {(point.x - position_.x) / scale_, point.y / scale_}; }
+  [[nodiscard]] Vec2 local(Vec2 point) const {
+    return {(point.x - position_.x) / scale_, point.y / scale_};
+  }
 
  private:
   struct Row {
     const OptionDef* def{};
-    HudRect box{}, label{};
+    HudRect box{};
+    HudRect label{};
   };
+
   [[nodiscard]] int hit(Vec2 point) const;
   void activate(int hit);
   void layout(const FontBook& fonts);
@@ -74,10 +112,22 @@ class OptionsScreen {
   std::vector<Row> rows_;
   std::array<HudRect, options_tab_count> tab_rects_{};
   std::array<HudRect, 3> buttons_{};
-  int hover_{-1}, pressed_{-1}, capture_{-1}, blink_{};
-  bool dirty_{true}, changed_{}, home_{}, laid_out_{}, pointer_valid_{}, tooltip_{};
-  double stage_width_{}, stage_height_{}, scale_{1};
-  Vec2 position_{}, pointer_{};
-  Image image_, base_;
+  int hover_{-1};
+  int pressed_{-1};
+  int capture_{-1};
+  int blink_{};
+  bool dirty_{true};
+  bool changed_{};
+  bool home_{};
+  bool laid_out_{};
+  bool pointer_valid_{};
+  bool tooltip_{};
+  double stage_width_{};
+  double stage_height_{};
+  double scale_{1};
+  Vec2 position_{};
+  Vec2 pointer_{};
+  Image image_;
+  Image base_;
 };
 }

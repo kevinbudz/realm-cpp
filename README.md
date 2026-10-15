@@ -51,6 +51,26 @@ ctest --preset sanitize
 | `REALM_ALLOCATION_TRACKING` | `OFF` | Count main-thread allocations in telemetry |
 | `REALM_USE_LLD` | `ON` | Use lld where supported; Release keeps GNU ld |
 
+## C++ readability
+
+Install the pinned formatter, then format or check the hand-written C++ files:
+
+```sh
+python3 -m pip install clang-format==20.1.8
+python3 tools/format_cpp.py
+python3 tools/format_cpp.py --check
+```
+
+The checked-in rules use a 100-column limit, braced control flow, and space between
+definitions. The command covers `src`, `include`, `tests`, and `tools`, and honors
+the generated-code exclusions in `.clang-format-ignore`. Vendored dependencies
+and build outputs are outside its scope.
+
+Within functions, separate logical steps with blank lines and keep declarations
+separate. Prefer short, clear, one-word local names when their meaning is
+unambiguous; conventional coordinates and loop indices can stay short. Readability
+changes must preserve evaluation order, numerical behavior, and public APIs.
+
 ## Run
 
 ### Startup flow

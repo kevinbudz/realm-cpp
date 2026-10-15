@@ -19,20 +19,26 @@
 namespace realm::startup_detail {
 struct StartupScreenState {
   struct Field {
-    std::string label, value, error;
+    std::string label;
+    std::string value;
+    std::string error;
     bool password{};
   };
+
   struct DeleteSelection {
-    int character_id{}, account_id{};
+    int character_id{};
+    int account_id{};
     net::FormFields credentials;
     std::uint64_t generation{};
   };
 
   [[nodiscard]] bool menus() const { return screen_ != Screen::game; }
+
   [[nodiscard]] bool background() const { return menus() && screen_ != Screen::account_loading; }
 
   // These transitions keep the screen and its data-loading destination in sync.
   void session_changed() { ++session_generation_; }
+
   [[nodiscard]] bool require_valid_data(Screen next) {
     if (!invalidated_) {
       screen_ = next;
@@ -43,11 +49,15 @@ struct StartupScreenState {
     loading_text_ = "Loading...";
     return true;
   }
+
   void list_loaded() {
     invalidated_ = false;
     loading_text_ = "Loading...";
-    if (screen_ == Screen::account_loading || screen_ == Screen::loading) screen_ = pending_screen_;
+    if (screen_ == Screen::account_loading || screen_ == Screen::loading) {
+      screen_ = pending_screen_;
+    }
   }
+
   void enter_game() {
     screen_ = Screen::game;
     dialog_ = Modal::none;
@@ -58,35 +68,44 @@ struct StartupScreenState {
   std::string account_save_error_;
   std::optional<CharList> list_;
   bool invalidated_{true};
-  Screen screen_{Screen::account_loading}, pending_screen_{Screen::title};
+  Screen screen_{Screen::account_loading};
+  Screen pending_screen_{Screen::title};
   Modal dialog_{Modal::none};
   SoundCues sounds_;
-  std::string loading_text_{"Loading..."}, dialog_message_, dialog_title_;
+  std::string loading_text_{"Loading..."};
+  std::string dialog_message_;
+  std::string dialog_title_;
   std::vector<Field> fields_;
   std::size_t focus_{};
   Task retry_task_{Task::char_list};
   std::optional<DeleteSelection> delete_selection_;
   // DeleteCharacterTask.setMaxRetries(2): three attempts, retried only after an explicit <Error>.
   int delete_attempts_{};
-  // An ambiguous reply may have deleted the character; the list is refreshed once the error is dismissed.
+  // An ambiguous reply may have deleted the character; the list is refreshed once the error is
+  // dismissed.
   bool delete_refresh_{};
   realm::Dialog delete_dialog_;
   std::uint64_t session_generation_{};
 
-  std::int32_t retry_at_{-1}, time_{};
+  std::int32_t retry_at_{-1};
+  std::int32_t time_{};
   std::optional<net::incoming::Death> death_;
   std::optional<CharacterFame> fame_;
   Image fame_portrait_;
   std::string fame_error_;
-  std::int32_t death_at_{}, score_at_{-1};
+  std::int32_t death_at_{};
+  std::int32_t score_at_{-1};
   int fame_animation_frame_{-1};
   int fame_attempts_{};
   bool fame_skip_{};
   bool caret_{};
   Scrollbar fame_scroll_{16, 150};
-  int fame_account_id_{}, fame_character_id_{};
+  int fame_account_id_{};
+  int fame_character_id_{};
   std::uint64_t fame_generation_{};
-  bool fresh_fame_{}, legends_from_death_{}, fame_from_news_{};
+  bool fresh_fame_{};
+  bool legends_from_death_{};
+  bool fame_from_news_{};
   // One bounded list per tab; generations distinguish close/reopen while a request drains.
   std::uint64_t legends_generation_{};
   std::size_t legends_span_{};
@@ -106,8 +125,11 @@ struct StartupScreenState {
   double scroll_{};
   std::optional<SessionOptions> launch_;
   std::string background_map_;
-  double background_x_{10}, background_y_{10}, background_width_{};
-  int hovered_{-1}, pressed_{-1};
+  double background_x_{10};
+  double background_y_{10};
+  double background_width_{};
+  int hovered_{-1};
+  int pressed_{-1};
   // SoundIcon: the mirrored playSFX value, and the value a click asked the app to store.
   bool play_sfx_{true};
   std::optional<bool> play_sfx_request_;

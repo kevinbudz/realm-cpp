@@ -59,7 +59,8 @@ void main() {
 }
 
 RendererPostProcess::RendererPostProcess() {
-  GLuint vertex{}, fragment{};
+  GLuint vertex{};
+  GLuint fragment{};
   try {
     vertex = renderer_detail::compile_shader(GL_VERTEX_SHADER, post_vertex_shader);
     fragment = renderer_detail::compile_shader(GL_FRAGMENT_SHADER, post_fragment_shader);
@@ -72,7 +73,9 @@ RendererPostProcess::RendererPostProcess() {
     vertex = fragment = 0;
     GLint linked{};
     glGetProgramiv(program_, GL_LINK_STATUS, &linked);
-    if (!linked) throw std::runtime_error("Post shader link failed");
+    if (!linked) {
+      throw std::runtime_error("Post shader link failed");
+    }
 
     glUseProgram(program_);
     glUniform1i(glGetUniformLocation(program_, "scene"), 2);
@@ -87,20 +90,32 @@ RendererPostProcess::RendererPostProcess() {
     sidebar_ = glGetUniformLocation(program_, "sidebar");
     glGenVertexArrays(1, &vao_);
   } catch (...) {
-    if (vertex) glDeleteShader(vertex);
-    if (fragment) glDeleteShader(fragment);
+    if (vertex) {
+      glDeleteShader(vertex);
+    }
+    if (fragment) {
+      glDeleteShader(fragment);
+    }
     release();
     throw;
   }
 }
 
-RendererPostProcess::~RendererPostProcess() { release(); }
+RendererPostProcess::~RendererPostProcess() {
+  release();
+}
 
 void RendererPostProcess::release() noexcept {
   glDeleteFramebuffers(static_cast<GLsizei>(framebuffers_.size()), framebuffers_.data());
   glDeleteTextures(static_cast<GLsizei>(textures_.size()), textures_.data());
-  if (vao_) glDeleteVertexArrays(1, &vao_);
-  if (program_) glDeleteProgram(program_);
+
+  if (vao_) {
+    glDeleteVertexArrays(1, &vao_);
+  }
+  if (program_) {
+    glDeleteProgram(program_);
+  }
+
   framebuffers_.fill(0);
   textures_.fill(0);
   vao_ = program_ = 0;
@@ -109,7 +124,9 @@ void RendererPostProcess::release() noexcept {
 
 // The offscreen world and the blur's intermediate share one size; reallocated only on resize.
 void RendererPostProcess::ensure_targets(int width, int height) {
-  if (textures_[0] && width_ == width && height_ == height) return;
+  if (textures_[0] && width_ == width && height_ == height) {
+    return;
+  }
   if (!textures_[0]) {
     glGenTextures(static_cast<GLsizei>(textures_.size()), textures_.data());
     glGenFramebuffers(static_cast<GLsizei>(framebuffers_.size()), framebuffers_.data());
@@ -135,7 +152,8 @@ void RendererPostProcess::ensure_targets(int width, int height) {
   height_ = height;
 }
 
-std::size_t RendererPostProcess::run_post(int width, int height, int clip_width, const ScreenEffects& effects) {
+std::size_t RendererPostProcess::run_post(int width, int height, int clip_width,
+                                          const ScreenEffects& effects) {
   std::size_t draw_count{};
   glDisable(GL_BLEND);
   glUseProgram(program_);
@@ -143,7 +161,8 @@ std::size_t RendererPostProcess::run_post(int width, int height, int clip_width,
   glUniform2f(viewport_, static_cast<float>(width), static_cast<float>(height));
   glUniform2f(region_, static_cast<float>(clip_width), static_cast<float>(height));
   glUniform1i(mode_, 0);
-  const auto pass = [&](GLuint framebuffer, GLuint source, float dx, float dy, float blur, bool blind) {
+  const auto pass = [&](GLuint framebuffer, GLuint source, float dx, float dy, float blur,
+                        bool blind) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, source);
@@ -157,8 +176,9 @@ std::size_t RendererPostProcess::run_post(int width, int height, int clip_width,
   if (effects.blur > 0) {
     pass(framebuffers_[1], textures_[0], 1, 0, effects.blur, false);
     pass(0, textures_[1], 0, 1, effects.blur, effects.blind);
-  } else
+  } else {
     pass(0, textures_[0], 0, 0, 0, effects.blind);
+  }
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_BLEND);
   return draw_count;

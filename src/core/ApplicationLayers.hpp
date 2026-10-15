@@ -12,13 +12,18 @@ using UiResult = realm::ui::Result;
 using UiReset = realm::ui::Reset;
 
 inline bool left_button(const UiEvent& e) {
-  return e.button == SDL_BUTTON_LEFT && (e.kind == UiKind::pointer_down || e.kind == UiKind::pointer_up);
+  return e.button == SDL_BUTTON_LEFT &&
+         (e.kind == UiKind::pointer_down || e.kind == UiKind::pointer_up);
 }
-inline bool window_left(const UiEvent& e) { return e.kind == UiKind::focus_lost || e.kind == UiKind::pointer_left; }
 
-// The client's screen layers, in ui_stack add() order (bottom to top). Members are declared in add order, so they are
-// destroyed in reverse add order, as the old run() locals were. Layers point at each other by address, so this struct
-// is neither copied nor moved after configuration; run() owns it through a unique_ptr.
+inline bool window_left(const UiEvent& e) {
+  return e.kind == UiKind::focus_lost || e.kind == UiKind::pointer_left;
+}
+
+// The client's screen layers, in ui_stack add() order (bottom to top). Members are declared in add
+// order, so they are destroyed in reverse add order, as the old run() locals were. Layers point at
+// each other by address, so this struct is neither copied nor moved after configuration; run() owns
+// it through a unique_ptr.
 struct ClientLayers {
   realm::ui::FunctionLayer hud_layer{"hud"};
   realm::ui::FunctionLayer minimap_layer{"minimap"};
@@ -42,8 +47,8 @@ struct ClientLayers {
   ClientLayers& operator=(ClientLayers&&) = delete;
 };
 
-// Each configures one layer's callbacks. Bodies capture by reference over cs and layers; run() adds the layer to
-// cs.ui_stack right after its configure call, in the order above.
+// Each configures one layer's callbacks. Bodies capture by reference over cs and layers; run() adds
+// the layer to cs.ui_stack right after its configure call, in the order above.
 // ApplicationLayersHud.cpp
 void configure_hud_layer(ClientState& cs, ClientLayers& layers);
 void configure_minimap_layer(ClientState& cs, ClientLayers& layers);

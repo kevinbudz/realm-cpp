@@ -3,7 +3,9 @@
 
 namespace realm {
 IdleWatcher::Event IdleWatcher::update(std::int32_t dt_ms) {
-  if (disconnected_) return Event::none;
+  if (disconnected_) {
+    return Event::none;
+  }
   idle_time_ = std::min(disconnect_ms, idle_time_ + std::clamp(dt_ms, 0, 100));
   if (!warned_10_ && idle_time_ >= warning_10_ms) {
     warned_10_ = true;

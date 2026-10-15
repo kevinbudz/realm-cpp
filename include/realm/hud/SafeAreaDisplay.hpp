@@ -14,7 +14,8 @@ struct SafeAreaDisplayImage {
   Rect layout_bounds{};
 };
 
-[[nodiscard]] SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudArt& art, int stars,
+[[nodiscard]] SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts,
+                                                            const HudArt& art, int stars,
                                                             std::string_view guild, int guild_rank);
 
 }

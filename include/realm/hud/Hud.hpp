@@ -7,13 +7,15 @@
 #include <array>
 #include <optional>
 #include <string_view>
+
 namespace realm {
 // PotionInventoryView layout below the 84-pixel InventoryGrid.
 inline constexpr int potion_view_y = 468;
 inline constexpr std::array<int, 2> potion_view_x{14, 102};
 inline constexpr std::array<int, 2> potion_types{2594, 2595};
 // The empty 172-pixel ContainerGrid is centered in the panel at HUD y 500.
-inline constexpr int container_x = 14, container_y = 508;
+inline constexpr int container_x = 14;
+inline constexpr int container_y = 508;
 // The IconButton's 40x40 bitmap, 12 units up and left of the button, in HUD coordinates.
 inline constexpr HudRect header_button{160, 190, 40, 40};
 [[nodiscard]] std::optional<TextBitmap> tier_bitmap(const FontBook& fonts, const ObjectDef& item);
@@ -23,10 +25,14 @@ inline constexpr HudRect header_button{160, 190, 40, 40};
 // Finite original icon/decorative art is optional for meter-only fixtures.
 class Hud {
  public:
-  explicit Hud(const FontBook& fonts, const HudArt* art = nullptr, const Catalog* catalog = nullptr);
+  explicit Hud(const FontBook& fonts, const HudArt* art = nullptr,
+               const Catalog* catalog = nullptr);
   bool update(const HudState& state);
+
   [[nodiscard]] const Image& image() const { return image_; }
+
   [[nodiscard]] std::uint64_t rebuilds() const { return rebuilds_; }
+
   [[nodiscard]] const std::vector<HudRegion>& changes() const { return changes_; }
 
  private:
@@ -41,7 +47,8 @@ class Hud {
   void social(const HudState::Social& state);
   void native_button(HudRect area, std::string_view label, bool hover);
   void tier(const ObjectDef& item, int x, int y);
-  void draw(TextBitmap bitmap, double x, double y, double alpha = 1, const ColorTransform* transform = nullptr);
+  void draw(TextBitmap bitmap, double x, double y, double alpha = 1,
+            const ColorTransform* transform = nullptr);
   // An unfiltered TextField renders straight into the stage rather than
   // through a filter bitmap, interpolating toward its color by coverage.
   void draw_direct(const TextBitmap& bitmap, double x, double y, std::uint32_t color);
@@ -51,8 +58,8 @@ class Hud {
   void rectangle(double x, int y, double width, int height, std::uint32_t color);
   // Fills the logical rectangle with its edges rounded to whole device pixels.
   void snapped_rectangle(double x, double y, double width, double height, std::uint32_t color);
-  void text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y, double alpha = 1,
-            unsigned shadow_strength = 1, int field_width = 0);
+  void text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y,
+            double alpha = 1, unsigned shadow_strength = 1, int field_width = 0);
   void bar(const StatusBarState& state);
   const FontBook& fonts_;
   const HudArt* art_{};

@@ -4,13 +4,18 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
@@ -30,23 +35,36 @@ int main() {
       e.position = {52, 50};
       e.position2 = {54, 50};
       e.color = 0xff0088ff;
-      if (type == 5 || type == 10) e.position = {3, 0};
-      if (type == 13) e.position2 = {3, 0};
-      if (type == 11) e.position2 = {200, 0};
-      if (type == 15) e.position = {.3f, 3};
-      if (type == 16) e.color = catalog.object("Health Potion")->type;
+      if (type == 5 || type == 10) {
+        e.position = {3, 0};
+      }
+      if (type == 13) {
+        e.position2 = {3, 0};
+      }
+      if (type == 11) {
+        e.position2 = {200, 0};
+      }
+      if (type == 15) {
+        e.position = {.3f, 3};
+      }
+      if (type == 16) {
+        e.color = catalog.object("Health Potion")->type;
+      }
       particles.show(world, e, 0);
       check(particles.particles().size() == static_cast<std::size_t>(expected[type]),
             "SHOWEFFECT source particle counts");
       particles.update(world, 0);
-      for (int t = 17; t < 11000; t += 17) particles.update(world, t);
+      for (int t = 17; t < 11000; t += 17) {
+        particles.update(world, t);
+      }
       check(particles.particles().empty() && particles.flashes().empty(), "all effects expire");
       check(world.entity(99)->combat.hp == 200, "effects preserve authoritative HP");
       e.target_id = 123456;
       particles.clear();
       particles.show(world, e, 0);
-      if (type != 2 && type != 3 && type != 4 && type != 14 && type != 16)
+      if (type != 2 && type != 3 && type != 4 && type != 14 && type != 16) {
         check(particles.particles().empty(), "missing required targets ignored");
+      }
     }
     particles.clear();
     net::incoming::ShowEffect thrown;
@@ -57,7 +75,8 @@ int main() {
     thrown.has_position2 = true;
     particles.show(world, thrown, 0);
     particles.update(world, 400);
-    check(std::abs(particles.particles()[0].position.x - 55) < 1e-9 && std::abs(particles.particles()[0].z - 2) < 1e-9,
+    check(std::abs(particles.particles()[0].position.x - 55) < 1e-9 &&
+              std::abs(particles.particles()[0].z - 2) < 1e-9,
           "fork custom throw midpoint and arc");
     particles.update(world, 801);
     check(std::none_of(particles.particles().begin(), particles.particles().end(),
@@ -87,12 +106,14 @@ int main() {
     world.apply(exploding);
     check(!world.entity(98) && particles.particles().size() == 30,
           "exploding player drop emits death burst even at zero HP");
-    for (const auto& p : particles.particles())
-      check(p.position.x == 40 && p.position.y == 40 && p.z == .5 && p.lifetime >= 200 && p.lifetime <= 300 &&
-                std::abs(p.velocity.x) <= 4 && std::abs(p.velocity.y) <= 4,
+    for (const auto& p : particles.particles()) {
+      check(p.position.x == 40 && p.position.y == 40 && p.z == .5 && p.lifetime >= 200 &&
+                p.lifetime <= 300 && std::abs(p.velocity.x) <= 4 && std::abs(p.velocity.y) <= 4,
             "death burst preserves Flash position, lifetime and spread");
+    }
     particles.update(world, static_cast<std::int32_t>(particles.time()) + 301);
-    check(particles.particles().empty(), "unattached death debris survives removal and then expires");
+    check(particles.particles().empty(),
+          "unattached death debris survives removal and then expires");
     world.add(98, catalog.object("Wizard")->type, {40, 40});
     exploding.drops = {{98, false}, {123456, true}};
     world.apply(exploding);
@@ -110,7 +131,8 @@ int main() {
     particles.level_up(99, 0);
     particles.update(world, 1000);
     check(particles.particles().size() == 40, "level up two swirls");
-    check(particles.particles()[0].z == 0 && std::abs(particles.particles()[0].position.x - 49.5) < 1e-9,
+    check(particles.particles()[0].z == 0 &&
+              std::abs(particles.particles()[0].position.x - 49.5) < 1e-9,
           "source swirl midpoint");
     world.remove(99);
     check(particles.particles().empty(), "removing target destroys following effects");
@@ -132,14 +154,17 @@ int main() {
     check(particles.emitter_count() == 0, "healing stat clears emitter");
     std::size_t emitters{};
     for (const auto& def : catalog.objects()) {
-      if (def.texture.effect.kind.empty()) continue;
+      if (def.texture.effect.kind.empty()) {
+        continue;
+      }
       ++emitters;
       particles.clear();
       world.add(20, def.type, {50, 50});
       particles.update(world, 0);
       particles.update(world, 100);
       particles.update(world, 200);
-      check(particles.emitter_count() == 1 && !particles.particles().empty(), "every actual XML object emitter emits");
+      check(particles.emitter_count() == 1 && !particles.particles().empty(),
+            "every actual XML object emitter emits");
       world.remove(20);
       check(particles.emitter_count() == 0, "source emitter target removed");
     }
@@ -164,32 +189,44 @@ int main() {
     check(particles.particles().empty(), "transparent art never creates white blood");
     world.remove(20);
     particles.clear();
-    for (int n = 0; n < 1000; ++n) particles.trail({50, 50}, 0);
+    for (int n = 0; n < 1000; ++n) {
+      particles.trail({50, 50}, 0);
+    }
     check(particles.particles().size() == Particles::maximum_spawns && particles.dropped() > 0,
           "per frame flood bounded");
     for (int t = 1; t < 20; ++t) {
       particles.update(world, t);
-      for (int n = 0; n < 1000; ++n) particles.trail({50, 50}, t);
+      for (int n = 0; n < 1000; ++n) {
+        particles.trail({50, 50}, t);
+      }
     }
     check(particles.particles().size() <= Particles::maximum_particles, "dense storage bounded");
     particles.update(world, 11000);
     check(particles.particles().empty(), "hitch expires stale particles without backlog");
     particles.show(world, {14, 99, 0, {}, {}, false}, 0);
-    check(std::hypot(particles.camera_offset(10000).x, particles.camera_offset(10000).y) <= std::sqrt(.5),
+    check(std::hypot(particles.camera_offset(10000).x, particles.camera_offset(10000).y) <=
+              std::sqrt(.5),
           "jitter amplitude bounded");
     world.initialize(20, 20);
-    check(particles.particles().empty() && particles.emitter_count() == 0 && particles.camera_offset(10000).x == 0,
+    check(particles.particles().empty() && particles.emitter_count() == 0 &&
+              particles.camera_offset(10000).x == 0,
           "map teardown clears all effect state");
-    for (int i = 0; i < 1300; ++i) world.add(1000 + i, catalog.object("White Fountain")->type, {5, 5});
+    for (int i = 0; i < 1300; ++i) {
+      world.add(1000 + i, catalog.object("White Fountain")->type, {5, 5});
+    }
     check(particles.emitter_count() == Particles::maximum_emitters, "emitter flood capped");
     particles.update(world, 100000);
-    check(particles.particles().size() <= Particles::maximum_spawns, "emitter hitch spawn budget capped");
+    check(particles.particles().size() <= Particles::maximum_spawns,
+          "emitter hitch spawn budget capped");
     world.initialize(20, 20);
     world.add(99, catalog.object("Wizard")->type, {5, 5});
     world.set_player_id(99);
     world.entity(99)->combat.hp = 200;
-    for (int y = 0; y < 20; ++y)
-      for (int x = 0; x < 20; ++x) world.tile(x, y)->type = catalog.ground("Grass")->type;
+    for (int y = 0; y < 20; ++y) {
+      for (int x = 0; x < 20; ++x) {
+        world.tile(x, y)->type = catalog.ground("Grass")->type;
+      }
+    }
     const auto* quiver = catalog.object("Magic Quiver");
     Combat combat(world);
     combat.reset(123);
@@ -212,14 +249,15 @@ int main() {
     arrow.container_type = static_cast<std::int16_t>(catalog.object("Falchion")->type);
     (void)combat.receive({flash::PacketId::SERVERPLAYERSHOOT, arrow}, 0);
     const auto& flying = combat.projectiles().front();
-    const auto impact_at =
-        projectile_position(flying.definition->motion, flying.start, flying.angle, flying.bullet_id, 200);
+    const auto impact_at = projectile_position(flying.definition->motion, flying.start,
+                                               flying.angle, flying.bullet_id, 200);
     const ObjectDef* wall{};
-    for (const auto& d : catalog.objects())
+    for (const auto& d : catalog.objects()) {
       if (d.class_name == "Wall" && d.stationary && d.occupy) {
         wall = &d;
         break;
       }
+    }
     check(wall, "cover fixture exists");
     world.add(55, wall->type, {std::floor(impact_at.x) + .5, std::floor(impact_at.y) + .5});
     particles.clear();
@@ -236,8 +274,9 @@ int main() {
     invalid.position.x = std::numeric_limits<float>::quiet_NaN();
     particles.show(world, invalid, 0);
     check(particles.particles().empty(), "nonfinite effect dropped");
-    std::cout << checks << " particle source/count/motion/lifetime/authority/budget/teardown checks; " << emitters
-              << " actual XML emitters passed\n";
+    std::cout << checks
+              << " particle source/count/motion/lifetime/authority/budget/teardown checks; "
+              << emitters << " actual XML emitters passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

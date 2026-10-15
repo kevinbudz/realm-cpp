@@ -3,13 +3,18 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* reason) {
   ++checks;
-  if (!ok) throw std::runtime_error(reason);
+  if (!ok) {
+    throw std::runtime_error(reason);
+  }
 }
 }
+
 int main() {
   try {
     realm::Catalog catalog(realm::flash::source_root);
@@ -20,24 +25,27 @@ int main() {
     const auto* grass = catalog.ground("Grass");
     const auto* wizard = catalog.object("Wizard");
     const realm::ObjectDef* wall{};
-    for (const auto& def : catalog.objects())
+    for (const auto& def : catalog.objects()) {
       if (def.class_name == "Wall" && def.stationary && def.occupy && !def.no_minimap) {
         wall = &def;
         break;
       }
+    }
     check(wall != nullptr, "static wall fixture missing");
     realm::net::Update update;
     update.tiles.push_back({3, 7, grass->type});
     world.apply(update);
     world.add(-2, wizard->type, {50.5, 50.5});
     world.set_player_id(-2);
-    check(world.tile(3, 7)->minimap_code == (0x20000U | grass->type), "received ground must be remembered");
+    check(world.tile(3, 7)->minimap_code == (0x20000U | grass->type),
+          "received ground must be remembered");
     check(world.tile(0, 0)->minimap_code == 0, "unseen tiles must remain black");
     check(mini.update(world, *world.entity(-2), 0), "first minimap view must render");
     check(mini.colored_rows() == 100, "initial map must color all rows once");
     const auto rows = mini.colored_rows(), draws = mini.redraws();
     check(!mini.update(world, *world.entity(-2), 0), "unchanged minimap redrew");
-    check(mini.colored_rows() == rows && mini.redraws() == draws, "unchanged minimap performed hidden work");
+    check(mini.colored_rows() == rows && mini.redraws() == draws,
+          "unchanged minimap performed hidden work");
     world.apply(update);
     check(!mini.update(world, *world.entity(-2), 0), "duplicate ground update redrew");
     update.tiles[0].type = catalog.grounds().front().type;
@@ -46,7 +54,8 @@ int main() {
     check(mini.colored_rows() == rows + 1, "ground change recolored unrelated rows");
     world.add(11, wall->type, {3.5, 7.5});
     const auto remembered = world.tile(3, 7)->minimap_code;
-    check(remembered == (0x30000U | wall->type), "static occupying object must replace ground memory");
+    check(remembered == (0x30000U | wall->type),
+          "static occupying object must replace ground memory");
     mini.update(world, *world.entity(-2), 0);
     const auto before_drop = mini.colored_rows();
     world.remove(11);
@@ -61,7 +70,8 @@ int main() {
     world.goto_entity(-2, {51, 50.5});
     check(mini.update(world, *world.entity(-2), 0) && mini.colored_rows() == before_move,
           "focus movement recolored terrain");
-    check(mini.zoom_levels() == std::vector<double>({4, 2, 1.92}), "minimap zoom levels differ from source");
+    check(mini.zoom_levels() == std::vector<double>({4, 2, 1.92}),
+          "minimap zoom levels differ from source");
     mini.zoom_out();
     mini.zoom_out();
     mini.zoom_out();

@@ -12,12 +12,16 @@ namespace realm::startup_detail {
 class HttpTaskService {
  public:
   struct Generations {
-    std::uint64_t session{}, fame{}, legends{};
+    std::uint64_t session{};
+    std::uint64_t fame{};
+    std::uint64_t legends{};
     std::size_t legends_span{};
   };
+
   struct Completion {
     Task task{Task::none};
-    std::string response, error;
+    std::string response;
+    std::string error;
     Generations generations;
   };
 
@@ -27,8 +31,9 @@ class HttpTaskService {
   ~HttpTaskService();
 
   [[nodiscard]] bool busy() const { return task_ != Task::none; }
-  bool start(Task task, const std::string& host, std::uint16_t port, const std::string& path, net::FormFields fields,
-             Generations generations);
+
+  bool start(Task task, const std::string& host, std::uint16_t port, const std::string& path,
+             net::FormFields fields, Generations generations);
   [[nodiscard]] std::optional<Completion> poll();
   void wait();
 

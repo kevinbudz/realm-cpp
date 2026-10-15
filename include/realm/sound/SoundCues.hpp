@@ -9,8 +9,8 @@
 
 namespace realm {
 
-// One sound request from game logic (SoundEffectLibrary.play / load). Headless: the audio layer decides what
-// to do with it, so game code never includes the audio library.
+// One sound request from game logic (SoundEffectLibrary.play / load). Headless: the audio layer
+// decides what to do with it, so game code never includes the audio library.
 struct SoundCue {
   std::string name;
   float volume{1.f};
@@ -19,10 +19,10 @@ struct SoundCue {
   bool preload{};
 };
 
-// Bounded per-frame queue. Identical cues in one frame (many hits on one monster type, say) collapse into one;
-// SoundEffectLibrary's dedupe would play at most one of them anyway, and a flood must not push out later, different
-// cues. A distinct cue is dropped when the queue is full and counted. The application drains the queue once per
-// rendered frame.
+// Bounded per-frame queue. Identical cues in one frame (many hits on one monster type, say)
+// collapse into one; SoundEffectLibrary's dedupe would play at most one of them anyway, and a flood
+// must not push out later, different cues. A distinct cue is dropped when the queue is full and
+// counted. The application drains the queue once per rendered frame.
 class SoundCues {
  public:
   static constexpr std::size_t capacity = 256;
@@ -42,10 +42,16 @@ class SoundCues {
     cues_.push_back(std::move(cue));
     return true;
   }
-  void play(std::string name, float volume = 1.f, bool is_fx = true) { push({std::move(name), volume, is_fx, false}); }
+
+  void play(std::string name, float volume = 1.f, bool is_fx = true) {
+    push({std::move(name), volume, is_fx, false});
+  }
+
   void preload(std::string name) { push({std::move(name), 1.f, true, true}); }
-  // Replaces `out` with the pending cues in push order; swapping keeps both buffers' capacity across frames. Returns
-  // how many distinct cues were dropped for overflow since the previous drain.
+
+  // Replaces `out` with the pending cues in push order; swapping keeps both buffers' capacity
+  // across frames. Returns how many distinct cues were dropped for overflow since the previous
+  // drain.
   std::uint64_t drain(std::vector<SoundCue>& out) {
     out.clear();
     out.swap(cues_);
@@ -54,8 +60,11 @@ class SoundCues {
     dropped_drained_ = dropped_;
     return overflow;
   }
+
   [[nodiscard]] std::size_t size() const { return cues_.size(); }
+
   [[nodiscard]] std::uint64_t dropped() const { return dropped_; }
+
   [[nodiscard]] std::uint64_t coalesced() const { return coalesced_; }
 
  private:
@@ -66,10 +75,13 @@ class SoundCues {
     key.push_back(cue.preload ? 'p' : 'c');
     key.push_back(cue.is_fx ? 'f' : 'n');
     const auto bits = std::bit_cast<std::uint32_t>(cue.volume);
-    for (unsigned shift = 0; shift < 32; shift += 8) key.push_back(static_cast<char>(bits >> shift));
+    for (unsigned shift = 0; shift < 32; shift += 8) {
+      key.push_back(static_cast<char>(bits >> shift));
+    }
     key += cue.name;
     return key;
   }
+
   std::vector<SoundCue> cues_;
   std::unordered_set<std::string> keys_;
   std::uint64_t dropped_{}, dropped_drained_{}, coalesced_{};

@@ -6,14 +6,22 @@
 #include <iostream>
 #include <numbers>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool x, const char* text) {
   ++checks;
-  if (!x) throw std::runtime_error(text);
+  if (!x) {
+    throw std::runtime_error(text);
+  }
 }
-bool near(double a, double b) { return std::abs(a - b) < 1e-8; }
+
+bool near(double a, double b) {
+  return std::abs(a - b) < 1e-8;
 }
+}
+
 int main() {
   try {
     using namespace realm;
@@ -28,22 +36,27 @@ int main() {
     Camera camera;
     camera.configure({50, 50}, 0, 800, 600);
 
-    // Quest.as timing: a new target is available 4 s after it arrives and reads as new for 2 s more.
+    // Quest.as timing: a new target is available 4 s after it arrives and reads as new for 2 s
+    // more.
     Quest quest(1);
     check(quest.target(0) == -1, "no target before QUESTOBJID");
     quest.set_object(7, 1000);
-    check(quest.target(4999) == -1 && quest.target(5000) == 7, "target available four seconds after arrival");
+    check(quest.target(4999) == -1 && quest.target(5000) == 7,
+          "target available four seconds after arrival");
     check(quest.is_new(6999) && !quest.is_new(7000), "target reads as new for two seconds");
     quest.set_object(9, 2000);
-    check(quest.target(5000) == 9 && !quest.is_new(7000), "changing the target keeps the running timers");
+    check(quest.target(5000) == 9 && !quest.is_new(7000),
+          "changing the target keeps the running timers");
     quest.set_object(-1, 3000);
     check(quest.target(9000) == -1 && quest.object_id() == -1, "-1 clears the target");
     quest.set_object(3, 9000);
-    check(quest.target(12999) == -1 && quest.target(13000) == 3 && quest.is_new(14999) && !quest.is_new(15000),
+    check(quest.target(12999) == -1 && quest.target(13000) == 3 && quest.is_new(14999) &&
+              !quest.is_new(15000),
           "a first target after clearing starts new timers");
     // Quest.completed: the next target waits between 5 and 15 seconds.
     quest.completed(20000);
-    check(quest.target(24999) == -1 && quest.target(35000) == 3, "completion waits five to fifteen seconds");
+    check(quest.target(24999) == -1 && quest.target(35000) == 3,
+          "completion waits five to fifteen seconds");
     quest.reset();
     check(quest.object_id() == -1 && quest.target(1 << 30) == -1, "MAPINFO clears the quest");
 
@@ -51,14 +64,16 @@ int main() {
     QuestArrow arrow;
     quest.set_object(7, 1000);
     arrow.update(world, quest, camera, {}, false, 800, 600, 4999);
-    check(!arrow.visible() && arrow.tooltip() == QuestArrow::Tooltip::none, "no arrow before the target is available");
+    check(!arrow.visible() && arrow.tooltip() == QuestArrow::Tooltip::none,
+          "no arrow before the target is available");
     arrow.update(world, quest, camera, {}, false, 800, 600, 5000);
     check(arrow.visible() && near(arrow.position().x, 600) && near(arrow.position().y, 325) &&
               near(std::abs(arrow.rotation()), std::numbers::pi),
           "off-screen target sits on the right edge pointing inward");
     check(arrow.tooltip() == QuestArrow::Tooltip::quest, "a new quest shows the full tooltip");
     arrow.update(world, quest, camera, {}, false, 800, 600, 7000);
-    check(arrow.tooltip() == QuestArrow::Tooltip::portrait, "an expired quest shows the portrait when enabled");
+    check(arrow.tooltip() == QuestArrow::Tooltip::portrait,
+          "an expired quest shows the portrait when enabled");
     auto preferences = world.preferences();
     preferences.show_quest_portraits = false;
     world.set_preferences(preferences);
@@ -71,10 +86,12 @@ int main() {
     world.goto_entity(7, {90, 50});
     arrow.update(world, quest, camera, {}, false, 800, 600, 7000);
     arrow.update(world, quest, camera, {590, 325}, true, 800, 600, 7000);
-    check(arrow.hovered() && arrow.tooltip() == QuestArrow::Tooltip::quest, "hover shows the full tooltip");
+    check(arrow.hovered() && arrow.tooltip() == QuestArrow::Tooltip::quest,
+          "hover shows the full tooltip");
     world.goto_entity(7, {10, 50});
     arrow.update(world, quest, camera, {590, 325}, true, 800, 600, 7000);
-    check(arrow.hovered() && near(arrow.position().x, 600) && near(std::abs(arrow.rotation()), std::numbers::pi),
+    check(arrow.hovered() && near(arrow.position().x, 600) &&
+              near(std::abs(arrow.rotation()), std::numbers::pi),
           "hover freezes the placement while the target moves");
     arrow.update(world, quest, camera, {}, true, 800, 600, 7000);
     check(!arrow.hovered() && near(arrow.position().x, 0) && near(arrow.rotation(), 0),
@@ -93,7 +110,8 @@ int main() {
     check(arrow.visible() && arrow.hit({590, 325}), "hit tests the visible triangle");
     check(!arrow.hit({596, 333}), "outside the triangle is not a hit");
 
-    // quest_target snapshots what the tooltips draw; QuestToolTip and PortraitToolTip redraw only on change.
+    // quest_target snapshots what the tooltips draw; QuestToolTip and PortraitToolTip redraw only
+    // on change.
     const auto target = quest_target(world, 7);
     check(target && target->type == enemy_type && !target->player && target->level == -1,
           "a non-player target snapshots without a level");
@@ -101,26 +119,32 @@ int main() {
     FontBook fonts;
     HudArt art;
     QuestToolTip tooltip(catalog, fonts, art);
-    check(tooltip.update(*target) && !tooltip.update(*target), "quest tooltip redraws only when its target changes");
-    check(
-        tooltip.content_width() > 0 && tooltip.content_height() > 0 && tooltip.image().width == tooltip.canvas_width(),
-        "quest tooltip measures its content");
+    check(tooltip.update(*target) && !tooltip.update(*target),
+          "quest tooltip redraws only when its target changes");
+    check(tooltip.content_width() > 0 && tooltip.content_height() > 0 &&
+              tooltip.image().width == tooltip.canvas_width(),
+          "quest tooltip measures its content");
     const auto rebuilds = tooltip.rebuilds();
     tooltip.update(*target);
     check(tooltip.rebuilds() == rebuilds, "unchanged target reuses the surface");
     PortraitToolTip portrait(fonts, art);
     check(portrait.update(*target), "portrait tooltip renders");
-    const auto full = art.game_object_portrait(target->type, target->skin, target->tex1, target->tex2);
-    check(portrait.content_width() == full.width - 20 && portrait.content_height() == full.height - 20,
+    const auto full =
+        art.game_object_portrait(target->type, target->skin, target->tex1, target->tex2);
+    check(portrait.content_width() == full.width - 20 &&
+              portrait.content_height() == full.height - 20,
           "portrait is cropped ten pixels from each side");
     const auto player = quest_target(world, 99);
     check(player && player->player, "local player target keeps its player identity");
-    check(!art.game_object_portrait(player->type, player->skin, player->tex1, player->tex2).pixels.empty(),
+    check(!art.game_object_portrait(player->type, player->skin, player->tex1, player->tex2)
+               .pixels.empty(),
           "the generalized portrait helper retains animated player portraits");
 
-    // GameObjectArrow.positionTooltip: an inward-pointing tooltip sits 26 pixels out, vertically centered.
+    // GameObjectArrow.positionTooltip: an inward-pointing tooltip sits 26 pixels out, vertically
+    // centered.
     const auto placed = GameObjectArrow::tooltip_position({600, 325}, std::numbers::pi, 100, 40, 1);
-    check(near(placed.x, 574 - 100) && near(placed.y, 325 - 20), "tooltip sits beside an inward arrow");
+    check(near(placed.x, 574 - 100) && near(placed.y, 325 - 20),
+          "tooltip sits beside an inward arrow");
     std::cout << checks << " quest arrow checks passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

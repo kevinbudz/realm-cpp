@@ -3,12 +3,17 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* message) {
   ++checks;
-  if (!ok) throw std::runtime_error(message);
+  if (!ok) {
+    throw std::runtime_error(message);
+  }
 }
+
 template <class F>
 void rejects(F f) {
   bool rejected{};
@@ -20,45 +25,64 @@ void rejects(F f) {
   check(rejected, "malformed input accepted");
 }
 }
+
 int main(int argc, char** argv) {
   try {
     realm::Catalog catalog(realm::flash::source_root);
-    std::cout << "Catalog: " << catalog.objects().size() << " objects, " << catalog.grounds().size() << " grounds\n";
-    for (const auto& id : catalog.unresolved_textures()) std::cout << "Unresolved texture: " << id << '\n';
+    std::cout << "Catalog: " << catalog.objects().size() << " objects, " << catalog.grounds().size()
+              << " grounds\n";
+    for (const auto& id : catalog.unresolved_textures()) {
+      std::cout << "Unresolved texture: " << id << '\n';
+    }
     const auto* wizard = catalog.object("Wizard");
-    check(wizard && wizard->type == 0x030e && wizard->player && wizard->max_hp == 100, "wizard definition");
+    check(wizard && wizard->type == 0x030e && wizard->player && wizard->max_hp == 100,
+          "wizard definition");
     check(wizard->slot_types.size() == 12 && wizard->slot_types[0] == 17, "wizard slots");
-    check(wizard->stat_caps == std::array<int, 6>{75, 25, 50, 75, 40, 60}, "wizard stat caps in HUD order");
+    check(wizard->stat_caps == std::array<int, 6>{75, 25, 50, 75, 40, 60},
+          "wizard stat caps in HUD order");
     const auto* grass = catalog.ground("Grass");
-    check(grass && grass->type == 0x48 && grass->random_offset && !grass->no_walk && grass->blend_priority == 6,
+    check(grass && grass->type == 0x48 && grass->random_offset && !grass->no_walk &&
+              grass->blend_priority == 6,
           "grass definition");
-    for (const auto& object : catalog.objects()) check(catalog.object(object.type) == &object, "object lookup");
-    for (const auto& ground : catalog.grounds()) check(catalog.ground(ground.type) == &ground, "ground lookup");
+    for (const auto& object : catalog.objects()) {
+      check(catalog.object(object.type) == &object, "object lookup");
+    }
+    for (const auto& ground : catalog.grounds()) {
+      check(catalog.ground(ground.type) == &ground, "ground lookup");
+    }
     realm::World world(catalog);
     world.load_jm(std::filesystem::path(realm::flash::source_root).parent_path() /
                   "realm-server/Resources/Worlds/Nexus/0.jm");
     check(world.width() == 142 && world.height() == 130, "Nexus dimensions");
     check(world.entities().size() > 100, "Nexus population");
-    check(world.walkable(world.spawn_position().x, world.spawn_position().y), "Nexus spawn walkable");
-    std::cout << "Nexus entities=" << world.entities().size() << " spawn=" << world.spawn_position().x << ','
-              << world.spawn_position().y << " unresolved=" << world.unresolved_ids().size() << '\n';
-    for (const auto& id : world.unresolved_ids()) std::cout << "Unresolved map ID: " << id << '\n';
+    check(world.walkable(world.spawn_position().x, world.spawn_position().y),
+          "Nexus spawn walkable");
+    std::cout << "Nexus entities=" << world.entities().size()
+              << " spawn=" << world.spawn_position().x << ',' << world.spawn_position().y
+              << " unresolved=" << world.unresolved_ids().size() << '\n';
+    for (const auto& id : world.unresolved_ids()) {
+      std::cout << "Unresolved map ID: " << id << '\n';
+    }
     world.initialize(10, 10);
     realm::net::Update update;
     update.tiles.push_back({2, 2, grass->type});
     update.objects.push_back(
-        {wizard->type, {99, {2.5F, 2.5F}, {{1, std::int32_t{80}}, {28, std::string{"Port tester"}}}}});
+        {wizard->type,
+         {99, {2.5F, 2.5F}, {{1, std::int32_t{80}}, {28, std::string{"Port tester"}}}}});
     world.apply(update);
     check(world.walkable(2.5, 2.5) && !world.walkable(0.5, 0.5), "tile collision");
-    check(world.entity(99)->combat.hp == 80 && world.entity(99)->profile.name == "Port tester", "status stats");
+    check(world.entity(99)->combat.hp == 80 && world.entity(99)->profile.name == "Port tester",
+          "status stats");
     realm::net::Tick tick;
     tick.statuses.push_back({99, {4.5F, 2.5F}, {}});
     world.apply(tick);
     world.update(50);
-    check(std::abs(world.entity(99)->motion.position.x - (2.5 + 100.0 / 127)) < 1e-12, "tick interpolation");
+    check(std::abs(world.entity(99)->motion.position.x - (2.5 + 100.0 / 127)) < 1e-12,
+          "tick interpolation");
     const auto velocity = world.entity(99)->motion.velocity.x;
     world.apply(tick);
-    check(world.entity(99)->motion.velocity.x == velocity, "duplicate tick retains interpolation velocity");
+    check(world.entity(99)->motion.velocity.x == velocity,
+          "duplicate tick retains interpolation velocity");
     world.update(200);
     check(world.entity(99)->motion.position.x == 4.5 && world.entity(99)->motion.velocity.x == 0,
           "interpolation clamp");

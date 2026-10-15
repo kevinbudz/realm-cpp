@@ -15,9 +15,9 @@
 #include <thread>
 #include <vector>
 
-// Native one-shot SFX that mirrors SoundEffectLibrary. Threads: the main thread owns Player, Library and the
-// command side of Mixer; one loader thread reads and decodes; the output device thread calls Mixer::mix. The render
-// path never allocates, blocks or frees a clip.
+// Native one-shot SFX that mirrors SoundEffectLibrary. Threads: the main thread owns Player,
+// Library and the command side of Mixer; one loader thread reads and decodes; the output device
+// thread calls Mixer::mix. The render path never allocates, blocks or frees a clip.
 namespace realm::audio {
 
 // Mixer format. Every clip is decoded to this before it is published.
@@ -31,7 +31,9 @@ inline constexpr std::size_t max_clip_seconds = 30;
 [[nodiscard]] constexpr bool gate_open(bool play_sfx, bool play_pew_pew, bool is_fx) noexcept {
   return (play_sfx && is_fx) || (!is_fx && play_pew_pew);
 }
-// NAME such as "monster/default_hit": [A-Za-z0-9_-] segments separated by single '/', no leading or trailing '/'.
+
+// NAME such as "monster/default_hit": [A-Za-z0-9_-] segments separated by single '/', no leading or
+// trailing '/'.
 [[nodiscard]] bool valid_name(std::string_view name) noexcept;
 // Asset root compiled in from the REALM_SFX_ROOT cache variable (empty when not configured).
 [[nodiscard]] std::string default_sfx_root();
@@ -40,27 +42,39 @@ inline constexpr std::size_t max_clip_seconds = 30;
 struct Clip {
   std::vector<float> samples;  // interleaved stereo at sample_rate
   bool truncated{false};
-  // Voices and queued mixer commands that reference this clip. The main thread increments it before publishing a
-  // command; the mixer decrements it when the voice ends. Only the main thread frees a clip, and only at zero.
+  // Voices and queued mixer commands that reference this clip. The main thread increments it before
+  // publishing a command; the mixer decrements it when the voice ends. Only the main thread frees a
+  // clip, and only at zero.
   std::atomic<int> pins{0};
+
   [[nodiscard]] std::size_t frames() const noexcept { return samples.size() / channels; }
+
   [[nodiscard]] std::size_t bytes() const noexcept { return samples.size() * sizeof(float); }
 };
 
-// Fixed-voice one-shot mixer. The main thread posts commands through a bounded SPSC ring; the output thread drains
-// them and renders. Voices run to the end of their clip, the oldest is stolen when all are busy, and the master is
-// clamped to [-1, 1].
+// Fixed-voice one-shot mixer. The main thread posts commands through a bounded SPSC ring; the
+// output thread drains them and renders. Voices run to the end of their clip, the oldest is stolen
+// when all are busy, and the master is clamped to [-1, 1].
 class Mixer {
  public:
   static constexpr std::size_t command_capacity = 256;
-  // Main thread only. Pins the clip and queues a voice. False when the ring is full, leaving the clip untouched.
+  // Main thread only. Pins the clip and queues a voice. False when the ring is full, leaving the
+  // clip untouched.
   [[nodiscard]] bool play(Clip& clip, float gain) noexcept;
-  // Main thread only. Ends every voice before the next rendered block. Never fails; falls back to a flag when full.
+  // Main thread only. Ends every voice before the next rendered block. Never fails; falls back to a
+  // flag when full.
   void stop_all() noexcept;
-  // Output thread only (or a test). Applies queued commands in order, then writes frames of interleaved stereo.
+  // Output thread only (or a test). Applies queued commands in order, then writes frames of
+  // interleaved stereo.
   void mix(float* out, std::size_t frames) noexcept;
-  [[nodiscard]] std::uint32_t active_voices() const noexcept { return active_.load(std::memory_order_relaxed); }
-  [[nodiscard]] std::uint64_t steals() const noexcept { return steals_.load(std::memory_order_relaxed); }
+
+  [[nodiscard]] std::uint32_t active_voices() const noexcept {
+    return active_.load(std::memory_order_relaxed);
+  }
+
+  [[nodiscard]] std::uint64_t steals() const noexcept {
+    return steals_.load(std::memory_order_relaxed);
+  }
 
  private:
   struct Command {
@@ -68,12 +82,14 @@ class Mixer {
     float gain;
     bool stop;
   };
+
   struct Voice {
     Clip* clip{nullptr};
     std::size_t position{0};
     float gain{0.f};
     std::uint64_t order{0};
   };
+
   void start(Clip& clip, float gain) noexcept;
   void release(Voice& voice) noexcept;
   void end_voices() noexcept;
@@ -98,11 +114,13 @@ struct SourceConfig {
   std::function<void()> before_load;
 };
 
-// Name to clip cache with one loader thread. A failed load is remembered and never retried. Ready clips are evicted
-// least-recently-used once over budget, but never while a voice or queued command pins them.
+// Name to clip cache with one loader thread. A failed load is remembered and never retried. Ready
+// clips are evicted least-recently-used once over budget, but never while a voice or queued command
+// pins them.
 class Library {
  public:
   enum class State : std::uint8_t { absent, loading, ready, failed };
+
   struct Stats {
     std::uint64_t loads_ok{0};
     std::uint64_t loads_failed{0};
@@ -119,7 +137,8 @@ class Library {
 
   // Main thread only from here on.
   [[nodiscard]] State state(std::string_view name) const;
-  // Starts a load for an absent name. Returns loading, or absent when the queue is full or the name is invalid.
+  // Starts a load for an absent name. Returns loading, or absent when the queue is full or the name
+  // is invalid.
   State request(std::string_view name);
   // Ready clip for name (refreshes its recency), or null.
   [[nodiscard]] std::shared_ptr<Clip> ready(std::string_view name);
@@ -127,8 +146,11 @@ class Library {
   void poll();
   // Evicts unpinned clips, least recently used first, until the decoded bytes fit the budget.
   void trim();
+
   [[nodiscard]] std::size_t bytes() const noexcept { return bytes_; }
+
   [[nodiscard]] const Stats& stats() const noexcept { return stats_; }
+
   [[nodiscard]] std::size_t queued() const;
 
  private:
@@ -137,11 +159,13 @@ class Library {
     std::shared_ptr<Clip> clip;
     std::uint64_t last_used{0};
   };
+
   struct Result {
     std::string name;
     std::shared_ptr<Clip> clip;  // null on failure
     bool truncated{false};
   };
+
   void run();
 
   const SourceConfig source_;
@@ -164,7 +188,8 @@ struct PlayerConfig {
   SourceConfig source{};
   std::size_t cache_bytes{std::size_t{48} << 20U};
   std::size_t queue_capacity{256};
-  // false: no device. Plays are still gated, deduplicated and loaded, and count as started, but nothing renders.
+  // false: no device. Plays are still gated, deduplicated and loaded, and count as started, but
+  // nothing renders.
   bool output{true};
   // true: miniaudio's null backend instead of the system device (silent, real-time).
   bool null_output{false};
@@ -172,12 +197,13 @@ struct PlayerConfig {
   std::chrono::milliseconds pending_timeout{250};
 };
 
-// Defaults with the environment applied: REALM_AUDIO=0 disables output, REALM_AUDIO_DEVICE=null selects the null
-// backend, REALM_AUDIO_CACHE_MB sets the decoded budget (1-4096 MiB), REALM_SFX_ROOT overrides the disk root.
+// Defaults with the environment applied: REALM_AUDIO=0 disables output, REALM_AUDIO_DEVICE=null
+// selects the null backend, REALM_AUDIO_CACHE_MB sets the decoded budget (1-4096 MiB),
+// REALM_SFX_ROOT overrides the disk root.
 [[nodiscard]] PlayerConfig config_from_environment();
 
-// Monotonic counts since construction, except the gauges pending_now, voices_active and decoded_bytes.
-// plays_started counts plays accepted by the mixer, or accepted with no device.
+// Monotonic counts since construction, except the gauges pending_now, voices_active and
+// decoded_bytes. plays_started counts plays accepted by the mixer, or accepted with no device.
 struct Counters {
   std::uint64_t plays_requested{0};
   std::uint64_t plays_gated{0};
@@ -198,7 +224,8 @@ struct Counters {
   std::uint64_t truncations{0};
 };
 
-// Main-thread facade. play, preload, tick, cancel_pending and stop_all never block on disk, HTTP, decode or the device.
+// Main-thread facade. play, preload, tick, cancel_pending and stop_all never block on disk, HTTP,
+// decode or the device.
 class Player {
  public:
   explicit Player(const PlayerConfig& config);
@@ -207,10 +234,12 @@ class Player {
   Player& operator=(const Player&) = delete;
 
   void set_preferences(bool play_sfx, bool play_pew_pew);
-  // SoundEffectLibrary.play: gate, then dedupe, then start, defer, or drop when the sound failed to load.
+  // SoundEffectLibrary.play: gate, then dedupe, then start, defer, or drop when the sound failed to
+  // load.
   void play(std::string_view name, float volume = 1.f, bool is_fx = true);
   void preload(std::string_view name);
-  // Once per rendered frame. Clears the dedupe set on every 5th call and services loads and deferred plays.
+  // Once per rendered frame. Clears the dedupe set on every 5th call and services loads and
+  // deferred plays.
   void tick();
   // Drops plays waiting for a load (map change).
   void cancel_pending();

@@ -18,6 +18,7 @@ struct ScreenEffects {
   float blur{};      // BlurFilter box width on both axes; 0 for none
   float vignette{};  // breath overlay alpha multiplier (b * t)
   float sidebar{};   // GradientOverlay width; 0 when no player is in the map
+
   [[nodiscard]] bool filtered() const { return blind || blur > 0; }
 };
 
@@ -30,5 +31,6 @@ struct ScreenEffects {
 // Player breath from the BREATH_STAT stat; -1 (the default) until the server sends it.
 [[nodiscard]] int player_breath(const Entity& player);
 // `pixel_scale` is drawable height / 600, the same scale used for the HUD.
-[[nodiscard]] ScreenEffects screen_effects(const Entity* player, std::int32_t time_ms, double pixel_scale);
+[[nodiscard]] ScreenEffects screen_effects(const Entity* player, std::int32_t time_ms,
+                                           double pixel_scale);
 }

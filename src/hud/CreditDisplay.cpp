@@ -6,21 +6,25 @@ namespace {
 void premultiplied_to_straight(Image& image) {
   for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
     const unsigned alpha = image.pixels[i + 3];
-    for (std::size_t c = 0; c < 3; ++c)
-      image.pixels[i + c] =
-          static_cast<unsigned char>(alpha == 255 ? image.pixels[i + c]
-                                     : alpha ? std::min(255U, static_cast<unsigned>(image.pixels[i + c]) * 256 / alpha)
-                                             : 0);
+    for (std::size_t c = 0; c < 3; ++c) {
+      image.pixels[i + c] = static_cast<unsigned char>(
+          alpha == 255 ? image.pixels[i + c]
+          : alpha      ? std::min(255U, static_cast<unsigned>(image.pixels[i + c]) * 256 / alpha)
+                       : 0);
+    }
   }
 }
 }
 
-CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& art, int credits, int fame) {
+CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& art, int credits,
+                                         int fame) {
   constexpr int font_size = 18;
   const auto& coin = art.image("skincreditcoin");
   const auto& fame_icon = art.image("skinfame");
-  const auto credits_text = fonts.rasterize(std::to_string(credits), font_size, false, true, 0xffffff, 0, 0, 2);
-  const auto fame_text = fonts.rasterize(std::to_string(fame), font_size, false, true, 0xffffff, 0, 0, 2);
+  const auto credits_text =
+      fonts.rasterize(std::to_string(credits), font_size, false, true, 0xffffff, 0, 0, 2);
+  const auto fame_text =
+      fonts.rasterize(std::to_string(fame), font_size, false, true, 0xffffff, 0, 0, 2);
 
   const double coin_x = -coin.width;
   // Text fields are positioned by their logical TextField width. The native

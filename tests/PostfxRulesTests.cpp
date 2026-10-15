@@ -7,21 +7,29 @@
 #include <iostream>
 #include <numbers>
 #include <stdexcept>
+
 // Rules from Map.as and the background classes that need no GL context.
 namespace {
 int checks{};
+
 void check(bool ok, const std::string& why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 }
+
 using namespace realm;
+
 namespace {
 void near(double actual, double expected, double tolerance, const std::string& why) {
   check(std::abs(actual - expected) <= tolerance,
         why + ": got " + std::to_string(actual) + " expected " + std::to_string(expected));
 }
+
 constexpr auto stat_breath = static_cast<std::uint8_t>(flash::StatId::BREATH_STAT);
+
 void pure_rules() {
   // Conditions: BLIND = 7 and DRUNK = 9 in ConditionEffect, bit (id - 1).
   check(blind_condition == 64 && drunk_condition == 256, "condition bits");
@@ -32,10 +40,13 @@ void pure_rules() {
   near(drunk_blur_diameter(0), 20, 1e-5, "blur at t=0");
   near(drunk_blur_diameter(static_cast<int>(1000 * std::numbers::pi / 2)), 30, 1e-3, "blur peak");
   // Breath overlay only while 0 <= breath < 20; strongest at 0 when |sin| is 1.
-  check(breath_overlay_alpha(-1, 500) == 0 && breath_overlay_alpha(20, 500) == 0 && breath_overlay_alpha(100, 500) == 0,
+  check(breath_overlay_alpha(-1, 500) == 0 && breath_overlay_alpha(20, 500) == 0 &&
+            breath_overlay_alpha(100, 500) == 0,
         "no overlay outside 0..19");
-  near(breath_overlay_alpha(0, static_cast<int>(300 * std::numbers::pi / 2)), .75, 1e-3, "full-empty peak");
-  near(breath_overlay_alpha(10, static_cast<int>(300 * std::numbers::pi / 2)), .375, 1e-3, "half breath");
+  near(breath_overlay_alpha(0, static_cast<int>(300 * std::numbers::pi / 2)), .75, 1e-3,
+       "full-empty peak");
+  near(breath_overlay_alpha(10, static_cast<int>(300 * std::numbers::pi / 2)), .375, 1e-3,
+       "half breath");
   check(breath_overlay_alpha(5, 0) == 0, "sin(0)");
   // Radial gradient ratios 0/155/255 with alphas 0/0/.92, padded past the corners.
   near(vignette_edge_alpha(0), 0, 1e-6, "center clear");
@@ -49,7 +60,8 @@ void pure_rules() {
   Entity player;
   player.player = true;
   auto fx = screen_effects(&player, 1000, 1);
-  check(!fx.blind && fx.blur == 0 && fx.vignette == 0 && fx.sidebar == 10, "idle player only has the sidebar");
+  check(!fx.blind && fx.blur == 0 && fx.vignette == 0 && fx.sidebar == 10,
+        "idle player only has the sidebar");
   player.combat.condition = blind_condition;
   fx = screen_effects(&player, 0, 1);
   check(fx.blind && fx.blur == 0 && fx.filtered(), "blind");
@@ -73,27 +85,34 @@ void pure_rules() {
             screen_effects(&player, static_cast<int>(300 * std::numbers::pi / 2), 1).vignette > .7F,
         "breath 0 shows the overlay");
   player.profile.stats.erase(stat_breath);
-  check(player_breath(player) == -1 && screen_effects(&player, 500, 1).vignette == 0, "breath defaults to -1");
+  check(player_breath(player) == -1 && screen_effects(&player, 500, 1).vignette == 0,
+        "breath defaults to -1");
 }
+
 void backgrounds() {
   for (std::uint32_t seed = 0; seed < 32; ++seed) {
     const auto stars = star_field(seed);
     check(!stars.empty() && stars.size() <= 100, "at most 100 stars");
     for (std::size_t i = 0; i < stars.size(); ++i) {
       const auto& s = stars[i];
-      check(s.x >= -500 && s.x <= 500 && s.y >= -500 && s.y <= 500, "star inside the 1000x1000 square");
-      check(s.scale >= 2 && s.scale <= 4 && s.image >= 0 && s.image < 10, "star scale 2..4 and one of ten images");
-      for (std::size_t j = 0; j < i; ++j)
+      check(s.x >= -500 && s.x <= 500 && s.y >= -500 && s.y <= 500,
+            "star inside the 1000x1000 square");
+      check(s.scale >= 2 && s.scale <= 4 && s.image >= 0 && s.image < 10,
+            "star scale 2..4 and one of ten images");
+      for (std::size_t j = 0; j < i; ++j) {
         check(std::hypot(s.x - stars[j].x, s.y - stars[j].y) >= 3, "stars keep a distance of 3");
+      }
     }
     check(stars.size() == star_field(seed).size(), "star field is deterministic");
   }
   check(star_field(1).front().x != star_field(2).front().x, "seeds differ");
   const auto water = nexus_water(7);
   constexpr int size = nexus_water_size;
-  check(water.width == size && water.height == size && water.pixels.size() == static_cast<std::size_t>(size) * size * 4,
+  check(water.width == size && water.height == size &&
+            water.pixels.size() == static_cast<std::size_t>(size) * size * 4,
         "water is 1024x1024 RGBA");
-  check(water.pixels == nexus_water(7).pixels && water.pixels != nexus_water(8).pixels, "water is seeded");
+  check(water.pixels == nexus_water(7).pixels && water.pixels != nexus_water(8).pixels,
+        "water is seeded");
   double sum{}, squares{};
   int minimum = 255, maximum = 0;
   for (int i = 0; i < size * size; ++i) {
@@ -104,7 +123,8 @@ void backgrounds() {
     minimum = std::min<int>(minimum, p[2]);
     maximum = std::max<int>(maximum, p[2]);
   }
-  const double mean = sum / (size * size), deviation = std::sqrt(squares / (size * size) - mean * mean);
+  const double mean = sum / (size * size),
+               deviation = std::sqrt(squares / (size * size) - mean * mean);
   near(mean, 127, 12, "water mean");
   check(deviation > 12 && deviation < 40, "water contrast " + std::to_string(deviation));
   check(minimum < 110 && maximum > 140, "water has relief");
@@ -120,6 +140,7 @@ void backgrounds() {
 }
 
 }
+
 int main() {
   try {
     pure_rules();

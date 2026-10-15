@@ -5,11 +5,15 @@
 
 namespace {
 int checks{};
+
 void check(bool value, const char* reason) {
   ++checks;
-  if (!value) throw std::runtime_error(reason);
+  if (!value) {
+    throw std::runtime_error(reason);
+  }
 }
 }
+
 int main(int argc, char** argv) {
   try {
     using namespace realm;
@@ -42,17 +46,21 @@ int main(int argc, char** argv) {
     party.update(world, 0);
     auto displayed = HudState::player(world, *world.entity(99), &party);
     auto state = displayed;
-    check(PartyHover::cell({8, 510}) == 0 && PartyHover::cell({150, 550}) == 3 && PartyHover::cell({150, 590}) == 5,
+    check(PartyHover::cell({8, 510}) == 0 && PartyHover::cell({150, 550}) == 3 &&
+              PartyHover::cell({150, 590}) == 5,
           "both columns and all three rows are reachable");
-    for (const auto point : std::array<Vec2, 5>{{{5, 510}, {200, 510}, {8, 507}, {8, 600}, {-10, 530}}})
+    for (const auto point :
+         std::array<Vec2, 5>{{{5, 510}, {200, 510}, {8, 507}, {8, 600}, {-10, 530}}}) {
       check(PartyHover::cell(point) == -1, "outside panel cannot select a member");
+    }
     hover.update(world, party, state, displayed, {50, 520}, true, 0);
     check(hover.frozen() && hover.target() == 2, "hover selects the displayed first player");
     world.entity(2)->motion.position = {50, 50};
     world.entity(3)->motion.position = {3.1, 3};
     party.update(world, 500);
     state = HudState::player(world, *world.entity(99), &party, 500);
-    check(state.party.members[0]->object_id == 3, "party membership continues updating while hovered");
+    check(state.party.members[0]->object_id == 3,
+          "party membership continues updating while hovered");
     hover.update(world, party, state, displayed, {51, 520}, true, 500);
     check(state.party.members[0]->object_id == 2 && hover.target() == 2,
           "distance reorder cannot replace player beneath pointer");
@@ -66,15 +74,16 @@ int main(int argc, char** argv) {
     hover.update(world, party, state, displayed, {150, 520}, true, 700);
     check(hover.target() == 3, "moving between displayed cells selects the held identities");
     auto snapshot = player_tooltip_target(world, 2);
-    check(snapshot && snapshot->name == "Changed" && snapshot->type == type("Knight") && snapshot->level == 20,
+    check(snapshot && snapshot->name == "Changed" && snapshot->type == type("Knight") &&
+              snapshot->level == 20,
           "player tooltip captures identity and class level");
     check(snapshot->fellow_guild && snapshot->guild_rank == 20 && snapshot->stars == 12,
           "guild and account rank come from live stats");
-    check(snapshot->bars[0].value == 20 && snapshot->bars[0].maximum == 200 && snapshot->bars[1].value == 75 &&
-              snapshot->bars[1].maximum == 100,
+    check(snapshot->bars[0].value == 20 && snapshot->bars[0].maximum == 200 &&
+              snapshot->bars[1].value == 75 && snapshot->bars[1].maximum == 100,
           "HP and MP use authoritative values");
-    check(snapshot->equipment[0].type == type("Sword of Acclaim") && snapshot->equipment[0].data == 123 &&
-              snapshot->slot_types[0] == 1,
+    check(snapshot->equipment[0].type == type("Sword of Acclaim") &&
+              snapshot->equipment[0].data == 123 && snapshot->slot_types[0] == 1,
           "equipped gear preserves type, ItemData and class slots");
     check(!player_tooltip_target(world, 99) && !player_tooltip_target(world, 12345),
           "self and unknown identities have no party tooltip");
@@ -84,7 +93,8 @@ int main(int argc, char** argv) {
     world.remove(2);
     state = HudState::player(world, *world.entity(99), &party, 800);
     hover.update(world, party, state, displayed, {50, 520}, true, 800);
-    check(hover.frozen() && hover.target() == -1 && !state.party.members[0] && !player_tooltip_target(world, 2),
+    check(hover.frozen() && hover.target() == -1 && !state.party.members[0] &&
+              !player_tooltip_target(world, 2),
           "dropping hovered player hides it without substituting another beneath pointer");
     hover.update(world, party, state, displayed, {10, 350}, true, 800);
     check(!hover.frozen() && hover.target() == -1, "leaving party releases held identities");
@@ -105,12 +115,13 @@ int main(int argc, char** argv) {
     displayed = state;
     hover.update(world, party, state, displayed, {50, 520}, true, 1500);
     check(!hover.frozen(), "empty party cells have no tooltip");
-    for (const auto dimensions : std::array<Vec2, 4>{{{800, 600}, {1280, 720}, {320, 240}, {100, 100}}}) {
+    for (const auto dimensions :
+         std::array<Vec2, 4>{{{800, 600}, {1280, 720}, {320, 240}, {100, 100}}}) {
       const double scale = dimensions.y / 600;
-      for (const auto pointer :
-           std::array<Vec2, 4>{{{0, 0}, {dimensions.x, 0}, {0, dimensions.y}, {dimensions.x, dimensions.y}}}) {
-        const auto at = PlayerTooltip::position(pointer, static_cast<int>(dimensions.x), static_cast<int>(dimensions.y),
-                                                218, 248, scale);
+      for (const auto pointer : std::array<Vec2, 4>{
+               {{0, 0}, {dimensions.x, 0}, {0, dimensions.y}, {dimensions.x, dimensions.y}}}) {
+        const auto at = PlayerTooltip::position(pointer, static_cast<int>(dimensions.x),
+                                                static_cast<int>(dimensions.y), 218, 248, scale);
         check(at.x + 16 * scale >= 12 && at.y + 16 * scale >= 12,
               "tooltip preserves source stage-margin clamping through resizing");
       }
@@ -121,9 +132,12 @@ int main(int argc, char** argv) {
       PlayerTooltip tooltip(catalog, fonts, art);
       const std::filesystem::path output(argv[1]);
       std::filesystem::create_directories(output);
-      check(tooltip.update(snapshot) && tooltip.visible(), "first hover builds native player tooltip");
+      check(tooltip.update(snapshot) && tooltip.visible(),
+            "first hover builds native player tooltip");
       const auto before = tooltip.rebuilds();
-      for (int i = 0; i < 1000; ++i) check(!tooltip.update(snapshot), "unchanged live state reuses rasterization");
+      for (int i = 0; i < 1000; ++i) {
+        check(!tooltip.update(snapshot), "unchanged live state reuses rasterization");
+      }
       check(tooltip.rebuilds() == before, "unchanged hover makes no extra bitmap rebuilds");
       save_png(output / "guild.png", tooltip.image());
       snapshot->bars[0].value = 0;
@@ -138,14 +152,17 @@ int main(int argc, char** argv) {
       snapshot->bars[1].value = 100;
       check(tooltip.update(snapshot), "restored mana refreshes ability appearance");
       bool icon_changed = false;
-      for (int row = 158; row < 198; ++row)
+      for (int row = 158; row < 198; ++row) {
         for (int col = 68; col < 108; ++col) {
           const auto at = static_cast<std::size_t>(row * PlayerTooltip::width + col) * 4;
-          for (int c = 0; c < 4; ++c)
+          for (int c = 0; c < 4; ++c) {
             if (dimmed.pixels[at + static_cast<std::size_t>(c)] !=
-                tooltip.image().pixels[at + static_cast<std::size_t>(c)])
+                tooltip.image().pixels[at + static_cast<std::size_t>(c)]) {
               icon_changed = true;
+            }
+          }
         }
+      }
       check(icon_changed, "ability tile brightens when authoritative MP becomes sufficient");
       snapshot->name = "WWWWWWWWWW";
       snapshot->guild = "WWWWWWWWWWWWWWWWWWWW";
@@ -165,16 +182,20 @@ int main(int argc, char** argv) {
       snapshot->bars[0].maximum = 200;
       snapshot->bars[0].value = 120;
       snapshot->bars[1].value = 75;
-      for (const auto& def : catalog.objects())
+      for (const auto& def : catalog.objects()) {
         if (def.player) {
           snapshot->type = def.type;
           snapshot->equipment = {};
           snapshot->slot_types = {};
-          for (std::size_t i = 0; i < 4 && i < def.slot_types.size(); ++i) snapshot->slot_types[i] = def.slot_types[i];
+          for (std::size_t i = 0; i < 4 && i < def.slot_types.size(); ++i) {
+            snapshot->slot_types[i] = def.slot_types[i];
+          }
           check(tooltip.update(snapshot), "all class portraits and empty equipment slots render");
           save_png(output / (def.id + ".png"), tooltip.image());
         }
-      check(!tooltip.update(std::nullopt) && !tooltip.visible(), "hover exit hides retained tooltip");
+      }
+      check(!tooltip.update(std::nullopt) && !tooltip.visible(),
+            "hover exit hides retained tooltip");
       std::cout << "Player tooltip captures: " << output << '\n';
     }
     std::cout << checks << " player tooltip and party hover checks passed\n";

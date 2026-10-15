@@ -68,15 +68,17 @@
 
 namespace realm::application {
 
-// The state one client run holds for its whole life: the locals the setup used to declare in run(), in the same order.
-// Members are constructed in declaration order and destroyed in reverse, so GL objects are torn down before
-// WindowSession and the session before the audio bridge. Where construction has side effects (window open, stdout,
-// file and network I/O, stdin, validation throws), the member is initialized by a helper in ApplicationState.cpp
-// that runs at that point of the declaration order.
+// The state one client run holds for its whole life: the locals the setup used to declare in run(),
+// in the same order. Members are constructed in declaration order and destroyed in reverse, so GL
+// objects are torn down before WindowSession and the session before the audio bridge. Where
+// construction has side effects (window open, stdout, file and network I/O, stdin, validation
+// throws), the member is initialized by a helper in ApplicationState.cpp that runs at that point of
+// the declaration order.
 struct ClientState {
   using Clock = std::chrono::steady_clock;
   using UiEvent = realm::ui::Event;
   using UiKind = realm::ui::EventKind;
+
   struct PerfSample {
     Clock::time_point presented;
     double interval;
@@ -84,11 +86,14 @@ struct ClientState {
 
   static constexpr std::size_t base_capacity = 4096;
   // The dynamic atlas layers are 2048x2048 RGBA (16 MiB each): start at 2 and grow on demand to 12.
-  static constexpr int dynamic_atlas_initial_pages = 2, dynamic_atlas_max_pages = 12;
-  static constexpr double perf_refresh_ms = 250, perf_history_ms = 1000;
+  static constexpr int dynamic_atlas_initial_pages = 2;
+  static constexpr int dynamic_atlas_max_pages = 12;
+  static constexpr double perf_refresh_ms = 250;
+  static constexpr double perf_history_ms = 1000;
 
-  // Takes the parsed options. Startup side effects happen in the same order as the old run() setup, then the body
-  // performs the trailing steps (quad_stream metadata, atlas print, apply_settings, script load, loop clock).
+  // Takes the parsed options. Startup side effects happen in the same order as the old run() setup,
+  // then the body performs the trailing steps (quad_stream metadata, atlas print, apply_settings,
+  // script load, loop clock).
   explicit ClientState(Options options);
 
   // Helpers the layers and the loop call. Bodies match the lambdas they replace.
@@ -123,7 +128,8 @@ struct ClientState {
   realm::FontBook fonts;
 
   // --- Persistent GPU surfaces and RmlUi host ---
-  realm::SurfaceTexture hud_texture, perf_texture;
+  realm::SurfaceTexture hud_texture;
+  realm::SurfaceTexture perf_texture;
   std::unique_ptr<realm::SurfaceTexture> death_background;
   realm::MinimapGpu minimap_gpu;
   std::unique_ptr<realm::HudArt> hud_art;
@@ -135,12 +141,14 @@ struct ClientState {
   std::unique_ptr<realm::Minimap> minimap;
   realm::CreditDisplayImage credit_image;
   realm::ui::RetainedSurface credit_texture;
-  int displayed_credits = -1, displayed_fame = -1;
+  int displayed_credits = -1;
+  int displayed_fame = -1;
   double credit_density{};
   realm::SafeAreaDisplayImage safe_area_image;
   realm::ui::RetainedSurface safe_area_texture;
   std::string displayed_guild;
-  int displayed_stars = -2, displayed_guild_rank = -1;
+  int displayed_stars = -2;
+  int displayed_guild_rank = -1;
   double safe_area_density{};
   realm::Image drag_bitmap;
   realm::ui::RetainedSurface drag_surface;
@@ -167,11 +175,14 @@ struct ClientState {
   // --- Off-screen party and quest arrows ---
   realm::PartyArrows party_arrows;
   std::array<realm::SurfaceTexture, realm::Party::members_shown> arrow_textures;
-  std::array<double, realm::Party::members_shown> arrow_rotations{}, arrow_densities{};
+  std::array<double, realm::Party::members_shown> arrow_rotations{};
+  std::array<double, realm::Party::members_shown> arrow_densities{};
   std::array<bool, realm::Party::members_shown> arrow_hovers{};
   realm::QuestArrow quest_arrow;
-  realm::SurfaceTexture quest_arrow_texture, quest_tooltip_texture;
-  double quest_arrow_rotation{}, quest_arrow_density{};
+  realm::SurfaceTexture quest_arrow_texture;
+  realm::SurfaceTexture quest_tooltip_texture;
+  double quest_arrow_rotation{};
+  double quest_arrow_density{};
   realm::QuestArrow::Tooltip quest_tooltip_kind{};
 
   // --- Chat, speech balloons, trade, and guild invite ---
@@ -183,7 +194,8 @@ struct ClientState {
   std::array<std::uint64_t, realm::SpeechBalloons::capacity> balloon_uploaded{};
   realm::Trade trade;
   std::unique_ptr<realm::TradeView> trade_view;
-  realm::ui::RetainedSurface trade_texture, trade_request_texture;
+  realm::ui::RetainedSurface trade_texture;
+  realm::ui::RetainedSurface trade_request_texture;
   realm::GuildInvite guild_invite;
   std::unique_ptr<realm::GuildInviteView> guild_invite_view;
   realm::ui::RetainedSurface guild_invite_texture;
@@ -208,7 +220,8 @@ struct ClientState {
   realm::ui::RetainedSurface members_texture;
 
   // --- HUD input and last-drawn snapshot ---
-  bool tooltip_pointer_valid{}, hud_mouse_down{};
+  bool tooltip_pointer_valid{};
+  bool hud_mouse_down{};
   realm::HudInput hud_input;
   std::int32_t hud_container = -1;
   realm::HudState hud_view;
@@ -238,14 +251,20 @@ struct ClientState {
   std::unique_ptr<realm::telemetry::Recorder> telemetry;
   realm::Renderer renderer;
   std::vector<realm::Quad> quads;
-  std::vector<double> cpu_samples, present_samples;
+  std::vector<double> cpu_samples;
+  std::vector<double> present_samples;
 
   // --- Camera, player control, performance overlay, and script replay ---
   realm::Camera camera;
   realm::Vec2 position;
-  double angle, zoom = 1;
-  bool centered, running = true, leaving_game{};
-  bool applied_centering, autofire{}, perf_stats{};
+  double angle;
+  double zoom = 1;
+  bool centered;
+  bool running = true;
+  bool leaving_game{};
+  bool applied_centering;
+  bool autofire{};
+  bool perf_stats{};
   int perf_frames{};
   double perf_clock{};
   std::string perf_text;
@@ -260,7 +279,8 @@ struct ClientState {
   bool script_ability_down{};
   bool script_mouse_down{};
   realm::Vec2 script_pointer{};
-  // MapUserInput.specialKeyDown_: one ability attempt per press, latched on success until the key is released.
+  // MapUserInput.specialKeyDown_: one ability attempt per press, latched on success until the key
+  // is released.
   realm::SpecialKeyLatch special_key;
   std::uint64_t frame{};
   Clock::time_point previous{};

@@ -10,18 +10,25 @@ namespace realm {
 namespace {
 int texture_height(const ObjectDef& definition) {
   const auto& texture = definition.texture;
-  if (texture.animated >= 0 && static_cast<std::size_t>(texture.animated) < flash::animated.size())
+  if (texture.animated >= 0 &&
+      static_cast<std::size_t>(texture.animated) < flash::animated.size()) {
     return flash::animated[static_cast<std::size_t>(texture.animated)].height;
-  if (texture.sheet >= 0 && static_cast<std::size_t>(texture.sheet) < flash::sheets.size())
+  }
+  if (texture.sheet >= 0 && static_cast<std::size_t>(texture.sheet) < flash::sheets.size()) {
     return flash::sheets[static_cast<std::size_t>(texture.sheet)].height;
+  }
   return 8;
 }
 }
 
 void SpeechBalloons::add(const World& world, const net::incoming::Text& message) {
-  if (message.object_id < 0) return;
+  if (message.object_id < 0) {
+    return;
+  }
   const auto* object = world.entity(message.object_id);
-  if (!object) return;
+  if (!object) {
+    return;
+  }
   const auto* definition = world.catalog().object(object->type);
   Balloon balloon;
   balloon.object_id = message.object_id;
@@ -45,13 +52,21 @@ void SpeechBalloons::add(const World& world, const net::incoming::Text& message)
     balloon.outline = 0xffffff;
     balloon.color = 0x545454;
   }
-  if (definition) balloon.texture_height = texture_height(*definition);
-  std::erase_if(balloons_, [&](const Balloon& b) { return b.object_id == balloon.object_id; });
-  if (balloons_.size() >= capacity) balloons_.erase(balloons_.begin());
+  if (definition) {
+    balloon.texture_height = texture_height(*definition);
+  }
+  std::erase_if(balloons_,
+                [&](const Balloon& existing) { return existing.object_id == balloon.object_id; });
+  if (balloons_.size() >= capacity) {
+    balloons_.erase(balloons_.begin());
+  }
   // Reuse the lowest free GPU slot.
   std::vector<bool> used(capacity);
-  for (const auto& b : balloons_) used[b.slot] = true;
-  balloon.slot = static_cast<std::size_t>(std::find(used.begin(), used.end(), false) - used.begin());
+  for (const auto& existing : balloons_) {
+    used[existing.slot] = true;
+  }
+  balloon.slot =
+      static_cast<std::size_t>(std::find(used.begin(), used.end(), false) - used.begin());
   balloons_.push_back(std::move(balloon));
 }
 
@@ -60,8 +75,12 @@ void SpeechBalloons::update(const World& world, const FontBook& fonts, std::int3
     return !world.entity(b.object_id) || (b.start >= 0 && time - b.start > b.lifetime);
   });
   for (auto& balloon : balloons_) {
-    if (balloon.start < 0) balloon.start = time;
-    if (balloon.image.pixels.empty() || balloon.image.pixel_scale != fonts.pixel_scale()) render(balloon, fonts);
+    if (balloon.start < 0) {
+      balloon.start = time;
+    }
+    if (balloon.image.pixels.empty() || balloon.image.pixel_scale != fonts.pixel_scale()) {
+      render(balloon, fonts);
+    }
   }
 }
 
@@ -70,17 +89,23 @@ void SpeechBalloons::render(Balloon& balloon, const FontBook& fonts) {
   std::string joined;
   const auto lines = fonts.wrap(balloon.text, 14, false, 150);
   for (const auto& line : lines) {
-    if (!joined.empty()) joined += '\n';
+    if (!joined.empty()) {
+      joined += '\n';
+    }
     joined += line;
   }
   const auto run = fonts.layout(joined, 14);
   // textHeight is 16.8 pixels per regular 14-pixel Myriad line; autoSize adds 4.
-  const double w = std::floor(run.width), h = 16.8 * static_cast<double>(std::max<std::size_t>(1, lines.size())) + 4;
+  const double w = std::floor(run.width);
+  const double h = 16.8 * static_cast<double>(std::max<std::size_t>(1, lines.size())) + 4;
   balloon.field_width = w;
   balloon.field_height = h;
   balloon.full_height = std::floor(h + 26);
   // drawCutEdgeRect(-6,-6,w+12,h+12,4) with the tail spliced into its bottom edge.
-  const double l = -6, t = -6, r = w + 6, b = h + 6;
+  const double l = -6;
+  const double t = -6;
+  const double r = w + 6;
+  const double b = h + 6;
   const std::array<Vec2, 11> path{{{l + 4, t},
                                    {r - 4, t},
                                    {r, t + 4},
@@ -97,7 +122,9 @@ void SpeechBalloons::render(Balloon& balloon, const FontBook& fonts) {
   const double s = image.pixel_scale;
   // Shift the path into the image's margin.
   std::array<Vec2, 11> shifted{};
-  for (std::size_t i = 0; i < path.size(); ++i) shifted[i] = {path[i].x + margin, path[i].y + margin};
+  for (std::size_t i = 0; i < path.size(); ++i) {
+    shifted[i] = {path[i].x + margin, path[i].y + margin};
+  }
   ui_path(image, shifted, balloon.background, balloon.outline, 2);
   if (!joined.empty()) {
     const auto bitmap = fonts.rasterize(joined, 14, false, false, balloon.color);
@@ -108,7 +135,8 @@ void SpeechBalloons::render(Balloon& balloon, const FontBook& fonts) {
   balloon.revision = ++revisions_;
 }
 
-Vec2 SpeechBalloons::position(const Balloon& balloon, Vec2 object_screen, int object_size, double scale) {
+Vec2 SpeechBalloons::position(const Balloon& balloon, Vec2 object_screen, int object_size,
+                              double scale) {
   // offset_ = (-w/2, -height - texture.height*size/100*5 - 2), truncated to whole pixels.
   const double x = std::trunc(object_screen.x / scale - balloon.field_width / 2);
   const double y = std::trunc(object_screen.y / scale - balloon.full_height -

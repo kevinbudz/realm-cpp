@@ -10,8 +10,10 @@
 #include <fstream>
 #include <numbers>
 #include <set>
+
 namespace realm::quality {
 using Json = nlohmann::json;
+
 namespace {
 void hash(std::uint64_t& h, std::uint64_t v) {
   for (int i = 0; i < 8; ++i) {
@@ -19,33 +21,45 @@ void hash(std::uint64_t& h, std::uint64_t v) {
     h *= 1099511628211ULL;
   }
 }
+
 template <std::size_t N>
 void hash_floats(std::uint64_t& h, const std::array<float, N>& values) {
-  for (const auto v : values) hash(h, std::bit_cast<std::uint32_t>(v));
+  for (const auto v : values) {
+    hash(h, std::bit_cast<std::uint32_t>(v));
+  }
 }
+
 void save(const std::filesystem::path& p, const Json& j) {
-  if (!p.parent_path().empty()) std::filesystem::create_directories(p.parent_path());
+  if (!p.parent_path().empty()) {
+    std::filesystem::create_directories(p.parent_path());
+  }
   std::ofstream f(p);
-  if (!f) throw std::runtime_error("Cannot write stress result");
+  if (!f) {
+    throw std::runtime_error("Cannot write stress result");
+  }
   f << j.dump(2) << '\n';
 }
+
 void status(net::Writer& w, const net::Status& s) {
   w.i32(s.id);
   w.f32(s.position.x);
   w.f32(s.position.y);
   w.u8(static_cast<std::uint8_t>(s.stats.size()));
   for (const auto& stat : s.stats) {
-    const bool string_type =
-        std::find(flash::string_stats.begin(), flash::string_stats.end(), stat.type) != flash::string_stats.end();
-    if (string_type != std::holds_alternative<std::string>(stat.value))
+    const bool string_type = std::find(flash::string_stats.begin(), flash::string_stats.end(),
+                                       stat.type) != flash::string_stats.end();
+    if (string_type != std::holds_alternative<std::string>(stat.value)) {
       throw net::ProtocolError("Fixture stat wire type mismatch");
+    }
     w.u8(stat.type);
-    if (const auto* text = std::get_if<std::string>(&stat.value))
+    if (const auto* text = std::get_if<std::string>(&stat.value)) {
       w.utf(*text);
-    else
+    } else {
       w.i32(std::get<std::int32_t>(stat.value));
+    }
   }
 }
+
 net::Packet encode(const net::Update& u) {
   REALM_ZONE("fixture.encode");
   net::Writer w;
@@ -67,13 +81,17 @@ net::Packet encode(const net::Update& u) {
   }
   return {static_cast<std::uint8_t>(flash::PacketId::UPDATE), w.bytes()};
 }
+
 net::Packet encode(const net::Tick& t) {
   REALM_ZONE("fixture.encode");
   net::Writer w;
   w.u16(static_cast<std::uint16_t>(t.statuses.size()));
-  for (const auto& s : t.statuses) status(w, s);
+  for (const auto& s : t.statuses) {
+    status(w, s);
+  }
   return {static_cast<std::uint8_t>(flash::PacketId::NEWTICK), w.bytes()};
 }
+
 net::Packet encode_shot(const net::Event& e) {
   REALM_ZONE("fixture.encode");
   net::Writer w;
@@ -98,16 +116,22 @@ net::Packet encode_shot(const net::Event& e) {
     w.f32(s.angle);
     w.f32(s.angle_increment);
     w.u8(static_cast<std::uint8_t>(s.damages.size()));
-    for (auto d : s.damages) w.u16(std::bit_cast<std::uint16_t>(d));
+    for (auto d : s.damages) {
+      w.u16(std::bit_cast<std::uint16_t>(d));
+    }
   }
   return {static_cast<std::uint8_t>(e.id), w.bytes()};
 }
+
 const ObjectDef& require(const Catalog& c, const std::string& id) {
   const auto* d = c.object(id);
-  if (!d) throw std::invalid_argument("Unknown fixture definition: " + id);
+  if (!d) {
+    throw std::invalid_argument("Unknown fixture definition: " + id);
+  }
   return *d;
 }
 }
+
 StressConfig StressConfig::load(const std::filesystem::path& path) {
   const auto j = Json::parse(std::ifstream(path));
   StressConfig c;
@@ -135,44 +159,60 @@ StressConfig StressConfig::load(const std::filesystem::path& path) {
   c.dyes = j.at("dyes").get<std::vector<std::uint32_t>>();
   if (j.contains("map")) {
     c.map = j.at("map").get<std::string>();
-    if (c.map.is_relative()) c.map = path.parent_path() / c.map;
+    if (c.map.is_relative()) {
+      c.map = path.parent_path() / c.map;
+    }
   }
   const std::set<std::string> workloads{"NEXUS", "POPULATION", "COMBAT", "MODELS", "VARIETY",
                                         "CHURN", "UI",         "MIXED",  "MEDUSA"};
-  if (c.version != 1 || c.step_ms != 20 || !workloads.contains(c.workload) || c.players < 0 || c.enemies < 0 ||
-      c.models < 0 || c.projectiles < 0 || c.players > 6000 || c.enemies > 6000 || c.models > 6000 ||
-      c.projectiles > 40000 || c.working_set < 1 || c.working_set > 8192 || c.reset_every < 0 || c.replace_every < 0 ||
-      c.model_objects.empty() || c.dyes.empty() || c.skins.empty() ||
+  if (c.version != 1 || c.step_ms != 20 || !workloads.contains(c.workload) || c.players < 0 ||
+      c.enemies < 0 || c.models < 0 || c.projectiles < 0 || c.players > 6000 || c.enemies > 6000 ||
+      c.models > 6000 || c.projectiles > 40000 || c.working_set < 1 || c.working_set > 8192 ||
+      c.reset_every < 0 || c.replace_every < 0 || c.model_objects.empty() || c.dyes.empty() ||
+      c.skins.empty() ||
       (c.arrangement != "dense" && c.arrangement != "spread" && c.arrangement != "cluster" &&
        c.arrangement != "near") ||
-      (c.camera != "idle" && c.camera != "pan" && c.camera != "rotate" && c.camera != "zoom" && c.camera != "walk"))
+      (c.camera != "idle" && c.camera != "pan" && c.camera != "rotate" && c.camera != "zoom" &&
+       c.camera != "walk")) {
     throw std::invalid_argument("Invalid stress manifest");
+  }
   return c;
 }
-StressTimeline::StressTimeline(World& w, StressConfig c) : world_(w), config_(std::move(c)), combat_(w) {
+
+StressTimeline::StressTimeline(World& w, StressConfig c)
+    : world_(w), config_(std::move(c)), combat_(w) {
   const auto& cat = w.catalog();
-  if (!require(cat, config_.player).player || !require(cat, config_.enemy).enemy)
+  if (!require(cat, config_.player).player || !require(cat, config_.enemy).enemy) {
     throw std::invalid_argument("Wrong stress entity class");
-  for (const auto& id : config_.model_objects)
-    if (!has_model(require(cat, id).model)) throw std::invalid_argument("Unregistered stress model");
-  for (const auto id : config_.skins)
-    if (id != 0 && !cat.skin(id, require(cat, config_.player).type))
+  }
+  for (const auto& id : config_.model_objects) {
+    if (!has_model(require(cat, id).model)) {
+      throw std::invalid_argument("Unregistered stress model");
+    }
+  }
+  for (const auto id : config_.skins) {
+    if (id != 0 && !cat.skin(id, require(cat, config_.player).type)) {
       throw std::invalid_argument("Invalid stress skin/class pair");
+    }
+  }
   for (const auto& id : {config_.weapon, config_.multi_weapon}) {
     const auto& d = require(cat, id);
     if (d.slot_type != require(cat, config_.player).slot_types.at(0) || d.projectiles.empty() ||
-        d.projectiles.front().id != 0 || !cat.object(d.projectiles.front().object_id))
+        d.projectiles.front().id != 0 || !cat.object(d.projectiles.front().object_id)) {
       throw std::invalid_argument("Invalid stress weapon");
+    }
   }
   if (config_.workload == "MIXED") {
     SessionOptions options;
     options.username = "Q02Fixture";
     options.password = "disposable-mock";
     options.character_id = 7;
-    replay_ = std::make_unique<Session>(world_, [this](const net::Packet& p) { packets({p}); }, std::move(options));
+    replay_ = std::make_unique<Session>(
+        world_, [this](const net::Packet& p) { packets({p}); }, std::move(options));
   }
   populate();
 }
+
 Vec2 StressTimeline::placement(int i, int kind) const {
   const auto center = world_.spawn_position();
   // Dense is entirely inside the 800x600 camera footprint at ordinary zoom.
@@ -180,15 +220,19 @@ Vec2 StressTimeline::placement(int i, int kind) const {
                         : config_.arrangement == "cluster" ? .08
                         : config_.arrangement == "near"    ? 7.0
                                                            : 2.0;
-  const auto s = config_.seed + static_cast<std::uint32_t>(i) * 2654435761U + static_cast<std::uint32_t>(kind) * 97U;
+  const auto s = config_.seed + static_cast<std::uint32_t>(i) * 2654435761U +
+                 static_cast<std::uint32_t>(kind) * 97U;
   return {center.x + radius * (static_cast<double>(s & 1023U) / 512 - 1),
           center.y + radius * (static_cast<double>((s >> 10) & 1023U) / 512 - 1)};
 }
+
 net::Object StressTimeline::object(int i, int kind) const {
   const auto& cat = world_.catalog();
-  const auto& id = kind == 0   ? config_.player
-                   : kind == 1 ? config_.enemy
-                               : config_.model_objects.at(static_cast<std::size_t>(i) % config_.model_objects.size());
+  const auto& id =
+      kind == 0 ? config_.player
+      : kind == 1
+          ? config_.enemy
+          : config_.model_objects.at(static_cast<std::size_t>(i) % config_.model_objects.size());
   const auto& d = require(cat, id);
   const auto at = placement(i, kind);
   net::Object o;
@@ -203,17 +247,20 @@ net::Object StressTimeline::object(int i, int kind) const {
                       {static_cast<std::uint8_t>(flash::StatId::SIZE_STAT), 100 + (i % 3) * 25}};
     if (kind == 0) {
       const int appearance = (i + tick_ / 25) % config_.working_set;
-      const auto skin = config_.skins.at(static_cast<std::size_t>(appearance) % config_.skins.size());
+      const auto skin =
+          config_.skins.at(static_cast<std::size_t>(appearance) % config_.skins.size());
       o.status.stats.push_back({70, skin});
-      o.status.stats.push_back({29, std::bit_cast<std::int32_t>(
-                                        config_.dyes.at(static_cast<std::size_t>(appearance) % config_.dyes.size()))});
       o.status.stats.push_back(
-          {30, std::bit_cast<std::int32_t>(
-                   config_.dyes.at(static_cast<std::size_t>(appearance / config_.dyes.size()) % config_.dyes.size()))});
+          {29, std::bit_cast<std::int32_t>(
+                   config_.dyes.at(static_cast<std::size_t>(appearance) % config_.dyes.size()))});
+      o.status.stats.push_back({30, std::bit_cast<std::int32_t>(config_.dyes.at(
+                                        static_cast<std::size_t>(appearance / config_.dyes.size()) %
+                                        config_.dyes.size()))});
     }
   }
   return o;
 }
+
 void StressTimeline::feed(net::Packet packet) {
   REALM_ZONE("fixture.framed_replay");
   const auto bytes = net::frame(packet.id, packet.body);
@@ -233,24 +280,31 @@ void StressTimeline::feed(net::Packet packet) {
   }
   (void)replay_->take_events();
 }
+
 void StressTimeline::apply(const net::Update& u) {
-  if (replay_)
+  if (replay_) {
     feed(encode(u));
-  else
+  } else {
     world_.apply(u);
+  }
 }
+
 void StressTimeline::apply(const net::Tick& t) {
-  if (replay_)
+  if (replay_) {
     feed(encode(t));
-  else
+  } else {
     world_.apply(t, 127);
+  }
 }
+
 void StressTimeline::receive(const net::Event& e, std::int32_t now) {
-  if (replay_)
+  if (replay_) {
     feed(encode_shot(e));
-  else
+  } else {
     packets(combat_.receive(e, now));
+  }
 }
+
 void StressTimeline::populate() {
   combat_.reset(config_.seed);
   if (replay_) {
@@ -266,17 +320,22 @@ void StressTimeline::populate() {
     feed({static_cast<std::uint8_t>(flash::PacketId::MAPINFO), info.bytes()});
   }
   if (!config_.map.empty()) {
-    if (config_.map.extension() == ".wmap")
+    if (config_.map.extension() == ".wmap") {
       world_.load_wmap(config_.map);
-    else
+    } else {
       world_.load_jm(config_.map);
+    }
   } else {
-    if (!replay_) world_.initialize(128, 128, "Quality stress v1");
+    if (!replay_) {
+      world_.initialize(128, 128, "Quality stress v1");
+    }
     const auto grass = world_.catalog().ground("Grass")->type;
     net::Update tiles;
-    for (int y = 0; y < 128; ++y)
-      for (int x = 0; x < 128; ++x)
+    for (int y = 0; y < 128; ++y) {
+      for (int x = 0; x < 128; ++x) {
         tiles.tiles.push_back({static_cast<std::int16_t>(x), static_cast<std::int16_t>(y), grass});
+      }
+    }
     apply(tiles);
   }
   const auto at = world_.spawn_position();
@@ -296,8 +355,11 @@ void StressTimeline::populate() {
   p->combat.attack = 50;
   net::Update update;
   const int counts[] = {config_.players, config_.enemies, config_.models};
-  for (int kind = 0; kind < 3; ++kind)
-    for (int i = 0; i < counts[kind]; ++i) update.objects.push_back(object(i, kind));
+  for (int kind = 0; kind < 3; ++kind) {
+    for (int i = 0; i < counts[kind]; ++i) {
+      update.objects.push_back(object(i, kind));
+    }
+  }
   apply(update);
   spawned_ += update.objects.size();
   if (replay_) {
@@ -307,17 +369,21 @@ void StressTimeline::populate() {
     feed({static_cast<std::uint8_t>(flash::PacketId::CREATE_SUCCESS), success.bytes()});
   }
 }
+
 void StressTimeline::packets(std::vector<net::Packet> output) {
   for (const auto& p : output) {
     ++packet_counts_[p.id];
-    if (p.id == static_cast<int>(flash::PacketId::ENEMYHIT) || p.id == static_cast<int>(flash::PacketId::PLAYERHIT))
+    if (p.id == static_cast<int>(flash::PacketId::ENEMYHIT) ||
+        p.id == static_cast<int>(flash::PacketId::PLAYERHIT)) {
       ++hits_;
+    }
     for (auto b : net::frame(p.id, p.body)) {
       packet_hash_ ^= b;
       packet_hash_ *= 1099511628211ULL;
     }
   }
 }
+
 void StressTimeline::step() {
   REALM_ZONE("fixture.timeline");
   const auto now = time();
@@ -353,23 +419,30 @@ void StressTimeline::step() {
         const auto at = placement(i, kind);
         o.status.position = {static_cast<float>(at.x + .35 * std::sin(now * .001 + i)),
                              static_cast<float>(at.y + .35 * std::cos(now * .001 + i))};
-        if (config_.workload != "VARIETY" && config_.workload != "MIXED") o.status.stats.clear();
+        if (config_.workload != "VARIETY" && config_.workload != "MIXED") {
+          o.status.stats.clear();
+        }
         t.statuses.push_back(std::move(o.status));
       }
     }
     apply(t);
   }
   world_.update(config_.step_ms);
-  if (config_.rotate_models)
-    for (auto& e : world_.entities())
-      if (e.id >= 20100 && e.id < 26100) e.appearance.model_rotation = std::fmod(now * .04 + e.id, 360.0);
+  if (config_.rotate_models) {
+    for (auto& e : world_.entities()) {
+      if (e.id >= 20100 && e.id < 26100) {
+        e.appearance.model_rotation = std::fmod(now * .04 + e.id, 360.0);
+      }
+    }
+  }
   // Replenish actual Combat projectiles, via the same incoming shoot event as Session.
   // Half originate far enough from enemies to survive, half cross dense target cells.
   if (config_.projectiles && tick_ % 25 == 0) {
-    if (replay_)
+    if (replay_) {
       replay_->shoot(0, now);
-    else
+    } else {
       packets(combat_.shoot(0, now));
+    }
   }
   if (config_.enemies && config_.projectiles && tick_ % 5 == 0) {
     const auto& enemy = require(world_.catalog(), config_.enemy);
@@ -384,7 +457,9 @@ void StressTimeline::step() {
     receive({flash::PacketId::ENEMYSHOOT, s}, now);
     ++spawned_;
   }
-  if (config_.workload == "MEDUSA") medusa(now);
+  if (config_.workload == "MEDUSA") {
+    medusa(now);
+  }
   const auto before = flights().size();
   const auto need = static_cast<std::size_t>(config_.projectiles) > before
                         ? static_cast<std::size_t>(config_.projectiles) - before
@@ -397,8 +472,11 @@ void StressTimeline::step() {
     s.bullet_id = next_bullet_;
     next_bullet_ += count;
     s.container_type = std::bit_cast<std::int16_t>(
-        require(world_.catalog(), ((next_bullet_ / 128) % 2) ? config_.multi_weapon : config_.weapon).type);
-    s.position = {static_cast<float>(center.x - 2), static_cast<float>(center.y + ((i / 128) % 2 ? 1.2 : 0))};
+        require(world_.catalog(),
+                ((next_bullet_ / 128) % 2) ? config_.multi_weapon : config_.weapon)
+            .type);
+    s.position = {static_cast<float>(center.x - 2),
+                  static_cast<float>(center.y + ((i / 128) % 2 ? 1.2 : 0))};
     s.angle = static_cast<float>((next_bullet_ % 8) * .3);
     s.angle_increment = .001F;
     s.damages.assign(static_cast<std::size_t>(count), 30);
@@ -406,8 +484,8 @@ void StressTimeline::step() {
     spawned_ += static_cast<std::size_t>(count);
   }
   simulated_ += world_.entities().size();
-  // Driver bookkeeping (a full pass over every resident entity, ~2 ms with a Realm map's 246,000 statics): zoned so it
-  // can be told apart from client work.
+  // Driver bookkeeping (a full pass over every resident entity, ~2 ms with a Realm map's 246,000
+  // statics): zoned so it can be told apart from client work.
   {
     REALM_ZONE("fixture.tally");
     for (const auto& e : world_.entities()) {
@@ -424,34 +502,42 @@ void StressTimeline::step() {
   if (replay_) {
     replay_->poll(now);
     replay_->finish_frame(now);
-  } else
+  } else {
     packets(combat_.update(now));
+  }
   removed_ += active - flights().size();
   world_.expire_damage(now);
   world_.particles().update(world_, now);
   ++tick_;
 }
-// Server Medusa (Mountain.cs): Shoot(count 5, shootAngle 10, cooldown 1000) at the player and Grenade(radius 4, damage
-// 150, cooldown 3000), which sends a Throw ShowEffect (1500 ms travel) followed by the AOE. Phases are staggered per
-// enemy.
+
+// Server Medusa (Mountain.cs): Shoot(count 5, shootAngle 10, cooldown 1000) at the player and
+// Grenade(radius 4, damage 150, cooldown 3000), which sends a Throw ShowEffect (1500 ms travel)
+// followed by the AOE. Phases are staggered per enemy.
 void StressTimeline::medusa(std::int32_t now) {
   const auto& def = require(world_.catalog(), config_.enemy);
   const auto* player = world_.entity(1);
-  if (!player) return;
+  if (!player) {
+    return;
+  }
   const auto target = player->motion.position;
   constexpr double spread = 10 * std::numbers::pi / 180;
   for (int i = 0; i < config_.enemies; ++i) {
     const auto* e = world_.entity(10100 + i);
-    if (!e) continue;
+    if (!e) {
+      continue;
+    }
     if ((tick_ + i) % 50 == 0) {
       net::incoming::EnemyShoot s;
       s.owner_id = e->id;
       s.bullet_id = next_bullet_;
       next_bullet_ += 5;
       s.bullet_type = static_cast<std::uint8_t>(def.projectiles.front().id);
-      s.position = {static_cast<float>(e->motion.position.x), static_cast<float>(e->motion.position.y)};
-      s.angle =
-          static_cast<float>(std::atan2(target.y - e->motion.position.y, target.x - e->motion.position.x) - 2 * spread);
+      s.position = {static_cast<float>(e->motion.position.x),
+                    static_cast<float>(e->motion.position.y)};
+      s.angle = static_cast<float>(
+          std::atan2(target.y - e->motion.position.y, target.x - e->motion.position.x) -
+          2 * spread);
       s.damage = 30;
       s.num_shots = 5;
       s.angle_increment = static_cast<float>(spread);
@@ -481,41 +567,59 @@ void StressTimeline::medusa(std::int32_t now) {
     receive({flash::PacketId::AOE, a}, now);
   }
 }
+
 Vec2 StressTimeline::camera_position() const {
   const auto p = world_.spawn_position();
-  // "walk": 8 tiles per second back and forth across +-40 tiles, so entities stream through the viewport as when a
-  // player runs.
+  // "walk": 8 tiles per second back and forth across +-40 tiles, so entities stream through the
+  // viewport as when a player runs.
   if (config_.camera == "walk") {
     const double phase = std::fmod(time() * .008, 160.0);
     return {p.x + (phase < 80 ? phase - 40 : 120 - phase), p.y};
   }
-  return config_.camera == "pan" ? Vec2{p.x + 2 * std::sin(time() * .001), p.y + 2 * std::cos(time() * .001)} : p;
+  return config_.camera == "pan"
+             ? Vec2{p.x + 2 * std::sin(time() * .001), p.y + 2 * std::cos(time() * .001)}
+             : p;
 }
-double StressTimeline::camera_angle() const { return config_.camera == "rotate" ? time() * .0002 : 0; }
-double StressTimeline::zoom_factor() const { return config_.camera == "zoom" ? 1 + .15 * std::sin(time() * .002) : 1; }
-void StressTimeline::sample_scene(const Camera& camera, int width, int height, std::span<const Quad> quads,
+
+double StressTimeline::camera_angle() const {
+  return config_.camera == "rotate" ? time() * .0002 : 0;
+}
+
+double StressTimeline::zoom_factor() const {
+  return config_.camera == "zoom" ? 1 + .15 * std::sin(time() * .002) : 1;
+}
+
+void StressTimeline::sample_scene(const Camera& camera, int width, int height,
+                                  std::span<const Quad> quads,
                                   const std::array<std::uint64_t, 5>& submitted) {
   ++frames_;
   visible_.fill(0);
   submitted_.fill(0);
   for (const auto& e : world_.entities()) {
     const auto p = camera.world_to_screen(e.motion.position, e.motion.z);
-    if (p.x < 0 || p.x >= camera.playable_width() || p.y < 0 || p.y >= height) continue;
+    if (p.x < 0 || p.x >= camera.playable_width() || p.y < 0 || p.y >= height) {
+      continue;
+    }
     const auto* d = world_.catalog().object(e.type);
-    const int k = e.projectile ? 3 : e.player ? 0 : d && !d->model.empty() ? 2 : d && d->enemy ? 1 : 4;
+    const int k = e.projectile             ? 3
+                  : e.player               ? 0
+                  : d && !d->model.empty() ? 2
+                  : d && d->enemy          ? 1
+                                           : 4;
     ++visible_[static_cast<std::size_t>(k)];
   }
   // Per-kind submitted counts come from Scene's actual per-entity draw decisions.
   submitted_ = submitted;
-  // Order-sensitive digest of the painter stream (REALM_QUAD_CHECKSUM=1): proves a visibility/ordering change
-  // submitted exactly the same quads, meshes and order as another binary.
-  // REALM_QUAD_CHECKSUM=models-as-markers hashes every non-model quad but each model entry only as a marker, so a model
-  // submission change (prepared mesh vs instance) can still prove every other quad and every model's stream position
-  // equal.
+  // Order-sensitive digest of the painter stream (REALM_QUAD_CHECKSUM=1): proves a
+  // visibility/ordering change submitted exactly the same quads, meshes and order as another
+  // binary. REALM_QUAD_CHECKSUM=models-as-markers hashes every non-model quad but each model entry
+  // only as a marker, so a model submission change (prepared mesh vs instance) can still prove
+  // every other quad and every model's stream position equal.
   static const char* hash_mode = std::getenv("REALM_QUAD_CHECKSUM");
   static const bool hash_quads = hash_mode != nullptr,
-                    model_markers = hash_quads && std::string_view(hash_mode) == "models-as-markers";
-  if (hash_quads)
+                    model_markers =
+                        hash_quads && std::string_view(hash_mode) == "models-as-markers";
+  if (hash_quads) {
     for (const auto& q : quads) {
       if (model_markers && q.kind == 9) {
         hash(quad_hash_, 0x9e3779b9ULL);
@@ -530,9 +634,11 @@ void StressTimeline::sample_scene(const Camera& camera, int width, int height, s
       hash_floats(quad_hash_, q.uv_offset);
       hash(quad_hash_, std::bit_cast<std::uint32_t>(q.page));
       hash(quad_hash_, std::bit_cast<std::uint32_t>(q.kind));
-      if (!q.owner)
+      if (!q.owner) {
         hash(quad_hash_,
-             q.texture);  // a surface's GL name is a handle, not content (cache sizing changes which names are reused)
+             q.texture);  // a surface's GL name is a handle, not content (cache sizing changes
+                          // which names are reused)
+      }
       if (q.kind == 9 && q.owner) {
         const auto& mesh = *std::static_pointer_cast<const MeshDraw>(q.owner);
         for (const auto& v : mesh.vertices) {
@@ -549,41 +655,54 @@ void StressTimeline::sample_scene(const Camera& camera, int width, int height, s
         hash_floats(quad_hash_, mesh.bounds);
       }
       if (q.kind == 17 && q.owner) {
-        // A wall instance also digests its corners, so the stream still covers the geometry the mesh path submitted.
+        // A wall instance also digests its corners, so the stream still covers the geometry the
+        // mesh path submitted.
         const auto& store = *static_cast<const WallGeometryStore*>(q.owner.get());
-        const auto first = static_cast<std::size_t>(q.multiply[0]), count = static_cast<std::size_t>(q.multiply[1]);
+        const auto first = static_cast<std::size_t>(q.multiply[0]),
+                   count = static_cast<std::size_t>(q.multiply[1]);
         for (std::size_t i = first; i < first + count; ++i) {
           const auto& v = store.vertices().at(i);
-          hash_floats(quad_hash_, std::array<float, 8>{v.x, v.y, v.z, v.u, v.v, v.shade, v.flags, v.pad});
+          hash_floats(quad_hash_,
+                      std::array<float, 8>{v.x, v.y, v.z, v.u, v.v, v.shade, v.flags, v.pad});
         }
       }
       hash(quad_hash_, 0xfeedULL);
     }
+  }
   for (const auto& q : quads) {
     ++quad_count_;
-    if (q.kind == 9 && q.owner)
+    if (q.kind == 9 && q.owner) {
       triangle_count_ += std::static_pointer_cast<const MeshDraw>(q.owner)->vertices.size() / 3;
-    else if (q.kind == 9)
-      triangle_count_ +=
-          model_range(static_cast<std::uint32_t>(q.offset[2])).count / 3;  // submitted, before GPU back-face culling
-    else if (q.kind == 17)
-      triangle_count_ += static_cast<std::uint64_t>(q.multiply[1]) / 3;  // a wall instance's corners, as mesh triangles
-    else {
+    } else if (q.kind == 9) {
+      triangle_count_ += model_range(static_cast<std::uint32_t>(q.offset[2])).count /
+                         3;  // submitted, before GPU back-face culling
+    } else if (q.kind == 17) {
+      triangle_count_ += static_cast<std::uint64_t>(q.multiply[1]) /
+                         3;  // a wall instance's corners, as mesh triangles
+    } else {
       triangle_count_ += 2;
-      coverage_sum_ += std::min(static_cast<double>(width) * height,
-                                static_cast<double>(std::abs(q.axis_x[0] * q.axis_y[1] - q.axis_x[1] * q.axis_y[0])));
+      coverage_sum_ += std::min(
+          static_cast<double>(width) * height,
+          static_cast<double>(std::abs(q.axis_x[0] * q.axis_y[1] - q.axis_x[1] * q.axis_y[0])));
     }
   }
 }
-void StressTimeline::sample_resources(double rss, std::size_t ce, std::size_t cb, std::size_t ge, std::size_t gb) {
+
+void StressTimeline::sample_resources(double rss, std::size_t ce, std::size_t cb, std::size_t ge,
+                                      std::size_t gb) {
   if (rss > 0) {
-    if (rss_first_ == 0) rss_first_ = rss;
+    if (rss_first_ == 0) {
+      rss_first_ = rss;
+    }
     rss_peak_ = std::max(rss_peak_, rss);
     rss_last_ = rss;
   }
   cache_last_ = {ce, cb, ge, gb};
-  for (std::size_t i = 0; i < 4; ++i) cache_peak_[i] = std::max(cache_peak_[i], cache_last_[i]);
+  for (std::size_t i = 0; i < 4; ++i) {
+    cache_peak_[i] = std::max(cache_peak_[i], cache_last_[i]);
+  }
 }
+
 void StressTimeline::write_summary(const std::filesystem::path& path) const {
   std::uint64_t state = 1469598103934665603ULL;
   std::array<std::size_t, 5> resident{};
@@ -591,8 +710,12 @@ void StressTimeline::write_summary(const std::filesystem::path& path) const {
   std::set<int> actor_sizes;
   for (const auto& e : world_.entities()) {
     const auto* d = world_.catalog().object(e.type);
-    if (e.player && !e.profile.name.empty()) ++named_players;
-    if (e.player || (d && d->enemy && !e.projectile)) actor_sizes.insert(e.appearance.size);
+    if (e.player && !e.profile.name.empty()) {
+      ++named_players;
+    }
+    if (e.player || (d && d->enemy && !e.projectile)) {
+      actor_sizes.insert(e.appearance.size);
+    }
     ++resident[static_cast<std::size_t>(e.projectile             ? 3
                                         : e.player               ? 0
                                         : d && !d->model.empty() ? 2
@@ -617,7 +740,9 @@ void StressTimeline::write_summary(const std::filesystem::path& path) const {
       hash(state, static_cast<std::uint64_t>(key));
       hash(state, static_cast<std::uint32_t>(e.profile.stats.at(static_cast<std::uint8_t>(key))));
     }
-    for (unsigned char b : e.profile.name) hash(state, b);
+    for (unsigned char b : e.profile.name) {
+      hash(state, b);
+    }
     hash(state, std::bit_cast<std::uint64_t>(e.motion.velocity.x));
     hash(state, std::bit_cast<std::uint64_t>(e.motion.velocity.y));
   }
@@ -625,7 +750,9 @@ void StressTimeline::write_summary(const std::filesystem::path& path) const {
     hash(state, static_cast<std::uint32_t>(p.bullet_id));
     std::vector<std::int32_t> hit(p.hit.begin(), p.hit.end());
     std::sort(hit.begin(), hit.end());
-    for (auto id : hit) hash(state, static_cast<std::uint32_t>(id));
+    for (auto id : hit) {
+      hash(state, static_cast<std::uint32_t>(id));
+    }
   }
   for (const auto& p : world_.particles().particles()) {
     hash(state, std::bit_cast<std::uint64_t>(p.position.x));
@@ -634,53 +761,57 @@ void StressTimeline::write_summary(const std::filesystem::path& path) const {
     hash(state, static_cast<std::uint64_t>(p.born));
   }
   Json counts = Json::object();
-  for (const auto& [id, count] : packet_counts_) counts[std::to_string(id)] = count;
-  save(path,
-       {{"version", 1},
-        {"workload", config_.workload},
-        {"ticks", tick_},
-        {"simulation_ms", time()},
-        {"seed", config_.seed},
-        {"state_checksum", std::to_string(state)},
-        {"packet_checksum", std::to_string(packet_hash_)},
-        {"packets", counts},
-        {"hits", hits_},
-        {"quad_stream_checksum", std::to_string(quad_hash_)},
-        {"resident", resident},
-        {"named_players", named_players},
-        {"actor_sizes", actor_sizes},
-        {"simulated_entity_steps", simulated_},
-        {"simulated_by_kind", simulated_by_kind_},
-        {"particle_steps", particle_steps_},
-        {"counts_order", {"players", "enemies", "models", "projectiles", "other"}},
-        {"active_projectiles", flights().size()},
-        {"target_queries", target_stats().queries},
-        {"target_examined", target_stats().examined},
-        {"target_builds", target_stats().builds},
-        {"target_indexed", target_stats().indexed},
-        {"particles", world_.particles().particles().size()},
-        {"emitters", world_.particles().emitter_count()},
-        {"rss_mb_first", rss_first_},
-        {"rss_mb_peak", rss_peak_},
-        {"rss_mb_last", rss_last_},
-        {"cache_order", {"cpu_entries", "cpu_bytes", "gpu_entries", "gpu_bytes"}},
-        {"cache_peak", cache_peak_},
-        {"cache_last", cache_last_},
-        {"optional_drops", world_.particles().dropped()},
-        {"spawned", spawned_},
-        {"removed", removed_},
-        {"resets", resets_},
-        {"replacements", replacements_},
-        {"session_replay", static_cast<bool>(replay_)},
-        {"replayed_packets", replayed_packets_},
-        {"rendered_frames", frames_},
-        {"visible_last", visible_},
-        {"submitted_last", submitted_},
-        {"submitted_quads_total", quad_count_},
-        {"submitted_triangles_total", triangle_count_},
-        {"quad_area_sum_pixels", coverage_sum_},
-        {"coverage_note", "sum of quad parallelogram area, includes overlap; excludes mesh area and alpha coverage"}});
+  for (const auto& [id, count] : packet_counts_) {
+    counts[std::to_string(id)] = count;
+  }
+  save(path, {{"version", 1},
+              {"workload", config_.workload},
+              {"ticks", tick_},
+              {"simulation_ms", time()},
+              {"seed", config_.seed},
+              {"state_checksum", std::to_string(state)},
+              {"packet_checksum", std::to_string(packet_hash_)},
+              {"packets", counts},
+              {"hits", hits_},
+              {"quad_stream_checksum", std::to_string(quad_hash_)},
+              {"resident", resident},
+              {"named_players", named_players},
+              {"actor_sizes", actor_sizes},
+              {"simulated_entity_steps", simulated_},
+              {"simulated_by_kind", simulated_by_kind_},
+              {"particle_steps", particle_steps_},
+              {"counts_order", {"players", "enemies", "models", "projectiles", "other"}},
+              {"active_projectiles", flights().size()},
+              {"target_queries", target_stats().queries},
+              {"target_examined", target_stats().examined},
+              {"target_builds", target_stats().builds},
+              {"target_indexed", target_stats().indexed},
+              {"particles", world_.particles().particles().size()},
+              {"emitters", world_.particles().emitter_count()},
+              {"rss_mb_first", rss_first_},
+              {"rss_mb_peak", rss_peak_},
+              {"rss_mb_last", rss_last_},
+              {"cache_order", {"cpu_entries", "cpu_bytes", "gpu_entries", "gpu_bytes"}},
+              {"cache_peak", cache_peak_},
+              {"cache_last", cache_last_},
+              {"optional_drops", world_.particles().dropped()},
+              {"spawned", spawned_},
+              {"removed", removed_},
+              {"resets", resets_},
+              {"replacements", replacements_},
+              {"session_replay", static_cast<bool>(replay_)},
+              {"replayed_packets", replayed_packets_},
+              {"rendered_frames", frames_},
+              {"visible_last", visible_},
+              {"submitted_last", submitted_},
+              {"submitted_quads_total", quad_count_},
+              {"submitted_triangles_total", triangle_count_},
+              {"quad_area_sum_pixels", coverage_sum_},
+              {"coverage_note",
+               "sum of quad parallelogram area, includes overlap; excludes mesh area and alpha "
+               "coverage"}});
 }
+
 void StressTimeline::describe(const Catalog& cat, const std::filesystem::path& path) {
   Json j = {{"version", 1},
             {"seed", 77},
@@ -698,26 +829,37 @@ void StressTimeline::describe(const Catalog& cat, const std::filesystem::path& p
       families.insert(d.model);
     }
 
-    if (d.xml.child("Activate").text() == "Dye" && d.xml.has("Tex1"))
+    if (d.xml.child("Activate").text() == "Dye" && d.xml.has("Tex1")) {
       j["dyes"].push_back(static_cast<std::uint32_t>(d.xml.number("Tex1")));
-    if (d.enemy && !d.occupy && !d.enemy_occupy && !d.stationary && d.model.empty() && !d.projectiles.empty() &&
-        d.projectiles.front().id >= 0 && d.projectiles.front().id < 256 &&
-        cat.object(d.projectiles.front().object_id) && enemy.empty())
+    }
+    if (d.enemy && !d.occupy && !d.enemy_occupy && !d.stationary && d.model.empty() &&
+        !d.projectiles.empty() && d.projectiles.front().id >= 0 && d.projectiles.front().id < 256 &&
+        cat.object(d.projectiles.front().object_id) && enemy.empty()) {
       enemy = d.id;
-    if (!d.enemy && d.slot_type == 8 && d.rate_of_fire > 0 && !d.projectiles.empty() && d.projectiles.front().id == 0 &&
-        cat.object(d.projectiles.front().object_id)) {
-      if (d.projectiles.front().multi_hit && multi.empty())
+    }
+    if (!d.enemy && d.slot_type == 8 && d.rate_of_fire > 0 && !d.projectiles.empty() &&
+        d.projectiles.front().id == 0 && cat.object(d.projectiles.front().object_id)) {
+      if (d.projectiles.front().multi_hit && multi.empty()) {
         multi = d.id;
-      else if (weapon.empty())
+      } else if (weapon.empty()) {
         weapon = d.id;
+      }
     }
   }
-  for (const auto& skin : cat.skins())
-    if (skin.class_type == require(cat, "Priest").type) j["skins"].push_back(skin.id);
-  if (enemy.empty() || weapon.empty() || multi.empty()) throw std::runtime_error("Missing legal stress definitions");
+  for (const auto& skin : cat.skins()) {
+    if (skin.class_type == require(cat, "Priest").type) {
+      j["skins"].push_back(skin.id);
+    }
+  }
+  if (enemy.empty() || weapon.empty() || multi.empty()) {
+    throw std::runtime_error("Missing legal stress definitions");
+  }
   j["unreferenced_model_families"] = Json::array();
-  for (std::size_t i = 0; i < model_count(); ++i)
-    if (!families.contains(std::string(model_name(i)))) j["unreferenced_model_families"].push_back(model_name(i));
+  for (std::size_t i = 0; i < model_count(); ++i) {
+    if (!families.contains(std::string(model_name(i)))) {
+      j["unreferenced_model_families"].push_back(model_name(i));
+    }
+  }
   j["enemy"] = enemy;
   j["weapon"] = weapon;
   j["multi_weapon"] = multi;

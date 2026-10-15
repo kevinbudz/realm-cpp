@@ -9,9 +9,10 @@ namespace realm::platform {
 double resident_megabytes() {
 #ifdef __linux__
   std::ifstream statm("/proc/self/statm");
-  long long size{}, resident{};
-  if (statm >> size >> resident)
+  long long pages{}, resident{};
+  if (statm >> pages >> resident) {
     return static_cast<double>(resident) * static_cast<double>(sysconf(_SC_PAGESIZE)) / 1048576.0;
+  }
 #endif
   return 0;
 }

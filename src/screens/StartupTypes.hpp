@@ -40,6 +40,7 @@ enum class Task {
   change_password,
   buy_slot
 };
+
 enum Action : int {
   play_action = 1,
   account_action,

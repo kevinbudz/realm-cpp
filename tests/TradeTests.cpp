@@ -4,11 +4,15 @@
 
 namespace {
 int checks{};
+
 void check(bool value, const char* reason) {
   ++checks;
-  if (!value) throw std::runtime_error(reason);
+  if (!value) {
+    throw std::runtime_error(reason);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
@@ -16,8 +20,9 @@ int main() {
     using B = Trade::Button;
     const auto items = [](std::vector<int> types, std::vector<bool> tradeable) {
       std::vector<net::TradeItem> result;
-      for (std::size_t i = 0; i < 12; ++i)
+      for (std::size_t i = 0; i < 12; ++i) {
         result.push_back({types[i], i < 4 ? 1 : 0, static_cast<bool>(tradeable[i]), false});
+      }
       return result;
     };
     Trade trade;
@@ -35,7 +40,8 @@ int main() {
         items({5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, -1},
               {false, false, false, false, true, true, true, true, true, true, true, false})};
     trade.start(start, "Me", 1000);
-    check(trade.active() && !trade.request() && trade.mine().name == "Me" && trade.theirs().name == "Friend",
+    check(trade.active() && !trade.request() && trade.mine().name == "Me" &&
+              trade.theirs().name == "Friend",
           "TRADESTART opens the panel and replaces the request");
     check(trade.button() == B::countdown && trade.mine().message == M::click_items &&
               trade.theirs().message == M::waiting,
@@ -52,19 +58,22 @@ int main() {
     trade.update(4500);
     check(trade.button() == B::normal, "Trade enables when the countdown completes");
     // They offer seven items; I have six empty slots plus one offered: room for seven.
-    trade.changed({std::vector<bool>{false, false, false, false, true, true, true, true, true, true, true, false}},
+    trade.changed({std::vector<bool>{false, false, false, false, true, true, true, true, true, true,
+                                     true, false}},
                   5000);
-    check(trade.mine().message == M::click_items && trade.button() == B::countdown, "exactly enough space is valid");
+    check(trade.mine().message == M::click_items && trade.button() == B::countdown,
+          "exactly enough space is valid");
     (void)trade.toggle(4, 5000);
     check(trade.mine().message == M::no_space && trade.button() == B::disabled,
           "receiving more than free space disables Trade");
     trade.activate(5100);
-    check(trade.button() == B::countdown, "window activation restarts the countdown even without space");
+    check(trade.button() == B::countdown,
+          "window activation restarts the countdown even without space");
     (void)trade.toggle(4, 6000);
     trade.update(9000);
     const auto accepted = trade.accept(9000);
-    check(accepted && accepted->first.at(4) && accepted->second.at(10) && trade.button() == B::waiting &&
-              trade.mine().message == M::accepted,
+    check(accepted && accepted->first.at(4) && accepted->second.at(10) &&
+              trade.button() == B::waiting && trade.mine().message == M::accepted,
           "accepting sends both offers and waits");
     check(!trade.accept(9500), "a waiting button cannot accept again");
     trade.accepted({Trade::offer(trade.mine()), std::vector<bool>(12, false)});
@@ -83,12 +92,15 @@ int main() {
       HudArt art;
       TradeView view(fonts, art);
       trade.start(start, "Me", 0);
-      check(view.update(trade, {0, 0}, 0) && !view.update(trade, {0, 0}, 0), "panel redraws only on change");
+      check(view.update(trade, {0, 0}, 0) && !view.update(trade, {0, 0}, 0),
+            "panel redraws only on change");
       check(view.update(trade, {0, 0}, 1500), "countdown bar progress redraws");
-      check(TradeView::slot_at({14, 246}) == 0 && TradeView::slot_at({14 + 44 * 3 + 39, 246 + 44 * 2 + 39}) == 11 &&
+      check(TradeView::slot_at({14, 246}) == 0 &&
+                TradeView::slot_at({14 + 44 * 3 + 39, 246 + 44 * 2 + 39}) == 11 &&
                 TradeView::slot_at({13, 246}) == -1,
             "my slot grid hit areas");
-      check(TradeView::their_slot_at({14, 420}) == 0 && TradeView::slot_at({14, 420}) == -1, "their grid is separate");
+      check(TradeView::their_slot_at({14, 420}) == 0 && TradeView::slot_at({14, 420}) == -1,
+            "their grid is separate");
       check(view.update(trade, {20, 570}, 1500), "hovering Cancel redraws");
       trade.end();
       trade.requested("Friend", 0);

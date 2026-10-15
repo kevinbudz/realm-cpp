@@ -4,9 +4,12 @@
 #include <thread>
 #include <iostream>
 #include <set>
+
 int main(int argc, char** argv) {
   try {
-    if (argc != 4) throw std::runtime_error("Expected port, account and required effect types");
+    if (argc != 4) {
+      throw std::runtime_error("Expected port, account and required effect types");
+    }
     using namespace realm;
     std::string password;
     std::getline(std::cin, password);
@@ -28,27 +31,42 @@ int main(int argc, char** argv) {
     int ready = -1;
     std::vector<int> inv_results;
     while (true) {
-      const auto time = static_cast<std::int32_t>(
-          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
-      if (time > 20000) throw std::runtime_error("Real particle session timed out");
-      if (ready >= 0 && time > ready + 4500) break;
+      const auto time =
+          static_cast<std::int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        std::chrono::steady_clock::now() - start)
+                                        .count());
+      if (time > 20000) {
+        throw std::runtime_error("Real particle session timed out");
+      }
+      if (ready >= 0 && time > ready + 4500) {
+        break;
+      }
       session.poll(time);
       world.update(1);
-      for (const auto& event : session.take_events())
-        if (event.id == flash::PacketId::INVRESULT)
+      for (const auto& event : session.take_events()) {
+        if (event.id == flash::PacketId::INVRESULT) {
           inv_results.push_back(std::get<net::incoming::InvResult>(event.data).result);
-        else if (event.id == flash::PacketId::SHOWEFFECT) {
+        } else if (event.id == flash::PacketId::SHOWEFFECT) {
           const auto& effect = std::get<net::incoming::ShowEffect>(event.data);
           seen.insert(effect.type);
-          if (world.particles().particles().empty())
+          if (world.particles().particles().empty()) {
             throw std::runtime_error("Actual SHOWEFFECT did not create native particles type=" +
                                      std::to_string(effect.type));
+          }
         }
-      if (session.state() == SessionState::failed) throw std::runtime_error(session.error());
-      if (session.state() == SessionState::playing && world.entity(world.player_id()) && ready < 0) ready = time;
-      if (ready >= 0 && session.state() != SessionState::playing)
-        throw std::runtime_error("Fixture left playing state=" + std::to_string(static_cast<int>(session.state())) +
-                                 " " + session.error());
+      }
+      if (session.state() == SessionState::failed) {
+        throw std::runtime_error(session.error());
+      }
+      if (session.state() == SessionState::playing && world.entity(world.player_id()) &&
+          ready < 0) {
+        ready = time;
+      }
+      if (ready >= 0 && session.state() != SessionState::playing) {
+        throw std::runtime_error(
+            "Fixture left playing state=" + std::to_string(static_cast<int>(session.state())) +
+            " " + session.error());
+      }
       if (auto* p = world.entity(world.player_id()); p && ready >= 0 && time > ready + 500) {
         if (!used) {
           session.use_ability({p->motion.position.x + 2, p->motion.position.y}, time);
@@ -57,7 +75,9 @@ int main(int argc, char** argv) {
         }
         if (!potion && time > ready + 2300) {
           session.use_item({p->id, 4}, time);
-          if (p->profile.stats.at(12) != -1) throw std::runtime_error("Consumable native input did not dispatch");
+          if (p->profile.stats.at(12) != -1) {
+            throw std::runtime_error("Consumable native input did not dispatch");
+          }
           potion = true;
           ++uses;
         }
@@ -72,8 +92,11 @@ int main(int argc, char** argv) {
       const auto end = required.find(',', begin);
       const int id = std::stoi(required.substr(begin, end - begin));
       if (!seen.contains(id)) {
-        std::string info = "Missing real server effect=" + std::to_string(id) + " inventory replies=";
-        for (int result : inv_results) info += std::to_string(result) + ",";
+        std::string info =
+            "Missing real server effect=" + std::to_string(id) + " inventory replies=";
+        for (int result : inv_results) {
+          info += std::to_string(result) + ",";
+        }
         if (const auto* p = world.entity(world.player_id())) {
           const auto it = p->profile.stats.find(12);
           info += " slot4=" + std::to_string(it == p->profile.stats.end() ? -999 : it->second);
@@ -82,13 +105,19 @@ int main(int argc, char** argv) {
       }
       begin = end == std::string::npos ? required.size() : end + 1;
     }
-    if (maximum == 0 || uses != 2) throw std::runtime_error("Live effects/uses absent");
+    if (maximum == 0 || uses != 2) {
+      throw std::runtime_error("Live effects/uses absent");
+    }
     session.disconnect();
-    if (!world.particles().particles().empty() || world.particles().emitter_count())
+    if (!world.particles().particles().empty() || world.particles().emitter_count()) {
       throw std::runtime_error("disconnect leaked particles");
+    }
     std::cout << "Actual server ";
-    for (auto id : seen) std::cout << id << ',';
-    std::cout << " native particles peak=" << maximum << " USEITEM=" << uses << " and disconnect teardown passed\n";
+    for (auto id : seen) {
+      std::cout << id << ',';
+    }
+    std::cout << " native particles peak=" << maximum << " USEITEM=" << uses
+              << " and disconnect teardown passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

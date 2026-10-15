@@ -4,14 +4,22 @@
 #include <iostream>
 #include <numbers>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
-void near(double a, double b, const char* why) { check(std::abs(a - b) < 1e-10, why); }
+
+void near(double a, double b, const char* why) {
+  check(std::abs(a - b) < 1e-10, why);
 }
+}
+
 int main() {
   try {
     realm::Entity e;
@@ -42,14 +50,18 @@ int main() {
     check(realm::damage_with_defense(100, 20, false, (1U << 22U) | (1U << 23U)) == 100,
           "armor broken overrides armored");
     check(realm::damage_with_defense(100, 20, true, 0) == 100, "piercing");
-    check(realm::damage_with_defense(100, 20, true, 1U << 21U) == 0, "invulnerable ignores piercing");
+    check(realm::damage_with_defense(100, 20, true, 1U << 21U) == 0,
+          "invulnerable ignores piercing");
     realm::Catalog catalog(realm::flash::source_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const auto* grass = catalog.ground("Grass");
     check(grass, "grass loaded");
-    for (int y = 0; y < 8; ++y)
-      for (int x = 0; x < 8; ++x) world.tile(x, y)->type = grass->type;
+    for (int y = 0; y < 8; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        world.tile(x, y)->type = grass->type;
+      }
+    }
     const auto* wizard = catalog.object("Wizard");
     auto& p = world.add(99, wizard->type, {2.5, 2.5});
     world.set_player_id(99);
@@ -77,11 +89,12 @@ int main() {
     near(missing.x, 2.5, "unseen tile imposes half tile clearance");
     world.tile(3, 2)->type = grass->type;
     const realm::ObjectDef* blocking{};
-    for (const auto& d : catalog.objects())
+    for (const auto& d : catalog.objects()) {
       if (d.stationary && d.occupy && !d.full_occupy) {
         blocking = &d;
         break;
       }
+    }
     check(blocking, "partial blocking definition exists");
     world.add(100, blocking->type, {3.5, 2.5});
     auto& current = *world.entity(99);
@@ -90,7 +103,8 @@ int main() {
     near(stopped.x, 2.99, "blocked border leaves 0.01 clearance");
     const auto slid = realm::modify_player_move(world, current, {3.1, 2.8});
     check(slid.x < 3 && slid.y > 2.5, "wall collision slides");
-    check(!realm::valid_player_position(world, current, {3.2, 2.5}), "missing tile blocks movement");
+    check(!realm::valid_player_position(world, current, {3.2, 2.5}),
+          "missing tile blocks movement");
     current.motion.velocity = {.01, 0};
     current.motion.target = {3.5, 2.5};
     world.update(20);

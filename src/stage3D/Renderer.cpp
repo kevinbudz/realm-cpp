@@ -16,8 +16,11 @@ GraphicsInfo graphics_info() {
           reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
           reinterpret_cast<const char*>(glGetString(GL_VERSION))};
 }
+
 void check_graphics_error() {
-  if (glGetError() != GL_NO_ERROR) throw std::runtime_error("OpenGL error during frame");
+  if (glGetError() != GL_NO_ERROR) {
+    throw std::runtime_error("OpenGL error during frame");
+  }
 }
 
 namespace {
@@ -210,8 +213,9 @@ void main() {
     bounds = spriteUV; layer = page; flatColor = meshColor; textured = texturedFlag; repeatTexture = repeatFlag;
 }
 )glsl";
-// Reference model program (prepared MeshDraw owners, see project_model): textured groups sample the object sprite
-// (nearest, repeated) times the face shade; Solid* groups are the flat object color times it.
+// Reference model program (prepared MeshDraw owners, see project_model): textured groups sample the
+// object sprite (nearest, repeated) times the face shade; Solid* groups are the flat object color
+// times it.
 constexpr auto mesh_fragment_shader = R"glsl(#version 330 core
 in vec2 uv;
 in float lit;
@@ -289,28 +293,44 @@ void main() {
 }
 )glsl";
 
-
-
-std::array<float, 2> floats(Vec2 p) { return {static_cast<float>(p.x), static_cast<float>(p.y)}; }
+std::array<float, 2> floats(Vec2 p) {
+  return {static_cast<float>(p.x), static_cast<float>(p.y)};
 }
+}
+
 SurfaceTexture::~SurfaceTexture() {
-  if (texture_) glDeleteTextures(1, &texture_);
+  if (texture_) {
+    glDeleteTextures(1, &texture_);
+  }
 }
+
 void SurfaceTexture::update(const Image& image, bool premultiplied) {
   update_region(image, 0, 0, image.width, image.height, premultiplied);
 }
-void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int h, bool premultiplied) {
+
+void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int h,
+                                   bool premultiplied) {
   REALM_ZONE("render.texture_upload");
   if (image.width < 1 || image.height < 1 ||
-      image.pixels.size() != static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4 ||
-      x < 0 || y < 0 || w < 1 || h < 1 || x + w > image.width || y + h > image.height)
+      image.pixels.size() !=
+          static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4 ||
+      x < 0 || y < 0 || w < 1 || h < 1 || x + w > image.width || y + h > image.height) {
     throw std::invalid_argument("Invalid UI texture upload");
-  if (!texture_limit_) glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texture_limit_);
+  }
+
+  if (!texture_limit_) {
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texture_limit_);
+  }
   const int limit = texture_limit_;
-  if (image.width > limit || image.height > limit || reserved_width_ > limit || reserved_height_ > limit)
+  if (image.width > limit || image.height > limit || reserved_width_ > limit ||
+      reserved_height_ > limit) {
     throw std::runtime_error("UI surface exceeds GPU texture limit");
+  }
+
   const bool created = !texture_;
-  if (created) glGenTextures(1, &texture_);
+  if (created) {
+    glGenTextures(1, &texture_);
+  }
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, texture_);
   if (created) {
@@ -319,6 +339,7 @@ void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   }
+
   const bool resized = width_ != image.width || height_ != image.height;
   if (resized) {
     width_ = image.width;
@@ -327,79 +348,114 @@ void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int 
     w = width_;
     h = height_;
   }
+
   if ((!retain_capacity_ && resized) || std::max(width_, reserved_width_) > storage_width_ ||
       std::max(height_, reserved_height_) > storage_height_) {
     const auto capacity = [&](int size) {
       int result = 1;
-      while (result < size) result *= 2;
+      while (result < size) {
+        result *= 2;
+      }
       return std::min(result, limit);
     };
-    storage_width_ = retain_capacity_ ? capacity(std::max(width_, reserved_width_)) : std::max(width_, reserved_width_);
-    storage_height_ =
-        retain_capacity_ ? capacity(std::max(height_, reserved_height_)) : std::max(height_, reserved_height_);
+    storage_width_ = retain_capacity_ ? capacity(std::max(width_, reserved_width_))
+                                      : std::max(width_, reserved_width_);
+    storage_height_ = retain_capacity_ ? capacity(std::max(height_, reserved_height_))
+                                       : std::max(height_, reserved_height_);
     telemetry::add(telemetry::Counter::texture_storage_bytes,
-                   static_cast<std::uint64_t>(storage_width_) * static_cast<std::uint64_t>(storage_height_) * 4);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, storage_width_, storage_height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                   static_cast<std::uint64_t>(storage_width_) *
+                       static_cast<std::uint64_t>(storage_height_) * 4);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, storage_width_, storage_height_, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
   }
+
   telemetry::add(telemetry::Counter::texture_upload_bytes,
                  static_cast<std::uint64_t>(w) * static_cast<std::uint64_t>(h) * 4);
   telemetry::add(telemetry::Counter::ui_native_texture_uploads);
   telemetry::add(telemetry::Counter::ui_native_texture_upload_bytes,
                  static_cast<std::uint64_t>(w) * static_cast<std::uint64_t>(h) * 4);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  // Already-premultiplied complete rows can go straight to GL; its upload consumes client memory before returning.
+  // Already-premultiplied complete rows can go straight to GL; its upload consumes client memory
+  // before returning.
   if (premultiplied && x == 0 && w == image.width) {
-    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE,
-                    image.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 4);
+    glTexSubImage2D(
+        GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE,
+        image.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 4);
     glActiveTexture(GL_TEXTURE0);
     return;
   }
-  // Share scratch storage across uploads instead of retaining a second image in every cached surface.
+  // Share scratch storage across uploads instead of retaining a second image in every cached
+  // surface.
   static thread_local Image pixels;
   pixels.width = w;
   pixels.height = h;
   pixels.pixels.resize(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4);
-  for (int row = 0; row < h; ++row)
-    std::copy_n(image.pixels.data() + (static_cast<std::size_t>(row + y) * static_cast<std::size_t>(image.width) +
-                                       static_cast<std::size_t>(x)) *
-                                          4,
-                static_cast<std::size_t>(w) * 4,
-                pixels.pixels.data() + static_cast<std::size_t>(row) * static_cast<std::size_t>(w) * 4);
-  if (!premultiplied) premultiply_flash_bitmap(pixels);
+  for (int row = 0; row < h; ++row) {
+    std::copy_n(
+        image.pixels.data() +
+            (static_cast<std::size_t>(row + y) * static_cast<std::size_t>(image.width) +
+             static_cast<std::size_t>(x)) *
+                4,
+        static_cast<std::size_t>(w) * 4,
+        pixels.pixels.data() + static_cast<std::size_t>(row) * static_cast<std::size_t>(w) * 4);
+  }
+  if (!premultiplied) {
+    premultiply_flash_bitmap(pixels);
+  }
   glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.pixels.data());
   glActiveTexture(GL_TEXTURE0);
 }
+
 Quad SurfaceTexture::quad(Vec2 origin, Vec2 ax, Vec2 ay, int x, int y, int w, int h) const {
-  if (!texture_) throw std::logic_error("UI surface was not uploaded");
-  if (w == 0) w = width_;
-  if (h == 0) h = height_;
+  if (!texture_) {
+    throw std::logic_error("UI surface was not uploaded");
+  }
+  if (w == 0) {
+    w = width_;
+  }
+  if (h == 0) {
+    h = height_;
+  }
   Quad q;
   q.origin = floats(origin);
   q.axis_x = floats(ax);
   q.axis_y = floats(ay);
   q.texture = texture_;
   q.kind = 5;
-  const auto fw = static_cast<float>(storage_width_), fh = static_cast<float>(storage_height_);
-  q.uv = {static_cast<float>(x) / fw, static_cast<float>(y) / fh, static_cast<float>(w) / fw,
-          static_cast<float>(h) / fh};
+  const auto width = static_cast<float>(storage_width_);
+  const auto height = static_cast<float>(storage_height_);
+  q.uv = {static_cast<float>(x) / width, static_cast<float>(y) / height,
+          static_cast<float>(w) / width, static_cast<float>(h) / height};
   return q;
 }
+
 TerrainBuffer::TerrainBuffer(std::span<const Quad> quads) : count_(quads.size()) {
   glGenBuffers(1, &buffer_);
   glBindBuffer(GL_ARRAY_BUFFER, buffer_);
-  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(quads.size_bytes()), quads.data(), GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(quads.size_bytes()), quads.data(),
+               GL_STATIC_DRAW);
   telemetry::add(telemetry::Counter::quad_upload_bytes, quads.size_bytes());
 }
+
 TerrainBuffer::~TerrainBuffer() {
-  if (buffer_) glDeleteBuffers(1, &buffer_);
-}
-QuadLayer::~QuadLayer() {
-  if (buffer) glDeleteBuffers(1, &buffer);
+  if (buffer_) {
+    glDeleteBuffers(1, &buffer_);
+  }
 }
 
-Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t persistent_minimum_bytes) {
+QuadLayer::~QuadLayer() {
+  if (buffer) {
+    glDeleteBuffers(1, &buffer);
+  }
+}
+
+Renderer::Renderer(std::size_t capacity, bool persistent_streaming,
+                   std::size_t persistent_minimum_bytes) {
   try {
-    if (!capacity || capacity > 1000000) throw std::invalid_argument("Invalid quad capacity");
+    if (!capacity || capacity > 1000000) {
+      throw std::invalid_argument("Invalid quad capacity");
+    }
+
     const auto vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, vertex_shader);
     GLuint fs{};
     try {
@@ -421,6 +477,7 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       program_ = 0;
       throw std::runtime_error("Shader link failed");
     }
+
     {
       const auto mesh_vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, mesh_vertex_shader);
       GLuint mesh_fs{};
@@ -451,21 +508,24 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       glBindVertexArray(mesh_vao_);
       glGenBuffers(1, &mesh_buffer_);
       glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
-      const std::array<std::pair<GLint, std::size_t>, 8> mesh_attributes{{{2, offsetof(MeshBatchVertex, x)},
-                                                                          {2, offsetof(MeshBatchVertex, u)},
-                                                                          {1, offsetof(MeshBatchVertex, shade)},
-                                                                          {4, offsetof(MeshBatchVertex, bounds)},
-                                                                          {1, offsetof(MeshBatchVertex, page)},
-                                                                          {3, offsetof(MeshBatchVertex, color)},
-                                                                          {1, offsetof(MeshBatchVertex, textured)},
-                                                                          {1, offsetof(MeshBatchVertex, repeat)}}};
+      const std::array<std::pair<GLint, std::size_t>, 8> mesh_attributes{
+          {{2, offsetof(MeshBatchVertex, x)},
+           {2, offsetof(MeshBatchVertex, u)},
+           {1, offsetof(MeshBatchVertex, shade)},
+           {4, offsetof(MeshBatchVertex, bounds)},
+           {1, offsetof(MeshBatchVertex, page)},
+           {3, offsetof(MeshBatchVertex, color)},
+           {1, offsetof(MeshBatchVertex, textured)},
+           {1, offsetof(MeshBatchVertex, repeat)}}};
       for (GLuint i = 0; i < mesh_attributes.size(); ++i) {
         glEnableVertexAttribArray(i);
-        glVertexAttribPointer(i, mesh_attributes[i].first, GL_FLOAT, GL_FALSE, sizeof(MeshBatchVertex),
+        glVertexAttribPointer(i, mesh_attributes[i].first, GL_FLOAT, GL_FALSE,
+                              sizeof(MeshBatchVertex),
                               reinterpret_cast<void*>(mesh_attributes[i].second));
       }
       glBindVertexArray(0);
     }
+
     {
       const auto model_vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, model_vertex_shader);
       GLuint model_fs{};
@@ -499,12 +559,14 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       glBindVertexArray(model_vao_);
       glGenBuffers(1, &model_geometry_);
       glBindBuffer(GL_ARRAY_BUFFER, model_geometry_);
-      glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(geometry.size_bytes()), geometry.data(), GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(geometry.size_bytes()), geometry.data(),
+                   GL_STATIC_DRAW);
       telemetry::add(telemetry::Counter::mesh_upload_bytes, geometry.size_bytes());
-      const std::array<std::pair<GLint, std::size_t>, 4> attributes{{{3, offsetof(ModelVertex, x)},
-                                                                     {3, offsetof(ModelVertex, nx)},
-                                                                     {2, offsetof(ModelVertex, u)},
-                                                                     {1, offsetof(ModelVertex, solid)}}};
+      const std::array<std::pair<GLint, std::size_t>, 4> attributes{
+          {{3, offsetof(ModelVertex, x)},
+           {3, offsetof(ModelVertex, nx)},
+           {2, offsetof(ModelVertex, u)},
+           {1, offsetof(ModelVertex, solid)}}};
       for (GLuint i = 0; i < attributes.size(); ++i) {
         glEnableVertexAttribArray(i);
         glVertexAttribPointer(i, attributes[i].first, GL_FLOAT, GL_FALSE, sizeof(ModelVertex),
@@ -516,6 +578,7 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
       }
       glBindVertexArray(0);
     }
+
     glGenBuffers(1, &wall_geometry_);
     glGenTextures(1, &wall_texture_);
     glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &wall_texel_limit_);
@@ -537,7 +600,9 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
     glUniform1i(glGetUniformLocation(program_, "geometry"), 2);
     glGenVertexArrays(1, &vao_);
     glBindVertexArray(vao_);
-    stream_ = std::make_unique<RendererStream>(capacity, persistent_streaming, persistent_minimum_bytes);
+    stream_ =
+        std::make_unique<RendererStream>(capacity, persistent_streaming, persistent_minimum_bytes);
+
     // Enables and divisors belong to this VAO and never change when RmlUi binds its own VAO.
     for (GLuint i = 0; i < quad_sizes.size(); ++i) {
       glEnableVertexAttribArray(i);
@@ -545,6 +610,7 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
     }
     base_instance_supported_ = GLEW_VERSION_4_2 || GLEW_ARB_base_instance;
     base_instance_ = base_instance_supported_;
+
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
@@ -555,37 +621,74 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming, std::size_t 
     throw;
   }
 }
-Renderer::~Renderer() { release_gl_resources(); }
+
+Renderer::~Renderer() {
+  release_gl_resources();
+}
+
 void Renderer::release_gl_resources() noexcept {
-  if (vao_) glDeleteVertexArrays(1, &vao_);
-  if (program_) glDeleteProgram(program_);
-  if (mesh_buffer_) glDeleteBuffers(1, &mesh_buffer_);
-  if (mesh_vao_) glDeleteVertexArrays(1, &mesh_vao_);
-  if (mesh_program_) glDeleteProgram(mesh_program_);
-  if (model_geometry_) glDeleteBuffers(1, &model_geometry_);
-  if (model_vao_) glDeleteVertexArrays(1, &model_vao_);
-  if (model_program_) glDeleteProgram(model_program_);
-  if (wall_geometry_) glDeleteBuffers(1, &wall_geometry_);
-  if (wall_texture_) glDeleteTextures(1, &wall_texture_);
-  vao_ = program_ = mesh_buffer_ = mesh_vao_ = mesh_program_ = model_geometry_ = model_vao_ = model_program_ = 0;
+  if (vao_) {
+    glDeleteVertexArrays(1, &vao_);
+  }
+  if (program_) {
+    glDeleteProgram(program_);
+  }
+
+  if (mesh_buffer_) {
+    glDeleteBuffers(1, &mesh_buffer_);
+  }
+  if (mesh_vao_) {
+    glDeleteVertexArrays(1, &mesh_vao_);
+  }
+  if (mesh_program_) {
+    glDeleteProgram(mesh_program_);
+  }
+
+  if (model_geometry_) {
+    glDeleteBuffers(1, &model_geometry_);
+  }
+  if (model_vao_) {
+    glDeleteVertexArrays(1, &model_vao_);
+  }
+  if (model_program_) {
+    glDeleteProgram(model_program_);
+  }
+
+  if (wall_geometry_) {
+    glDeleteBuffers(1, &wall_geometry_);
+  }
+  if (wall_texture_) {
+    glDeleteTextures(1, &wall_texture_);
+  }
+
+  vao_ = program_ = mesh_buffer_ = mesh_vao_ = mesh_program_ = model_geometry_ = model_vao_ =
+      model_program_ = 0;
   wall_geometry_ = wall_texture_ = 0;
 }
-// Points the quad program's instance attributes at a list starting offset bytes into the bound array buffer.
+
+// Points the quad program's instance attributes at a list starting offset bytes into the bound
+// array buffer.
 void Renderer::bind_quad_attributes(std::size_t offset) {
-  for (GLuint i = 0; i < quad_sizes.size(); ++i)
+  for (GLuint i = 0; i < quad_sizes.size(); ++i) {
     glVertexAttribPointer(i, quad_sizes[i], GL_FLOAT, GL_FALSE, sizeof(Quad),
                           reinterpret_cast<void*>(offset + quad_offsets[i]));
+  }
 }
-// Instances of a run start at its first quad. Without base instances the caller has already moved the pointers there.
+
+// Instances of a run start at its first quad. Without base instances the caller has already moved
+// the pointers there.
 void Renderer::draw_instanced(std::uint32_t mode, std::int32_t first_vertex, std::int32_t vertices,
                               std::int32_t instances, std::size_t first_instance) const {
-  if (base_instance_)
-    glDrawArraysInstancedBaseInstance(mode, first_vertex, vertices, instances, static_cast<GLuint>(first_instance));
-  else
+  if (base_instance_) {
+    glDrawArraysInstancedBaseInstance(mode, first_vertex, vertices, instances,
+                                      static_cast<GLuint>(first_instance));
+  } else {
     glDrawArraysInstanced(mode, first_vertex, vertices, instances);
+  }
 }
-void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int width, int height, std::uint32_t buffer,
-                          bool measure_models) {
+
+void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int width, int height,
+                          std::uint32_t buffer, bool measure_models) {
   const auto standalone = standalone_location_;
   // Whether the quad pointers of vao_ address this list in buffer; terrain and layers rebind them.
   bool quads_bound = false;
@@ -593,7 +696,9 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     if (list[first].kind == 10) {
       const auto& command = list[first];
       const auto* terrain = static_cast<const TerrainBuffer*>(command.owner.get());
-      if (!terrain) throw std::logic_error("Missing terrain buffer");
+      if (!terrain) {
+        throw std::logic_error("Missing terrain buffer");
+      }
       glUniform1i(standalone, 0);
       glUniform1i(ground_location_, 1);
       glUniform2fv(ground_origin_, 1, command.origin.data());
@@ -615,15 +720,21 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     if (list[first].kind == 14) {
       const auto& command = list[first];
       auto* layer = const_cast<QuadLayer*>(static_cast<const QuadLayer*>(command.owner.get()));
-      if (!layer || layer->quads.size() > 1000000) throw std::logic_error("Invalid quad layer");
-      if (!layer->buffer) glGenBuffers(1, &layer->buffer);
+      if (!layer || layer->quads.size() > 1000000) {
+        throw std::logic_error("Invalid quad layer");
+      }
+      if (!layer->buffer) {
+        glGenBuffers(1, &layer->buffer);
+      }
       glBindBuffer(GL_ARRAY_BUFFER, layer->buffer);
       const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
       glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
       telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
-      // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before the kind branch.
+      // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before
+      // the kind branch.
       glUniform1i(clip_location_, 1);
-      glUniform4f(clip_rect_, command.origin[0], command.origin[1], command.axis_x[0], command.axis_y[1]);
+      glUniform4f(clip_rect_, command.origin[0], command.origin[1], command.axis_x[0],
+                  command.axis_y[1]);
       draw_batch(layer->quads, 0, width, height, layer->buffer, false);
       quads_bound = false;
       glUniform1i(clip_location_, 0);
@@ -632,11 +743,14 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       continue;
     }
     if (list[first].kind == 9 && !list[first].owner) {
-      // Model instances keep their painter-stream position. A contiguous block switches programs once;
-      // consecutive copies of one model are one instanced draw (instances rasterize in order).
+      // Model instances keep their painter-stream position. A contiguous block switches programs
+      // once; consecutive copies of one model are one instanced draw (instances rasterize in
+      // order).
       REALM_ZONE("render.model_submit");
       std::size_t end = first;
-      while (end < list.size() && list[end].kind == 9 && !list[end].owner) ++end;
+      while (end < list.size() && list[end].kind == 9 && !list[end].owner) {
+        ++end;
+      }
       glUseProgram(model_program_);
       glBindVertexArray(model_vao_);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -652,27 +766,37 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
                                                                    {1, offsetof(Quad, page)},
                                                                    {4, offsetof(Quad, multiply)},
                                                                    {4, offsetof(Quad, offset)}}};
-      // With base instances the pointers address the whole list once and each run starts at its own quad.
-      if (base_instance_)
-        for (GLuint i = 0; i < instance.size(); ++i)
+      // With base instances the pointers address the whole list once and each run starts at its own
+      // quad.
+      if (base_instance_) {
+        for (GLuint i = 0; i < instance.size(); ++i) {
           glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
                                 reinterpret_cast<void*>(offset + instance[i].second));
+        }
+      }
       for (std::size_t run = first; run < end;) {
         const float model = list[run].offset[2];
         std::size_t next = run + 1;
-        while (next < end && list[next].offset[2] == model) ++next;
+        while (next < end && list[next].offset[2] == model) {
+          ++next;
+        }
         const auto range = model_range(static_cast<std::uint32_t>(model));
         const bool model_measure = measure_models && gpu_timers_->model_begin(next - run);
-        if (!base_instance_)
-          for (GLuint i = 0; i < instance.size(); ++i)
-            glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
-                                  reinterpret_cast<void*>(offset + run * sizeof(Quad) + instance[i].second));
-        draw_instanced(GL_TRIANGLES, static_cast<GLint>(range.first), static_cast<GLsizei>(range.count),
-                       static_cast<GLsizei>(next - run), run);
+        if (!base_instance_) {
+          for (GLuint i = 0; i < instance.size(); ++i) {
+            glVertexAttribPointer(
+                4 + i, instance[i].first, GL_FLOAT, GL_FALSE, sizeof(Quad),
+                reinterpret_cast<void*>(offset + run * sizeof(Quad) + instance[i].second));
+          }
+        }
+        draw_instanced(GL_TRIANGLES, static_cast<GLint>(range.first),
+                       static_cast<GLsizei>(range.count), static_cast<GLsizei>(next - run), run);
         ++draw_calls_;
         telemetry::add(telemetry::Counter::models, next - run);
         telemetry::add(telemetry::Counter::triangles, (next - run) * (range.count / 3));
-        if (measure_models) gpu_timers_->model_end(model_measure);
+        if (measure_models) {
+          gpu_timers_->model_end(model_measure);
+        }
         run = next;
       }
       glDisable(GL_CULL_FACE);
@@ -683,15 +807,21 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       continue;
     }
     if (list[first].kind == 9) {
-      // Reference path: prepared MeshDraw owners (project_model) draw from their spans of mesh_buffer_, which
-      // collect_meshes filled in this same order. A run of consecutive meshes is one draw over contiguous vertices.
+      // Reference path: prepared MeshDraw owners (project_model) draw from their spans of
+      // mesh_buffer_, which collect_meshes filled in this same order. A run of consecutive meshes
+      // is one draw over contiguous vertices.
       REALM_ZONE("render.mesh_submit");
       std::size_t end = first;
-      while (end < list.size() && list[end].kind == 9 && list[end].owner) ++end;
-      if (mesh_ranges_.size() - mesh_cursor_ < end - first) throw std::logic_error("Mesh batch out of sync");
+      while (end < list.size() && list[end].kind == 9 && list[end].owner) {
+        ++end;
+      }
+      if (mesh_ranges_.size() - mesh_cursor_ < end - first) {
+        throw std::logic_error("Mesh batch out of sync");
+      }
       const auto run = std::span(mesh_ranges_).subspan(mesh_cursor_, end - first);
       mesh_cursor_ += end - first;
-      std::size_t vertices{}, models{};
+      std::size_t vertices{};
+      std::size_t models{};
       for (const auto& range : run) {
         vertices += range.count;
         models += range.count != 0;
@@ -703,9 +833,12 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
         glUseProgram(mesh_program_);
         glBindVertexArray(mesh_vao_);
         glUniform2f(mesh_viewport_, static_cast<float>(width), static_cast<float>(height));
-        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(run.front().first), static_cast<GLsizei>(vertices));
+        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(run.front().first),
+                     static_cast<GLsizei>(vertices));
         ++draw_calls_;
-        if (measure_models) gpu_timers_->model_end(model_measure);
+        if (measure_models) {
+          gpu_timers_->model_end(model_measure);
+        }
         glUseProgram(program_);
         glBindVertexArray(vao_);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -715,24 +848,27 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     }
     const auto texture = list[first].texture;
     std::size_t end = first + 1;
-    while (end < list.size() && list[end].texture == texture && list[end].kind != 9 && list[end].kind != 10 &&
-           list[end].kind != 14)
+    while (end < list.size() && list[end].texture == texture && list[end].kind != 9 &&
+           list[end].kind != 10 && list[end].kind != 14) {
       ++end;
-    // Wall instances (kind 17) draw in the same program. A run holding any of them is a triangle list, six vertices
-    // per instance: a wall's corners come from the store, and every other quad's two triangles from its strip order.
-    // Attribution: walls are not model runs, so their GPU time sits in the world bucket and models_ms excludes them.
-    // `models` counts wall instances, `triangles` adds corners / 3 as submitted (back faces are culled in the shader).
-    // Every instance of the run takes max(6, most) vertices, so shorter walls and sprites carry padded vertices.
+    }
+    // Wall instances (kind 17) draw in the same program. A run holding any of them is a triangle
+    // list, six vertices per instance: a wall's corners come from the store, and every other quad's
+    // two triangles from its strip order. Attribution: walls are not model runs, so their GPU time
+    // sits in the world bucket and models_ms excludes them. `models` counts wall instances,
+    // `triangles` adds corners / 3 as submitted (back faces are culled in the shader). Each
+    // instance uses max(6, max_vertices) vertices, so shorter walls and sprites carry padding.
     std::size_t walls{};
-    GLsizei most = 0;
+    GLsizei max_vertices = 0;
     std::uint64_t wall_triangles{};
-    for (std::size_t i = first; i < end; ++i)
+    for (std::size_t i = first; i < end; ++i) {
       if (list[i].kind == 17) {
         const auto count = static_cast<GLsizei>(list[i].multiply[1]);
         ++walls;
-        most = std::max(most, count);
+        max_vertices = std::max(max_vertices, count);
         wall_triangles += static_cast<std::uint64_t>(count) / 3;
       }
+    }
     const auto sprites_in_run = end - first - walls;
     glUniform1i(standalone, texture != 0);
     if (texture) {
@@ -752,7 +888,8 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     telemetry::add(telemetry::Counter::triangles, 2 * sprites_in_run + wall_triangles);
     if (walls) {
       glUniform1i(triangle_list_location_, 1);
-      draw_instanced(GL_TRIANGLES, 0, std::max<GLsizei>(6, most), static_cast<GLsizei>(end - first), first);
+      draw_instanced(GL_TRIANGLES, 0, std::max<GLsizei>(6, max_vertices),
+                     static_cast<GLsizei>(end - first), first);
       glUniform1i(triangle_list_location_, 0);
     } else {
       draw_instanced(GL_TRIANGLE_STRIP, 0, 4, static_cast<GLsizei>(end - first), first);
@@ -761,11 +898,14 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
     first = end;
   }
 }
-void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, int height, int clip_width,
-                    std::span<const Quad> overlay, const ScreenEffects& effects) {
+
+void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, int height,
+                    int clip_width, std::span<const Quad> overlay, const ScreenEffects& effects) {
   const auto total = quads.size() + overlay.size();
-  if (width <= 0 || height <= 0 || clip_width < 0 || clip_width > width || total > 1000000)
+  if (width <= 0 || height <= 0 || clip_width < 0 || clip_width > width || total > 1000000) {
     throw std::invalid_argument("Invalid draw dimensions or quad count");
+  }
+
   stream_->ensure_capacity(total);
   REALM_ZONE("render.submit");
   poll_gpu();
@@ -783,10 +923,14 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   glBindVertexArray(vao_);
   glUniform1i(ground_location_, 0);
   glUniform1i(clip_location_, 0);
+
   upload_meshes(quads, overlay);
   bind_walls();
   const auto stream_buffer = stream_->upload(quads, overlay);
-  if (measure) gpu_timers_->phase(1);
+  if (measure) {
+    gpu_timers_->phase(1);
+  }
+
   glUniform1i(surface_location_, 1);
   draw_calls_ = 0;
   if (effects.filtered()) {
@@ -798,7 +942,10 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     glEnable(GL_SCISSOR_TEST);
   }
   draw_batch(quads, 0, width, height, stream_buffer, measure);
-  if (measure) gpu_timers_->phase(2);
+  if (measure) {
+    gpu_timers_->phase(2);
+  }
+
   const bool screen_overlays = effects.vignette > 0 || effects.sidebar > 0;
   if (effects.filtered()) {
     draw_calls_ += post_process_->run_post(width, height, clip_width, effects);
@@ -812,76 +959,113 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, stream_buffer);
   }
-  if (measure) gpu_timers_->phase(3);
+  if (measure) {
+    gpu_timers_->phase(3);
+  }
   if (!overlay.empty()) {
     glScissor(0, 0, width, height);
     draw_batch(overlay, quads.size_bytes(), width, height, stream_buffer, measure);
   }
-  if (measure) gpu_timers_->finish_sample();
+  if (measure) {
+    gpu_timers_->finish_sample();
+  }
+
   telemetry::add(telemetry::Counter::draw_calls, draw_calls_);
   stream_->finish_frame(stream_buffer);
+
   glDisable(GL_SCISSOR_TEST);
   gpu_timers_->advance_frame();
 }
-// Mirrors draw_batch's visiting order exactly: a clipped layer is collected at its own stream position.
+
+// Mirrors draw_batch's visiting order exactly: a clipped layer is collected at its own stream
+// position.
 void Renderer::collect_meshes(std::span<const Quad> list) {
   for (const auto& quad : list) {
     if (quad.kind == 14) {
-      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) collect_meshes(layer->quads);
+      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) {
+        collect_meshes(layer->quads);
+      }
       continue;
     }
-    if (quad.kind != 9 || !quad.owner) continue;
+    if (quad.kind != 9 || !quad.owner) {
+      continue;
+    }
     const auto& mesh = *static_cast<const MeshDraw*>(quad.owner.get());
     const auto first = mesh_vertices_.size();
     for (const auto& group : mesh.groups) {
-      // Whole triangles only: a run's single draw relies on every span starting on a triangle boundary.
-      const std::size_t begin = group.first, end = begin + (group.count - group.count % 3);
-      if (end > mesh.vertices.size()) throw std::logic_error("Invalid mesh group");
-      const float textured = group.solid ? 0.F : 1.F, repeat = group.repeat ? 1.F : 0.F;
+      // Whole triangles only: a run's single draw relies on every span starting on a triangle
+      // boundary.
+      const std::size_t begin = group.first;
+      const std::size_t end = begin + (group.count - group.count % 3);
+      if (end > mesh.vertices.size()) {
+        throw std::logic_error("Invalid mesh group");
+      }
+      const float textured = group.solid ? 0.F : 1.F;
+      const float repeat = group.repeat ? 1.F : 0.F;
       for (std::size_t i = begin; i < end; ++i) {
         const auto& v = mesh.vertices[i];
-        mesh_vertices_.push_back({v.x, v.y, v.u, v.v, v.shade, mesh.bounds, mesh.page, mesh.color, textured, repeat});
+        mesh_vertices_.push_back(
+            {v.x, v.y, v.u, v.v, v.shade, mesh.bounds, mesh.page, mesh.color, textured, repeat});
       }
     }
     mesh_ranges_.push_back({first, mesh_vertices_.size() - first});
   }
 }
-// The wall store's texture buffer stays on its texture unit for the whole submission (the main program samples it).
+
+// The wall store's texture buffer stays on its texture unit for the whole submission (the main
+// program samples it).
 void Renderer::bind_walls() {
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_BUFFER, wall_texture_);
   glActiveTexture(GL_TEXTURE0);
 }
-// The one wall store a submission draws from, also inside layers. Invariant: one store per submission. Scene builds a
-// frame's walls into one store and replaces it only at the start of a build, so a second store is a caller error (the
-// texture buffer mirrors one store; a split would need one buffer per store and a run break per store).
+
+// The one wall store a submission draws from, also inside layers. Invariant: one store per
+// submission. Scene builds a frame's walls into one store and replaces it only at the start of a
+// build, so a second store is a caller error (the texture buffer mirrors one store; a split would
+// need one buffer per store and a run break per store).
 void Renderer::find_walls(std::span<const Quad> list, const WallGeometryStore*& store) {
   for (const auto& quad : list) {
     if (quad.kind == 14) {
-      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) find_walls(layer->quads, store);
+      if (const auto* layer = static_cast<const QuadLayer*>(quad.owner.get())) {
+        find_walls(layer->quads, store);
+      }
       continue;
     }
-    if (quad.kind != 17) continue;
+    if (quad.kind != 17) {
+      continue;
+    }
     const auto* found = static_cast<const WallGeometryStore*>(quad.owner.get());
-    if (!found) throw std::logic_error("Wall instance without its geometry store");
-    if (store && store != found) throw std::logic_error("A submission draws walls from two geometry stores");
+    if (!found) {
+      throw std::logic_error("Wall instance without its geometry store");
+    }
+    if (store && store != found) {
+      throw std::logic_error("A submission draws walls from two geometry stores");
+    }
     store = found;
   }
 }
+
 void Renderer::upload_walls(const WallGeometryStore& store) {
   const auto& corners = store.vertices();
   const auto count = corners.size();
   const auto generation = store.generation();
   const auto limit = static_cast<std::size_t>(wall_texel_limit_) / 2;  // two texels per corner
-  if (count > limit) throw std::runtime_error("Wall geometry exceeds the GPU texture buffer limit");
-  if (generation != wall_generation_ || count < wall_uploaded_) wall_uploaded_ = 0;
-  if (generation == wall_generation_ && count == wall_uploaded_) return;
+  if (count > limit) {
+    throw std::runtime_error("Wall geometry exceeds the GPU texture buffer limit");
+  }
+  if (generation != wall_generation_ || count < wall_uploaded_) {
+    wall_uploaded_ = 0;
+  }
+  if (generation == wall_generation_ && count == wall_uploaded_) {
+    return;
+  }
   REALM_ZONE("render.wall_upload");
   glBindBuffer(GL_TEXTURE_BUFFER, wall_geometry_);
   if (count > wall_capacity_) {
     wall_capacity_ = std::min(limit, std::max({count, 2 * wall_capacity_, std::size_t{4096}}));
-    glBufferData(GL_TEXTURE_BUFFER, static_cast<GLsizeiptr>(wall_capacity_ * sizeof(WallGpuVertex)), nullptr,
-                 GL_DYNAMIC_DRAW);
+    glBufferData(GL_TEXTURE_BUFFER, static_cast<GLsizeiptr>(wall_capacity_ * sizeof(WallGpuVertex)),
+                 nullptr, GL_DYNAMIC_DRAW);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_BUFFER, wall_texture_);
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, wall_geometry_);
@@ -890,15 +1074,17 @@ void Renderer::upload_walls(const WallGeometryStore& store) {
   }
   if (count > wall_uploaded_) {
     const auto bytes = (count - wall_uploaded_) * sizeof(WallGpuVertex);
-    glBufferSubData(GL_TEXTURE_BUFFER, static_cast<GLintptr>(wall_uploaded_ * sizeof(WallGpuVertex)),
+    glBufferSubData(GL_TEXTURE_BUFFER,
+                    static_cast<GLintptr>(wall_uploaded_ * sizeof(WallGpuVertex)),
                     static_cast<GLsizeiptr>(bytes), corners.data() + wall_uploaded_);
     telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
   }
   wall_generation_ = generation;
   wall_uploaded_ = count;
 }
-// One submission's meshes (quads, then overlay, both drawn in that order) share one upload into mesh_buffer_, and its
-// wall instances' store is synced into the wall texture buffer.
+
+// One submission's meshes (quads, then overlay, both drawn in that order) share one upload into
+// mesh_buffer_, and its wall instances' store is synced into the wall texture buffer.
 void Renderer::upload_meshes(std::span<const Quad> quads, std::span<const Quad> overlay) {
   mesh_vertices_.clear();
   mesh_ranges_.clear();
@@ -908,19 +1094,31 @@ void Renderer::upload_meshes(std::span<const Quad> quads, std::span<const Quad> 
   const WallGeometryStore* walls{};
   find_walls(quads, walls);
   find_walls(overlay, walls);
-  if (walls) upload_walls(*walls);
-  if (mesh_vertices_.empty()) return;
+  if (walls) {
+    upload_walls(*walls);
+  }
+  if (mesh_vertices_.empty()) {
+    return;
+  }
   REALM_ZONE("render.mesh_upload");
   const auto bytes = mesh_vertices_.size() * sizeof(MeshBatchVertex);
   glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
-  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes), mesh_vertices_.data(), GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes), mesh_vertices_.data(),
+               GL_STREAM_DRAW);
   telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
 }
-// A later pass (RmlUi) leaves arbitrary GL state behind, so everything the quad program depends on is set again here.
-void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, int width, int height) {
-  if (width <= 0 || height <= 0 || overlay.size() > 1000000)
+
+// A later pass (RmlUi) leaves arbitrary GL state behind, so everything the quad program depends on
+// is set again here.
+void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, int width,
+                            int height) {
+  if (width <= 0 || height <= 0 || overlay.size() > 1000000) {
     throw std::invalid_argument("Invalid draw dimensions or quad count");
-  if (overlay.empty()) return;
+  }
+
+  if (overlay.empty()) {
+    return;
+  }
   REALM_ZONE("render.overlay_submit");
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glViewport(0, 0, width, height);
@@ -942,32 +1140,55 @@ void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, i
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);
+
   upload_meshes({}, overlay);
   bind_walls();
   const auto overlay_buffer = stream_->upload_overlay(overlay);
+
   const auto before = draw_calls_;
   draw_batch(overlay, 0, width, height, overlay_buffer, false);
   telemetry::add(telemetry::Counter::draw_calls, draw_calls_ - before);
+
   glDisable(GL_SCISSOR_TEST);
 }
+
 void Renderer::timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) {
   gpu_timers_->timing(recorder, frame_id, normal);
 }
-void Renderer::poll_gpu() { gpu_timers_->poll(); }
-std::size_t Renderer::pending_gpu() const { return gpu_timers_->pending(); }
-std::size_t Renderer::skipped_gpu() const { return gpu_timers_->skipped(); }
-double Renderer::gpu_ms() const { return gpu_timers_->gpu_ms(); }
-bool Renderer::persistent_streaming() const { return stream_->persistent(); }
+
+void Renderer::poll_gpu() {
+  gpu_timers_->poll();
+}
+
+std::size_t Renderer::pending_gpu() const {
+  return gpu_timers_->pending();
+}
+
+std::size_t Renderer::skipped_gpu() const {
+  return gpu_timers_->skipped();
+}
+
+double Renderer::gpu_ms() const {
+  return gpu_timers_->gpu_ms();
+}
+
+bool Renderer::persistent_streaming() const {
+  return stream_->persistent();
+}
+
 Image Renderer::capture(int width, int height, bool presented) const {
   Image image{width, height,
-              std::vector<unsigned char>(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4)};
+              std::vector<unsigned char>(static_cast<std::size_t>(width) *
+                                         static_cast<std::size_t>(height) * 4)};
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadBuffer(presented ? GL_FRONT : GL_BACK);
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels.data());
   const auto stride = static_cast<std::size_t>(width) * 4;
   for (int y = 0; y < height / 2; ++y) {
-    auto top = image.pixels.begin() + static_cast<std::ptrdiff_t>(static_cast<std::size_t>(y) * stride);
-    auto bottom = image.pixels.begin() + static_cast<std::ptrdiff_t>(static_cast<std::size_t>(height - 1 - y) * stride);
+    auto top =
+        image.pixels.begin() + static_cast<std::ptrdiff_t>(static_cast<std::size_t>(y) * stride);
+    auto bottom = image.pixels.begin() +
+                  static_cast<std::ptrdiff_t>(static_cast<std::size_t>(height - 1 - y) * stride);
     std::swap_ranges(top, top + static_cast<std::ptrdiff_t>(stride), bottom);
   }
   glReadBuffer(GL_BACK);

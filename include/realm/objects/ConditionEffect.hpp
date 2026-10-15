@@ -37,14 +37,19 @@ enum Id : unsigned {
   hexed,
   count
 };
-[[nodiscard]] constexpr std::uint32_t bit(unsigned id) { return id ? 1U << (id - 1U) : 0U; }
+
+[[nodiscard]] constexpr std::uint32_t bit(unsigned id) {
+  return id ? 1U << (id - 1U) : 0U;
 }
+}
+
 struct ConditionEffect {
   std::string_view name;
   // Frames of lofiInterface2 (8x8); several frames animate at 500 ms each. None: no icon.
   std::array<std::uint8_t, 4> icons{};
   std::uint8_t icon_count{};
 };
+
 [[nodiscard]] inline const ConditionEffect& condition_effect(unsigned id) {
   static const std::array<ConditionEffect, condition::count> table{
       {{"Nothing", {}, 0},        {"Quiet", {32}, 1},         {"Weak", {34, 35, 36, 37}, 4},
@@ -58,15 +63,21 @@ struct ConditionEffect {
        {"Armor Broken", {55}, 1}, {"Hexed", {42}, 1}}};
   return table[id < condition::count ? id : 0];
 }
+
 // ConditionEffect.getConditionEffectIcons: one frame per active condition with
 // an icon, ascending by bit; multi-frame conditions pick frame (time / 500) % n.
-inline void condition_icon_frames(std::uint32_t mask, std::int32_t time_ms, std::vector<std::uint8_t>& out) {
+inline void condition_icon_frames(std::uint32_t mask, std::int32_t time_ms,
+                                  std::vector<std::uint8_t>& out) {
   out.clear();
   const auto index = static_cast<unsigned>(time_ms / 500);
   for (unsigned id = 1; id < condition::count; ++id) {
-    if (!(mask & condition::bit(id))) continue;
+    if (!(mask & condition::bit(id))) {
+      continue;
+    }
     const auto& effect = condition_effect(id);
-    if (effect.icon_count) out.push_back(effect.icons[index % effect.icon_count]);
+    if (effect.icon_count) {
+      out.push_back(effect.icons[index % effect.icon_count]);
+    }
   }
 }
 }

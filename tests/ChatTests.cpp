@@ -4,20 +4,27 @@
 
 namespace {
 int checks{};
+
 void check(bool value, const char* reason) {
   ++checks;
-  if (!value) throw std::runtime_error(reason);
+  if (!value) {
+    throw std::runtime_error(reason);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
     using Text = net::incoming::Text;
     Chat chat;
     check(chat.visible(0).empty(), "empty log shows nothing");
-    for (int i = 0; i < 15; ++i) chat.add("", "line " + std::to_string(i), i * 1000);
+    for (int i = 0; i < 15; ++i) {
+      chat.add("", "line " + std::to_string(i), i * 1000);
+    }
     auto shown = chat.visible(14000);
-    check(shown.size() == 11 && shown.front() == 4 && shown.back() == 14, "eleven newest lines are shown");
+    check(shown.size() == 11 && shown.front() == 4 && shown.back() == 14,
+          "eleven newest lines are shown");
     shown = chat.visible(24500);
     check(shown.size() == 10 && shown.front() == 5, "lines older than 20 seconds disappear");
     chat.scroll_up();
@@ -26,10 +33,14 @@ int main() {
     chat.scroll_up();
     shown = chat.visible(100000);
     check(shown.front() == 1 && shown.back() == 11, "later PageUp moves back three lines");
-    for (int i = 0; i < 10; ++i) chat.scroll_up();
+    for (int i = 0; i < 10; ++i) {
+      chat.scroll_up();
+    }
     shown = chat.visible(100000);
     check(shown.front() == 0 && shown.back() == 10, "scrolling stops at the oldest window");
-    for (int i = 0; i < 5; ++i) chat.scroll_down();
+    for (int i = 0; i < 5; ++i) {
+      chat.scroll_down();
+    }
     check(chat.visible(100000).empty(), "PageDown at the newest line hides expired lines again");
     // Tells: incoming and outgoing tells feed the Tab history; guild chat does not.
     chat.add(Text{"Alice", 1, 3, 0, "Me", "hi"}, "Me", 0);
@@ -65,7 +76,9 @@ int main() {
     chat.text("ignored");
     check(!chat.typing(), "closed field ignores text");
     Chat bounded;
-    for (std::size_t i = 0; i < Chat::capacity + 50; ++i) bounded.add("", "x", 0);
+    for (std::size_t i = 0; i < Chat::capacity + 50; ++i) {
+      bounded.add("", "x", 0);
+    }
     check(bounded.lines().size() == Chat::capacity, "log storage is bounded");
     {
       Catalog catalog(flash::source_root);
@@ -82,12 +95,15 @@ int main() {
       balloons.add(world, Text{"X", 99, -1, 5, "", "gone"});
       check(balloons.balloons().size() == 1, "messages without a present object have no balloon");
       balloons.add(world, Text{"B", 2, 0, 5, "*Guild*", "g"});
-      check(balloons.balloons().back().background == 0x3e8a00 && balloons.balloons().front().background == 0xe1dfdc,
+      check(balloons.balloons().back().background == 0x3e8a00 &&
+                balloons.balloons().front().background == 0xe1dfdc,
             "guild and normal balloon colors");
-      check(balloons.balloons()[0].slot != balloons.balloons()[1].slot, "each balloon owns a GPU slot");
+      check(balloons.balloons()[0].slot != balloons.balloons()[1].slot,
+            "each balloon owns a GPU slot");
       balloons.add(world, Text{"B", 2, 0, 5, "A", "t"});
       check(balloons.balloons().back().outline == 0x00f0ff, "tell balloons are blue");
-      check(balloons.balloons().front().texture_height == 8, "player sprites use their 8-pixel texture height");
+      check(balloons.balloons().front().texture_height == 8,
+            "player sprites use their 8-pixel texture height");
       world.remove(2);
       {
         FontBook fonts;
@@ -95,7 +111,8 @@ int main() {
         check(balloons.balloons().size() == 1 && balloons.balloons().front().start == 1000,
               "removed speakers lose their balloon; lifetime starts when drawn");
         const auto& balloon = balloons.balloons().front();
-        check(balloon.field_width == std::floor(fonts.measure("second", 14) + 4) && !balloon.image.pixels.empty(),
+        check(balloon.field_width == std::floor(fonts.measure("second", 14) + 4) &&
+                  !balloon.image.pixels.empty(),
               "balloon field width is textWidth+4");
         const auto at = SpeechBalloons::position(balloon, {400, 300}, 100, 1);
         check(at.x == std::trunc(400 - balloon.field_width / 2) - SpeechBalloons::margin &&
@@ -119,9 +136,11 @@ int main() {
       Chat lines;
       check(view.update(lines, 0) && view.empty(), "nothing to draw without lines or input");
       lines.add(Text{"Tank", 5, 12, 0, "", "hello"}, "Me", 0);
-      check(view.update(lines, 0) && !view.empty() && view.top() < 600 - 20, "a line draws above the bottom edge");
+      check(view.update(lines, 0) && !view.empty() && view.top() < 600 - 20,
+            "a line draws above the bottom edge");
       const auto rebuilds = view.rebuilds();
-      check(!view.update(lines, 1000) && view.rebuilds() == rebuilds, "unchanged chat does not redraw");
+      check(!view.update(lines, 1000) && view.rebuilds() == rebuilds,
+            "unchanged chat does not redraw");
       const double closed = view.top();
       lines.open();
       view.update(lines, 1000);

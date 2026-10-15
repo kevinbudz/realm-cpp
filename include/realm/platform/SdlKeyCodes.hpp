@@ -3,6 +3,7 @@
 #include <SDL_keycode.h>
 #include <array>
 #include <utility>
+
 namespace realm {
 // Flash key codes (KeyboardEvent.keyCode, KeyCodes.as) for SDL keys. Settings keep the
 // Flash codes; input arrives as SDL keycodes. Keys without a Flash code map to 0.
@@ -26,37 +27,76 @@ inline constexpr std::array<std::pair<SDL_Keycode, int>, 50> table{{
     {SDLK_QUOTE, 222},        {SDLK_F13, 124},         {SDLK_F14, 125},
     {SDLK_F15, 126},
 }};
+
 // 0 when the key has no Flash key code.
 [[nodiscard]] inline int flash_code(SDL_Keycode key) {
-  if (key >= SDLK_a && key <= SDLK_z) return 65 + static_cast<int>(key - SDLK_a);
-  if (key >= SDLK_0 && key <= SDLK_9) return 48 + static_cast<int>(key - SDLK_0);
-  if (key >= SDLK_F1 && key <= SDLK_F12) return 112 + static_cast<int>(key - SDLK_F1);
-  if (key >= SDLK_KP_1 && key <= SDLK_KP_9) return 97 + static_cast<int>(key - SDLK_KP_1);
-  if (key == SDLK_KP_0) return 96;
-  for (const auto& [sdl, flash] : table)
-    if (sdl == key) return flash;
+  if (key >= SDLK_a && key <= SDLK_z) {
+    return 65 + static_cast<int>(key - SDLK_a);
+  }
+  if (key >= SDLK_0 && key <= SDLK_9) {
+    return 48 + static_cast<int>(key - SDLK_0);
+  }
+  if (key >= SDLK_F1 && key <= SDLK_F12) {
+    return 112 + static_cast<int>(key - SDLK_F1);
+  }
+  if (key >= SDLK_KP_1 && key <= SDLK_KP_9) {
+    return 97 + static_cast<int>(key - SDLK_KP_1);
+  }
+  if (key == SDLK_KP_0) {
+    return 96;
+  }
+  for (const auto& [sdl, flash] : table) {
+    if (sdl == key) {
+      return flash;
+    }
+  }
   return 0;
 }
+
 // The key a Flash code names, for polling held keys. SDLK_UNKNOWN for an unset code.
 [[nodiscard]] inline SDL_Keycode sdl_code(int code) {
-  if (code >= 65 && code <= 90) return SDLK_a + (code - 65);
-  if (code >= 48 && code <= 57) return SDLK_0 + (code - 48);
-  if (code >= 112 && code <= 123) return SDLK_F1 + (code - 112);
-  if (code >= 97 && code <= 105) return SDLK_KP_1 + (code - 97);
-  if (code == 96) return SDLK_KP_0;
+  if (code >= 65 && code <= 90) {
+    return SDLK_a + (code - 65);
+  }
+  if (code >= 48 && code <= 57) {
+    return SDLK_0 + (code - 48);
+  }
+  if (code >= 112 && code <= 123) {
+    return SDLK_F1 + (code - 112);
+  }
+  if (code >= 97 && code <= 105) {
+    return SDLK_KP_1 + (code - 97);
+  }
+  if (code == 96) {
+    return SDLK_KP_0;
+  }
   // The first entry of each Flash code is the left/main key.
-  for (const auto& [sdl, flash] : table)
-    if (flash == code) return sdl;
+  for (const auto& [sdl, flash] : table) {
+    if (flash == code) {
+      return sdl;
+    }
+  }
   return SDLK_UNKNOWN;
 }
+
 [[nodiscard]] inline bool held(const unsigned char* keyboard, int code) {
   const auto key = sdl_code(code);
-  if (key == SDLK_UNKNOWN) return false;
+  if (key == SDLK_UNKNOWN) {
+    return false;
+  }
   // The Enter code is held by either Enter key.
-  if (code == 13) return keyboard[SDL_SCANCODE_RETURN] || keyboard[SDL_SCANCODE_KP_ENTER];
-  if (code == 16) return keyboard[SDL_SCANCODE_LSHIFT] || keyboard[SDL_SCANCODE_RSHIFT];
-  if (code == 17) return keyboard[SDL_SCANCODE_LCTRL] || keyboard[SDL_SCANCODE_RCTRL];
-  if (code == 18) return keyboard[SDL_SCANCODE_LALT] || keyboard[SDL_SCANCODE_RALT];
+  if (code == 13) {
+    return keyboard[SDL_SCANCODE_RETURN] || keyboard[SDL_SCANCODE_KP_ENTER];
+  }
+  if (code == 16) {
+    return keyboard[SDL_SCANCODE_LSHIFT] || keyboard[SDL_SCANCODE_RSHIFT];
+  }
+  if (code == 17) {
+    return keyboard[SDL_SCANCODE_LCTRL] || keyboard[SDL_SCANCODE_RCTRL];
+  }
+  if (code == 18) {
+    return keyboard[SDL_SCANCODE_LALT] || keyboard[SDL_SCANCODE_RALT];
+  }
   return keyboard[SDL_GetScancodeFromKey(key)] != 0;
 }
 }

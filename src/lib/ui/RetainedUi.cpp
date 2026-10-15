@@ -13,42 +13,52 @@ namespace realm::ui {
 namespace {
 std::atomic<std::uint64_t> revision_source{};
 
-std::uint64_t next_revision() { return revision_source.fetch_add(1, std::memory_order_relaxed) + 1; }
+std::uint64_t next_revision() {
+  return revision_source.fetch_add(1, std::memory_order_relaxed) + 1;
+}
 
 void validate_image(const Image& image) {
   if (image.width < 1 || image.height < 1 ||
-      image.pixels.size() != static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4)
+      image.pixels.size() !=
+          static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4) {
     throw std::invalid_argument("Invalid UI texture upload");
+  }
 }
 
 HudRegion unite(HudRegion a, HudRegion b) {
-  const int x = std::min(a.x, b.x), y = std::min(a.y, b.y);
-  const int right = std::max(a.x + a.width, b.x + b.width), bottom = std::max(a.y + a.height, b.y + b.height);
+  const int x = std::min(a.x, b.x);
+  const int y = std::min(a.y, b.y);
+  const int right = std::max(a.x + a.width, b.x + b.width);
+  const int bottom = std::max(a.y + a.height, b.y + b.height);
   return {x, y, right - x, bottom - y};
 }
 
 void set_full_image(RetainedSurface::State& state, const Image& image);
-void copy_image_region(RetainedSurface::State& state, const Image& image, int x, int y, int width, int height);
+void copy_image_region(RetainedSurface::State& state, const Image& image, int x, int y, int width,
+                       int height);
 void mark_dirty(RetainedSurface::State& state, HudRegion region);
 
-std::string px(double value) { return trimmed_number(value) + "px"; }
+std::string px(double value) {
+  return trimmed_number(value) + "px";
+}
 
 std::string rgba(const std::array<float, 4>& color) {
   char buffer[16];
   const auto channel = [](float value) {
     return static_cast<unsigned>(std::lround(std::clamp(value, 0.F, 1.F) * 255));
   };
-  std::snprintf(buffer, sizeof buffer, "#%02x%02x%02x%02x", channel(color[0]), channel(color[1]), channel(color[2]),
-                channel(color[3]));
+  std::snprintf(buffer, sizeof buffer, "#%02x%02x%02x%02x", channel(color[0]), channel(color[1]),
+                channel(color[2]), channel(color[3]));
   return buffer;
 }
 
 bool axis_aligned(const Quad& quad) {
   constexpr float epsilon = 1e-4F;
-  return std::isfinite(quad.origin[0]) && std::isfinite(quad.origin[1]) && std::isfinite(quad.axis_x[0]) &&
-         std::isfinite(quad.axis_x[1]) && std::isfinite(quad.axis_y[0]) && std::isfinite(quad.axis_y[1]) &&
-         std::abs(quad.axis_x[1]) <= epsilon && std::abs(quad.axis_y[0]) <= epsilon && quad.axis_x[0] > 0 &&
-         quad.axis_y[1] > 0;
+  return std::isfinite(quad.origin[0]) && std::isfinite(quad.origin[1]) &&
+         std::isfinite(quad.axis_x[0]) && std::isfinite(quad.axis_x[1]) &&
+         std::isfinite(quad.axis_y[0]) && std::isfinite(quad.axis_y[1]) &&
+         std::abs(quad.axis_x[1]) <= epsilon && std::abs(quad.axis_y[0]) <= epsilon &&
+         quad.axis_x[0] > 0 && quad.axis_y[1] > 0;
 }
 
 HudRegion source_region(const Quad& quad, const Image& image) {
@@ -79,16 +89,19 @@ void set_full_image(RetainedSurface::State& state, const Image& image) {
   mark_dirty(state, {0, 0, image.width, image.height});
 }
 
-void copy_image_region(RetainedSurface::State& state, const Image& image, int x, int y, int width, int height) {
-  if (state.image.width != image.width || state.image.height != image.height || state.image.pixels.empty()) {
+void copy_image_region(RetainedSurface::State& state, const Image& image, int x, int y, int width,
+                       int height) {
+  if (state.image.width != image.width || state.image.height != image.height ||
+      state.image.pixels.empty()) {
     set_full_image(state, image);
     return;
   }
   state.image.pixel_scale = image.pixel_scale;
   const auto row_bytes = static_cast<std::size_t>(width) * 4;
   for (int row = y; row < y + height; ++row) {
-    const auto offset =
-        (static_cast<std::size_t>(row) * static_cast<std::size_t>(image.width) + static_cast<std::size_t>(x)) * 4;
+    const auto offset = (static_cast<std::size_t>(row) * static_cast<std::size_t>(image.width) +
+                         static_cast<std::size_t>(x)) *
+                        4;
     std::copy_n(image.pixels.data() + offset, row_bytes, state.image.pixels.data() + offset);
   }
   mark_dirty(state, {x, y, width, height});
@@ -104,15 +117,24 @@ void RetainedSurface::update(const Image& image) {
 
 void RetainedSurface::update_region(const Image& image, int x, int y, int width, int height) {
   validate_image(image);
-  if (x < 0 || y < 0 || width < 1 || height < 1 || x > image.width - width || y > image.height - height)
+  if (x < 0 || y < 0 || width < 1 || height < 1 || x > image.width - width ||
+      y > image.height - height) {
     throw std::invalid_argument("Invalid UI texture upload");
+  }
   copy_image_region(*state_, image, x, y, width, height);
 }
 
-Quad RetainedSurface::quad(Vec2 origin, Vec2 axis_x, Vec2 axis_y, int x, int y, int width, int height) const {
-  if (state_->image.width < 1 || state_->image.height < 1) throw std::logic_error("RmlUi surface was not updated");
-  if (width == 0) width = state_->image.width;
-  if (height == 0) height = state_->image.height;
+Quad RetainedSurface::quad(Vec2 origin, Vec2 axis_x, Vec2 axis_y, int x, int y, int width,
+                           int height) const {
+  if (state_->image.width < 1 || state_->image.height < 1) {
+    throw std::logic_error("RmlUi surface was not updated");
+  }
+  if (width == 0) {
+    width = state_->image.width;
+  }
+  if (height == 0) {
+    height = state_->image.height;
+  }
   Quad quad;
   quad.origin = {static_cast<float>(origin.x), static_cast<float>(origin.y)};
   quad.axis_x = {static_cast<float>(axis_x.x), static_cast<float>(axis_x.y)};
@@ -120,21 +142,29 @@ Quad RetainedSurface::quad(Vec2 origin, Vec2 axis_x, Vec2 axis_y, int x, int y, 
   quad.kind = 5;
   quad.page = -1;
   quad.owner = state_;
-  quad.uv = {static_cast<float>(x) / state_->image.width, static_cast<float>(y) / state_->image.height,
-             static_cast<float>(width) / state_->image.width, static_cast<float>(height) / state_->image.height};
+  quad.uv = {static_cast<float>(x) / state_->image.width,
+             static_cast<float>(y) / state_->image.height,
+             static_cast<float>(width) / state_->image.width,
+             static_cast<float>(height) / state_->image.height};
   return quad;
 }
 
 struct RetainedUi::Impl {
   Impl(const FontBook& fonts, const HudArt* art) : host(fonts, art) {
     document = host.load("retained");
-    if (!document) throw std::runtime_error("The retained UI document did not load");
+    if (!document) {
+      throw std::runtime_error("The retained UI document did not load");
+    }
     container = document->GetElementById("retained");
-    if (!container) throw std::runtime_error("The retained UI document has no retained container");
+    if (!container) {
+      throw std::runtime_error("The retained UI document has no retained container");
+    }
   }
+
   ~Impl() { host.close(document); }
 
   enum class SlotType { none, image, solid };
+
   struct Slot {
     Rml::Element* element{};
     SlotType type{SlotType::none};
@@ -142,23 +172,33 @@ struct RetainedUi::Impl {
     std::uint64_t revision{};
     HudRegion source{};
     bool source_set{};
-    std::string left, top, width, height, background, display;
+    std::string left;
+    std::string top;
+    std::string width;
+    std::string height;
+    std::string background;
+    std::string display;
   };
 
   Slot& slot(std::size_t index, SlotType type) {
-    if (index == slots.size()) slots.emplace_back();
+    if (index == slots.size()) {
+      slots.emplace_back();
+    }
     auto& result = slots.at(index);
     if (result.type != type) {
       auto replacement = document->CreateElement(type == SlotType::image ? "native-image" : "div");
-      if (!replacement) throw std::runtime_error("Cannot create retained UI element");
+      if (!replacement) {
+        throw std::runtime_error("Cannot create retained UI element");
+      }
       auto* raw = replacement.get();
       raw->SetId("retained-" + std::to_string(index));
       raw->SetProperty("position", "absolute");
       raw->SetProperty("display", "none");
-      if (result.element)
+      if (result.element) {
         container->ReplaceChild(std::move(replacement), result.element);
-      else
+      } else {
         container->AppendChild(std::move(replacement));
+      }
       result = Slot{};
       result.element = raw;
       result.type = type;
@@ -167,7 +207,9 @@ struct RetainedUi::Impl {
   }
 
   static void property(Slot& slot, std::string& cached, const char* name, std::string value) {
-    if (cached == value) return;
+    if (cached == value) {
+      return;
+    }
     slot.element->SetProperty(name, value);
     cached = std::move(value);
   }
@@ -187,33 +229,45 @@ struct RetainedUi::Impl {
   bool visible{};
 };
 
-RetainedUi::RetainedUi(const FontBook& fonts, const HudArt* art) : impl_(std::make_unique<Impl>(fonts, art)) {}
-RetainedUi::~RetainedUi() = default;
-RmlHost& RetainedUi::host() { return impl_->host; }
+RetainedUi::RetainedUi(const FontBook& fonts, const HudArt* art)
+    : impl_(std::make_unique<Impl>(fonts, art)) {}
 
-std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t time_ms, const Viewport& viewport) {
+RetainedUi::~RetainedUi() = default;
+
+RmlHost& RetainedUi::host() {
+  return impl_->host;
+}
+
+std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t time_ms,
+                                      const Viewport& viewport) {
   auto& impl = *impl_;
   impl.host.resize(viewport);
+
   std::vector<Quad> native;
   std::set<RetainedSurface::State*> dirty_states;
   std::size_t used{};
   bool has_retained = false;
+
   for (const auto& quad : quads) {
     const auto kind = static_cast<int>(std::lround(quad.kind));
     if (kind == 5 && quad.page == -1) {
       auto* state = static_cast<const RetainedSurface::State*>(quad.owner.get());
-      if (!state || !axis_aligned(quad))
+      if (!state || !axis_aligned(quad)) {
         throw std::logic_error("RmlUi retained images must be axis-aligned with positive axes");
+      }
+
       auto& slot = impl.slot(used, Impl::SlotType::image);
       impl.place(slot, quad);
       const bool identity_changed = slot.state != state;
       if (identity_changed || slot.revision != state->revision) {
         const HudRegion full{0, 0, state->image.width, state->image.height};
         const HudRegion dirty = identity_changed || !state->dirty_pending ? full : state->dirty;
-        set_native_image(*slot.element, state->image, state->revision, std::span<const HudRegion>(&dirty, 1));
+        set_native_image(*slot.element, state->image, state->revision,
+                         std::span<const HudRegion>(&dirty, 1));
         slot.state = state;
         slot.revision = state->revision;
       }
+
       const auto source = source_region(quad, state->image);
       if (!slot.source_set || slot.source.x != source.x || slot.source.y != source.y ||
           slot.source.width != source.width || slot.source.height != source.height) {
@@ -222,11 +276,14 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
         slot.source_set = true;
       }
       set_native_tint(*slot.element, quad.multiply);
-      if (state->dirty_pending) dirty_states.insert(const_cast<RetainedSurface::State*>(state));
+      if (state->dirty_pending) {
+        dirty_states.insert(const_cast<RetainedSurface::State*>(state));
+      }
       ++used;
       has_retained = true;
       continue;
     }
+
     if (kind == 2 && axis_aligned(quad)) {
       auto& slot = impl.slot(used, Impl::SlotType::solid);
       impl.place(slot, quad);
@@ -237,19 +294,25 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
     }
     native.push_back(quad);
   }
-  for (std::size_t i = used; i < impl.slots.size(); ++i) {
-    auto& slot = impl.slots[i];
+
+  for (std::size_t index = used; index < impl.slots.size(); ++index) {
+    auto& slot = impl.slots[index];
     Impl::property(slot, slot.display, "display", "none");
   }
+
   if (impl.visible != has_retained) {
-    if (has_retained)
+    if (has_retained) {
       impl.host.show(*impl.document, false, false);
-    else
+    } else {
       impl.host.hide(*impl.document);
+    }
     impl.visible = has_retained;
   }
+
   impl.host.update(time_ms);
-  for (auto* state : dirty_states) state->dirty_pending = false;
+  for (auto* state : dirty_states) {
+    state->dirty_pending = false;
+  }
   return native;
 }
 

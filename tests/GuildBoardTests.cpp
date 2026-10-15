@@ -3,12 +3,17 @@
 #include <iostream>
 #include <thread>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool value, const char* label) {
   ++checks;
-  if (!value) throw std::runtime_error(label);
+  if (!value) {
+    throw std::runtime_error(label);
+  }
 }
+
 void click(realm::GuildBoard& b, int i, const realm::FontBook& fonts) {
   const auto r = b.button(i);
   const auto p = b.position();
@@ -18,21 +23,27 @@ void click(realm::GuildBoard& b, int i, const realm::FontBook& fonts) {
   b.pointer_up(at);
   b.update(fonts, 1280, 720);
 }
+
 void focus(realm::GuildBoard& b) {
   const auto p = b.position();
   b.pointer_down({p.x + 4 * b.scale(), p.y + 4 * b.scale()});
   b.pointer_up({p.x + 4 * b.scale(), p.y + 4 * b.scale()});
 }
+
 void wait(realm::GuildBoard& b, const realm::FontBook& fonts) {
   const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(12);
-  while (b.state() == realm::GuildBoard::State::loading || b.state() == realm::GuildBoard::State::saving) {
+  while (b.state() == realm::GuildBoard::State::loading ||
+         b.state() == realm::GuildBoard::State::saving) {
     b.poll();
     b.update(fonts, 1280, 720);
-    if (std::chrono::steady_clock::now() > end) throw std::runtime_error("Board HTTP did not finish");
+    if (std::chrono::steady_clock::now() > end) {
+      throw std::runtime_error("Board HTTP did not finish");
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 }
+
 int main(int argc, char** argv) {
   try {
     realm::FontBook fonts;
@@ -51,7 +62,8 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
         const auto before = std::chrono::steady_clock::now();
         board.close();
-        check(std::chrono::steady_clock::now() - before < std::chrono::milliseconds(50), "Close never waits for HTTP");
+        check(std::chrono::steady_clock::now() - before < std::chrono::milliseconds(50),
+              "Close never waits for HTTP");
         board.open("127.0.0.1", static_cast<std::uint16_t>(std::stoi(argv[2])),
                    {{"username", argv[3]}, {"password", password}}, rank);
         wait(board, fonts);
@@ -68,16 +80,19 @@ int main(int argc, char** argv) {
         check(board.state() == S::error, "Expected load error");
         board.close();
       } else {
-        if (board.state() != S::view) throw std::runtime_error("Raw board load: " + board.status_text());
+        if (board.state() != S::view) {
+          throw std::runtime_error("Raw board load: " + board.status_text());
+        }
         click(board, 0, fonts);
-        if (rank < 20)
+        if (rank < 20) {
           check(board.state() == S::view, "HTTP member cannot edit");
-        else {
+        } else {
           check(board.state() == S::edit, "HTTP officer edits");
           focus(board);
           board.key(K::select_all);
           const std::string value =
-              "Guild board round trip\nLiteral + %20 & <tag> Unicode: caf\xc3\xa9\nhttps://example.com/path?x=1&y=2";
+              "Guild board round trip\nLiteral + %20 & <tag> Unicode: "
+              "caf\xc3\xa9\nhttps://example.com/path?x=1&y=2";
           board.insert(value);
           click(board, 1, fonts);
           check(board.state() == S::saving, "HTTP saving state");
@@ -95,15 +110,18 @@ int main(int argc, char** argv) {
               const realm::Vec2 p{640 + 50 * 1.2, 360 + 30 * 1.2};
               board.pointer_down(p);
               board.pointer_up(p);
-              check(board.state() == S::edit && board.text() == value, "Save error Back preserves draft");
+              check(board.state() == S::edit && board.text() == value,
+                    "Save error Back preserves draft");
             }
           } else {
-            check(board.state() == S::view && board.text() == value, "Native HTTP saves exact returned board");
+            check(board.state() == S::view && board.text() == value,
+                  "Native HTTP saves exact returned board");
             board.close();
             board.open("127.0.0.1", static_cast<std::uint16_t>(std::stoi(argv[2])),
                        {{"username", argv[3]}, {"password", password}}, rank);
             wait(board, fonts);
-            check(board.state() == S::view && board.text() == value, "Native HTTP readback persists text");
+            check(board.state() == S::view && board.text() == value,
+                  "Native HTTP readback persists text");
           }
         }
         board.close();
@@ -147,7 +165,8 @@ int main(int argc, char** argv) {
     board.insert("tail");
     check(board.text() == "abB\ntail", "Enter multiline");
     click(board, 0, fonts);
-    check(board.state() == S::view && board.text() == "Welcome\nhttps://example.com", "Cancel discards edits");
+    check(board.state() == S::view && board.text() == "Welcome\nhttps://example.com",
+          "Cancel discards edits");
     check(!board.update(fonts, 1280, 720), "Retained board cache");
     click(board, 0, fonts);
     focus(board);
@@ -156,7 +175,9 @@ int main(int argc, char** argv) {
     board.update(fonts, 1280, 720);
     check(board.state() == S::view, "Demotion exits edit");
     std::string long_text;
-    for (int i = 0; i < 100; ++i) long_text += "A long guild message for the next dungeon.\n";
+    for (int i = 0; i < 100; ++i) {
+      long_text += "A long guild message for the next dungeon.\n";
+    }
     board.show(long_text, 40);
     board.update(fonts, 1280, 720);
     check(board.width() == 426, "Long board scrollbar");
@@ -183,7 +204,8 @@ int main(int argc, char** argv) {
     const realm::Vec2 link{p.x + 12, p.y + 12};
     board.pointer_down(link);
     board.pointer_up(link);
-    check(board.take_link() == "https://example.com/" + std::string(80, 'a'), "Wrapped link retains full destination");
+    check(board.take_link() == "https://example.com/" + std::string(80, 'a'),
+          "Wrapped link retains full destination");
     board.pointer_up(link);
     check(!board.take_link(), "Link needs a matching mouse down");
     click(board, 0, fonts);

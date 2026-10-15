@@ -14,6 +14,7 @@ struct CreditDisplayImage {
   Rect layout_bounds{};
 };
 
-[[nodiscard]] CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& art, int credits, int fame);
+[[nodiscard]] CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& art,
+                                                       int credits, int fame);
 
 }

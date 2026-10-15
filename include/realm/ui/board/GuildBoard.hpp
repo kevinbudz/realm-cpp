@@ -4,6 +4,7 @@
 #include "realm/net/Http.hpp"
 #include "realm/ui/Scrollbar.hpp"
 #include <future>
+
 namespace realm {
 class GuildBoard {
  public:
@@ -15,23 +16,39 @@ class GuildBoard {
   // Also used by offline reference fixtures; production uses open/poll.
   void show(std::string text, int rank);
   void poll();
+
   [[nodiscard]] bool visible() const { return state_ != State::closed; }
+
   [[nodiscard]] bool wants_text() const { return state_ == State::edit && focused_; }
+
   [[nodiscard]] State state() const { return state_; }
+
   [[nodiscard]] const std::string& status_text() const { return dialog_.content().body; }
+
   [[nodiscard]] const std::string& text() const {
-    return state_ == State::edit || state_ == State::saving || state_ == State::error ? draft_ : saved_;
+    return state_ == State::edit || state_ == State::saving || state_ == State::error ? draft_
+                                                                                      : saved_;
   }
+
   [[nodiscard]] double width() const { return width_; }
+
   [[nodiscard]] double height() const { return height_; }
+
   [[nodiscard]] double scale() const { return scale_; }
+
   [[nodiscard]] double scroll() const { return scrollbar_.pos(); }
+
   [[nodiscard]] Vec2 position() const { return position_; }
+
   [[nodiscard]] Vec2 canvas_position() const {
-    return transient() ? dialog_.canvas_position() : Vec2{position_.x - 8 * scale_, position_.y - 8 * scale_};
+    return transient() ? dialog_.canvas_position()
+                       : Vec2{position_.x - 8 * scale_, position_.y - 8 * scale_};
   }
+
   [[nodiscard]] bool backdrop() const { return !transient(); }
+
   [[nodiscard]] const Image& image() const { return transient() ? dialog_.image() : image_; }
+
   bool update(const FontBook& fonts, double width, double height, double dt = 0);
   void pointer_move(Vec2 p);
   void pointer_down(Vec2 p, bool shift = false);
@@ -42,23 +59,38 @@ class GuildBoard {
   void key(Key key, bool shift = false, bool control = false);
   [[nodiscard]] std::string selection() const;
   void cut();
-  [[nodiscard]] std::optional<std::string> take_link() { return std::exchange(link_, std::nullopt); }
-  [[nodiscard]] HudRect button(int index) const { return {index == 0 ? 4.0 : width_ - 124, 404, 120, height_ - 408}; }
+
+  [[nodiscard]] std::optional<std::string> take_link() {
+    return std::exchange(link_, std::nullopt);
+  }
+
+  [[nodiscard]] HudRect button(int index) const {
+    return {index == 0 ? 4.0 : width_ - 124, 404, 120, height_ - 408};
+  }
 
  private:
   struct Line {
     std::string text;
     std::size_t start{};
   };
+
   struct Link {
-    std::size_t start, end;
+    std::size_t start;
+    std::size_t end;
     HudRect rect;
   };
+
   struct UrlRange {
-    std::size_t start, end;
+    std::size_t start;
+    std::size_t end;
   };
-  bool transient() const { return state_ == State::loading || state_ == State::saving || state_ == State::error; }
+
+  bool transient() const {
+    return state_ == State::loading || state_ == State::saving || state_ == State::error;
+  }
+
   Vec2 local(Vec2 p) const { return {(p.x - position_.x) / scale_, (p.y - position_.y) / scale_}; }
+
   int hit(Vec2 p) const;
   std::size_t caret_at(Vec2 p) const;
   void layout();
@@ -67,16 +99,33 @@ class GuildBoard {
   void edit();
   void start(bool save);
   State state_{State::closed};
-  bool can_edit_{}, focused_{}, selecting_{}, dirty_{true}, layout_dirty_{true}, retry_save_{}, queued_{},
-      request_save_{};
-  int hover_{-1}, pressed_{-1};
-  std::string saved_, draft_, host_;
+  bool can_edit_{};
+  bool focused_{};
+  bool selecting_{};
+  bool dirty_{true};
+  bool layout_dirty_{true};
+  bool retry_save_{};
+  bool queued_{};
+  bool request_save_{};
+  int hover_{-1};
+  int pressed_{-1};
+  std::string saved_;
+  std::string draft_;
+  std::string host_;
   std::uint16_t port_{};
   net::FormFields credentials_;
   std::future<std::string> request_;
-  std::uint64_t generation_{}, request_generation_{};
-  std::size_t caret_{}, anchor_{};
-  double width_{400}, height_{}, scale_{1}, stage_width_{}, stage_height_{}, line_height_{20}, text_height_{};
+  std::uint64_t generation_{};
+  std::uint64_t request_generation_{};
+  std::size_t caret_{};
+  std::size_t anchor_{};
+  double width_{400};
+  double height_{};
+  double scale_{1};
+  double stage_width_{};
+  double stage_height_{};
+  double line_height_{20};
+  double text_height_{};
   Vec2 position_{};
   const FontBook* fonts_{};
   std::vector<Line> lines_;

@@ -1,4 +1,5 @@
-// CPU-only tests for realm::audio. Runs in ctest as `audio`; `--bench` prints play() call cost instead.
+// CPU-only tests for realm::audio. Runs in ctest as `audio`; `--bench` prints play() call cost
+// instead.
 #include "realm/sound/SoundEffectLibrary.hpp"
 
 #include <algorithm>
@@ -25,9 +26,10 @@ using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-#define CHECK(expr)                                                                         \
-  do {                                                                                      \
-    if (!(expr)) throw std::runtime_error("line " + std::to_string(__LINE__) + ": " #expr); \
+#define CHECK(expr)                                                              \
+  do {                                                                           \
+    if (!(expr))                                                                 \
+      throw std::runtime_error("line " + std::to_string(__LINE__) + ": " #expr); \
   } while (0)
 
 namespace {
@@ -45,28 +47,34 @@ template <class Predicate>
 bool wait_until(Predicate predicate, std::chrono::milliseconds timeout = 10s) {
   const auto deadline = Clock::now() + timeout;
   while (!predicate()) {
-    if (Clock::now() > deadline) return false;
+    if (Clock::now() > deadline) {
+      return false;
+    }
     std::this_thread::sleep_for(1ms);
   }
   return true;
 }
 
-// Holds the loader thread inside a hook until released, so queue and pending behaviour is deterministic.
+// Holds the loader thread inside a hook until released, so queue and pending behaviour is
+// deterministic.
 struct Latch {
   std::mutex mutex;
   std::condition_variable changed;
   bool entered{false};
   bool open{false};
+
   void enter_and_wait() {
     std::unique_lock lock(mutex);
     entered = true;
     changed.notify_all();
     changed.wait(lock, [this] { return open; });
   }
+
   bool wait_entered(std::chrono::milliseconds timeout) {
     std::unique_lock lock(mutex);
     return changed.wait_for(lock, timeout, [this] { return entered; });
   }
+
   void release() {
     {
       std::lock_guard lock(mutex);
@@ -79,6 +87,7 @@ struct Latch {
 // Declared after the owner it protects, so it releases the loader before the owner joins it.
 struct ReleaseOnExit {
   Latch& latch;
+
   ~ReleaseOnExit() { latch.release(); }
 };
 
@@ -88,15 +97,19 @@ void put_u16(std::vector<unsigned char>& out, std::uint16_t value) {
 }
 
 void put_u32(std::vector<unsigned char>& out, std::uint32_t value) {
-  for (unsigned shift = 0; shift < 32; shift += 8) out.push_back(static_cast<unsigned char>(value >> shift));
+  for (unsigned shift = 0; shift < 32; shift += 8) {
+    out.push_back(static_cast<unsigned char>(value >> shift));
+  }
 }
 
 void put_tag(std::vector<unsigned char>& out, const char* tag) {
-  for (const char* c = tag; *c; ++c) out.push_back(static_cast<unsigned char>(*c));
+  for (const char* c = tag; *c; ++c) {
+    out.push_back(static_cast<unsigned char>(*c));
+  }
 }
 
-// 16-bit mono PCM WAV carrying a sine tone. The decoder sniffs the container, so the file keeps the .mp3 name the
-// loader expects from the asset server.
+// 16-bit mono PCM WAV carrying a sine tone. The decoder sniffs the container, so the file keeps the
+// .mp3 name the loader expects from the asset server.
 void write_wav(const fs::path& path, std::uint32_t rate, std::size_t frames, double hz) {
   std::vector<unsigned char> out;
   const auto data_bytes = static_cast<std::uint32_t>(frames * 2);
@@ -116,7 +129,8 @@ void write_wav(const fs::path& path, std::uint32_t rate, std::size_t frames, dou
   constexpr double pi = 3.14159265358979323846;
   for (std::size_t i = 0; i < frames; ++i) {
     const double value = 0.5 * std::sin(2.0 * pi * hz * static_cast<double>(i) / rate);
-    put_u16(out, static_cast<std::uint16_t>(static_cast<std::int16_t>(std::lround(value * 32767.0))));
+    put_u16(out,
+            static_cast<std::uint16_t>(static_cast<std::int16_t>(std::lround(value * 32767.0))));
   }
   fs::create_directories(path.parent_path());
   std::ofstream file(path, std::ios::binary);
@@ -131,7 +145,9 @@ std::shared_ptr<Clip> make_tone(std::size_t frames, float value) {
 
 float peak(const std::vector<float>& buffer) {
   float result = 0.f;
-  for (const float sample : buffer) result = std::max(result, std::fabs(sample));
+  for (const float sample : buffer) {
+    result = std::max(result, std::fabs(sample));
+  }
   return result;
 }
 
@@ -153,25 +169,33 @@ void prepare_assets() {
   std::ofstream(work / "bad" / "garbage.mp3") << std::string(64, 'x') << "this is not audio\n";
 }
 
-// ---- Gate, names and defaults ---------------------------------------------------------------------------------------
+// ---- Gate, names and defaults
+// ---------------------------------------------------------------------------------------
 
 void test_gate_truth_table() {
   // sfx pew fx -> expected: (playSFX && isFX) || (!isFX && playPewPew)
   const struct Row {
     bool sfx, pew, fx, expected;
   } table[] = {
-      {false, false, false, false}, {false, false, true, false}, {false, true, false, true}, {false, true, true, false},
-      {true, false, false, false},  {true, false, true, true},   {true, true, false, true},  {true, true, true, true},
+      {false, false, false, false}, {false, false, true, false}, {false, true, false, true},
+      {false, true, true, false},   {true, false, false, false}, {true, false, true, true},
+      {true, true, false, true},    {true, true, true, true},
   };
-  for (const auto& row : table) CHECK(gate_open(row.sfx, row.pew, row.fx) == row.expected);
+
+  for (const auto& row : table) {
+    CHECK(gate_open(row.sfx, row.pew, row.fx) == row.expected);
+  }
 }
 
 void test_name_validation() {
-  for (const char* name : {"error", "monster/default_hit", "player/a-b_c", "spell/x/y", "Weapon2/Dagger"})
+  for (const char* name :
+       {"error", "monster/default_hit", "player/a-b_c", "spell/x/y", "Weapon2/Dagger"}) {
     CHECK(valid_name(name));
-  for (const char* name : {"", "/abs", "trail/", "a//b", "..", "../etc", "a/../b", "a\\b", "a.mp3", "a b", "C:/x",
-                           "a:b", "\xC3\xBCmlaut", "a/."})
+  }
+  for (const char* name : {"", "/abs", "trail/", "a//b", "..", "../etc", "a/../b", "a\\b", "a.mp3",
+                           "a b", "C:/x", "a:b", "\xC3\xBCmlaut", "a/."}) {
     CHECK(!valid_name(name));
+  }
   CHECK(!valid_name(std::string(129, 'a')));
   CHECK(valid_name(std::string(128, 'a')));
 }
@@ -183,7 +207,8 @@ void test_defaults_and_environment() {
   CHECK(config.pending_timeout == 250ms);
 }
 
-// ---- Mixer ----------------------------------------------------------------------------------------------------------
+// ---- Mixer
+// ----------------------------------------------------------------------------------------------------------
 
 void test_mixer_output_and_stop() {
   Mixer mixer;
@@ -226,17 +251,27 @@ void test_mixer_voice_cap_and_steal() {
   Mixer mixer;
   constexpr std::size_t burst = 200;
   std::vector<std::shared_ptr<Clip>> clips;
-  for (std::size_t i = 0; i < burst; ++i) clips.push_back(make_tone(1000, 0.01f));
-  for (auto& clip : clips) CHECK(mixer.play(*clip, 1.f));
+  for (std::size_t i = 0; i < burst; ++i) {
+    clips.push_back(make_tone(1000, 0.01f));
+  }
+  for (auto& clip : clips) {
+    CHECK(mixer.play(*clip, 1.f));
+  }
   std::vector<float> buffer(256 * channels);
   mixer.mix(buffer.data(), 256);
   CHECK(mixer.active_voices() == voice_count);
   CHECK(mixer.steals() == burst - voice_count);
   // Oldest voices are stolen first, so only the newest 32 still hold a pin.
-  for (std::size_t i = 0; i < burst; ++i) CHECK(clips[i]->pins.load() == (i >= burst - voice_count ? 1 : 0));
-  for (int block = 0; block < 4; ++block) mixer.mix(buffer.data(), 256);
+  for (std::size_t i = 0; i < burst; ++i) {
+    CHECK(clips[i]->pins.load() == (i >= burst - voice_count ? 1 : 0));
+  }
+  for (int block = 0; block < 4; ++block) {
+    mixer.mix(buffer.data(), 256);
+  }
   CHECK(mixer.active_voices() == 0);
-  for (const auto& clip : clips) CHECK(clip->pins.load() == 0);
+  for (const auto& clip : clips) {
+    CHECK(clip->pins.load() == 0);
+  }
   note("voice cap: burst=" + std::to_string(burst) + " active=" + std::to_string(voice_count) +
        " steals=" + std::to_string(mixer.steals()));
 }
@@ -251,15 +286,19 @@ void test_mixer_full_ring() {
   auto extra = make_tone(4800, 0.1f);
   CHECK(!mixer.play(*extra, 1.f));
   CHECK(extra->pins.load() == 0);
-  // A full ring cannot take the stop command, so stop_all falls back to a flag honoured by the next block.
+  // A full ring cannot take the stop command, so stop_all falls back to a flag honoured by the next
+  // block.
   mixer.stop_all();
   std::vector<float> buffer(256 * channels);
   mixer.mix(buffer.data(), 256);
   CHECK(mixer.active_voices() == 0);
-  for (const auto& clip : clips) CHECK(clip->pins.load() == 0);
+  for (const auto& clip : clips) {
+    CHECK(clip->pins.load() == 0);
+  }
 }
 
-// ---- Library: decode, failure memory, bounds, eviction, shutdown ---------------------------------------------------
+// ---- Library: decode, failure memory, bounds, eviction, shutdown
+// ---------------------------------------------------
 
 void test_library_decodes_wav() {
   SourceConfig source;
@@ -292,7 +331,8 @@ void test_library_decodes_mp3() {
     return;
   }
   fs::create_directories(work / "mp3");
-  fs::copy_file(root / "error.mp3", work / "mp3" / "error.mp3", fs::copy_options::overwrite_existing);
+  fs::copy_file(root / "error.mp3", work / "mp3" / "error.mp3",
+                fs::copy_options::overwrite_existing);
   SourceConfig source;
   source.disk_root = (work / "mp3").string();
   Library library(source, std::size_t{64} << 20U, 256);
@@ -302,13 +342,14 @@ void test_library_decodes_mp3() {
     library.poll();
     return library.state("error") != Library::State::loading;
   }));
-  const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count();
+  const auto micros =
+      std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count();
   CHECK(library.state("error") == Library::State::ready);
   const auto clip = library.ready("error");
   CHECK(clip->frames() > 0);
   CHECK(peak(clip->samples) > 0.f);
-  note("mp3 error.mp3: frames=" + std::to_string(clip->frames()) + " decoded_bytes=" + std::to_string(clip->bytes()) +
-       " load_us=" + std::to_string(micros));
+  note("mp3 error.mp3: frames=" + std::to_string(clip->frames()) +
+       " decoded_bytes=" + std::to_string(clip->bytes()) + " load_us=" + std::to_string(micros));
 }
 
 void test_library_failures_are_memoised() {
@@ -360,10 +401,13 @@ void test_library_queue_bounds() {
   source.before_load = [&latch] { latch.enter_and_wait(); };
   Library library(source, std::size_t{1} << 20U, 8);
   ReleaseOnExit release{latch};
-  // "held" is taken off the queue by the loader, which then blocks in the hook; q0..q7 fill the queue.
+  // "held" is taken off the queue by the loader, which then blocks in the hook; q0..q7 fill the
+  // queue.
   CHECK(library.request("held") == Library::State::loading);
   CHECK(latch.wait_entered(5s));
-  for (int i = 0; i < 8; ++i) CHECK(library.request("q" + std::to_string(i)) == Library::State::loading);
+  for (int i = 0; i < 8; ++i) {
+    CHECK(library.request("q" + std::to_string(i)) == Library::State::loading);
+  }
   CHECK(library.queued() == 8);
   CHECK(library.request("q8") == Library::State::absent);
   CHECK(library.request("q9") == Library::State::absent);
@@ -409,7 +453,9 @@ void test_pinned_clip_survives_eviction() {
   // The voice keeps reading the pinned buffer after the eviction pass.
   mixer.mix(buffer.data(), 256);
   CHECK(peak(buffer) > 0.01f);
-  for (int block = 0; block < 64 && mixer.active_voices() > 0; ++block) mixer.mix(buffer.data(), 256);
+  for (int block = 0; block < 64 && mixer.active_voices() > 0; ++block) {
+    mixer.mix(buffer.data(), 256);
+  }
   CHECK(held->pins.load() == 0);
   CHECK(mixer.active_voices() == 0);
 
@@ -432,8 +478,9 @@ void test_library_shutdown_drops_queue() {
   std::atomic<int> hook_calls{0};
   Latch latch;
   {
-    // Releases the loader after the destructor has begun, so the queued loads are cancelled, not run. The margin
-    // is generous: if the destructor were late, the loader would run queued jobs and the count below would fail.
+    // Releases the loader after the destructor has begun, so the queued loads are cancelled, not
+    // run. The margin is generous: if the destructor were late, the loader would run queued jobs
+    // and the count below would fail.
     std::jthread releaser([&latch] {
       std::this_thread::sleep_for(500ms);
       latch.release();
@@ -447,13 +494,16 @@ void test_library_shutdown_drops_queue() {
     Library library(source, std::size_t{1} << 20U, 256);
     CHECK(library.request("tone_a") == Library::State::loading);
     CHECK(latch.wait_entered(5s));
-    for (int i = 0; i < 25; ++i) CHECK(library.request("tone_b" + std::to_string(i)) == Library::State::loading);
+    for (int i = 0; i < 25; ++i) {
+      CHECK(library.request("tone_b" + std::to_string(i)) == Library::State::loading);
+    }
     CHECK(library.queued() == 25);
   }
   CHECK(hook_calls.load() == 1);
 }
 
-// ---- Player: gate, dedupe, pending, cancel, null device ------------------------------------------------------------
+// ---- Player: gate, dedupe, pending, cancel, null device
+// ------------------------------------------------------------
 
 void test_player_gate_and_dedupe() {
   Player player(player_config(work / "wav"));
@@ -482,7 +532,9 @@ void test_player_gate_and_dedupe() {
   player.play("tone_a");
   CHECK(player.counters().plays_deduped == 1);
   // Several frames pass without a clear: the name stays deduped.
-  while ((ticks + 1) % 5 != 0) tick();
+  while ((ticks + 1) % 5 != 0) {
+    tick();
+  }
   player.play("tone_a");
   CHECK(player.counters().plays_deduped == 2);
   CHECK(player.counters().plays_started == 1);
@@ -551,12 +603,16 @@ void test_player_never_blocks_on_loads() {
   });
   ReleaseOnExit release{latch};
   const auto started = Clock::now();
-  for (int i = 0; i < 50; ++i) player.play("missing/" + std::to_string(i));
+  for (int i = 0; i < 50; ++i) {
+    player.play("missing/" + std::to_string(i));
+  }
   player.preload("tone_b");
   player.tick();
-  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+  const auto elapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
   CHECK(elapsed < 800);
-  note("never-blocks: 50 plays + preload + tick in " + std::to_string(elapsed) + " ms while the loader was held");
+  note("never-blocks: 50 plays + preload + tick in " + std::to_string(elapsed) +
+       " ms while the loader was held");
   CHECK(player.counters().plays_deferred == 50);
 }
 
@@ -580,7 +636,8 @@ void test_player_cancel_and_failed_loads() {
   }));
   CHECK(player.counters().plays_started == 0);
 
-  // A missing asset fails once: its play is dropped, and later plays after the dedupe clear never retry it.
+  // A missing asset fails once: its play is dropped, and later plays after the dedupe clear never
+  // retry it.
   player.play("nothing/here");
   CHECK(wait_until([&] {
     player.tick();
@@ -591,7 +648,9 @@ void test_player_cancel_and_failed_loads() {
     return player.counters().pending_dropped == 3;
   }));
   const auto deferred = player.counters().plays_deferred;
-  for (int i = 0; i < 5; ++i) player.tick();
+  for (int i = 0; i < 5; ++i) {
+    player.tick();
+  }
   player.play("nothing/here");
   CHECK(player.counters().loads_failed == 1);
   CHECK(player.counters().plays_deferred == deferred);
@@ -617,14 +676,17 @@ void test_player_null_device() {
   player.play("tone_a");
   CHECK(player.counters().plays_started == 1);
   CHECK(player.counters().decoded_bytes > 0);
-  // The device thread drains the command ring and runs the voice; the 0.25 s clip outlives the poll interval.
+  // The device thread drains the command ring and runs the voice; the 0.25 s clip outlives the poll
+  // interval.
   CHECK(wait_until([&] { return player.counters().voices_active == 1; }, 2s));
   player.stop_all();
   CHECK(wait_until([&] { return player.counters().voices_active == 0; }, 2s));
-  note("null device: " + player.output_status() + ", decoded_bytes=" + std::to_string(player.counters().decoded_bytes));
+  note("null device: " + player.output_status() +
+       ", decoded_bytes=" + std::to_string(player.counters().decoded_bytes));
 }
 
-// ---- Bench ----------------------------------------------------------------------------------------------------------
+// ---- Bench
+// ----------------------------------------------------------------------------------------------------------
 
 double percentile(const std::vector<double>& sorted, double fraction) {
   return sorted[static_cast<std::size_t>(fraction * static_cast<double>(sorted.size() - 1))];
@@ -634,7 +696,9 @@ void report_bench(const char* label, Player& player, int frames) {
   std::vector<double> micros;
   const std::vector<std::string> names = [] {
     std::vector<std::string> result;
-    for (int i = 0; i < 16; ++i) result.push_back("bench/b" + std::to_string(i));
+    for (int i = 0; i < 16; ++i) {
+      result.push_back("bench/b" + std::to_string(i));
+    }
     return result;
   }();
   for (int frame = 0; frame < frames; ++frame) {
@@ -648,20 +712,25 @@ void report_bench(const char* label, Player& player, int frames) {
   }
   std::sort(micros.begin(), micros.end());
   const auto counters = player.counters();
-  std::cout << "bench " << label << ": calls=" << micros.size() << " p50=" << percentile(micros, 0.5)
-            << "us p99=" << percentile(micros, 0.99) << "us max=" << micros.back()
-            << "us started=" << counters.plays_started << " deduped=" << counters.plays_deduped
-            << " command_dropped=" << counters.command_dropped << " steals=" << counters.steals << '\n';
+  std::cout << "bench " << label << ": calls=" << micros.size()
+            << " p50=" << percentile(micros, 0.5) << "us p99=" << percentile(micros, 0.99)
+            << "us max=" << micros.back() << "us started=" << counters.plays_started
+            << " deduped=" << counters.plays_deduped
+            << " command_dropped=" << counters.command_dropped << " steals=" << counters.steals
+            << '\n';
 }
 
 int run_bench() {
   const fs::path bench = work / "bench";
-  for (int i = 0; i < 16; ++i)
+  for (int i = 0; i < 16; ++i) {
     write_wav(bench / "bench" / ("b" + std::to_string(i) + ".mp3"), 22050, 5512, 300.0 + i * 20);
+  }
   {
     auto config = player_config(bench);
     Player player(config);
-    for (int i = 0; i < 16; ++i) player.preload("bench/b" + std::to_string(i));
+    for (int i = 0; i < 16; ++i) {
+      player.preload("bench/b" + std::to_string(i));
+    }
     for (int i = 0; i < 2000 && player.counters().loads_ok < 16; ++i) {
       player.tick();
       std::this_thread::sleep_for(1ms);
@@ -673,15 +742,18 @@ int run_bench() {
     config.output = true;
     config.null_output = true;
     Player player(config);
-    for (int i = 0; i < 16; ++i) player.preload("bench/b" + std::to_string(i));
+    for (int i = 0; i < 16; ++i) {
+      player.preload("bench/b" + std::to_string(i));
+    }
     for (int i = 0; i < 2000 && player.counters().loads_ok < 16; ++i) {
       player.tick();
       std::this_thread::sleep_for(1ms);
     }
-    if (player.output_active())
+    if (player.output_active()) {
       report_bench("null-device", player, 2000);
-    else
+    } else {
       std::cout << "bench null-device: unavailable (" << player.output_status() << ")\n";
+    }
   }
   return 0;
 }
@@ -694,14 +766,17 @@ int main(int argc, char** argv) {
     std::string directory = "audio-test";
     for (int i = 1; i < argc; ++i) {
       const std::string argument = argv[i];
-      if (argument == "--bench")
+      if (argument == "--bench") {
         bench_mode = true;
-      else
+      } else {
         directory = argument;
+      }
     }
     work = directory;
     prepare_assets();
-    if (bench_mode) return run_bench();
+    if (bench_mode) {
+      return run_bench();
+    }
 
     const struct Test {
       const char* name;
@@ -728,6 +803,7 @@ int main(int argc, char** argv) {
         {"player_cancel_and_failed_loads", test_player_cancel_and_failed_loads},
         {"player_null_device", test_player_null_device},
     };
+
     int failures = 0;
     int passed = 0;
     for (const auto& test : tests) {
@@ -739,9 +815,11 @@ int main(int argc, char** argv) {
         std::cerr << "FAIL " << test.name << ": " << error.what() << '\n';
       }
     }
-    std::cout << "Audio: " << passed << " passed, " << failures << " failed, " << skipped << " skipped of "
-              << std::size(tests) << " (gate, names, mixer voices/steals/clamp/pins, WAV and mp3 decode, failure "
-              << "memory, queue bounds, pinned LRU eviction, shutdown, Player gate/dedupe/pending/null device)\n";
+    std::cout << "Audio: " << passed << " passed, " << failures << " failed, " << skipped
+              << " skipped of " << std::size(tests)
+              << " (gate, names, mixer voices/steals/clamp/pins, WAV and mp3 decode, failure "
+              << "memory, queue bounds, pinned LRU eviction, shutdown, Player "
+                 "gate/dedupe/pending/null device)\n";
     return failures == 0 ? 0 : 1;
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

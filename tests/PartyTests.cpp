@@ -2,18 +2,25 @@
 #include "flash_assets.hpp"
 #include <iostream>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* message) {
   ++checks;
-  if (!ok) throw std::runtime_error(message);
+  if (!ok) {
+    throw std::runtime_error(message);
+  }
 }
-realm::Entity& add(realm::World& world, std::int32_t id, realm::Vec2 position, std::int32_t account) {
+
+realm::Entity& add(realm::World& world, std::int32_t id, realm::Vec2 position,
+                   std::int32_t account) {
   auto& player = world.add(id, world.catalog().object("Wizard")->type, position);
   player.profile.stats[static_cast<std::uint8_t>(realm::flash::StatId::ACCOUNT_ID_STAT)] = account;
   return player;
 }
 }
+
 int main() {
   try {
     realm::Catalog catalog(realm::flash::source_root);
@@ -31,7 +38,8 @@ int main() {
     add(world, 5, {150, 100}, 50);    // exactly 50 tiles: within PARTY_DISTANCE_SQ
     add(world, 6, {150, 100.1}, 60);  // beyond it
     party.update(world, 0);
-    check(party.members()[0] == 4 && party.members()[1] == 3 && party.members()[2] == 5 && party.members()[3] == -1,
+    check(party.members()[0] == 4 && party.members()[1] == 3 && party.members()[2] == 5 &&
+              party.members()[3] == -1,
           "nearest first within 50 tiles");
     // Party.update runs at most every 500 ms, unless an account list arrives.
     add(world, 7, {100.5, 100.5}, 70);
@@ -42,7 +50,8 @@ int main() {
     party.receive({0, {60}});
     check(!party.starred(6), "stars apply on the next update");
     party.update(world, 501);
-    check(party.starred(6) && party.members()[0] == 6 && party.members()[1] == 7, "starred far player listed first");
+    check(party.starred(6) && party.members()[0] == 6 && party.members()[1] == 7,
+          "starred far player listed first");
     // Player.starred_ is sticky; a later list never clears it.
     party.receive({0, {}});
     party.update(world, 1001);
@@ -58,10 +67,13 @@ int main() {
     add(world, 6, {150, 100.1}, 61);
     party.update(world, 2001);
     check(!party.starred(6) && party.members()[4] == -1, "new object with an unstarred account");
-    for (int i = 0; i < 10; ++i) add(world, 100 + i, {100, 99.0 - i * 0.1}, 100 + i);
+    for (int i = 0; i < 10; ++i) {
+      add(world, 100 + i, {100, 99.0 - i * 0.1}, 100 + i);
+    }
     party.receive({0, {109}});
     party.update(world, 2001);
-    check(party.members()[0] == 109 && party.members()[5] != -1, "list capped at six with stars first");
+    check(party.members()[0] == 109 && party.members()[5] != -1,
+          "list capped at six with stars first");
     party.reset();
     check(party.members()[0] == -1 && !party.starred(109), "reset clears the map's party");
     std::cout << checks << " party checks passed\n";

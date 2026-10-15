@@ -3,12 +3,17 @@
 #include <iostream>
 #include <iterator>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
+
 template <class F>
 void rejects(F action) {
   bool rejected{};
@@ -20,9 +25,12 @@ void rejects(F action) {
   check(rejected, "invalid Legends response rejected");
 }
 }
+
 int main(int argc, char** argv) {
   try {
-    if (argc != 2) throw std::runtime_error("Expected Legends fixture");
+    if (argc != 2) {
+      throw std::runtime_error("Expected Legends fixture");
+    }
     std::ifstream input(argv[1]);
     const std::string xml{std::istreambuf_iterator<char>(input), {}};
     const auto rows = realm::parse_legends(xml, "week");
@@ -37,7 +45,8 @@ int main(int argc, char** argv) {
     unsorted.replace(unsorted.find("<TotalFame>5000"), 15, "<TotalFame>1");
     check(realm::parse_legends(unsorted, "week")[0].total_fame == 1,
           "server order is authoritative, never client sorted");
-    check(realm::parse_legends("<FameList timespan='month'/>", "month").empty(), "empty valid list");
+    check(realm::parse_legends("<FameList timespan='month'/>", "month").empty(),
+          "empty valid list");
     const auto minimal =
         "<FameList timespan='all'><FameListElem accountId='1' "
         "charId='2'><ObjectType>782</ObjectType><TotalFame>0</TotalFame><Name>A &amp; "
@@ -48,8 +57,10 @@ int main(int argc, char** argv) {
               optional[0].character.skin == 0,
           "same-account different character and optional defaults");
     rejects([&] { (void)realm::parse_legends(xml, "month"); });
-    for (const auto* bad : {"<FameList>", "<Chars/>", "<FameList/>", "<Error>Unavailable</Error>"})
+    for (const auto* bad :
+         {"<FameList>", "<Chars/>", "<FameList/>", "<Error>Unavailable</Error>"}) {
       rejects([&] { (void)realm::parse_legends(bad, "week"); });
+    }
     for (const auto* bad : {"", "wat", "2147483648", "-5"}) {
       auto invalid = xml;
       const auto start = invalid.find("<TotalFame>") + 11;
@@ -60,9 +71,11 @@ int main(int argc, char** argv) {
     missing.replace(missing.find("accountId=\"90\""), 14, "");
     rejects([&] { (void)realm::parse_legends(missing, "week"); });
     std::string large = "<FameList timespan='week'>";
-    for (int i = 0; i < 257; ++i)
+    for (int i = 0; i < 257; ++i) {
       large +=
-          "<FameListElem accountId='1' charId='2'><ObjectType>782</ObjectType><TotalFame>1</TotalFame></FameListElem>";
+          "<FameListElem accountId='1' "
+          "charId='2'><ObjectType>782</ObjectType><TotalFame>1</TotalFame></FameListElem>";
+    }
     large += "</FameList>";
     rejects([&] { (void)realm::parse_legends(large, "week"); });
     rejects([] { (void)realm::parse_legends(std::string(8 * 1024 * 1024 + 1, 'x'), "week"); });

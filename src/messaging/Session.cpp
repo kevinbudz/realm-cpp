@@ -2,12 +2,17 @@
 #include "realm/messaging/Session.hpp"
 #include "realm/objects/Movement.hpp"
 #include "flash_assets.hpp"
+
 namespace realm {
 bool Session::reskin(int id, std::span<const int> owned) {
   const auto* player = world_.entity(world_.player_id());
-  if (state_ != SessionState::playing || !player || id < 0 || id > 65535) return false;
-  if (id && (std::find(owned.begin(), owned.end(), id) == owned.end() || !world_.catalog().skin(id, player->type)))
+  if (state_ != SessionState::playing || !player || id < 0 || id > 65535) {
     return false;
+  }
+  if (id && (std::find(owned.begin(), owned.end(), id) == owned.end() ||
+             !world_.catalog().skin(id, player->type))) {
+    return false;
+  }
   send(net::outgoing::Reskin{id});
   return true;
 }
@@ -16,17 +21,24 @@ void Session::send_packet(const net::Packet& packet) {
   if (replay_sink_) {
     telemetry::add(telemetry::Counter::packet_tx_bytes, packet.body.size() + 5);
     replay_sink_(packet);
-  } else
+  } else {
     transport_.send(packet);
+  }
 }
+
 void Session::replay(const net::Packet& packet, std::int32_t time) {
-  if (!replay_sink_) throw std::logic_error("Session replay requires an offline packet sink");
+  if (!replay_sink_) {
+    throw std::logic_error("Session replay requires an offline packet sink");
+  }
   REALM_ZONE("network.decode_dispatch");
   telemetry::add(telemetry::Counter::packets_decoded);
   receive(net::decode(packet), time);
 }
+
 void Session::connect(SessionOptions options) {
-  if (replay_sink_) throw std::logic_error("Offline replay cannot connect a socket");
+  if (replay_sink_) {
+    throw std::logic_error("Offline replay cannot connect a socket");
+  }
   world_.particles().clear();
   transport_.close();
   options_ = std::move(options);
@@ -38,9 +50,11 @@ void Session::connect(SessionOptions options) {
   pending_name_.clear();
   buy_pending_ = false;
   death_.reset();
+
   transport_.connect(options_.host, options_.port);
   state_ = SessionState::connecting;
 }
+
 void Session::disconnect() {
   world_.particles().clear();
   transport_.close();
@@ -49,23 +63,34 @@ void Session::disconnect() {
   buy_pending_ = false;
   state_ = SessionState::disconnected;
 }
+
 void Session::poll(std::int32_t time) {
   REALM_ZONE("session.poll");
-  if (replay_sink_) return;
-  if (state_ == SessionState::disconnected || state_ == SessionState::failed || state_ == SessionState::dead) return;
+  if (replay_sink_) {
+    return;
+  }
+  if (state_ == SessionState::disconnected || state_ == SessionState::failed ||
+      state_ == SessionState::dead) {
+    return;
+  }
   try {
     auto packets = transport_.poll();
+
     if (transport_.state() == net::ConnectionState::connected && !hello_sent_) {
-      send(net::outgoing::Hello{options_.build_version, options_.game_id, options_.username, options_.password,
-                                options_.map_json});
+      send(net::outgoing::Hello{options_.build_version, options_.game_id, options_.username,
+                                options_.password, options_.map_json});
       hello_sent_ = true;
     }
+
     for (const auto& packet : packets) {
       REALM_ZONE("network.decode_dispatch");
       telemetry::add(telemetry::Counter::packets_decoded);
       receive(net::decode(packet), time);
-      if (state_ == SessionState::dead) break;
+      if (state_ == SessionState::dead) {
+        break;
+      }
     }
+
     if (transport_.state() == net::ConnectionState::closed && state_ != SessionState::failed &&
         state_ != SessionState::dead) {
       error_ = transport_.error();
@@ -77,25 +102,36 @@ void Session::poll(std::int32_t time) {
     transport_.close();
   }
 }
+
 void Session::finish_frame(std::int32_t time) {
-  if (state_ != SessionState::playing) return;
+  if (state_ != SessionState::playing) {
+    return;
+  }
   // Map.update refreshes the party after applying object additions/removals.
   party_.update(world_, time);
   world_.expire_damage(time);
-  for (const auto& packet : combat_.update(time)) send_packet(packet);
+  for (const auto& packet : combat_.update(time)) {
+    send_packet(packet);
+  }
   world_.particles().update(world_, time);
-  if (pending_moves_)
+  if (pending_moves_) {
     if (auto* player = world_.entity(world_.player_id())) {
-      send(net::outgoing::Move{
-          time, {static_cast<float>(player->motion.position.x), static_cast<float>(player->motion.position.y)}});
+      send(net::outgoing::Move{time,
+                               {static_cast<float>(player->motion.position.x),
+                                static_cast<float>(player->motion.position.y)}});
       player_move_ack(world_, *player, time);
       --pending_moves_;
     }
+  }
 }
+
 void Session::receive(net::Event event, std::int32_t time) {
   using namespace net;
   // DEATH is terminal: a coalesced reconnect/tick/duplicate cannot replace it.
-  if (state_ == SessionState::dead) return;
+  if (state_ == SessionState::dead) {
+    return;
+  }
+
   switch (event.id) {
     case flash::PacketId::MAPINFO: {
       map_info_ = std::get<MapInfo>(event.data);
@@ -108,10 +144,11 @@ void Session::receive(net::Event event, std::int32_t time) {
       next_teleport_at_ = 0;
       pending_moves_ = 0;
       ++map_revision_;
-      if (options_.create_character)
+      if (options_.create_character) {
         send(outgoing::Create{options_.class_type, options_.skin_type});
-      else
+      } else {
         send(outgoing::Load{options_.character_id});
+      }
       state_ = SessionState::selecting_character;
       break;
     }
@@ -144,7 +181,9 @@ void Session::receive(net::Event event, std::int32_t time) {
       break;
     case flash::PacketId::NAMERESULT: {
       const auto& result = std::get<incoming::NameResult>(event.data);
-      if (result.success && !pending_name_.empty()) options_.username = pending_name_;
+      if (result.success && !pending_name_.empty()) {
+        options_.username = pending_name_;
+      }
       pending_name_.clear();
       break;
     }
@@ -174,11 +213,15 @@ void Session::receive(net::Event event, std::int32_t time) {
       // GameServerConnection.onNotification: the packet's own text and color for two seconds.
       const auto& note = std::get<incoming::Notification>(event.data);
       // Notifications aimed at other players are dropped when Ally Notifications is off.
-      if (!world_.allows_notification(note.object_id)) break;
+      if (!world_.allows_notification(note.object_id)) {
+        break;
+      }
       world_.notify(note.object_id, note.text, note.color & 0xffffffU, 2000);
       // onNotification: the player's own "Quest Complete!" starts the wait for the next target.
-      if (note.object_id == world_.player_id() && world_.entity(note.object_id) && note.text == "Quest Complete!")
+      if (note.object_id == world_.player_id() && world_.entity(note.object_id) &&
+          note.text == "Quest Complete!") {
         quest_.completed(time);
+      }
       break;
     }
     // GameServerConnection.onQuestObjId.
@@ -193,12 +236,14 @@ void Session::receive(net::Event event, std::int32_t time) {
       world_.report_damage(damage.target_id, damage.damage, time, damage.effects);
       break;
     }
-    // GameServerConnection.onPlaySound: the server's sound name plays at the default volume, through the SFX gate.
+    // GameServerConnection.onPlaySound: the server's sound name plays at the default volume,
+    // through the SFX gate.
     case flash::PacketId::PLAYSOUND:
       world_.sounds().play(std::get<incoming::PlaySound>(event.data).sound);
       break;
     case flash::PacketId::RECONNECT: {
-      // MapEditor.onMapTestDone returns to the editor on any reconnect instead of following the portal.
+      // MapEditor.onMapTestDone returns to the editor on any reconnect instead of following the
+      // portal.
       if (options_.game_id == -4 && !options_.map_json.empty()) {
         disconnect();
         break;
@@ -214,28 +259,48 @@ void Session::receive(net::Event event, std::int32_t time) {
     default:
       break;
   }
-  for (const auto& packet : combat_.receive(event, time)) send_packet(packet);
-  if (events_.size() >= 1024) events_.erase(events_.begin(), events_.begin() + 512);
+
+  for (const auto& packet : combat_.receive(event, time)) {
+    send_packet(packet);
+  }
+  if (events_.size() >= 1024) {
+    events_.erase(events_.begin(), events_.begin() + 512);
+  }
   events_.push_back(std::move(event));
 }
+
 std::optional<std::string> Session::teleport(std::int32_t object_id, std::int32_t time) {
-  if (state_ != SessionState::playing) return {};
-  if (!map_info_.allow_teleport) return "Teleporting is not allowed in this map.";
-  if (const auto wait = teleport_cooldown(time); wait > 0)
+  if (state_ != SessionState::playing) {
+    return {};
+  }
+  if (!map_info_.allow_teleport) {
+    return "Teleporting is not allowed in this map.";
+  }
+  if (const auto wait = teleport_cooldown(time); wait > 0) {
     return "You can not teleport for another " + std::to_string(wait / 1000 + 1) + " seconds.";
+  }
   const auto* target = world_.entity(object_id);
-  if (!target || !target->player || object_id == world_.player_id()) return {};
-  if (target->combat.condition & (1U << 11U))
+  if (!target || !target->player || object_id == world_.player_id()) {
+    return {};
+  }
+  if (target->combat.condition & (1U << 11U)) {
     return "Can not teleport to " + target->profile.name + " while they are invisible.";
+  }
   send(net::outgoing::Teleport{object_id});
   next_teleport_at_ = time + 10000;
   return {};
 }
+
 void Session::edit_account_list(std::int32_t object_id, bool ignore, bool add) {
-  if (state_ != SessionState::playing) return;
+  if (state_ != SessionState::playing) {
+    return;
+  }
   const auto* target = world_.entity(object_id);
-  if (!target) return;
-  const auto found = target->profile.stats.find(static_cast<std::uint8_t>(flash::StatId::ACCOUNT_ID_STAT));
+  if (!target) {
+    return;
+  }
+  const auto found =
+      target->profile.stats.find(static_cast<std::uint8_t>(flash::StatId::ACCOUNT_ID_STAT));
   party_.edit(found == target->profile.stats.end() ? -1 : found->second, object_id, ignore, add);
   send(net::outgoing::EditAccountList{ignore ? 1 : 0, add, object_id});
 }

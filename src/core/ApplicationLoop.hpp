@@ -12,8 +12,8 @@
 
 namespace realm::application {
 
-// Per-frame values that cross the loop phases. run() makes one Frame per iteration. It is neither copied nor
-// moved: overlay is a span into overlay_storage.
+// Per-frame values that cross the loop phases. run() makes one Frame per iteration. It is neither
+// copied nor moved: overlay is a span into overlay_storage.
 struct Frame {
   Frame() = default;
   Frame(const Frame&) = delete;
@@ -30,13 +30,17 @@ struct Frame {
   std::int32_t time{};
   std::filesystem::path script_capture;
   bool menus{};
-  int width{}, height{}, clip_width{};
-  std::optional<realm::telemetry::Zone> cpu_zone, ui_zone;
+  int width{};
+  int height{};
+  int clip_width{};
+  std::optional<realm::telemetry::Zone> cpu_zone;
+  std::optional<realm::telemetry::Zone> ui_zone;
   std::array<realm::Quad, 128> overlay_storage;
   std::span<const realm::Quad> overlay;
 };
 
-// SDL events in the stack's terms: pointer positions in drawable pixels, wheel in SDL steps (positive up).
+// SDL events in the stack's terms: pointer positions in drawable pixels, wheel in SDL steps
+// (positive up).
 std::optional<UiEvent> to_ui_event(const ClientState& cs, const SDL_Event& event);
 void begin_frame(ClientState& cs, const Options& o, Frame& f);
 void drive_stress_fixture(ClientState& cs, Frame& f);

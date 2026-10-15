@@ -4,11 +4,15 @@
 #include <iostream>
 #include <algorithm>
 #include <stdexcept>
+
 namespace {
 void check(bool value, const char* reason) {
-  if (!value) throw std::runtime_error(reason);
+  if (!value) {
+    throw std::runtime_error(reason);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
@@ -25,17 +29,21 @@ int main() {
     check(strokes[0].points[0].x == 250 && strokes[0].points[0].y == 200,
           "box animates from Flash origin even when satisfaction begins at zero time");
     strokes = tutorial.update(world, 600);
-    check(strokes[0].points[0].x >= 600 && strokes[0].points[1].x <= 800, "settled minimap box covers right HUD");
+    check(strokes[0].points[0].x >= 600 && strokes[0].points[1].x <= 800,
+          "settled minimap box covers right HUD");
     const auto image = render_tutorial(strokes, 600);
     check(image.width == 800 && image.height == 600, "tutorial raster uses stage coordinates");
-    check(std::any_of(image.pixels.begin(), image.pixels.end(), [](auto byte) { return byte != 0; }),
-          "overlay raster contains visible highlights");
+    check(
+        std::any_of(image.pixels.begin(), image.pixels.end(), [](auto byte) { return byte != 0; }),
+        "overlay raster contains visible highlights");
     bool translucent{};
-    for (std::size_t i = 0; i < image.pixels.size(); i += 4)
+    for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
       if (image.pixels[i + 3] > 0 && image.pixels[i + 3] < 255) {
         translucent = true;
-        check(image.pixels[i + 1] > 200, "tutorial glow retains straight-alpha green for UI upload");
+        check(image.pixels[i + 1] > 200,
+              "tutorial glow retains straight-alpha green for UI upload");
       }
+    }
     check(translucent, "tutorial glow has translucent edges");
     world.entity(2)->profile.name = "Other sign";
     check(tutorial.update(world, 700).empty(), "sign text is part of the proximity requirement");

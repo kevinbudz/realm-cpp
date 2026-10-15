@@ -4,27 +4,40 @@
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+
 // The Options screen's flags as the game systems apply them: Parameters.data_ checks in
 // GameServerConnection, GameObject, Projectile and ParticleEffect, without a GL context.
 namespace {
 int checks{};
+
 void check(bool ok, const std::string& why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 }
+
 using namespace realm;
+
 namespace {
-constexpr std::uint8_t stat(flash::StatId id) { return static_cast<std::uint8_t>(id); }
+constexpr std::uint8_t stat(flash::StatId id) {
+  return static_cast<std::uint8_t>(id);
+}
+
 struct Fixture {
   Catalog catalog{flash::source_root};
   World world{catalog};
   Combat combat{world};
+
   Fixture() {
     world.initialize(8, 8, "preferences");
     const auto grass = catalog.ground("Grass")->type;
-    for (int y = 0; y < 8; ++y)
-      for (int x = 0; x < 8; ++x) world.tile(x, y)->type = grass;
+    for (int y = 0; y < 8; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        world.tile(x, y)->type = grass;
+      }
+    }
     world.add(1, catalog.object("Wizard")->type, {2.5, 2.5});
     world.set_player_id(1);
     world.entity(1)->combat.hp = world.entity(1)->combat.max_hp = 100;
@@ -32,6 +45,7 @@ struct Fixture {
     world.entity(2)->combat.hp = world.entity(2)->combat.max_hp = 100;
     combat.reset(1);
   }
+
   void tick(std::int32_t id, std::vector<net::Stat> stats) {
     net::Tick t;
     net::Status s;
@@ -42,12 +56,14 @@ struct Fixture {
     t.statuses.push_back(s);
     world.apply(t);
   }
+
   void apply(const std::function<void(Settings&)>& change) {
     Settings s;
     change(s);
     world.set_preferences(s.preferences());
   }
 };
+
 void damage() {
   Fixture f;
   f.world.report_damage(2, 10, 0);
@@ -59,10 +75,12 @@ void damage() {
   f.world.report_damage(1, 10, 0);
   check(f.world.take_status_events().size() == 1, "damage to the player is always shown");
 }
+
 void notifications() {
   Fixture f;
   f.apply([](Settings& s) { s.set_choice("allyNotifs", 0); });
-  check(f.world.allows_notification(1) && !f.world.allows_notification(2) && f.world.allows_notification(77),
+  check(f.world.allows_notification(1) && !f.world.allows_notification(2) &&
+            f.world.allows_notification(77),
         "Ally Notifications gates other players only");
   f.tick(2, {{stat(flash::StatId::LEVEL_STAT), 5},
              {stat(flash::StatId::EXP_STAT), 10},
@@ -80,22 +98,26 @@ void notifications() {
   check(events.size() == 1 && events[0].text == "+30 EXP", "own experience is still shown");
   f.tick(1, {{stat(flash::StatId::LEVEL_STAT), 6}});
   events = f.world.take_status_events();
-  check(events.size() == 1 && events[0].text == "Level Up!" && !f.world.particles().particles().empty(),
+  check(events.size() == 1 && events[0].text == "Level Up!" &&
+            !f.world.particles().particles().empty(),
         "own level-up is still shown");
   f.apply([](Settings&) {});
   f.tick(2, {{stat(flash::StatId::EXP_STAT), 70}});
   events = f.world.take_status_events();
-  check(events.size() == 1 && events[0].text == "+35 EXP", "other players' experience returns with the option on");
+  check(events.size() == 1 && events[0].text == "+35 EXP",
+        "other players' experience returns with the option on");
 }
+
 void shots() {
   Fixture f;
   const ObjectDef* weapon{};
-  for (const auto& object : f.catalog.objects())
+  for (const auto& object : f.catalog.objects()) {
     if (!object.projectiles.empty() && object.xml.number("RateOfFire") > 0 &&
         f.catalog.object(object.projectiles[0].object_id)) {
       weapon = &object;
       break;
     }
+  }
   check(weapon, "weapon fixture exists");
   const auto fire = [&](bool ally, std::int32_t owner) {
     net::incoming::ServerPlayerShoot shoot;
@@ -125,7 +147,8 @@ void shots() {
                                        return s;
                                      }()},
                                     0);
-  check(ack.size() == 1 && f.combat.projectiles().size() == 1, "the player's own shot is acknowledged and drawn");
+  check(ack.size() == 1 && f.combat.projectiles().size() == 1,
+        "the player's own shot is acknowledged and drawn");
   net::incoming::AllyShoot ally;
   ally.owner_id = 2;
   ally.container_type = weapon->type;
@@ -136,6 +159,7 @@ void shots() {
   (void)f.combat.receive({flash::PacketId::ALLYSHOOT, ally}, 0);
   check(f.combat.projectiles().size() > 1, "ALLYSHOOT returns with the option on");
 }
+
 void particles() {
   Fixture f;
   auto& p = f.world.particles();
@@ -161,15 +185,19 @@ void particles() {
   f.world.particles().level_up(1, 0);
   check(!p.particles().empty(), "level-up effect always plays");
 }
+
 void tiers() {
   Fixture f;
   check(HudState::player(f.world, *f.world.entity(1)).inventory.tiers, "tier tags by default");
   f.apply([](Settings& s) { s.set_choice("showTierTag", 0); });
-  check(!HudState::player(f.world, *f.world.entity(1)).inventory.tiers, "Show Tier Tag off reaches the HUD");
-  check(f.world.preferences().hp_bars && f.world.preferences().draw_shadows && f.world.preferences().text_bubbles,
+  check(!HudState::player(f.world, *f.world.entity(1)).inventory.tiers,
+        "Show Tier Tag off reaches the HUD");
+  check(f.world.preferences().hp_bars && f.world.preferences().draw_shadows &&
+            f.world.preferences().text_bubbles,
         "unrelated flags unchanged");
 }
 }
+
 int main() {
   try {
     damage();

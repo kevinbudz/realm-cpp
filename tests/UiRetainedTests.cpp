@@ -18,19 +18,25 @@ int checks{};
 
 void check(bool ok, const std::string& why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 
 Image solid_image(int w, int h, std::array<unsigned char, 4> color) {
-  Image image{w, h, std::vector<unsigned char>(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4), 1};
-  for (std::size_t i = 0; i < image.pixels.size(); i += 4)
+  Image image{
+      w, h,
+      std::vector<unsigned char>(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4), 1};
+  for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
     std::copy(color.begin(), color.end(), image.pixels.begin() + static_cast<std::ptrdiff_t>(i));
+  }
   return image;
 }
 
 void set_pixel(Image& image, int x, int y, std::array<unsigned char, 4> color) {
-  const auto at =
-      (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) + static_cast<std::size_t>(x)) * 4;
+  const auto at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) +
+                   static_cast<std::size_t>(x)) *
+                  4;
   std::copy(color.begin(), color.end(), image.pixels.begin() + static_cast<std::ptrdiff_t>(at));
 }
 
@@ -41,13 +47,14 @@ std::array<unsigned char, 4> pixel(int x, int y) {
 }
 
 void near(unsigned char value, int expected, int tolerance, const std::string& why) {
-  check(std::abs(static_cast<int>(value) - expected) <= tolerance, why + ": got " + std::to_string(value));
+  check(std::abs(static_cast<int>(value) - expected) <= tolerance,
+        why + ": got " + std::to_string(value));
 }
 
 bool same_quad(const Quad& a, const Quad& b) {
-  return a.origin == b.origin && a.axis_x == b.axis_x && a.axis_y == b.axis_y && a.uv == b.uv && a.page == b.page &&
-         a.multiply == b.multiply && a.offset == b.offset && a.kind == b.kind && a.uv_offset == b.uv_offset &&
-         a.owner.get() == b.owner.get() && a.texture == b.texture;
+  return a.origin == b.origin && a.axis_x == b.axis_x && a.axis_y == b.axis_y && a.uv == b.uv &&
+         a.page == b.page && a.multiply == b.multiply && a.offset == b.offset && a.kind == b.kind &&
+         a.uv_offset == b.uv_offset && a.owner.get() == b.owner.get() && a.texture == b.texture;
 }
 
 struct Counts {
@@ -57,8 +64,14 @@ struct Counts {
 
 Counts counts(const RmlHost& host) {
   const auto s = host.stats();
-  return {s.text_rasterizations, s.painter_rasterizations, s.texture_uploads,           s.texture_upload_bytes,
-          s.text_meshes,         s.native_image_uploads,   s.native_image_upload_bytes, s.native_image_meshes};
+  return {s.text_rasterizations,
+          s.painter_rasterizations,
+          s.texture_uploads,
+          s.texture_upload_bytes,
+          s.text_meshes,
+          s.native_image_uploads,
+          s.native_image_upload_bytes,
+          s.native_image_meshes};
 }
 
 Counts operator-(Counts a, Counts b) {
@@ -72,8 +85,8 @@ Counts operator-(Counts a, Counts b) {
           a.image_meshes - b.image_meshes};
 }
 
-std::vector<Quad> frame(RetainedUi& retained, std::span<const Quad> quads, const Viewport& viewport, std::int32_t time,
-                        std::array<float, 4> clear = {0, 0, 0, 1}) {
+std::vector<Quad> frame(RetainedUi& retained, std::span<const Quad> quads, const Viewport& viewport,
+                        std::int32_t time, std::array<float, 4> clear = {0, 0, 0, 1}) {
   glViewport(0, 0, width, height);
   glClearColor(clear[0], clear[1], clear[2], clear[3]);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -88,8 +101,11 @@ void run(const FontBook& fonts, const HudArt& art) {
   RetainedSurface blue;
   auto red_pixels = solid_image(4, 2, {255, 0, 0, 255});
   auto blue_pixels = solid_image(4, 2, {20, 240, 20, 255});
-  for (int y = 0; y < 2; ++y)
-    for (int x = 2; x < 4; ++x) set_pixel(blue_pixels, x, y, {0, 0, 255, 128});
+  for (int y = 0; y < 2; ++y) {
+    for (int x = 2; x < 4; ++x) {
+      set_pixel(blue_pixels, x, y, {0, 0, 255, 128});
+    }
+  }
   red.update(red_pixels);
   blue.update(blue_pixels);
 
@@ -118,7 +134,8 @@ void run(const FontBook& fonts, const HudArt& art) {
 
   const std::vector<Quad> ordered{red_quad, world, backdrop, gl_surface_quad, blue_quad};
   auto remaining = frame(retained, ordered, viewport, 16);
-  check(remaining.size() == 2 && same_quad(remaining[0], world) && same_quad(remaining[1], gl_surface_quad),
+  check(remaining.size() == 2 && same_quad(remaining[0], world) &&
+            same_quad(remaining[1], gl_surface_quad),
         "compose passes world and GL surface quads through in order");
   const auto red_only = pixel(15, 15);
   check(red_only == std::array<unsigned char, 4>{255, 0, 0, 255},
@@ -138,16 +155,21 @@ void run(const FontBook& fonts, const HudArt& art) {
   const auto before_update = counts(retained.host());
   frame(retained, ordered, viewport, 32);
   const auto update_delta = counts(retained.host()) - before_update;
-  check(update_delta.image_uploads == 1 && update_delta.image_upload_bytes == 16 && update_delta.upload_bytes == 16,
+  check(update_delta.image_uploads == 1 && update_delta.image_upload_bytes == 16 &&
+            update_delta.upload_bytes == 16,
         "two dirty pixels upload only their 2x2 union");
   const auto changed_pixel = pixel(45, 35);
-  check(changed_pixel[1] > 80 && changed_pixel[2] < 10, "the dirty crop receives its changed green pixel");
+  check(changed_pixel[1] > 80 && changed_pixel[2] < 10,
+        "the dirty crop receives its changed green pixel");
 
   const auto stable = counts(retained.host());
-  for (int i = 0; i < 30; ++i) frame(retained, ordered, viewport, 48 + i * 16);
+  for (int i = 0; i < 30; ++i) {
+    frame(retained, ordered, viewport, 48 + i * 16);
+  }
   const auto idle = counts(retained.host()) - stable;
-  check(idle.text == 0 && idle.paint == 0 && idle.uploads == 0 && idle.upload_bytes == 0 && idle.meshes == 0 &&
-            idle.image_uploads == 0 && idle.image_upload_bytes == 0 && idle.image_meshes == 0,
+  check(idle.text == 0 && idle.paint == 0 && idle.uploads == 0 && idle.upload_bytes == 0 &&
+            idle.meshes == 0 && idle.image_uploads == 0 && idle.image_upload_bytes == 0 &&
+            idle.image_meshes == 0,
         "unchanged retained frames do no rasterization, upload or mesh work");
 
   const std::vector<Quad> blue_then_red{blue_quad, backdrop, red_quad};
@@ -188,7 +210,8 @@ void run(const FontBook& fonts, const HudArt& art) {
   check(hidden[0] == 0 && hidden[1] == 255 && hidden[2] == 0,
         "hiding retained surfaces leaves the cleared framebuffer without stale content");
   const auto stats = retained.host().stats();
-  check(stats.log_errors == 0 && stats.log_warnings == 0, "retained document renders without RmlUi diagnostics");
+  check(stats.log_errors == 0 && stats.log_warnings == 0,
+        "retained document renders without RmlUi diagnostics");
   check(glGetError() == GL_NO_ERROR, "retained GL operations complete without errors");
 }
 }

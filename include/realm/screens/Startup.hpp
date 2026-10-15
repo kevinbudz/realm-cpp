@@ -19,17 +19,21 @@ class HudArt;
 class SoundCues;
 class World;
 struct CharList;
+
 namespace net::incoming {
 struct Death;
 }
 
 struct StartupOptions {
   // Parameters.SERVER_ADDRESS, APP_PORT, GAME_PORT and BUILD_VERSION.
-  std::string host{"127.0.0.1"}, build_version{"1.0.0"};
-  std::uint16_t app_port{7777}, game_port{2050};
+  std::string host{"127.0.0.1"};
+  std::string build_version{"1.0.0"};
+  std::uint16_t app_port{7777};
+  std::uint16_t game_port{2050};
   std::filesystem::path account_file;
 };
 enum class StartupKey { backspace, tab, enter, escape };
+
 struct StartupAction {
   enum class Kind {
     none,
@@ -60,50 +64,84 @@ struct StartupAction {
   std::size_t index{};
   friend bool operator==(const StartupAction&, const StartupAction&) = default;
 };
+
 struct StartupFieldSnapshot {
   std::size_t index{};
-  std::string label, value, error;
+  std::string label;
+  std::string value;
+  std::string error;
   bool password{};
-  Vec2 position{}, size{};      // Drawable-pixel bounds of the editable field.
-  std::size_t insert_before{};  // Element index: after the field background and before its native value text.
+  // Drawable-pixel bounds of the editable field.
+  Vec2 position{};
+  Vec2 size{};
+  std::size_t insert_before{};  // Element index: after the field background and before its native
+                                // value text.
   bool focused{};
 };
+
 struct StartupElementSnapshot {
   HudRegion source{};
   const Image* bitmap{};
   std::uint64_t bitmap_revision{};
-  Vec2 position{}, size{}, text_position{}, pulse_center{};  // Drawable pixels.
-  std::array<float, 4> color{1, 1, 1, 1}, font_color{1, 1, 1, 1}, hover_color{};
+  // Drawable pixels.
+  Vec2 position{};
+  Vec2 size{};
+  Vec2 text_position{};
+  Vec2 pulse_center{};
+  std::array<float, 4> color{1, 1, 1, 1};
+  std::array<float, 4> font_color{1, 1, 1, 1};
+  std::array<float, 4> hover_color{};
   std::optional<StartupAction> action;
   std::string text;
   int font_size{};
-  bool solid{}, full_width{}, hit{}, hovered{}, pulse{}, font_bold{}, font_shadow{}, field_value{};
+  bool solid{};
+  bool full_width{};
+  bool hit{};
+  bool hovered{};
+  bool pulse{};
+  bool font_bold{};
+  bool font_shadow{};
+  bool field_value{};
   std::size_t field_index{};
 };
+
 struct StartupViewSnapshot {
-  std::uint64_t revision{}, structure_revision{}, sheet_revision{};
-  int width{}, height{};
+  std::uint64_t revision{};
+  std::uint64_t structure_revision{};
+  std::uint64_t sheet_revision{};
+  int width{};
+  int height{};
   double scale{1};
   std::vector<StartupElementSnapshot> elements;
   std::vector<StartupFieldSnapshot> fields;
   std::vector<HudRegion> sheet_dirty;
   std::size_t dialog_insertion{};
-  bool characters{}, classes{}, busy{}, menus{}, dialog{}, skin_visible{}, skin_modal_input{}, fame{}, legends{},
-      editor{}, deletion{};
+  bool characters{};
+  bool classes{};
+  bool busy{};
+  bool menus{};
+  bool dialog{};
+  bool skin_visible{};
+  bool skin_modal_input{};
+  bool fame{};
+  bool legends{};
+  bool editor{};
+  bool deletion{};
   const Image* skin_image{};
   std::uint64_t skin_revision{};
   std::vector<HudRegion> skin_dirty;
 };
 
-// Startup coordinates the account, character, fame and legends screens. Its public API remains the boundary used by
-// the application and RmlUi adapter; the implementation owns separate screen state, HTTP task and view-model parts.
+// Startup coordinates the account, character, fame and legends screens. Its public API remains the
+// boundary used by the application and RmlUi adapter; the implementation owns separate screen
+// state, HTTP task and view-model parts.
 class Startup {
  public:
   static constexpr int sheet_size = 1024;
   static constexpr double background_angle = 7 * 3.14159265358979323846 / 4;
 
-  Startup(const FontBook& fonts, const HudArt* art, const Catalog& catalog, const std::filesystem::path& flash_root,
-          StartupOptions options);
+  Startup(const FontBook& fonts, const HudArt* art, const Catalog& catalog,
+          const std::filesystem::path& flash_root, StartupOptions options);
   ~Startup();
   Startup(const Startup&) = delete;
   Startup& operator=(const Startup&) = delete;
@@ -140,25 +178,28 @@ class Startup {
   [[nodiscard]] bool editor_covers(Vec2 point) const;
   [[nodiscard]] bool editor_wants_text() const;
   [[nodiscard]] bool editor_captured() const;
-  // SoundIcon: the app mirrors Parameters.playSFX here each frame, and takes the value a click asked for, which it
-  // stores as playSFX and playPewPew.
+  // SoundIcon: the app mirrors Parameters.playSFX here each frame, and takes the value a click
+  // asked for, which it stores as playSFX and playPewPew.
   void set_play_sfx(bool play_sfx);
   [[nodiscard]] std::optional<bool> take_play_sfx();
   [[nodiscard]] std::optional<std::string> take_open_url();
-  // Keep the controller's credential and validation model synchronized with an editable RmlUi input.
+  // Keep the controller's credential and validation model synchronized with an editable RmlUi
+  // input.
   void set_field_value(std::size_t index, std::string value);
   [[nodiscard]] std::string field_value(std::size_t index) const;
   // The caller acknowledges the RmlUi sheet upload after submitting the matching revision.
   void acknowledge_sheet_upload(std::uint64_t revision);
   void acknowledge_skin_upload(std::uint64_t revision);
   void renamed_account(const std::string& name);
-  // Session ended (death, failure, disconnect or leaving); returns to the character screen with fresh data.
+  // Session ended (death, failure, disconnect or leaving); returns to the character screen with
+  // fresh data.
   void left_game(const std::string& message);
   void died(const net::incoming::Death& death, std::int32_t time_ms);
-  // Sounds requested by menu actions (button_click on a click, death_screen when the fame view opens), drained per
-  // frame.
+  // Sounds requested by menu actions (button_click on a click, death_screen when the fame view
+  // opens), drained per frame.
   [[nodiscard]] SoundCues& sound_cues();
-  // TitleMenuOption.onMouseClick and ClickableText.onMouseClick: a mouse click on a menu item plays button_click.
+  // TitleMenuOption.onMouseClick and ClickableText.onMouseClick: a mouse click on a menu item plays
+  // button_click.
   void play_click();
   [[nodiscard]] double death_fade(std::int32_t time_ms) const;
 

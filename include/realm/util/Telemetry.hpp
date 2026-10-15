@@ -144,12 +144,14 @@ constexpr std::array names{"allocations",
                            "audio_evictions",
                            "audio_decoded_bytes",
                            "audio_cue_overflow"};
+
 struct Frame {
   std::uint64_t id{};
   bool warmup{}, capture{}, interval_valid{};
   double interval_ms{}, cpu_ms{}, present_ms{}, paced_ms{}, input_to_submit_ms{-1};
   int width{}, height{}, swap_interval{}, fps_cap{};
 };
+
 struct GpuSample {
   std::uint64_t frame_id{};
   bool normal{};
@@ -160,6 +162,7 @@ class Recorder;
 extern thread_local Recorder* active;
 void add(Counter counter, std::uint64_t value = 1) noexcept;
 void set(Counter counter, std::uint64_t value) noexcept;
+
 // Main-thread instrumentation only; no hooks in worker threads or malloc.
 class Zone {
  public:
@@ -173,6 +176,7 @@ class Zone {
   Clock::time_point start_{};
   std::uint64_t allocations_{}, bytes_{};
 };
+
 class Recorder {
  public:
   static constexpr std::size_t maximum_zones = 8192;
@@ -183,21 +187,28 @@ class Recorder {
   void gpu(const GpuSample& sample);
   void metadata(std::string_view key, std::string_view value);
   void finish();
+
   // Offline stress mode: cumulative inclusive time per name; bounds independent of population.
   void aggregate_repeated(bool value) { aggregate_repeated_ = value; }
+
   [[nodiscard]] Clock::time_point epoch() const { return epoch_; }
+
   // The running count of the frame in progress; counters reset at begin().
-  [[nodiscard]] std::uint64_t counter(Counter value) const { return counters_[static_cast<std::size_t>(value)]; }
+  [[nodiscard]] std::uint64_t counter(Counter value) const {
+    return counters_[static_cast<std::size_t>(value)];
+  }
 
  private:
   friend class Zone;
   friend void add(Counter, std::uint64_t) noexcept;
   friend void set(Counter, std::uint64_t) noexcept;
+
   struct Sample {
     const char* name;
     double start_us, duration_us;
     std::uint64_t allocations, bytes, calls{1};
   };
+
   std::array<Sample, maximum_zones> zones_{};
   std::array<std::uint64_t, static_cast<std::size_t>(Counter::count)> counters_{};
   std::ofstream samples_, trace_;
@@ -208,6 +219,7 @@ class Recorder {
   bool trace_first_{true}, finished_{}, aggregate_repeated_{};
 };
 }
+
 #define REALM_JOIN_IMPL(a, b) a##b
 #define REALM_JOIN(a, b) REALM_JOIN_IMPL(a, b)
 #ifdef REALM_TRACY

@@ -23,14 +23,22 @@ class Catalog {
   [[nodiscard]] const GroundDef* ground(std::uint16_t type) const;
   [[nodiscard]] const ObjectDef* object(std::string_view id) const;
   [[nodiscard]] const GroundDef* ground(std::string_view id) const;
+
   [[nodiscard]] const std::vector<ObjectDef>& objects() const { return objects_; }
-  // ObjectLibrary.hexTransforms_: object types in Group "Hexable", in load order; a Hexed player becomes one of them.
+
+  // ObjectLibrary.hexTransforms_: object types in Group "Hexable", in load order; a Hexed player
+  // becomes one of them.
   [[nodiscard]] const std::vector<std::uint16_t>& hex_transforms() const { return hex_transforms_; }
+
   [[nodiscard]] const std::vector<GroundDef>& grounds() const { return grounds_; }
+
   [[nodiscard]] const std::vector<std::string>& unresolved_textures() const { return unresolved_; }
+
   [[nodiscard]] TextureDef texture(Xml node);
   [[nodiscard]] const ParticleDef* particle(std::string_view id) const;
+
   [[nodiscard]] const std::vector<SkinDef>& skins() const { return skins_; }
+
   [[nodiscard]] const SkinDef* skin(int id, int class_type) const;
   [[nodiscard]] const TextureDef& player_texture(int class_type, int skin_id) const;
   [[nodiscard]] int portrait_type(int class_type, int skin_id) const;
@@ -43,8 +51,10 @@ class Catalog {
   std::vector<SkinDef> skins_;
   std::vector<ParticleDef> particles_;
   std::vector<GroundDef> grounds_;
-  std::vector<std::int32_t> object_lookup_, ground_lookup_;
-  std::unordered_map<std::string, std::uint16_t> object_names_, ground_names_;
+  std::vector<std::int32_t> object_lookup_;
+  std::vector<std::int32_t> ground_lookup_;
+  std::unordered_map<std::string, std::uint16_t> object_names_;
+  std::unordered_map<std::string, std::uint16_t> ground_names_;
   std::vector<std::string> unresolved_;
 };
 }

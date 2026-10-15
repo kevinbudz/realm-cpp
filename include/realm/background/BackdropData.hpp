@@ -14,6 +14,7 @@ struct Star {
   double x{}, y{}, scale{};
   int image{};
 };
+
 // Index of the "stars" image set in flash::sheets (ImageSet 5x5, ten images).
 [[nodiscard]] std::size_t stars_sheet_index();
 [[nodiscard]] std::vector<Star> star_field(std::uint32_t seed);

@@ -6,9 +6,13 @@
 #include <thread>
 using namespace realm::telemetry;
 using nlohmann::json;
+
 void check(bool value) {
-  if (!value) throw std::runtime_error("Telemetry assertion failed");
+  if (!value) {
+    throw std::runtime_error("Telemetry assertion failed");
+  }
 }
+
 int main(int argc, char** argv) {
   try {
     const auto dir = std::filesystem::path(argc > 1 ? argv[1] : "telemetry-test");
@@ -93,8 +97,8 @@ int main(int argc, char** argv) {
     json parsed;
     trace >> parsed;
     check(parsed["traceEvents"].size() == zones);
-    std::cout
-        << "Telemetry: units, attribution, nested allocations, bounded overflow, escaping and trace export pass\n";
+    std::cout << "Telemetry: units, attribution, nested allocations, bounded overflow, escaping "
+                 "and trace export pass\n";
     return 0;
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

@@ -10,6 +10,7 @@ struct TutorialStroke {
   double width{};
   std::uint32_t color{};
 };
+
 class Tutorial {
  public:
   Tutorial(const Catalog& catalog, const std::filesystem::path& flash_root);
@@ -23,16 +24,19 @@ class Tutorial {
     std::array<double, 4> coordinates{};
     std::uint32_t color{};
   };
+
   struct Requirement {
     int type{-1};
     std::string name;
     double radius{};
   };
+
   struct Step {
     std::vector<Requirement> requirements;
     std::vector<Drawing> drawings;
     std::optional<std::int32_t> satisfied_since;
   };
+
   std::vector<Step> steps_;
   std::uint64_t generation_{};
 };

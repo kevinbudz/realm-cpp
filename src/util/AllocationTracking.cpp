@@ -12,25 +12,32 @@ void* allocate(std::size_t size, std::size_t alignment = 0) {
   size = size ? size : 1;
   void* result{};
   for (;;) {
-    if (!alignment)
+    if (!alignment) {
       result = std::malloc(size);
-    else {
+    } else {
       alignment = std::max(alignment, sizeof(void*));
 #ifdef _WIN32
       result = _aligned_malloc(size, alignment);
 #else
-      if (posix_memalign(&result, alignment, size) != 0) result = nullptr;
+      if (posix_memalign(&result, alignment, size) != 0) {
+        result = nullptr;
+      }
 #endif
     }
-    if (result) break;
+    if (result) {
+      break;
+    }
     const auto handler = std::get_new_handler();
-    if (!handler) throw std::bad_alloc();
+    if (!handler) {
+      throw std::bad_alloc();
+    }
     handler();
   }
   realm::telemetry::add(realm::telemetry::Counter::allocations);
   realm::telemetry::add(realm::telemetry::Counter::allocation_bytes, size);
   return result;
 }
+
 void aligned_free(void* p) noexcept {
 #ifdef _WIN32
   _aligned_free(p);
@@ -39,18 +46,55 @@ void aligned_free(void* p) noexcept {
 #endif
 }
 }
-void* operator new(std::size_t n) { return allocate(n); }
-void* operator new[](std::size_t n) { return allocate(n); }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
-void* operator new(std::size_t n, std::align_val_t a) { return allocate(n, static_cast<std::size_t>(a)); }
-void* operator new[](std::size_t n, std::align_val_t a) { return allocate(n, static_cast<std::size_t>(a)); }
-void operator delete(void* p, std::align_val_t) noexcept { aligned_free(p); }
-void operator delete[](void* p, std::align_val_t) noexcept { aligned_free(p); }
-void operator delete(void* p, std::size_t, std::align_val_t) noexcept { aligned_free(p); }
-void operator delete[](void* p, std::size_t, std::align_val_t) noexcept { aligned_free(p); }
+
+void* operator new(std::size_t n) {
+  return allocate(n);
+}
+
+void* operator new[](std::size_t n) {
+  return allocate(n);
+}
+
+void operator delete(void* p) noexcept {
+  std::free(p);
+}
+
+void operator delete[](void* p) noexcept {
+  std::free(p);
+}
+
+void operator delete(void* p, std::size_t) noexcept {
+  std::free(p);
+}
+
+void operator delete[](void* p, std::size_t) noexcept {
+  std::free(p);
+}
+
+void* operator new(std::size_t n, std::align_val_t a) {
+  return allocate(n, static_cast<std::size_t>(a));
+}
+
+void* operator new[](std::size_t n, std::align_val_t a) {
+  return allocate(n, static_cast<std::size_t>(a));
+}
+
+void operator delete(void* p, std::align_val_t) noexcept {
+  aligned_free(p);
+}
+
+void operator delete[](void* p, std::align_val_t) noexcept {
+  aligned_free(p);
+}
+
+void operator delete(void* p, std::size_t, std::align_val_t) noexcept {
+  aligned_free(p);
+}
+
+void operator delete[](void* p, std::size_t, std::align_val_t) noexcept {
+  aligned_free(p);
+}
+
 void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
   try {
     return allocate(n);
@@ -58,6 +102,7 @@ void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
     return nullptr;
   }
 }
+
 void* operator new[](std::size_t n, const std::nothrow_t&) noexcept {
   try {
     return allocate(n);
@@ -65,8 +110,15 @@ void* operator new[](std::size_t n, const std::nothrow_t&) noexcept {
     return nullptr;
   }
 }
-void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
+
+void operator delete(void* p, const std::nothrow_t&) noexcept {
+  std::free(p);
+}
+
+void operator delete[](void* p, const std::nothrow_t&) noexcept {
+  std::free(p);
+}
+
 void* operator new(std::size_t n, std::align_val_t a, const std::nothrow_t&) noexcept {
   try {
     return allocate(n, static_cast<std::size_t>(a));
@@ -74,6 +126,7 @@ void* operator new(std::size_t n, std::align_val_t a, const std::nothrow_t&) noe
     return nullptr;
   }
 }
+
 void* operator new[](std::size_t n, std::align_val_t a, const std::nothrow_t&) noexcept {
   try {
     return allocate(n, static_cast<std::size_t>(a));
@@ -81,5 +134,11 @@ void* operator new[](std::size_t n, std::align_val_t a, const std::nothrow_t&) n
     return nullptr;
   }
 }
-void operator delete(void* p, std::align_val_t, const std::nothrow_t&) noexcept { aligned_free(p); }
-void operator delete[](void* p, std::align_val_t, const std::nothrow_t&) noexcept { aligned_free(p); }
+
+void operator delete(void* p, std::align_val_t, const std::nothrow_t&) noexcept {
+  aligned_free(p);
+}
+
+void operator delete[](void* p, std::align_val_t, const std::nothrow_t&) noexcept {
+  aligned_free(p);
+}

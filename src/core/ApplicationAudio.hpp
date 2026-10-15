@@ -7,12 +7,14 @@
 
 namespace realm::application {
 
-// The process's one sound output. Game code queues SoundCues; this bridge plays them once per rendered frame and
-// ticks the player. Without REALM_AUDIO it is inert but has the same interface, so the frame loop never branches.
+// The process's one sound output. Game code queues SoundCues; this bridge plays them once per
+// rendered frame and ticks the player. Without REALM_AUDIO it is inert but has the same interface,
+// so the frame loop never branches.
 class AudioBridge {
  public:
-  // Options.audio: auto (the interactive client has a device; fixtures and tools do not), on, off, or null (miniaudio's
-  // null backend). REALM_AUDIO, REALM_AUDIO_DEVICE, REALM_AUDIO_CACHE_MB and REALM_SFX_ROOT still apply.
+  // Options.audio: auto (the interactive client has a device; fixtures and tools do not), on, off,
+  // or null (miniaudio's null backend). REALM_AUDIO, REALM_AUDIO_DEVICE, REALM_AUDIO_CACHE_MB and
+  // REALM_SFX_ROOT still apply.
   explicit AudioBridge(const Options& options);
   ~AudioBridge();
   AudioBridge(const AudioBridge&) = delete;
@@ -20,7 +22,8 @@ class AudioBridge {
 
   // Parameters.data_ playSFX and playPewPew: at settings load and whenever options change.
   void set_preferences(const Preferences& preferences);
-  // Plays (or preloads) the cues one source queued, in order. Call for each queue, then tick() once per frame.
+  // Plays (or preloads) the cues one source queued, in order. Call for each queue, then tick() once
+  // per frame.
   void play(SoundCues& cues);
   void tick();
   // MAPINFO: plays still waiting for a load belong to the old map.

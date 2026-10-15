@@ -3,15 +3,21 @@
 #include "realm/parameters/Settings.hpp"
 #include <iostream>
 #include <stdexcept>
+
 // SDL keys <-> the Flash key codes the Options screen stores.
 namespace {
 int checks{};
+
 void check(bool ok, const std::string& why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 }
+
 using namespace realm;
+
 int main() {
   // SDL 2.32 builds its key/scancode mapping when video is initialized.
   // The application already does this; the standalone test must too.
@@ -20,9 +26,11 @@ int main() {
     std::cerr << SDL_GetError() << '\n';
     return 1;
   }
+
   struct QuitSDL {
     ~QuitSDL() { SDL_Quit(); }
   } quit;
+
   try {
     check(sdl_keys::flash_code(SDLK_a) == 65 && sdl_keys::flash_code(SDLK_z) == 90 &&
               sdl_keys::flash_code(SDLK_0) == 48 && sdl_keys::flash_code(SDLK_9) == 57,
@@ -37,7 +45,8 @@ int main() {
               sdl_keys::flash_code(SDLK_PAGEDOWN) == 34 && sdl_keys::flash_code(SDLK_TAB) == 9,
           "default hot keys");
     check(sdl_keys::flash_code(SDLK_SLASH) == 191 && sdl_keys::flash_code(SDLK_EQUALS) == 187 &&
-              sdl_keys::flash_code(SDLK_MINUS) == 189 && sdl_keys::flash_code(SDLK_BACKQUOTE) == 192,
+              sdl_keys::flash_code(SDLK_MINUS) == 189 &&
+              sdl_keys::flash_code(SDLK_BACKQUOTE) == 192,
           "punctuation");
     check(sdl_keys::flash_code(SDLK_KP_0) == 96 && sdl_keys::flash_code(SDLK_KP_9) == 105 &&
               sdl_keys::flash_code(SDLK_KP_PLUS) == 107,
@@ -46,20 +55,28 @@ int main() {
           "keys Flash cannot name are unset");
     // Every default binding names a key the SDL side can poll, and every named key round-trips.
     for (const auto& option : option_defs()) {
-      if (option.kind != OptionDef::Kind::key && option.kind != OptionDef::Kind::hidden_key) continue;
-      if (option.fallback == 0) continue;
+      if (option.kind != OptionDef::Kind::key && option.kind != OptionDef::Kind::hidden_key) {
+        continue;
+      }
+      if (option.fallback == 0) {
+        continue;
+      }
       const auto sdl = sdl_keys::sdl_code(option.fallback);
       check(sdl != SDLK_UNKNOWN && sdl_keys::flash_code(sdl) == option.fallback,
             std::string("default binding of ") + std::string(option.param) + " round-trips");
     }
     for (int code = 1; code < 256; ++code) {
-      if (key_name(code).empty() || code == 12 || code == 15 || code == 92 || code == 93 || code == 108) continue;
+      if (key_name(code).empty() || code == 12 || code == 15 || code == 92 || code == 93 ||
+          code == 108) {
+        continue;
+      }
       const auto sdl = sdl_keys::sdl_code(code);
       check(sdl == SDLK_UNKNOWN || sdl_keys::flash_code(sdl) == code,
             "named key " + std::to_string(code) + " maps back to itself");
     }
     std::array<unsigned char, SDL_NUM_SCANCODES> keyboard{};
-    check(!sdl_keys::held(keyboard.data(), 87) && !sdl_keys::held(keyboard.data(), 0), "nothing held");
+    check(!sdl_keys::held(keyboard.data(), 87) && !sdl_keys::held(keyboard.data(), 0),
+          "nothing held");
     keyboard[SDL_SCANCODE_W] = 1;
     check(sdl_keys::held(keyboard.data(), 87) && !sdl_keys::held(keyboard.data(), 83),
           "a held key matches its binding only");

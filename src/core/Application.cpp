@@ -69,9 +69,10 @@ int run(int argc, char** argv) {
     const auto& o = cs.o;
     auto layers = std::make_unique<ClientLayers>();
 
-    // Every screen is a layer of one input stack, added bottom to top in display order. The stack owns
-    // modal blocking, pointer capture (a press is released where it began), text focus, the world's pointer gate and
-    // the resets on map change and session end; the layers below keep each screen's own input rules.
+    // Every screen is a layer of one input stack, added bottom to top in display order. The stack
+    // owns modal blocking, pointer capture (a press is released where it began), text focus, the
+    // world's pointer gate and the resets on map change and session end; the layers below keep each
+    // screen's own input rules.
     configure_hud_layer(cs, *layers);
     cs.ui_stack.add(layers->hud_layer);
 
@@ -116,27 +117,37 @@ int run(int argc, char** argv) {
 
     while (cs.running && (!o.frames || cs.frame < static_cast<std::uint64_t>(o.frames))) {
       Frame f;
+
       begin_frame(cs, o, f);
+
       drive_stress_fixture(cs, f);
       update_session(cs, f);
       update_panels(cs, f);
+
       sync_text_input(cs);
       run_script_steps(cs, f);
       update_panel_pixels(cs, f);
+
       dispatch_events(cs, o, f);
       after_dispatch(cs);
       apply_input(cs, o, f);
-      if (!prepare_frame(cs, f)) continue;
+
+      if (!prepare_frame(cs, f)) {
+        continue;
+      }
+
       build_scene(cs, o, f);
       build_hud_overlays(cs, o, f);
       build_group_overlays(cs, o, f);
       build_modal_overlays(cs, o, f);
+
       present_frame(cs, o, f);
 #ifdef REALM_TRACY
       FrameMark;
 #endif
       ++cs.frame;
     }
+
     shutdown_report(cs, o);
     return 0;
   } catch (const std::exception& error) {

@@ -2,13 +2,18 @@
 #include "realm/minimap/Minimap.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
+
 namespace {
 int checks{};
+
 void check(bool value, const char* text) {
   ++checks;
-  if (!value) throw std::runtime_error(text);
+  if (!value) {
+    throw std::runtime_error(text);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
@@ -30,25 +35,30 @@ int main() {
     check(hover({100, 96}) == std::vector<std::int32_t>{7, 2},
           "group preserves encountered order without ID or distance sorting");
     check(hover({95, 96}).empty(), "exact five-pixel radius excludes the player");
-    check(hover({95.01, 96}) == std::vector<std::int32_t>{7}, "inside five-pixel radius includes the player");
-    check(hover({191, 191}) == std::vector<std::int32_t>{8, 3}, "off-window players group at ray-clamped corner");
+    check(hover({95.01, 96}) == std::vector<std::int32_t>{7},
+          "inside five-pixel radius includes the player");
+    check(hover({191, 191}) == std::vector<std::int32_t>{8, 3},
+          "off-window players group at ray-clamped corner");
     check(hover({192, 191}).empty() && hover({-1, 96}).empty(), "outside map hides tooltip");
     auto* definition = const_cast<ObjectDef*>(catalog.object(wizard));
     definition->no_minimap = true;
     check(hover({100, 96}).empty(), "NoMiniMap players excluded from hover");
     definition->no_minimap = false;
     world.goto_entity(8, {90, 70});
-    const auto edge = map.marker_position(world, *world.entity(99), world.entity(8)->motion.position);
+    const auto edge =
+        map.marker_position(world, *world.entity(99), world.entity(8)->motion.position);
     check(edge.x == 192 && edge.y == 144, "edge clamp retains ray direction");
     world.goto_entity(8, {0, 0});
     world.goto_entity(99, {1, 1});
     map.update(world, *world.entity(99), 1.2);
-    check(map.marker_position(world, *world.entity(99), {0, 0}).x == 0, "focus near edge uses translated map bounds");
+    check(map.marker_position(world, *world.entity(99), {0, 0}).x == 0,
+          "focus near edge uses translated map bounds");
     world.goto_entity(99, {50, 50});
     world.goto_entity(8, {90, 90});
     map.zoom_out();
     map.update(world, *world.entity(99), 0);
-    check(map.marker_position(world, *world.entity(99), {51, 50}).x == 98, "hover projection uses current zoom");
+    check(map.marker_position(world, *world.entity(99), {51, 50}).x == 98,
+          "hover projection uses current zoom");
     map.zoom_in();
     map.update(world, *world.entity(99), 0);
     const std::array<std::int32_t, 4> ids{7, 2, 1234, 99};
@@ -68,7 +78,8 @@ int main() {
       rows[0].name = "Tank";
       rows[0].type = 782;
       rows[0].level = 20;
-      check(group.tooltip(rows, {100, 100}, 800, 600, 1) && group.visible() && !group.menu(), "tooltip created");
+      check(group.tooltip(rows, {100, 100}, 800, 600, 1) && group.visible() && !group.menu(),
+            "tooltip created");
       auto n = group.rebuilds();
       group.tooltip(rows, {101, 100}, 800, 600, 1);
       check(group.rebuilds() == n, "pointer movement doesn't rebuild");
@@ -83,12 +94,14 @@ int main() {
       check(n == group.rebuilds(), "cooldown bitmap retained when unchanged");
       group.update(option, true, 2000, 1);
       check(n + 1 == group.rebuilds(), "cooldown progress redraws");
-      check(group.pointer_down(option) && !group.pointer_up(row), "release on player row doesn't activate");
+      check(group.pointer_down(option) && !group.pointer_up(row),
+            "release on player row doesn't activate");
       check(group.pointer_down(row) && !group.pointer_up(row), "player rows have no actions");
       check(group.pointer_down(option) && group.pointer_up(option),
             "cooldown click remains an action for refusal chat");
       group.open(rows, false, {100, 100}, 800, 600, 1);
-      check(group.pointer_down(option) && !group.pointer_up(option), "map flag removes teleport hit area");
+      check(group.pointer_down(option) && !group.pointer_up(option),
+            "map flag removes teleport hit area");
       group.open(rows, true, {100, 100}, 800, 600, 1);
       group.pointer_down(option);
       group.focus_lost();
@@ -120,7 +133,8 @@ int main() {
       group.pointer_down(option);
       fonts.set_pixel_scale(1.2);
       group.update(option, false, 0, 1.2);
-      check(group.menu() && !group.pointer_up({148, 122}), "resize retains menu and cancels stale press");
+      check(group.menu() && !group.pointer_up({148, 122}),
+            "resize retains menu and cancels stale press");
       group.close();
       rows.resize(200, rows[0]);
       group.render_state(rows, true, true, false, 0);

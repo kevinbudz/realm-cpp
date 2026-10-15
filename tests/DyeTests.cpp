@@ -4,13 +4,18 @@
 #include "flash_assets.hpp"
 #include <iostream>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool value, const char* message) {
   ++checks;
-  if (!value) throw std::runtime_error(message);
+  if (!value) {
+    throw std::runtime_error(message);
+  }
 }
 }
+
 int main() {
   try {
     using namespace realm;
@@ -28,11 +33,13 @@ int main() {
     check(original->pixels != clothing->pixels, "Clothing dye applied");
     check(original->pixels != accessory->pixels, "Accessory dye applied");
     check(clothing != accessory, "Distinct dye keys");
-    check(clothing == appearances.animated(frame, 100, false, 0x1ff0000, 0), "Lazy hit retains bitmap");
-    for (const int kind : {4, 5, 9, 10})
-      check(appearances.animated(frame, 137, false, static_cast<std::uint32_t>(kind << 24) | 7, 0)->pixels !=
-                original->pixels,
+    check(clothing == appearances.animated(frame, 100, false, 0x1ff0000, 0),
+          "Lazy hit retains bitmap");
+    for (const int kind : {4, 5, 9, 10}) {
+      check(appearances.animated(frame, 137, false, static_cast<std::uint32_t>(kind << 24) | 7, 0)
+                    ->pixels != original->pixels,
             "All textile sets supported");
+    }
     const auto* item = catalog.object(0x1000);
     check(item && item->texture.mask_sheet >= 0, "Static Mask imported");
     check(appearances.texture(item->texture, 0, 100, false, 0x1ff0000, 0)->pixels !=
@@ -57,7 +64,9 @@ int main() {
     net::Status status;
     status.id = 2;
     status.position = {51, 50};
-    status.stats = {{29, static_cast<std::int32_t>(0x1ff0000)}, {30, static_cast<std::int32_t>(0x5000008)}, {70, 836}};
+    status.stats = {{29, static_cast<std::int32_t>(0x1ff0000)},
+                    {30, static_cast<std::int32_t>(0x5000008)},
+                    {70, 836}};
     tick.statuses.push_back(status);
     world.apply(tick);
     auto after = player_tooltip_target(world, 2);
@@ -67,19 +76,22 @@ int main() {
     check(rows[0].tex1 == 0 && rows[0].skin == 0, "Row snapshot owns original data");
     check(player_group_targets(world, ids)[0].tex2 == 0x5000008, "Groups expose current dye");
     world.entity(1)->appearance.tex1 = 0x1ff0000;
-    check(state.inventory != HudState::player(world, *world.entity(1)).inventory, "HUD heading detects dye");
+    check(state.inventory != HudState::player(world, *world.entity(1)).inventory,
+          "HUD heading detects dye");
     const auto* merchant = catalog.object("Merchant");
     check(merchant != nullptr, "Merchant definition");
     auto& shop = world.add(3, merchant->type, {50.2, 50.2});
     shop.profile.stats[31] = 0x1000;
     check(world_dyes(world, *world.entity(1))[0] == 0x1f0f8ff, "Nearby dye merchant world preview");
-    check(world.entity(1)->appearance.tex1 == 0x1ff0000, "Merchant preview never mutates authoritative dye");
+    check(world.entity(1)->appearance.tex1 == 0x1ff0000,
+          "Merchant preview never mutates authoritative dye");
     check(world_dyes(world, *world.entity(2))[0] == world.entity(2)->appearance.tex1,
           "Remote player has no local merchant preview");
     world.entity(3)->motion.position = {55, 55};
-    check(world_dyes(world, *world.entity(1))[0] == world.entity(1)->appearance.tex1, "Leaving merchant restores dye");
+    check(world_dyes(world, *world.entity(1))[0] == world.entity(1)->appearance.tex1,
+          "Leaving merchant restores dye");
     int sizes = 0, definitions = 0;
-    for (const auto& d : catalog.objects())
+    for (const auto& d : catalog.objects()) {
       if (d.texture.sheet >= 0 || d.texture.animated >= 0 || !d.texture.random.empty()) {
         // One representative per definition, including min/max and stepped sizes.
         const int size = d.min_size + (d.max_size - d.min_size) / 2;
@@ -90,6 +102,7 @@ int main() {
               "Every catalog appearance has a bounded bitmap");
         ++definitions;
       }
+    }
     for (const int size : {1, 5, 17, 50, 73, 100, 137, 200, 350, 500, 1000, 10000, 65535}) {
       auto image = appearances.animated(frame, size, false, 0x1ff0000, 0);
       check(image->width <= 1048 && image->height <= 1048, "Live size raster bounded");
@@ -101,29 +114,37 @@ int main() {
       check(art.contains("item4866"), "Unbaked textile icon available");
       check(!art.image("item4866").pixels.empty(), "Unbaked textile icon generated");
       int requested = 0;
-      for (const auto& d : catalog.objects())
+      for (const auto& d : catalog.objects()) {
         if (d.class_name == "Dye") {
           (void)art.image("item" + std::to_string(d.type));
-          if (++requested >= 200) break;
+          if (++requested >= 200) {
+            break;
+          }
         }
+      }
       check(requested == 200 && art.cache_entries() <= 256 && art.cache_bytes() <= 8 * 1024 * 1024,
             "Dynamic icons obey HUD cache bounds");
     }
     auto retained = appearances.animated(frame, 100, false, 0x1ff0000, 0);
     const auto saved = retained->pixels;
-    for (unsigned i = 1; i <= Appearances::maximum_entries + 256; ++i)
+    for (unsigned i = 1; i <= Appearances::maximum_entries + 256; ++i) {
       (void)appearances.animated(frame, 50, false, 0x1000000 | i, 0);
-    check(appearances.entries() <= Appearances::maximum_entries && appearances.bytes() <= Appearances::maximum_bytes,
+    }
+    check(appearances.entries() <= Appearances::maximum_entries &&
+              appearances.bytes() <= Appearances::maximum_bytes,
           "Count and byte cache bounds");
     check(appearances.evictions() > 0, "Churn evicts");
     check(retained->pixels == saved, "Eviction cannot invalidate retained draw");
     appearances.clear();
-    check(appearances.entries() == 0 && appearances.bytes() == 0, "Map teardown clears compositions");
-    for (unsigned i = 0; i < 48; ++i) (void)appearances.animated(frame, 3000, false, 0x1000000 | i, 0);
+    check(appearances.entries() == 0 && appearances.bytes() == 0,
+          "Map teardown clears compositions");
+    for (unsigned i = 0; i < 48; ++i) {
+      (void)appearances.animated(frame, 3000, false, 0x1000000 | i, 0);
+    }
     check(appearances.bytes() <= Appearances::maximum_bytes && appearances.entries() < 48,
           "Byte bound evicts below count bound");
-    std::cout << checks << " dye/mask/cache/stat checks passed, " << definitions << " catalog definitions and " << sizes
-              << " live sizes\n";
+    std::cout << checks << " dye/mask/cache/stat checks passed, " << definitions
+              << " catalog definitions and " << sizes << " live sizes\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

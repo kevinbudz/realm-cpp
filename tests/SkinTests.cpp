@@ -3,13 +3,18 @@
 #include "realm/ui/tooltip/PlayerTooltip.hpp"
 #include "flash_assets.hpp"
 #include <iostream>
+
 namespace {
 int checks{};
+
 void check(bool b, const char* s) {
   ++checks;
-  if (!b) throw std::runtime_error(s);
+  if (!b) {
+    throw std::runtime_error(s);
+  }
 }
 }
+
 int main() {
   try {
     realm::Catalog catalog(realm::flash::source_root);
@@ -21,7 +26,8 @@ int main() {
         "Account><OwnedSkins>836,835,836,65536,-1</OwnedSkins><Char "
         "id='7'><ObjectType>782</ObjectType><Texture>836</Texture></Char></Chars>");
     check(data.owned_skins == std::vector<int>({836, 835}), "owned IDs parse/dedupe/range");
-    check(data.best_level.at(782) == 20 && data.characters[0].skin == 836, "startup skin and level parse");
+    check(data.best_level.at(782) == 20 && data.characters[0].skin == 836,
+          "startup skin and level parse");
     check(catalog.skins().size() == 15, "all source skins");
     check(catalog.skin(836, 782) && !catalog.skin(835, 782), "class check");
     check(catalog.player_texture(782, 836).index == 2, "Merlin animation");
@@ -34,8 +40,10 @@ int main() {
     check(chooser.rows().size() == 3 && chooser.rows()[0].id == 0 && chooser.rows()[1].id == 836 &&
               chooser.rows()[2].id == 848,
           "source class order with Classic first");
-    check(chooser.owned(836) && !chooser.owned(835) && !chooser.owned(848), "only owned current-class skins select");
-    check(chooser.selected() == 836 && chooser.view_height() == 277, "current skin and source height");
+    check(chooser.owned(836) && !chooser.owned(835) && !chooser.owned(848),
+          "only owned current-class skins select");
+    check(chooser.selected() == 836 && chooser.view_height() == 277,
+          "current skin and source height");
     check(!chooser.update(800, 600), "unchanged modal does not redraw");
     const auto lp = chooser.list_position();
     chooser.pointer_down({lp.x + 100, lp.y + 140});
@@ -70,28 +78,33 @@ int main() {
     const auto gr = group.rebuilds();
     const auto before = realm::HudState::player(world, *world.entity(7));
     world.entity(7)->appearance.texture = 836;
-    check(
-        realm::HudState::player(world, *world.entity(7)).inventory.portrait == 836 && before.inventory.portrait == 782,
-        "HUD portrait follows live skin");
+    check(realm::HudState::player(world, *world.entity(7)).inventory.portrait == 836 &&
+              before.inventory.portrait == 782,
+          "HUD portrait follows live skin");
     check(realm::player_tooltip_target(world, 7)->skin == 836, "player tooltip live skin");
     check(menu.update(world, {100, 100}, false, 0, 1.2) && menu.rebuilds() == mr + 1,
           "open menu refreshes skin snapshot");
-    check(group.refresh_appearance(world) && group.rebuilds() == gr + 1 && group.players()[0].skin == 836,
+    check(group.refresh_appearance(world) && group.rebuilds() == gr + 1 &&
+              group.players()[0].skin == 836,
           "group refresh keeps order and appearance");
     realm::HudState state;
-    state.party_members(world, *world.entity(99), party,
-                        ids.size() == 1 ? std::array<std::int32_t, 6>{7, -1, -1, -1, -1, -1} : party.members(), 0);
+    state.party_members(
+        world, *world.entity(99), party,
+        ids.size() == 1 ? std::array<std::int32_t, 6>{7, -1, -1, -1, -1, -1} : party.members(), 0);
     check(state.party.members[0]->portrait == 836, "party portrait live skin");
     for (const auto& skin : catalog.skins()) {
       check(art.contains("portrait" + std::to_string(skin.id)), "skin portrait exists");
       (void)art.image("portrait" + std::to_string(skin.id));
-      for (int n = 0; n < 2; ++n)
-        check(art.contains("skinwalk" + std::to_string(skin.class_type) + "-" + std::to_string(skin.id) + "-" +
-                           std::to_string(n)),
+      for (int n = 0; n < 2; ++n) {
+        check(art.contains("skinwalk" + std::to_string(skin.class_type) + "-" +
+                           std::to_string(skin.id) + "-" + std::to_string(n)),
               "skin walking frame exists");
+      }
     }
-    check(art.cache_entries() <= 256 && art.cache_bytes() <= 8 * 1024 * 1024, "combined appearance art cache bounded");
-    for (const auto size : std::array<realm::Vec2, 4>{{{800, 600}, {1280, 720}, {1600, 1200}, {3840, 2160}}}) {
+    check(art.cache_entries() <= 256 && art.cache_bytes() <= 8 * 1024 * 1024,
+          "combined appearance art cache bounded");
+    for (const auto size :
+         std::array<realm::Vec2, 4>{{{800, 600}, {1280, 720}, {1600, 1200}, {3840, 2160}}}) {
       fonts.set_pixel_scale(size.y / 600);
       chooser.update(size.x, size.y);
       check(chooser.image().width == size.x && chooser.image().height == size.y,
@@ -104,7 +117,8 @@ int main() {
     chooser.update(3840, 2160, 200);
     check(chooser.change().width <= 375 && chooser.change().height <= 375,
           "walking preview updates a bounded sprite region");
-    std::cout << checks << " skin ownership/class/selection/resize/live portrait/art checks passed\n";
+    std::cout << checks
+              << " skin ownership/class/selection/resize/live portrait/art checks passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

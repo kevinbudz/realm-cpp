@@ -22,61 +22,90 @@ constexpr std::size_t decode_chunk_frames = 4096;
 constexpr std::size_t max_clip_frames = max_clip_seconds * sample_rate;
 constexpr std::size_t max_name_length = 128;
 
-// Reads the asset from the disk root. Empty when the root is unset, the file is missing, or it cannot be read.
+// Reads the asset from the disk root. Empty when the root is unset, the file is missing, or it
+// cannot be read.
 std::optional<std::string> read_disk(const SourceConfig& source, const std::string& name) {
-  if (source.disk_root.empty()) return std::nullopt;
+  if (source.disk_root.empty()) {
+    return std::nullopt;
+  }
   const auto path = std::filesystem::path(source.disk_root) / (name + ".mp3");
   std::error_code error;
-  if (!std::filesystem::is_regular_file(path, error)) return std::nullopt;
+  if (!std::filesystem::is_regular_file(path, error)) {
+    return std::nullopt;
+  }
   const auto size = std::filesystem::file_size(path, error);
-  if (error || size > static_cast<std::uintmax_t>(max_source_bytes)) return std::nullopt;
+  if (error || size > static_cast<std::uintmax_t>(max_source_bytes)) {
+    return std::nullopt;
+  }
   std::string bytes(static_cast<std::size_t>(size), '\0');
   std::ifstream file(path, std::ios::binary);
-  if (!file || !file.read(bytes.data(), static_cast<std::streamsize>(bytes.size()))) return std::nullopt;
+  if (!file || !file.read(bytes.data(), static_cast<std::streamsize>(bytes.size()))) {
+    return std::nullopt;
+  }
   return bytes;
 }
 
 // Fallback fetch. Any transport error, timeout or non-200 status counts as a missing asset.
 std::optional<std::string> read_http(const SourceConfig& source, const std::string& name) {
-  if (source.http_host.empty()) return std::nullopt;
+  if (source.http_host.empty()) {
+    return std::nullopt;
+  }
   try {
-    auto response = net::http_get(source.http_host, source.http_port, "/sfx/" + name + ".mp3", source.http_timeout);
-    if (response.status == 200 && !response.body.empty()) return std::optional<std::string>(std::move(response.body));
+    auto response = net::http_get(source.http_host, source.http_port, "/sfx/" + name + ".mp3",
+                                  source.http_timeout);
+    if (response.status == 200 && !response.body.empty()) {
+      return std::optional<std::string>(std::move(response.body));
+    }
   } catch (const std::exception&) {
   }
   return std::nullopt;
 }
 
-// Decodes to interleaved stereo float at the mixer rate, cutting at the clip limit. False for malformed or empty
-// input, or when stopping is requested mid-decode.
+// Decodes to interleaved stereo float at the mixer rate, cutting at the clip limit. False for
+// malformed or empty input, or when stopping is requested mid-decode.
 bool decode(std::string_view bytes, const std::atomic<bool>& stopping, Clip& clip) {
   ma_decoder decoder;
   const auto config = ma_decoder_config_init(ma_format_f32, channels, sample_rate);
-  if (ma_decoder_init_memory(bytes.data(), bytes.size(), &config, &decoder) != MA_SUCCESS) return false;
+  if (ma_decoder_init_memory(bytes.data(), bytes.size(), &config, &decoder) != MA_SUCCESS) {
+    return false;
+  }
+
   const struct Release {
     ma_decoder* target;
+
     ~Release() { ma_decoder_uninit(target); }
   } release{&decoder};
 
   std::vector<float> samples;
   ma_uint64 length{};
-  if (ma_decoder_get_length_in_pcm_frames(&decoder, &length) == MA_SUCCESS && length > 0)
-    samples.reserve(static_cast<std::size_t>(std::min<ma_uint64>(length, max_clip_frames + decode_chunk_frames)) *
+  if (ma_decoder_get_length_in_pcm_frames(&decoder, &length) == MA_SUCCESS && length > 0) {
+    samples.reserve(static_cast<std::size_t>(
+                        std::min<ma_uint64>(length, max_clip_frames + decode_chunk_frames)) *
                     channels);
+  }
   std::vector<float> chunk(decode_chunk_frames * channels);
   while (!stopping.load(std::memory_order_relaxed)) {
     ma_uint64 frames{};
     ma_decoder_read_pcm_frames(&decoder, chunk.data(), decode_chunk_frames, &frames);
-    if (frames == 0) break;
-    samples.insert(samples.end(), chunk.begin(), chunk.begin() + static_cast<std::ptrdiff_t>(frames * channels));
-    if (samples.size() > max_clip_frames * channels) break;
+    if (frames == 0) {
+      break;
+    }
+    samples.insert(samples.end(), chunk.begin(),
+                   chunk.begin() + static_cast<std::ptrdiff_t>(frames * channels));
+    if (samples.size() > max_clip_frames * channels) {
+      break;
+    }
   }
-  if (stopping.load(std::memory_order_relaxed)) return false;
+  if (stopping.load(std::memory_order_relaxed)) {
+    return false;
+  }
   if (samples.size() > max_clip_frames * channels) {
     clip.truncated = true;
     samples.resize(max_clip_frames * channels);
   }
-  if (samples.empty()) return false;
+  if (samples.empty()) {
+    return false;
+  }
   clip.samples = std::move(samples);
   return true;
 }
@@ -84,7 +113,8 @@ bool decode(std::string_view bytes, const std::atomic<bool>& stopping, Clip& cli
 // Output device wrapper. Only this translation unit sees miniaudio.
 class Device {
  public:
-  // Opens and starts playback. Returns null with status set to the reason when no device is available.
+  // Opens and starts playback. Returns null with status set to the reason when no device is
+  // available.
   static std::unique_ptr<Device> open(Mixer& mixer, bool null_backend, std::string& status) {
     std::unique_ptr<Device> device(new Device);
     auto config = ma_device_config_init(ma_device_type_playback);
@@ -113,36 +143,49 @@ class Device {
     status = std::string("output ") + ma_get_backend_name(device->device_.pContext->backend);
     return device;
   }
+
   ~Device() {
-    if (initialized_) ma_device_uninit(&device_);
+    if (initialized_) {
+      ma_device_uninit(&device_);
+    }
   }
+
   Device(const Device&) = delete;
   Device& operator=(const Device&) = delete;
 
  private:
   Device() = default;
+
   // Audio thread: the only call into the mixer from the device.
   static void render(ma_device* device, void* output, const void*, ma_uint32 frames) {
     static_cast<Mixer*>(device->pUserData)->mix(static_cast<float*>(output), frames);
   }
+
   ma_device device_{};
   bool initialized_{false};
 };
 
 struct NameHash {
   using is_transparent = void;
-  std::size_t operator()(std::string_view name) const noexcept { return std::hash<std::string_view>{}(name); }
+
+  std::size_t operator()(std::string_view name) const noexcept {
+    return std::hash<std::string_view>{}(name);
+  }
 };
 
 }  // namespace
 
 bool valid_name(std::string_view name) noexcept {
-  if (name.empty() || name.size() > max_name_length || name.front() == '/' || name.back() == '/') return false;
+  if (name.empty() || name.size() > max_name_length || name.front() == '/' || name.back() == '/') {
+    return false;
+  }
   char previous = '\0';
   for (const char c : name) {
-    const bool allowed =
-        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '/';
-    if (!allowed || (c == '/' && previous == '/')) return false;
+    const bool allowed = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                         (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '/';
+    if (!allowed || (c == '/' && previous == '/')) {
+      return false;
+    }
     previous = c;
   }
   return true;
@@ -156,11 +199,14 @@ std::string default_sfx_root() {
 #endif
 }
 
-// ---- Mixer ----------------------------------------------------------------------------------------------------------
+// ---- Mixer
+// ----------------------------------------------------------------------------------------------------------
 
 bool Mixer::play(Clip& clip, float gain) noexcept {
   const auto tail = tail_.load(std::memory_order_relaxed);
-  if (tail - head_.load(std::memory_order_acquire) >= command_capacity) return false;
+  if (tail - head_.load(std::memory_order_acquire) >= command_capacity) {
+    return false;
+  }
   // Pin before publishing: the mixer can only release what it has already seen.
   clip.pins.fetch_add(1);
   commands_[tail % command_capacity] = Command{&clip, gain, false};
@@ -195,7 +241,9 @@ void Mixer::start(Clip& clip, float gain) noexcept {
   if (!target) {
     target = &voices_.front();
     for (auto& voice : voices_) {
-      if (voice.order < target->order) target = &voice;
+      if (voice.order < target->order) {
+        target = &voice;
+      }
     }
     release(*target);
     steals_.fetch_add(1, std::memory_order_relaxed);
@@ -208,7 +256,9 @@ void Mixer::start(Clip& clip, float gain) noexcept {
 
 void Mixer::end_voices() noexcept {
   for (auto& voice : voices_) {
-    if (voice.clip) release(voice);
+    if (voice.clip) {
+      release(voice);
+    }
   }
 }
 
@@ -217,18 +267,23 @@ void Mixer::mix(float* out, std::size_t frames) noexcept {
   const auto tail = tail_.load(std::memory_order_acquire);
   for (; head != tail; ++head) {
     const Command command = commands_[head % command_capacity];
-    if (command.stop)
+    if (command.stop) {
       end_voices();
-    else
+    } else {
       start(*command.clip, command.gain);
+    }
   }
   head_.store(head, std::memory_order_release);
-  if (stop_requested_.exchange(false, std::memory_order_acq_rel)) end_voices();
+  if (stop_requested_.exchange(false, std::memory_order_acq_rel)) {
+    end_voices();
+  }
 
   std::fill_n(out, frames * channels, 0.f);
   std::uint32_t active = 0;
   for (auto& voice : voices_) {
-    if (!voice.clip) continue;
+    if (!voice.clip) {
+      continue;
+    }
     const float* samples = voice.clip->samples.data();
     const std::size_t total = voice.clip->frames();
     const std::size_t count = std::min(frames, total - voice.position);
@@ -239,16 +294,20 @@ void Mixer::mix(float* out, std::size_t frames) noexcept {
       out[target + 1] += samples[source + 1] * voice.gain;
     }
     voice.position += count;
-    if (voice.position >= total)
+    if (voice.position >= total) {
       release(voice);
-    else
+    } else {
       ++active;
+    }
   }
-  for (std::size_t i = 0; i < frames * channels; ++i) out[i] = std::clamp(out[i], -1.f, 1.f);
+  for (std::size_t i = 0; i < frames * channels; ++i) {
+    out[i] = std::clamp(out[i], -1.f, 1.f);
+  }
   active_.store(active, std::memory_order_relaxed);
 }
 
-// ---- Library --------------------------------------------------------------------------------------------------------
+// ---- Library
+// --------------------------------------------------------------------------------------------------------
 
 Library::Library(SourceConfig source, std::size_t cache_bytes, std::size_t queue_capacity)
     : source_(std::move(source)),
@@ -272,8 +331,12 @@ Library::State Library::state(std::string_view name) const {
 }
 
 Library::State Library::request(std::string_view name) {
-  if (const auto found = entries_.find(name); found != entries_.end()) return found->second.state;
-  if (!valid_name(name)) return State::absent;
+  if (const auto found = entries_.find(name); found != entries_.end()) {
+    return found->second.state;
+  }
+  if (!valid_name(name)) {
+    return State::absent;
+  }
   {
     std::lock_guard lock(mutex_);
     if (jobs_.size() >= queue_capacity_) {
@@ -289,7 +352,9 @@ Library::State Library::request(std::string_view name) {
 
 std::shared_ptr<Clip> Library::ready(std::string_view name) {
   const auto found = entries_.find(name);
-  if (found == entries_.end() || found->second.state != State::ready) return nullptr;
+  if (found == entries_.end() || found->second.state != State::ready) {
+    return nullptr;
+  }
   found->second.last_used = ++clock_;
   return found->second.clip;
 }
@@ -302,7 +367,9 @@ void Library::poll() {
   }
   for (auto& result : done) {
     const auto found = entries_.find(result.name);
-    if (found == entries_.end() || found->second.state != State::loading) continue;
+    if (found == entries_.end() || found->second.state != State::loading) {
+      continue;
+    }
     Entry& entry = found->second;
     if (result.clip) {
       entry.state = State::ready;
@@ -310,7 +377,9 @@ void Library::poll() {
       entry.last_used = ++clock_;
       bytes_ += entry.clip->bytes();
       ++stats_.loads_ok;
-      if (result.truncated) ++stats_.truncations;
+      if (result.truncated) {
+        ++stats_.truncations;
+      }
     } else {
       entry.state = State::failed;
       ++stats_.loads_failed;
@@ -323,10 +392,16 @@ void Library::trim() {
     auto victim = entries_.end();
     for (auto it = entries_.begin(); it != entries_.end(); ++it) {
       const Entry& entry = it->second;
-      if (entry.state != State::ready || entry.clip->pins.load() != 0) continue;
-      if (victim == entries_.end() || entry.last_used < victim->second.last_used) victim = it;
+      if (entry.state != State::ready || entry.clip->pins.load() != 0) {
+        continue;
+      }
+      if (victim == entries_.end() || entry.last_used < victim->second.last_used) {
+        victim = it;
+      }
     }
-    if (victim == entries_.end()) return;
+    if (victim == entries_.end()) {
+      return;
+    }
     bytes_ -= victim->second.clip->bytes();
     entries_.erase(victim);
     ++stats_.evictions;
@@ -344,11 +419,15 @@ void Library::run() {
     {
       std::unique_lock lock(mutex_);
       wake_.wait(lock, [this] { return stopping_.load() || !jobs_.empty(); });
-      if (stopping_.load()) return;
+      if (stopping_.load()) {
+        return;
+      }
       name = std::move(jobs_.front());
       jobs_.pop_front();
     }
-    if (source_.before_load) source_.before_load();
+    if (source_.before_load) {
+      source_.before_load();
+    }
     Result result{name, nullptr, false};
     if (!stopping_.load()) {
       auto clip = std::make_shared<Clip>();
@@ -361,31 +440,42 @@ void Library::run() {
       }
     }
     std::lock_guard lock(mutex_);
-    if (stopping_.load()) return;
+    if (stopping_.load()) {
+      return;
+    }
     results_.push_back(std::move(result));
   }
 }
 
-// ---- Player ---------------------------------------------------------------------------------------------------------
+// ---- Player
+// ---------------------------------------------------------------------------------------------------------
 
 PlayerConfig config_from_environment() {
   PlayerConfig config;
   config.source.disk_root = default_sfx_root();
-  if (const char* root = std::getenv("REALM_SFX_ROOT"); root && *root) config.source.disk_root = root;
-  if (const char* mode = std::getenv("REALM_AUDIO"); mode && std::string_view(mode) == "0") config.output = false;
-  if (const char* device = std::getenv("REALM_AUDIO_DEVICE"); device && std::string_view(device) == "null")
+  if (const char* root = std::getenv("REALM_SFX_ROOT"); root && *root) {
+    config.source.disk_root = root;
+  }
+  if (const char* mode = std::getenv("REALM_AUDIO"); mode && std::string_view(mode) == "0") {
+    config.output = false;
+  }
+  if (const char* device = std::getenv("REALM_AUDIO_DEVICE");
+      device && std::string_view(device) == "null") {
     config.null_output = true;
+  }
   if (const char* megabytes = std::getenv("REALM_AUDIO_CACHE_MB"); megabytes && *megabytes) {
     char* end = nullptr;
     const unsigned long value = std::strtoul(megabytes, &end, 10);
-    if (end != megabytes && *end == '\0' && value >= 1 && value <= 4096)
+    if (end != megabytes && *end == '\0' && value >= 1 && value <= 4096) {
       config.cache_bytes = static_cast<std::size_t>(value) << 20U;
+    }
   }
   return config;
 }
 
 struct Player::Impl {
   using Clock = std::chrono::steady_clock;
+
   struct Pending {
     std::string name;
     float gain{1.f};
@@ -393,13 +483,16 @@ struct Player::Impl {
   };
 
   explicit Impl(const PlayerConfig& config)
-      : library(config.source, config.cache_bytes, config.queue_capacity), pending_timeout(config.pending_timeout) {
+      : library(config.source, config.cache_bytes, config.queue_capacity),
+        pending_timeout(config.pending_timeout) {
     if (!config.output) {
       status = "output disabled";
       return;
     }
     device = Device::open(mixer, config.null_output, status);
-    if (!device) std::fprintf(stderr, "realm audio: %s; sounds disabled\n", status.c_str());
+    if (!device) {
+      std::fprintf(stderr, "realm audio: %s; sounds disabled\n", status.c_str());
+    }
   }
 
   // Accepted play: with a device it joins the mixer; without one it is only counted.
@@ -408,10 +501,11 @@ struct Player::Impl {
       ++counts.plays_started;
       return;
     }
-    if (mixer.play(clip, gain))
+    if (mixer.play(clip, gain)) {
       ++counts.plays_started;
-    else
+    } else {
       ++counts.command_dropped;
+    }
   }
 
   void defer(std::string_view name, float gain, Clock::time_point now) {
@@ -433,7 +527,9 @@ struct Player::Impl {
         }
       }
       if (state == Library::State::loading && now <= play.deadline) {
-        if (kept != i) pending[kept] = std::move(play);
+        if (kept != i) {
+          pending[kept] = std::move(play);
+        }
         ++kept;
         continue;
       }
@@ -488,13 +584,17 @@ void Player::play(std::string_view name, float volume, bool is_fx) {
   const float gain = std::isfinite(volume) && volume > 0.f ? volume : 0.f;
   switch (i.library.state(name)) {
     case Library::State::ready:
-      if (const auto clip = i.library.ready(name)) i.start(*clip, gain);
+      if (const auto clip = i.library.ready(name)) {
+        i.start(*clip, gain);
+      }
       break;
     case Library::State::loading:
       i.defer(name, gain, now);
       break;
     case Library::State::absent:
-      if (i.library.request(name) == Library::State::loading) i.defer(name, gain, now);
+      if (i.library.request(name) == Library::State::loading) {
+        i.defer(name, gain, now);
+      }
       break;
     case Library::State::failed:
       // A failed sound is never retried, so the play is silently lost.
@@ -503,13 +603,17 @@ void Player::play(std::string_view name, float volume, bool is_fx) {
 }
 
 void Player::preload(std::string_view name) {
-  if (valid_name(name)) impl_->library.request(name);
+  if (valid_name(name)) {
+    impl_->library.request(name);
+  }
 }
 
 void Player::tick() {
   auto& i = *impl_;
   // SoundEffectLibrary.clear: the dedupe map resets on every 5th tick.
-  if (++i.ticks % 5 == 0) i.deduped.clear();
+  if (++i.ticks % 5 == 0) {
+    i.deduped.clear();
+  }
   i.service(Impl::Clock::now());
 }
 
@@ -521,13 +625,19 @@ void Player::cancel_pending() {
 
 void Player::stop_all() {
   auto& i = *impl_;
-  if (i.device) i.mixer.stop_all();
+  if (i.device) {
+    i.mixer.stop_all();
+  }
   cancel_pending();
 }
 
-bool Player::output_active() const noexcept { return impl_->device != nullptr; }
+bool Player::output_active() const noexcept {
+  return impl_->device != nullptr;
+}
 
-const std::string& Player::output_status() const noexcept { return impl_->status; }
+const std::string& Player::output_status() const noexcept {
+  return impl_->status;
+}
 
 Counters Player::counters() const {
   const auto& i = *impl_;

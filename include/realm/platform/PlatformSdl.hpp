@@ -18,6 +18,7 @@ class WindowSession {
  private:
   void* context{};
 };
+
 class CursorSet {
  public:
   CursorSet(std::vector<unsigned char> pixels, int width, int height);
@@ -28,7 +29,8 @@ class CursorSet {
 
  private:
   std::vector<unsigned char> pixels_;
-  int width_{}, height_{};
+  int width_{};
+  int height_{};
   std::array<SDL_Cursor*, 16> cursors_{};
   int shown_{-2};
 };

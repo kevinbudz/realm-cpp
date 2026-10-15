@@ -4,36 +4,48 @@
 #include "realm/objects/Movement.hpp"
 #include <iostream>
 #include <stdexcept>
+
 namespace {
 int checks{};
+
 void check(bool ok, const char* why) {
   ++checks;
-  if (!ok) throw std::runtime_error(why);
+  if (!ok) {
+    throw std::runtime_error(why);
+  }
 }
 }
+
 int main() {
   try {
     realm::Catalog catalog(realm::flash::source_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const auto grass = catalog.ground("Grass")->type;
-    for (int y = 0; y < 8; ++y)
-      for (int x = 0; x < 8; ++x) world.tile(x, y)->type = grass;
+    for (int y = 0; y < 8; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        world.tile(x, y)->type = grass;
+      }
+    }
     world.add(99, catalog.object("Wizard")->type, {2.5, 2.5});
     world.set_player_id(99);
     world.entity(99)->combat.hp = 200;
     const realm::ObjectDef* enemy{};
     const realm::ProjectileDef* projectile{};
-    for (const auto& object : catalog.objects())
-      if (object.enemy)
-        for (const auto& p : object.projectiles)
-          if (!p.motion.wavy && !p.motion.parametric && !p.motion.boomerang && !p.motion.amplitude &&
-              !p.motion.accelerate && !p.motion.decelerate && !p.multi_hit && p.motion.speed > 0 &&
-              p.motion.speed <= 1000 && p.motion.lifetime_ms >= 500 && catalog.object(p.object_id)) {
+    for (const auto& object : catalog.objects()) {
+      if (object.enemy) {
+        for (const auto& p : object.projectiles) {
+          if (!p.motion.wavy && !p.motion.parametric && !p.motion.boomerang &&
+              !p.motion.amplitude && !p.motion.accelerate && !p.motion.decelerate && !p.multi_hit &&
+              p.motion.speed > 0 && p.motion.speed <= 1000 && p.motion.lifetime_ms >= 500 &&
+              catalog.object(p.object_id)) {
             enemy = &object;
             projectile = &p;
             break;
           }
+        }
+      }
+    }
     check(enemy && projectile, "straight hostile projectile fixture exists");
     world.add(88, enemy->type, {1.5, 2.5});
     realm::Combat combat(world);
@@ -49,7 +61,8 @@ int main() {
     check(ack.size() == 1 && ack[0].id == 31, "enemy shot ACK");
     check(combat.projectiles().size() == 1, "enemy projectile created");
     const auto entity_id = combat.projectiles()[0].entity_id;
-    check(world.entity(entity_id) && world.entity(entity_id)->projectile, "drawable projectile state");
+    check(world.entity(entity_id) && world.entity(entity_id)->projectile,
+          "drawable projectile state");
     const auto elapsed = static_cast<std::int32_t>(10000 / projectile->motion.speed);
     auto hits = combat.update(elapsed);
     check(hits.size() == 1 && hits[0].id == 28, "player hit wire message");
@@ -57,7 +70,8 @@ int main() {
     check(hit.i32() == 123, "player hit preserves full bullet ID");
     check(world.entity(99)->combat.hp == 200 && world.damage_cues().back().damage == 30,
           "damage feedback preserves server-authoritative HP");
-    check(combat.projectiles().empty() && !world.entity(entity_id), "single hit projectile removed");
+    check(combat.projectiles().empty() && !world.entity(entity_id),
+          "single hit projectile removed");
     world.entity(99)->combat.condition = 1U << 20U;
     (void)combat.receive({realm::flash::PacketId::ENEMYSHOOT, shot}, 1000);
     hits = combat.update(1000 + elapsed);
@@ -75,29 +89,35 @@ int main() {
           "AOE feedback preserves authoritative HP");
     aoe.position = {7, 7};
     (void)combat.receive({realm::flash::PacketId::AOE, aoe}, 2001);
-    check(world.entity(99)->combat.hp == 200 && world.damage_cues().size() == 2, "outside AOE no feedback");
+    check(world.entity(99)->combat.hp == 200 && world.damage_cues().size() == 2,
+          "outside AOE no feedback");
     const realm::ObjectDef* weapon{};
-    for (const auto& object : catalog.objects())
+    for (const auto& object : catalog.objects()) {
       if (!object.projectiles.empty() && object.xml.number("RateOfFire") > 0 &&
           object.xml.integer("NumProjectiles", 1) == 1 && object.projectiles[0].id == 0 &&
           catalog.object(object.projectiles[0].object_id)) {
         weapon = &object;
         break;
       }
+    }
     check(weapon, "weapon fixture exists");
     world.entity(99)->profile.stats[8] = weapon->type;
     world.entity(99)->combat.attack_start = -100000;
     auto outgoing = combat.shoot(0, 3000);
     check(outgoing.size() == 1 && outgoing[0].id == 3, "local shot sends PLAYERSHOOT");
-    check(combat.projectiles().size() == 1 && combat.projectiles()[0].bullet_id == 0, "first local bullet ID zero");
+    check(combat.projectiles().size() == 1 && combat.projectiles()[0].bullet_id == 0,
+          "first local bullet ID zero");
     check(combat.shoot(0, 3001).empty(), "rate of fire enforced");
     outgoing = combat.shoot(0, 4000);
-    check(!outgoing.empty() && combat.projectiles().back().bullet_id == -1, "subsequent local bullet ID negative");
+    check(!outgoing.empty() && combat.projectiles().back().bullet_id == -1,
+          "subsequent local bullet ID negative");
     combat.reset(123);
     check(combat.projectiles().empty(), "map transition clears projectiles");
     check(realm::item_data::rank(-1) == -1 && realm::item_data::rank(0) == -1, "missing item rank");
-    check(realm::item_data::rank(0xff) == 1 && realm::item_data::rank(128) == 8, "rank chooses lowest set tier bit");
-    check(realm::item_data::stat(128 | static_cast<int>(realm::item_data::damage), realm::item_data::damage) == .4,
+    check(realm::item_data::rank(0xff) == 1 && realm::item_data::rank(128) == 8,
+          "rank chooses lowest set tier bit");
+    check(realm::item_data::stat(128 | static_cast<int>(realm::item_data::damage),
+                                 realm::item_data::damage) == .4,
           "tier eight damage modifier");
     world.entity(99)->profile.stats[71] =
         128 | static_cast<int>(realm::item_data::damage | realm::item_data::rate_of_fire);
@@ -106,22 +126,25 @@ int main() {
     const auto& pdef = weapon->projectiles[0];
     const int minimum = pdef.min_damage + static_cast<int>(pdef.min_damage * .4),
               maximum = pdef.max_damage + static_cast<int>(pdef.max_damage * .4);
-    const int expected_damage =
-        static_cast<int>(expected.range(static_cast<std::uint32_t>(minimum), static_cast<std::uint32_t>(maximum)) *
-                         realm::attack_multiplier(*world.entity(99)));
+    const int expected_damage = static_cast<int>(
+        expected.range(static_cast<std::uint32_t>(minimum), static_cast<std::uint32_t>(maximum)) *
+        realm::attack_multiplier(*world.entity(99)));
     outgoing = combat.shoot(0, 5000);
     check(!outgoing.empty() && combat.projectiles().back().damage == expected_damage,
           "ItemData damage bounds truncate before RNG");
     check(std::abs(world.entity(99)->combat.attack_period -
-                   1 / realm::attack_frequency(*world.entity(99)) / (weapon->rate_of_fire * 1.4)) < 1e-9,
+                   1 / realm::attack_frequency(*world.entity(99)) / (weapon->rate_of_fire * 1.4)) <
+              1e-9,
           "ItemData rate persists in animation period");
     const realm::ObjectDef* ability{};
-    for (const auto& object : catalog.objects())
-      if (object.usable && object.ability_shoot && !object.projectiles.empty() && object.num_projectiles > 0 &&
-          object.num_projectiles <= 255 && catalog.object(object.projectiles[0].object_id)) {
+    for (const auto& object : catalog.objects()) {
+      if (object.usable && object.ability_shoot && !object.projectiles.empty() &&
+          object.num_projectiles > 0 && object.num_projectiles <= 255 &&
+          catalog.object(object.projectiles[0].object_id)) {
         ability = &object;
         break;
       }
+    }
     check(ability, "shoot ability fixture exists");
     world.entity(99)->profile.stats[9] = ability->type;
     world.entity(99)->profile.stats[4] = ability->mp_cost;

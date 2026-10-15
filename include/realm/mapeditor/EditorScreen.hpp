@@ -41,8 +41,19 @@ enum class EditorInputKey {
   zoom_in,
   zoom_out
 };
+
 struct EditorInput {
-  enum class Kind { pointer_move, pointer_down, pointer_up, wheel, key_down, key_up, text, pointer_left, focus_lost };
+  enum class Kind {
+    pointer_move,
+    pointer_down,
+    pointer_up,
+    wheel,
+    key_down,
+    key_up,
+    text,
+    pointer_left,
+    focus_lost
+  };
   Kind kind{};
   Vec2 point{};  // Drawable pixels, in the same coordinates as the startup view.
   int button{1};
@@ -52,28 +63,39 @@ struct EditorInput {
   bool shift{}, control{}, repeat{};
 };
 
-// Headless Flash map-editor screen and input state. The bitmap is rebuilt only when the document or view changes.
+// Headless Flash map-editor screen and input state. The bitmap is rebuilt only when the document or
+// view changes.
 class EditorScreen {
  public:
-  EditorScreen(const Catalog& catalog, const FontBook& fonts, const std::filesystem::path& flash_root,
-               const HudArt* art = nullptr);
+  EditorScreen(const Catalog& catalog, const FontBook& fonts,
+               const std::filesystem::path& flash_root, const HudArt* art = nullptr);
 
   void resize(double drawable_width, double drawable_height, double pixel_scale);
   void handle(const EditorInput& event);
   void cancel_pointer();
   [[nodiscard]] bool covers(Vec2 drawable_point) const;
   [[nodiscard]] bool wants_text() const;
+
   [[nodiscard]] bool captured() const { return drag_ != Drag::none; }
+
   [[nodiscard]] bool take_test_request();
   [[nodiscard]] bool take_exit_request();
   [[nodiscard]] const Image& image();
+
   [[nodiscard]] std::uint64_t revision() const { return image_revision_; }
+
   [[nodiscard]] MapDocument& document() { return document_; }
+
   [[nodiscard]] const MapDocument& document() const { return document_; }
+
   [[nodiscard]] EditorLayer layer() const { return layer_; }
+
   [[nodiscard]] EditorTool tool() const { return tool_; }
+
   [[nodiscard]] double zoom() const { return zoom_; }
+
   [[nodiscard]] const std::string& status() const { return status_; }
+
   void set_status(std::string message) {
     status_ = std::move(message);
     mark_dirty();
@@ -82,6 +104,7 @@ class EditorScreen {
  private:
   enum class FileMode { none, load, save };
   enum class Drag { none, paint, rectangle, pan };
+
   struct Point {
     int x{}, y{};
   };
@@ -91,8 +114,9 @@ class EditorScreen {
   [[nodiscard]] bool in_canvas(Vec2 logical) const;
   [[nodiscard]] std::uint32_t choice_color(EditorLayer layer, const EditorChoice& choice) const;
   [[nodiscard]] const Image* thumbnail(EditorLayer layer, int type);
-  void blit_thumbnail(const Image& thumbnail, double x, double y, double size, double opacity = 1, double clip_x = 0,
-                      double clip_y = 0, double clip_width = 1e9, double clip_height = 1e9);
+  void blit_thumbnail(const Image& thumbnail, double x, double y, double size, double opacity = 1,
+                      double clip_x = 0, double clip_y = 0, double clip_width = 1e9,
+                      double clip_height = 1e9);
   void update_filtered();
   void set_layer(EditorLayer layer);
   void choose_tool(EditorTool tool);
@@ -113,7 +137,8 @@ class EditorScreen {
   void render_toolbar();
   void render_dialog();
   void fill(double x, double y, double width, double height, std::uint32_t color);
-  void text(std::string_view value, int size, std::uint32_t color, double x, double y, bool bold = false);
+  void text(std::string_view value, int size, std::uint32_t color, double x, double y,
+            bool bold = false);
   void outline(double x, double y, double width, double height, std::uint32_t color);
 
   const Catalog& catalog_;

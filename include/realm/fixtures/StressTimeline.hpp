@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <deque>
 #include <map>
+
 namespace realm::quality {
 // Offline test driver. Owns only a timeline and fixture inputs: World, Combat,
 // interpolation, particles, and wire encoders remain the production systems.
@@ -20,21 +21,29 @@ struct StressConfig {
   int reset_every{}, replace_every{};
   static StressConfig load(const std::filesystem::path& path);
 };
+
 class StressTimeline {
  public:
   StressTimeline(World& world, StressConfig config);
   void step();
+
   [[nodiscard]] std::int32_t time() const { return tick_ * config_.step_ms; }
+
   [[nodiscard]] const StressConfig& config() const { return config_; }
+
   [[nodiscard]] Vec2 camera_position() const;
   [[nodiscard]] double camera_angle() const;
   [[nodiscard]] double zoom_factor() const;
+
   [[nodiscard]] std::size_t projectile_count() const { return flights().size(); }
+
   void sample_scene(const Camera& camera, int width, int height, std::span<const Quad> quads,
                     const std::array<std::uint64_t, 5>& submitted);
+
   [[nodiscard]] const Party* party() const { return replay_ ? &replay_->party() : nullptr; }
-  void sample_resources(double rss_mb, std::size_t cpu_entries, std::size_t cpu_bytes, std::size_t gpu_entries,
-                        std::size_t gpu_bytes);
+
+  void sample_resources(double rss_mb, std::size_t cpu_entries, std::size_t cpu_bytes,
+                        std::size_t gpu_entries, std::size_t gpu_bytes);
   void write_summary(const std::filesystem::path& path) const;
   static void describe(const Catalog& catalog, const std::filesystem::path& path);
 
@@ -44,12 +53,15 @@ class StressTimeline {
   void apply(const net::Update& update);
   void apply(const net::Tick& tick);
   void receive(const net::Event& event, std::int32_t now);
+
   [[nodiscard]] const std::vector<FlyingProjectile>& flights() const {
     return replay_ ? replay_->projectiles() : combat_.projectiles();
   }
+
   [[nodiscard]] const TargetStats& target_stats() const {
     return replay_ ? replay_->target_stats() : combat_.target_stats();
   }
+
   void packets(std::vector<net::Packet> packets);
   void medusa(std::int32_t now);
   Vec2 placement(int index, int kind) const;

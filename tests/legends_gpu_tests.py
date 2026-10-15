@@ -12,8 +12,8 @@ from urllib.parse import parse_qs
 from PIL import Image, ImageChops
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary-dir',type=Path,default=ROOT/'build')
-p.add_argument('--output',type=Path,default=ROOT/'build/legends-gpu')
+p.add_argument('--binary-dir',type=Path,default=ROOT/'build/tests')
+p.add_argument('--output',type=Path,default=ROOT/'build/tests/legends-gpu')
 p.add_argument('--visible',action='store_true')
 a=p.parse_args();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
 results={}
@@ -81,7 +81,7 @@ for scenario in ('success','error','late','detail-late','teardown'):
    lines += [capture(1200,'pending'),'1300 quit']
   if scenario=='success':lines=[str(int(line.split(' ',1)[0])+(1500 if int(line.split(' ',1)[0])>=2300 else 0))+' '+line.split(' ',1)[1] for line in lines]
   script=directory/'input.script';script.write_text('\n'.join(lines)+'\n')
-  cmd=[str(a.binary_dir.resolve()/'realm_client'),'--server','127.0.0.1','--app-port',str(http.server_port),
+  cmd=[str(a.binary_dir.resolve().parent/'realm_client'),'--server','127.0.0.1','--app-port',str(http.server_port),
        '--account-file',str(account),'--settings-file',str(directory/'settings.json'),'--benchmark','--frames','100000',
        '--fixture-step-ms','20','--stress-delay','2','--script',str(script),'--telemetry',str(a.output/f'{scenario}.jsonl')]
   if not a.visible:cmd.append('--hidden')

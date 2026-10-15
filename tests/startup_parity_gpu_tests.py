@@ -12,11 +12,11 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
+p.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
 p.add_argument('--cases', default='password,rejected,logout,slot,poor,hover,scroll,news')
 a = p.parse_args()
 binary_dir = a.binary_dir.resolve()
-output = binary_dir / 'startup-parity'
+output = ROOT / 'build/tests/startup-parity'
 output.mkdir(parents=True, exist_ok=True)
 
 
@@ -166,7 +166,7 @@ def run(case):
 
         script = temporary / 'input.script'
         script.write_text('\n'.join(steps) + '\n')
-        result = subprocess.run([str(binary_dir / 'realm_client'), '--hidden',
+        result = subprocess.run([str(binary_dir.parent / 'realm_client'), '--hidden',
                                  '--server', '127.0.0.1', '--app-port', str(server.server_port),
                                  '--account-file', str(account), '--settings-file', str(temporary / 'settings.json'),
                                  '--script', str(script)], cwd=ROOT, capture_output=True, text=True, timeout=30)

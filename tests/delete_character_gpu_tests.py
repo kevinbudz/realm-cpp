@@ -17,8 +17,8 @@ from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
-p.add_argument('--output', type=Path, default=ROOT / 'build/delete-character-gpu')
+p.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
+p.add_argument('--output', type=Path, default=ROOT / 'build/tests/delete-character-gpu')
 p.add_argument('--scenarios', default='')
 p.add_argument('--visible', action='store_true')
 a = p.parse_args()
@@ -335,7 +335,7 @@ for name, scenario in build().items():
                 lines.append(f'{ms} {step}')
         script = directory / 'input.script'
         script.write_text('\n'.join(lines) + '\n')
-        command = [str(a.binary_dir.resolve() / 'realm_client'), '--server', '127.0.0.1',
+        command = [str(a.binary_dir.resolve().parent / 'realm_client'), '--server', '127.0.0.1',
                    '--app-port', str(http.server_port), '--account-file', str(account), '--settings-file', str(directory / 'settings.json'),
                    '--benchmark', '--frames', '100000', '--fixture-step-ms', '20', '--stress-delay', '2',
                    '--script', str(script), '--telemetry', str(a.output / f'{name}.jsonl')]

@@ -45,7 +45,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--case',choices=('create','leave','name','hall'))
 parser.add_argument('--width',type=int,choices=(800,1280))
 args=parser.parse_args()
-output=ROOT/'build/interaction-reference'
+output=ROOT/'build/tests/interaction-reference'
 output.mkdir(parents=True,exist_ok=True)
 for width,height in [(800,600),(1280,720)]:
     if args.width and width!=args.width:continue

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(realm_cpp VERSION 0.1.0 LANGUAGES C CXX)
+# Test executables and test result folders and files go to build/tests (REALM_TEST_RESULTS below).
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -103,6 +105,8 @@ if(REALM_BUILD_VIEWER)
     # realm_client is the only product binary; it links the coordinator, platform and render implementations.
     add_executable(realm_client src/Main.cpp)
     target_link_libraries(realm_client PRIVATE realm_application)
+    # The game client sits in the build root; the test executables go to build/tests.
+    set_target_properties(realm_client PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
     if(REALM_ALLOCATION_TRACKING)
         target_sources(realm_client PRIVATE src/util/AllocationTracking.cpp)
     endif()
@@ -113,6 +117,8 @@ endif()
 
 include(cmake/RealmTests.cmake)
 if(BUILD_TESTING)
+    set(REALM_TEST_RESULTS "${CMAKE_CURRENT_BINARY_DIR}/tests")
+    file(MAKE_DIRECTORY "${REALM_TEST_RESULTS}")
     realm_add_test(NAME legends TARGET realm_legends_tests LABELS unit
         SOURCES tests/LegendsTests.cpp LINK realm_game
         ARGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/legends.xml")
@@ -124,12 +130,12 @@ if(BUILD_TESTING)
         SCRIPT tests/stress_tests.py ARGS "$<TARGET_FILE:realm_stress>")
     realm_add_python_test(NAME stress_packets LABELS unit
         SCRIPT tests/stress_packets_tests.py
-        ARGS "$<TARGET_FILE:realm_stress>" "${CMAKE_CURRENT_BINARY_DIR}/stress-packets")
+        ARGS "$<TARGET_FILE:realm_stress>" "${REALM_TEST_RESULTS}/stress-packets")
     foreach(working_set 16 512)
         realm_add_test(NAME stress_icons_${working_set} TARGET realm_stress LABELS unit
             ARGS --icons ${working_set} 24
-                "${CMAKE_CURRENT_BINARY_DIR}/stress-icons-${working_set}.json"
-                "${CMAKE_CURRENT_BINARY_DIR}/stress-icons-${working_set}.jsonl"
+                "${REALM_TEST_RESULTS}/stress-icons-${working_set}.json"
+                "${REALM_TEST_RESULTS}/stress-icons-${working_set}.jsonl"
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
     endforeach()
     if(REALM_BUILD_VIEWER)
@@ -139,11 +145,11 @@ if(BUILD_TESTING)
     endif()
     realm_add_test(NAME telemetry TARGET realm_telemetry_tests LABELS unit
         SOURCES tests/TelemetryTests.cpp LINK nlohmann_json::nlohmann_json realm_support
-        ARGS "${CMAKE_CURRENT_BINARY_DIR}/telemetry-test")
+        ARGS "${REALM_TEST_RESULTS}/telemetry-test")
     if(REALM_AUDIO)
         realm_add_test(NAME audio TARGET realm_audio_tests LABELS unit
             SOURCES tests/AudioTests.cpp LINK realm_audio
-            ARGS "${CMAKE_CURRENT_BINARY_DIR}/audio-test")
+            ARGS "${REALM_TEST_RESULTS}/audio-test")
         # Game events queue the Flash sounds they should (SoundCues), checked against the real catalog; CPU only.
         realm_add_test(NAME audio_events TARGET realm_audio_events_tests LABELS unit
             SOURCES tests/AudioEventsTests.cpp LINK realm_game realm_audio)
@@ -152,7 +158,7 @@ if(BUILD_TESTING)
         realm_add_test(NAME allocation_tracking TARGET realm_allocation_tracking_tests LABELS unit
             SOURCES tests/AllocationTrackingTests.cpp src/util/AllocationTracking.cpp
             LINK nlohmann_json::nlohmann_json realm_support
-            ARGS "${CMAKE_CURRENT_BINARY_DIR}/allocation-test.jsonl")
+            ARGS "${REALM_TEST_RESULTS}/allocation-test.jsonl")
     endif()
     if(REALM_BUILD_VIEWER)
         realm_add_python_test(NAME telemetry_gpu LABELS gpu
@@ -207,9 +213,9 @@ if(BUILD_TESTING)
             DEFINES SDL_MAIN_HANDLED)
         realm_add_python_test(NAME status_gpu LABELS gpu SCRIPT tests/status_gpu_tests.py)
         realm_add_python_test(NAME editor_gpu LABELS gpu SCRIPT tests/editor_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/editor-gpu")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/editor-gpu")
         realm_add_python_test(NAME startup_news_gpu LABELS gpu SCRIPT tests/startup_parity_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --cases news)
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --cases news)
         realm_add_python_test(NAME options_gpu LABELS gpu SCRIPT tests/options_gpu_tests.py)
         # The RmlUi host's retained invalidation, input, clipping and lifetime on real fonts, art and GL.
         realm_add_test(NAME ui_rml_host TARGET realm_ui_rml_host_tests LABELS gpu
@@ -221,17 +227,17 @@ if(BUILD_TESTING)
             LINK realm_ui_views realm_platform_sdl GLEW::GLEW OpenGL::GL SDL2::SDL2
             DEFINES SDL_MAIN_HANDLED)
         realm_add_python_test(NAME ui_bundle_gpu LABELS gpu SCRIPT tests/ui_bundle_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/ui-bundle")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/ui-bundle")
         realm_add_test(NAME sdl_keys TARGET realm_sdl_keys_tests LABELS gpu
             SOURCES tests/SdlKeysTests.cpp LINK SDL2::SDL2 realm_game realm_platform_sdl)
         realm_add_python_test(NAME legends_gpu LABELS gpu SCRIPT tests/legends_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/legends-gpu")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/legends-gpu")
         realm_add_python_test(NAME death_fame_gpu LABELS gpu SCRIPT tests/death_fame_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/death-fame-gpu")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/death-fame-gpu")
         realm_add_python_test(NAME flash_gap_gpu LABELS gpu SCRIPT tests/flash_gap_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/flash-gap-gpu")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/flash-gap-gpu")
         realm_add_python_test(NAME delete_character_gpu LABELS gpu SCRIPT tests/delete_character_gpu_tests.py
-            ARGS --binary-dir "${CMAKE_CURRENT_BINARY_DIR}" --output "${CMAKE_CURRENT_BINARY_DIR}/delete-character-gpu")
+            ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --output "${REALM_TEST_RESULTS}/delete-character-gpu")
         add_executable(realm_delete_stale_inputs tests/DeleteStaleInputs.cpp)
         target_link_libraries(realm_delete_stale_inputs PRIVATE realm_startup)
         realm_add_python_test(NAME delete_character_stale LABELS unit
@@ -297,7 +303,7 @@ if(BUILD_TESTING)
         SOURCES tests/PreferencesTests.cpp LINK realm_game realm_ui)
     realm_add_test(NAME options TARGET realm_options_tests LABELS unit
         SOURCES tests/OptionsTests.cpp LINK realm_ui
-        ARGS "${CMAKE_CURRENT_BINARY_DIR}/options-test")
+        ARGS "${REALM_TEST_RESULTS}/options-test")
     realm_add_test(NAME dialogs TARGET realm_dialog_tests LABELS unit
         SOURCES tests/DialogTests.cpp LINK realm_ui)
     realm_add_test(NAME trade TARGET realm_trade_tests LABELS unit

@@ -17,8 +17,8 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
-parser.add_argument('--output', type=Path, default=ROOT / 'build/ui-bundle')
+parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
+parser.add_argument('--output', type=Path, default=ROOT / 'build/tests/ui-bundle')
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 
@@ -38,7 +38,7 @@ def run(binary, lines, extra, directory):
         mapped.append(line)
     script.write_text('\n'.join(mapped) + '\n')
     telemetry = args.output / f'{binary}.jsonl'
-    result = subprocess.run([str(args.binary_dir.resolve() / binary),
+    result = subprocess.run([str(args.binary_dir.resolve().parent / binary),
         '--hidden', '--benchmark', '--frames', '100000', '--fixture-step-ms', '20', '--stress-delay', '1',
         '--script', str(script), '--telemetry', str(telemetry.resolve()), *extra], cwd=ROOT,
         capture_output=True, text=True, timeout=90)

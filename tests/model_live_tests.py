@@ -9,8 +9,8 @@ import argparse, subprocess, tempfile, time, xml.etree.ElementTree as ET
 from live_server_tests import free_port, request
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(); p.add_argument('server_dll', type=Path)
-p.add_argument('--client', type=Path, default=ROOT / 'build/realm_model_session_inputs'); a = p.parse_args()
-server_root = ROOT.parent / 'realm-server'; out = ROOT / 'build/model-reference'; out.mkdir(parents=True, exist_ok=True)
+p.add_argument('--client', type=Path, default=ROOT / 'build/tests/realm_model_session_inputs'); a = p.parse_args()
+server_root = ROOT.parent / 'realm-server'; out = ROOT / 'build/tests/model-reference'; out.mkdir(parents=True, exist_ok=True)
 app, game = free_port(), free_port()
 classes = ET.parse(server_root / 'Resources/GameData/EmbeddedData_PlayersCXML.xml').getroot()
 wizard = next(int(o.get('type'), 0) for o in classes if o.get('id') == 'Wizard')

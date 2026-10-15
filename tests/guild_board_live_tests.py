@@ -9,7 +9,7 @@ import time
 import xml.etree.ElementTree as ET
 from live_server_tests import free_port, request
 ROOT=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_guild_board_tests');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_guild_board_tests');args=p.parse_args()
 app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server'
 with tempfile.TemporaryDirectory(prefix='realm-board-live-') as directory:
     work=Path(directory);settings=ET.parse(server_root/'Settings.xml');settings.getroot().set('res',str(server_root/'Resources'));settings.getroot().set('db',str(work/'Database'));settings.find('Ports').text=f'{app}:{game}';settings.write(work/'Settings.xml')
@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix='realm-board-live-') as directory:
             assert db.execute('SELECT value FROM kv WHERE path=?',('guild.BOARD GUILD.board',)).fetchone()[0]=='Initial board'
             seed(0,False);run('error',20)
             seed(20);run('error',20,'wrong-fixture-password')
-            (ROOT/'build/guild-board-reference/live.log').write_text('\n'.join(outputs)+'\nIsolated real server exact UTF8/raw board persistence, officer save, member read-only, server permission rejection, no-guild and invalid account checks passed.\n')
+            (ROOT/'build/tests/guild-board-reference/live.log').write_text('\n'.join(outputs)+'\nIsolated real server exact UTF8/raw board persistence, officer save, member read-only, server permission rejection, no-guild and invalid account checks passed.\n')
             db.close()
         finally:
             server.terminate()

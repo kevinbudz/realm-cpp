@@ -14,9 +14,9 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
+parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
 parser.add_argument('--timeout', type=float, default=20)
-parser.add_argument('--output', type=Path, default=ROOT / 'build/ui-resize-reference')
+parser.add_argument('--output', type=Path, default=ROOT / 'build/tests/ui-resize-reference')
 args = parser.parse_args()
 BINARIES = args.binary_dir.resolve()
 OUTPUT = args.output.resolve()
@@ -26,7 +26,7 @@ def run(binary, lines, extra=()):
     with tempfile.TemporaryDirectory() as directory:
         script = Path(directory) / 'resize.txt'
         script.write_text('\n'.join(lines) + '\n')
-        result = subprocess.run([str(BINARIES / binary), '--hidden', '--benchmark', '--frames', '100000',
+        result = subprocess.run([str(BINARIES.parent / binary), '--hidden', '--benchmark', '--frames', '100000',
             '--script', str(script), '--fixture-step-ms', '20', *extra], cwd=ROOT, capture_output=True, text=True, timeout=args.timeout)
         assert result.returncode == 0, result.stdout + result.stderr
         return result.stdout

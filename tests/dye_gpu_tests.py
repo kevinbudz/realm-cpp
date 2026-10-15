@@ -3,7 +3,7 @@
 from pathlib import Path
 import socket,struct,subprocess,threading,time,json,re
 from PIL import Image,ImageChops
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/dye-reference/gpu';OUT.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/tests/dye-reference/gpu';OUT.mkdir(parents=True,exist_ok=True)
 utf=lambda s:struct.pack('>H',len(s.encode()))+s.encode();frame=lambda i,b:struct.pack('>IB',len(b)+5,i)+b
 
 def exact(c,n):

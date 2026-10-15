@@ -11,7 +11,7 @@ from live_server_tests import free_port, request, Proxy
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(); p.add_argument('server_dll', type=Path); p.add_argument('--viewer', type=Path, default=ROOT / 'build/realm_client'); a = p.parse_args()
-server_root = ROOT.parent / 'realm-server'; out = ROOT / 'build/options-live'; out.mkdir(parents=True, exist_ok=True)
+server_root = ROOT.parent / 'realm-server'; out = ROOT / 'build/tests/options-live'; out.mkdir(parents=True, exist_ok=True)
 app, game = free_port(), free_port()
 items = {o.get('id'): int(o.get('type'), 0) for o in ET.parse(server_root / 'Resources/GameData/EmbeddedData_EquipCXML.xml').getroot()}
 classids = {o.get('id'): int(o.get('type'), 0) for o in ET.parse(server_root / 'Resources/GameData/EmbeddedData_PlayersCXML.xml').getroot()}

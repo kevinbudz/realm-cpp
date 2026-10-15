@@ -4,8 +4,8 @@ from pathlib import Path
 import argparse,subprocess,tempfile,time,sqlite3,xml.etree.ElementTree as ET
 from live_server_tests import free_port,request,Proxy
 ROOT=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_skin_session_inputs');a=p.parse_args()
-app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server';out=ROOT/'build/skin-reference';out.mkdir(parents=True,exist_ok=True)
+p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_skin_session_inputs');a=p.parse_args()
+app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server';out=ROOT/'build/tests/skin-reference';out.mkdir(parents=True,exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='realm-skin-live-') as directory:
  work=Path(directory);settings=ET.parse(server_root/'Settings.xml');settings.getroot().set('res',str(server_root/'Resources'));settings.getroot().set('db',str(work/'Database'));settings.find('Ports').text=f'{app}:{game}';settings.write(work/'Settings.xml')
  with (work/'server.log').open('w+') as log:

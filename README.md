@@ -30,7 +30,7 @@ cmake --build --preset release
 ctest --preset release
 ```
 
-The `release` preset builds into `build/`, including `build/realm_client`. Generated headers from the Flash source go to `build/generated/`. The `sanitize` preset builds into `build-sanitize/` with AddressSanitizer and UBSan and `REALM_BUILD_VIEWER=OFF`, so it has no `realm_client` and no GPU tests:
+The `release` preset builds into `build/`: the game client is `build/realm_client`, and test executables and results go to `build/tests/`. Generated headers from the Flash source go to `build/generated/`. The `sanitize` preset builds into `build-sanitize/` with AddressSanitizer and UBSan and `REALM_BUILD_VIEWER=OFF`, so it has no `realm_client` and no GPU tests:
 
 ```sh
 cmake --preset sanitize

@@ -15,9 +15,9 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
+parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
 parser.add_argument('--cases', default='guild,locker,quest,tutorial')
-parser.add_argument('--output', type=Path, default=ROOT / 'build/flash-gap-gpu')
+parser.add_argument('--output', type=Path, default=ROOT / 'build/tests/flash-gap-gpu')
 args = parser.parse_args()
 OUT = args.output.resolve()
 OUT.mkdir(parents=True, exist_ok=True)
@@ -135,7 +135,7 @@ def run_client(name, settings, actions, after_setup, timeout=12, initial_map='Ne
         thread = threading.Thread(target=peer, daemon=True)
         thread.start()
         result = subprocess.run(
-            [str(args.binary_dir.resolve() / 'realm_client'), '--connect', '127.0.0.1', '--port',
+            [str(args.binary_dir.resolve().parent / 'realm_client'), '--connect', '127.0.0.1', '--port',
              str(listener.getsockname()[1]), '--username', 'Fixture', '--character', '7', '--script',
              str(script_path), '--settings-file', str(settings_path), '--hidden', '--benchmark', '--audio', 'off',
              '--frames', '1000000'],

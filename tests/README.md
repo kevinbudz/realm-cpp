@@ -76,10 +76,10 @@ These scripts are not registered with CTest. Run them by hand from the repositor
 - `tests/startup_parity_gpu_tests.py` compares account and character-selection screens against disposable local HTTP
   peers on 127.0.0.1. Needs `build/realm_client`, Pillow and a display.
 - `tests/ui_resize_gpu_tests.py` resizes a real SDL window and exercises retained UI uploads and menu input. Needs the
-  built binaries (`--binary-dir`, default `build`), Pillow, a display, and the read-only map
+  built binaries (`--binary-dir`, default `build/tests`), Pillow, a display, and the read-only map
   `../realm-server/Resources/Worlds/Nexus/0.jm` next to this repository.
 - `tests/skin_gpu_tests.py` covers Startup purchase and CREATE, the SDL vendor chooser, RESKIN, resize and portraits.
-  Needs the built binaries (`--binary-dir`, default `build`), Pillow and a display. Output goes to `build/skin-reference/gpu`.
+  Needs the built binaries (`--binary-dir`, default `build/tests`), Pillow and a display. Output goes to `build/tests/skin-reference/gpu`.
 
 The other `*_gpu_tests.py` and `*_hud_tests.py` scripts follow the same pattern: `realm_client --hidden` with local HTTP
 fixtures. The `*_live_tests.py` scripts and `live_server_tests.py` need a real game server build and are run by hand.

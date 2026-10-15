@@ -15,8 +15,8 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
-p.add_argument('--output', type=Path, default=ROOT / 'build/death-fame-gpu')
+p.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
+p.add_argument('--output', type=Path, default=ROOT / 'build/tests/death-fame-gpu')
 a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
 utf = lambda s: struct.pack('>H', len(s.encode())) + s.encode()
@@ -157,7 +157,7 @@ for scenario in ('success', 'error', 'late'):
                   capture(return_at+1600,'new-world'), f'{return_at+1800} quit']
         script = directory/'input.script';script.write_text('\n'.join(lines)+'\n')
         log = a.output / f'{scenario}.log'
-        command = [str(a.binary_dir.resolve()/'realm_client'), '--server','127.0.0.1',
+        command = [str(a.binary_dir.resolve().parent/'realm_client'), '--server','127.0.0.1',
             '--app-port',str(http.server_port),'--port',str(listener.getsockname()[1]),'--account-file',str(account),
             '--settings-file',str(directory/'settings.json'),'--hidden','--benchmark','--frames','100000',
             '--fixture-step-ms','20','--stress-delay','2','--script',str(script),

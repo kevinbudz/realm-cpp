@@ -102,7 +102,7 @@ class Proxy:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('server_dll', type=Path)
-    parser.add_argument('--client', type=Path, default=Path(__file__).resolve().parents[1] / 'build/realm_session')
+    parser.add_argument('--client', type=Path, default=Path(__file__).resolve().parents[1] / 'build/tests/realm_session')
     parser.add_argument('--server-root', type=Path, default=Path(__file__).resolve().parents[2] / 'realm-server')
     args = parser.parse_args()
     dll, client, root = args.server_dll.resolve(), args.client.resolve(), args.server_root.resolve()

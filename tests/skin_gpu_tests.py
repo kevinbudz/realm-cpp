@@ -5,11 +5,11 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import parse_qs
 import argparse,json,socket,struct,subprocess,threading,time,tempfile
 from PIL import Image,ImageChops
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/skin-reference/gpu';OUT.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/tests/skin-reference/gpu';OUT.mkdir(parents=True,exist_ok=True)
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--binary-dir',type=Path,default=ROOT/'build')
+parser.add_argument('--binary-dir',type=Path,default=ROOT/'build/tests')
 args=parser.parse_args()
-BINARY=args.binary_dir.resolve()/'realm_client'
+BINARY=args.binary_dir.resolve().parent/'realm_client'
 utf=lambda s:struct.pack('>H',len(s.encode()))+s.encode();frame=lambda i,b:struct.pack('>IB',len(b)+5,i)+b
 
 def exact(c,n):

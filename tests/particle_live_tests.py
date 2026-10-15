@@ -3,8 +3,8 @@
 from pathlib import Path
 import argparse,json,subprocess,tempfile,time,sqlite3,xml.etree.ElementTree as ET
 from live_server_tests import free_port,request,Proxy
-ROOT=Path(__file__).resolve().parents[1];p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_particle_session_inputs');a=p.parse_args()
-server_root=ROOT.parent/'realm-server';out=ROOT/'build/particle-reference';out.mkdir(parents=True,exist_ok=True);app,game=free_port(),free_port()
+ROOT=Path(__file__).resolve().parents[1];p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_particle_session_inputs');a=p.parse_args()
+server_root=ROOT.parent/'realm-server';out=ROOT/'build/tests/particle-reference';out.mkdir(parents=True,exist_ok=True);app,game=free_port(),free_port()
 xml=ET.parse(server_root/'Resources/GameData/EmbeddedData_EquipCXML.xml').getroot();items={o.get('id'):int(o.get('type'),0) for o in xml}
 classes=ET.parse(server_root/'Resources/GameData/EmbeddedData_PlayersCXML.xml').getroot();classids={o.get('id'):int(o.get('type'),0) for o in classes}
 cases=[('Priest','Healing Tome','1,5'),('Assassin','Centipede Poison','4,5'),('Necromancer','Necrotic Skull','1,7,8'),('Mystic','Stasis Orb','1,12'),('Huntress','Hunting Trap','1,4'),('Sorcerer','Lightning Scepter','1,7')]

@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'build/status'
+OUT = ROOT / 'build/tests/status'
 MAP = ROOT.parent / 'realm-server/Resources/Worlds/Tutorial/Nexus.jm'
 BASE = [str(ROOT / 'build/realm_client'), '--map', str(MAP), '--hidden', '--frames', '4',
         '--effect-time', '0', '--scene-time', '0']

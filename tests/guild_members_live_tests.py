@@ -4,7 +4,7 @@ from pathlib import Path
 import argparse,sqlite3,subprocess,tempfile,time,xml.etree.ElementTree as ET
 from live_server_tests import free_port,request,Proxy
 ROOT=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_guild_members_tests');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_guild_members_tests');args=p.parse_args()
 outputs=[]
 for rank,online in [(40,False),(40,True),(10,False)]:
  app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server'
@@ -24,7 +24,7 @@ for rank,online in [(40,False),(40,True),(10,False)]:
     username,target,password='GuildActor','GuildTarget','members-private-fixture'
     for name,source in [(username,'127.0.0.1'),(target,'127.0.0.2')]:
      assert request(app,'/account/register',dict(newUsername=name,newPassword=password),source).tag=='Success'
-     result=subprocess.run([str(ROOT/'build/realm_session'),'--server','127.0.0.1','--port',str(game),'--username',name,'--password-stdin','--seconds','1','--create','0x030e'],input=password+'\n',text=True,capture_output=True,timeout=15)
+     result=subprocess.run([str(ROOT/'build/tests/realm_session'),'--server','127.0.0.1','--port',str(game),'--username',name,'--password-stdin','--seconds','1','--create','0x030e'],input=password+'\n',text=True,capture_output=True,timeout=15)
      assert result.returncode==0,result.stdout+result.stderr
     db=sqlite3.connect(work/'Database/realm.db');ids=[]
     for name,r,fame in [(username,rank,700),(target,0,125)]:
@@ -41,7 +41,7 @@ for rank,online in [(40,False),(40,True),(10,False)]:
     # Account caches from creation were released on disconnect. Real list reads
     # authoritative online accounts and otherwise loads the seeded DB records.
     if online:
-     friend=subprocess.Popen([str(ROOT/'build/realm_session'),'--server','127.0.0.1','--port',str(game),'--username',target,'--password-stdin','--seconds','6','--character','0'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+     friend=subprocess.Popen([str(ROOT/'build/tests/realm_session'),'--server','127.0.0.1','--port',str(game),'--username',target,'--password-stdin','--seconds','6','--character','0'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
      friend.stdin.write(password+'\n');friend.stdin.close();friend.stdin=None;time.sleep(.5)
     proxy=Proxy(game)
     result=subprocess.run([str(args.client.resolve()),'live',str(app),str(proxy.port),username,target,str(rank)],input=password+'\n',text=True,capture_output=True,timeout=22)
@@ -63,5 +63,5 @@ for rank,online in [(40,False),(40,True),(10,False)]:
     server.terminate()
     try:server.wait(5)
     except subprocess.TimeoutExpired:server.kill();server.wait()
-out=ROOT/'build/guild-members-reference';out.mkdir(parents=True,exist_ok=True);(out/('live-sanitize.log' if 'sanitize' in str(args.client) else 'live.log')).write_text('\n'.join(outputs)+'\n')
+out=ROOT/'build/tests/guild-members-reference';out.mkdir(parents=True,exist_ok=True);(out/('live-sanitize.log' if 'sanitize' in str(args.client) else 'live.log')).write_text('\n'.join(outputs)+'\n')
 print('Isolated real guild member actions passed; saved user accounts/settings unchanged')

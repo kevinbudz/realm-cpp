@@ -4,8 +4,8 @@ from pathlib import Path
 import argparse,json,subprocess,tempfile,time,sqlite3,xml.etree.ElementTree as ET
 from live_server_tests import free_port,request,Proxy
 ROOT=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_dye_session_inputs');a=p.parse_args()
-app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server';out=ROOT/'build/dye-reference';out.mkdir(parents=True,exist_ok=True)
+p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_dye_session_inputs');a=p.parse_args()
+app,game=free_port(),free_port();server_root=ROOT.parent/'realm-server';out=ROOT/'build/tests/dye-reference';out.mkdir(parents=True,exist_ok=True)
 textiles=ET.parse(server_root/'Resources/GameData/EmbeddedData_TextilesCXML.xml').getroot();items=[];tex1=0x1f0f8ff;tex2=0
 for kind in [4,5,9,10]:
  channel='Tex1' if kind in [4,9] else 'Tex2';obj=next(o for o in textiles if o.find(channel) is not None and int(o.findtext(channel),0)>>24==kind)

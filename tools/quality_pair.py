@@ -5,7 +5,7 @@ Runs the same checked-in manifest through two realm_stress binaries in alternati
 simulation outcomes (state/packet checksums, hits, spawned/removed counts), and reports median per-tick zone times.
 Component evidence only: it excludes Scene, text, textures and the GPU.
 
-  python3 tools/quality_pair.py --before build/quality/stress-before --after build/realm_stress \
+  python3 tools/quality_pair.py --before build/quality/stress-before --after build/tests/realm_stress \
       --scenarios S3-mixed-dense,S3-mixed-spread --ticks 60 --repeats 5 --output build/quality/pair
 """
 import argparse, collections, json, pathlib, statistics, subprocess, sys

@@ -8,7 +8,7 @@ import threading
 from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / 'build/dialog-reference/gpu'
+OUTPUT = ROOT / 'build/tests/dialog-reference/gpu'
 OUTPUT.mkdir(parents=True, exist_ok=True)
 utf = lambda text: struct.pack('>H', len(text.encode())) + text.encode()
 frame = lambda ident, body: struct.pack('>IB', len(body) + 5, ident) + body

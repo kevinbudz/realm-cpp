@@ -3,8 +3,8 @@
 from pathlib import Path
 import argparse,subprocess,tempfile,time,sqlite3,xml.etree.ElementTree as ET
 from live_server_tests import free_port,request,Proxy
-ROOT=Path(__file__).resolve().parents[1];p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/realm_status_session_inputs');a=p.parse_args()
-server_root=ROOT.parent/'realm-server';out=ROOT/'build/status-reference';out.mkdir(parents=True,exist_ok=True);app,game=free_port(),free_port()
+ROOT=Path(__file__).resolve().parents[1];p=argparse.ArgumentParser();p.add_argument('server_dll',type=Path);p.add_argument('--client',type=Path,default=ROOT/'build/tests/realm_status_session_inputs');a=p.parse_args()
+server_root=ROOT.parent/'realm-server';out=ROOT/'build/tests/status-reference';out.mkdir(parents=True,exist_ok=True);app,game=free_port(),free_port()
 items={o.get('id'):int(o.get('type'),0) for o in ET.parse(server_root/'Resources/GameData/EmbeddedData_EquipCXML.xml').getroot()}
 classids={o.get('id'):int(o.get('type'),0) for o in ET.parse(server_root/'Resources/GameData/EmbeddedData_PlayersCXML.xml').getroot()}
 with tempfile.TemporaryDirectory(prefix='realm-status-live-') as directory:

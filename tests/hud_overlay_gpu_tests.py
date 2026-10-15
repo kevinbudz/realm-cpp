@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from PIL import Image, ImageChops
 ROOT = Path(__file__).resolve().parents[1]
-output = ROOT / 'build/hud-overlay-gpu'
+output = ROOT / 'build/tests/hud-overlay-gpu'
 output.mkdir(exist_ok=True)
 utf = lambda value: struct.pack('>H', len(value.encode())) + value.encode()
 frame = lambda ident, body: struct.pack('>IB', len(body) + 5, ident) + body

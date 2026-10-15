@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'build/options-gpu'
+OUT = ROOT / 'build/tests/options-gpu'
 MAP = ROOT.parent / 'realm-server/Resources/Worlds/Tutorial/Nexus.jm'
 BASE = [str(ROOT / 'build/realm_client'), '--map', str(MAP), '--hidden', '--effect-time', '0', '--scene-time', '0',
         '--hp', '50']

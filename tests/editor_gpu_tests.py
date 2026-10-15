@@ -17,8 +17,8 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build')
-parser.add_argument('--output', type=Path, default=ROOT / 'build/editor-gpu')
+parser.add_argument('--binary-dir', type=Path, default=ROOT / 'build/tests')
+parser.add_argument('--output', type=Path, default=ROOT / 'build/tests/editor-gpu')
 args = parser.parse_args()
 OUT = args.output.resolve()
 OUT.mkdir(parents=True, exist_ok=True)
@@ -170,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='realm-editor-gpu-') as temporary, socke
     add(9000, 'quit')
     script = temp / 'actions.txt'
     script.write_text('\n'.join(actions) + '\n')
-    result = subprocess.run([str(args.binary_dir.resolve() / 'realm_client'), '--hidden', '--server', '127.0.0.1',
+    result = subprocess.run([str(args.binary_dir.resolve().parent / 'realm_client'), '--hidden', '--server', '127.0.0.1',
                              '--app-port', str(http.server_port), '--port', str(listener.getsockname()[1]),
                              '--account-file', str(account), '--settings-file', str(temp / 'settings.json'),
                              '--audio', 'off', '--script', str(script)], cwd=ROOT, text=True,

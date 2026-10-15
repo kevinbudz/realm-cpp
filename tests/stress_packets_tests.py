@@ -85,7 +85,7 @@ def run(exe,out,fragment,delay):
     return summary
 
 def main():
-    exe=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]) if len(sys.argv)>2 else ROOT/'build/stress-packets';out.mkdir(parents=True,exist_ok=True)
+    exe=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]) if len(sys.argv)>2 else ROOT/'build/tests/stress-packets';out.mkdir(parents=True,exist_ok=True)
     a=run(exe,out/'coalesced',False,0);b=run(exe,out/'fragmented',True,3)
     for key in ['state_checksum','packet_hash_by_type','resident','barriers','reconnects']:assert a[key]==b[key],key
     print('PACKETS: 1000 entities, 1200 ticks/PONG/MOVE, fragmented/coalesced/jittered bursts, reconnect and bounded queues passed')

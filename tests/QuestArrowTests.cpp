@@ -139,6 +139,12 @@ int main() {
     check(!art.game_object_portrait(player->type, player->skin, player->tex1, player->tex2)
                .pixels.empty(),
           "the generalized portrait helper retains animated player portraits");
+    // chars16x16dEncounters starts facing down and has one row, so it has no right-facing frames;
+    // TextureData's imageFromAngle(0) falls back to the down-facing stand frame.
+    world.add(8, catalog.object("Lord of the Lost Lands")->type, {60, 50});
+    const auto down_first = quest_target(world, 8);
+    check(down_first && tooltip.update(*down_first) && tooltip.content_width() > 0,
+          "quest tooltip draws a down-facing-only animated target");
 
     // GameObjectArrow.positionTooltip: an inward-pointing tooltip sits 26 pixels out, vertically
     // centered.

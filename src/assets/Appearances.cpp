@@ -780,7 +780,7 @@ std::shared_ptr<const Image> Appearances::portrait(const Catalog& catalog, int t
                                                    std::uint32_t tex1, std::uint32_t tex2) const {
   const auto& selected = catalog.player_texture(type, skin).select(0);
   if (const auto* character = animations_.character(selected.animated, selected.index)) {
-    const auto frame = character->directions[0][0].front();
+    const auto frame = character->frame(0, 0, Action::stand, 0);
     return animated(frame, 400 / animations_.images().at(frame.image).width, true, tex1, tex2);
   }
   return texture(selected, 0, 50, true, tex1, tex2);

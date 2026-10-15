@@ -294,12 +294,13 @@ struct HudArt::Sources {
     return redraw(source, frame.mask >= 0 ? &mask : nullptr, size, pad, tex1, tex2);
   }
 
-  // GameObject.getPortrait: the right-facing standing frame at four times its width.
+  // GameObject.getPortrait: TextureData.texture_ (the standing frame from imageFromAngle(0), which
+  // falls back from right to down) at four times its width.
   Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) {
     const auto& texture = catalog->player_texture(type, skin).select(0);
     if (const auto* character =
             appearances->animations().character(texture.animated, texture.index)) {
-      const auto frame = character->directions[0][0].front();
+      const auto frame = character->frame(0, 0, Action::stand, 0);
       return frame_texture(frame, 400 / appearances->animations().images().at(frame.image).width,
                            true, tex1, tex2);
     }
@@ -575,8 +576,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     Image image;
     if (const auto* character =
             assets.appearances->animations().character(texture.animated, texture.index)) {
-      image =
-          assets.appearances->animations().images().at(character->directions[0][0].front().image);
+      image = assets.appearances->animations().images().at(
+          character->frame(0, 0, Action::stand, 0).image);
       normalize_flash_png(image);
     } else if (texture.sheet >= 0 &&
                static_cast<std::size_t>(texture.sheet) < flash::sheets.size()) {
@@ -1362,7 +1363,7 @@ Image HudArt::fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_
   const auto& texture = s.catalog->player_texture(type, skin).select(0);
   if (const auto* character =
           s.appearances->animations().character(texture.animated, texture.index)) {
-    auto image = s.frame_texture(character->directions[0][0].front(), size, false, tex1, tex2);
+    auto image = s.frame_texture(character->frame(0, 0, Action::stand, 0), size, false, tex1, tex2);
     return crop_image(image, 6, 6, image.width - 12, image.height - 6);
   }
   return s.object_texture(type, size, true);

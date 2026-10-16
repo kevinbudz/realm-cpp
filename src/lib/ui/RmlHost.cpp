@@ -252,8 +252,8 @@ class HostFonts final : public Rml::FontEngineInterface {
 
   Rml::FontEffectsHandle PrepareFontEffects(Rml::FontFaceHandle,
                                             const Rml::FontEffectList& effects) override {
-    // Only the shadow font-effect is supported (a back-layer effect with no texture of its own);
-    // it selects FontBook's black text outline.
+    // Only the TextField drop shadow is supported: a font-effect behind the text that has no
+    // texture of its own.
     for (const auto& effect : effects) {
       if (effect->GetLayer() == Rml::FontEffect::Layer::Back && !effect->HasUniqueTexture()) {
         return 1;

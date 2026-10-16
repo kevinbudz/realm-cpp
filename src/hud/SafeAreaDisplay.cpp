@@ -25,10 +25,10 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
   constexpr double guild_icon_y = -2;
   constexpr double guild_text_x = 88;
   constexpr double guild_text_y = 6;
-  constexpr std::uint32_t gray = 11776947;
-  const auto number = stars < 0
-                          ? TextBitmap{}
-                          : fonts.rasterize(std::to_string(stars), 18, true, true, gray, 0, 0, 2);
+  // The rank number is white and outlined, with no backing plate.
+  const auto number = stars < 0 ? TextBitmap{}
+                                : fonts.rasterize(std::to_string(stars), 18, true,
+                                                  TextEffect::outline, 0xffffff, 0, 0, 2);
   const auto star = stars < 0 ? Image{} : art.rank_star_icon(stars);
   // FameUtil's Sprite is scaled 1.4; the 8px image margin only holds the
   // DropShadowFilter output and is outside the Sprite's layout bounds.
@@ -46,7 +46,7 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
                              ? &art.image("guildrankicon" + std::to_string(guild_rank))
                              : nullptr;
   const auto guild_bitmap =
-      has_guild ? fonts.rasterize(guild, 16, false, true, 0xffffff) : TextBitmap{};
+      has_guild ? fonts.rasterize(guild, 16, false, TextEffect::outline, 0xffffff) : TextBitmap{};
 
   // With no rank display, the guild's own bitmap starts at x=56. Do not keep
   // the otherwise-unused rank anchor in the output bounds.
@@ -102,8 +102,6 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
     const double text_y = rank_y - top;
     const double icon_x = rank_icon_x - left;
     const double icon_y = rank_icon_y - top;
-    ui_rounded_rectangle(result.image, text_x - 2, icon_y - 3, number.width + 2 + star_w + 6,
-                         star_h + 8, 6, 0, .4, true);
     ui_blit_text(result.image, number, text_x + number.offset.x, text_y + number.offset.y, false,
                  true);
     // The large-star filter adds an eight-pixel image margin; the Sprite's

@@ -604,7 +604,6 @@ struct StartupRml::Impl {
         size = {layout.width * scale, layout.height * scale};
       }
 
-      // font_shadow selects the RmlHost shadow path, which draws FontBook's black text outline.
       if (node.pulse) {
         element.SetAttribute("text", item.text);
         element.SetAttribute("size", item.font_size);

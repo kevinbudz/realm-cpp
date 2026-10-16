@@ -41,9 +41,10 @@ int main(int argc, char** argv) {
           "credit display uses the 40px source icons");
     check(credit.origin_offset.x < 0 && std::abs(credit.origin_offset.x + credit.image.width) < 1,
           "credit image ends at its right-edge display anchor");
-    check(std::abs(credit.layout_bounds.x + 145) < 1 &&
-              std::abs(credit.layout_bounds.width - 145) < 1,
-          "credit layout bounds match the unfiltered Flash display object");
+    // Bold numbers are wider than Flash's regular 145px display; the bounds still end at the anchor.
+    check(std::abs(credit.layout_bounds.x + credit.layout_bounds.width) < 1 &&
+              credit.layout_bounds.width > 145 && credit.layout_bounds.width < 165,
+          "credit layout bounds cover the bold display object");
     check(
         std::any_of(
             credit.image.pixels.begin() + static_cast<std::ptrdiff_t>((credit.image.width - 2) * 4),

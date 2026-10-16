@@ -21,14 +21,14 @@ CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& ar
   constexpr int font_size = 18;
   const auto& coin = art.image("skincreditcoin");
   const auto& fame_icon = art.image("skinfame");
-  const auto credits_text =
-      fonts.rasterize(std::to_string(credits), font_size, false, true, 0xffffff, 0, 0, 2);
-  const auto fame_text =
-      fonts.rasterize(std::to_string(fame), font_size, false, true, 0xffffff, 0, 0, 2);
+  const auto credits_text = fonts.rasterize(std::to_string(credits), font_size, true,
+                                            TextEffect::outline, 0xffffff, 0, 0, 2);
+  const auto fame_text = fonts.rasterize(std::to_string(fame), font_size, true,
+                                         TextEffect::outline, 0xffffff, 0, 0, 2);
 
   const double coin_x = -coin.width;
   // Text fields are positioned by their logical TextField width. The native
-  // bitmap carries eight pixels of filter padding on each side, which belongs
+  // bitmap carries eight pixels of outline padding on each side, which belongs
   // to the image bounds rather than the layout advance.
   const double credits_x = coin_x - credits_text.width + 8;
   const double fame_icon_x = credits_x - fame_icon.width;

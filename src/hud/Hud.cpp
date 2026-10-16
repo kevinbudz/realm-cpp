@@ -100,12 +100,12 @@ std::optional<TextBitmap> tier_bitmap(const FontBook& fonts, const ObjectDef& it
   }
   const bool set = !item.xml.attribute("setType").empty();
   const auto label = item.tier >= 0 ? "T" + std::to_string(item.tier) : set ? "ST" : "UT";
-  // ItemTile tier tag: GlowFilter(0,1,2,2,10), blur 2 and strength 10.
+  // ItemTile tier tag, outlined in place of its GlowFilter(0,1,2,2,10).
   return fonts.rasterize_glow(label, 12, true,
                               item.tier >= 0 ? 0xffffffU
                               : set          ? 0xff9900U
                                              : 0x8a2be2U,
-                              10, 2);
+                              10, 2, true);
 }
 
 void Hud::tier(const ObjectDef& item, int x, int y) {
@@ -308,7 +308,7 @@ void Hud::portal(const HudState::Portal& state) {
   }
   // The panel origin is (6,508); the name field is 188 wide at y 6, or 0
   // once it is taller than 30 pixels.
-  auto name = fonts_.rasterize_centered(state.name, 18, true, true, 0xffffffU, 188);
+  auto name = fonts_.rasterize_centered(state.name, 18, true, TextEffect::outline, 0xffffffU, 188);
   const int y = name.height > 30 ? 508 : 514;
   draw(std::move(name), 6, y);
   if (image_.pixel_scale != 1) {
@@ -318,7 +318,7 @@ void Hud::portal(const HudState::Portal& state) {
           portal_button.x + portal_button.width / 2 - fonts_.measure("Enter", 16, true) / 2 - 2;
       native_button(portal_button, "Enter", state.hover, text_x);
     } else {
-      auto full = fonts_.rasterize_centered(state.locked ? "Locked" : "Full", 18, true, true,
+      auto full = fonts_.rasterize_centered(state.locked ? "Locked" : "Full", 18, true, TextEffect::outline,
                                             0xff0000, 188);
       const auto full_y = 580 - full.height;
       draw(std::move(full), 6, full_y);
@@ -337,7 +337,7 @@ void Hud::button(const HudState::Button& state) {
   }
   const auto kind = static_cast<std::size_t>(state.kind);
   // The 188-pixel centered title is at y 6; ReskinPanel never positions its title.
-  draw(fonts_.rasterize_centered(button_panel_titles.at(kind), 18, true, true, 0xffffffU, 188), 6,
+  draw(fonts_.rasterize_centered(button_panel_titles.at(kind), 18, true, TextEffect::outline, 0xffffffU, 188), 6,
        kind == 3 ? 508 : 514);
   if (image_.pixel_scale != 1) {
     constexpr std::array labels{"View", "View", "Change", "Choose"};
@@ -358,7 +358,7 @@ void Hud::sellable(const HudState::Sellable& state) {
   }
   // Children in order: nameText (144 wide at x 44; y 12, or 0 once taller
   // than 30), buyButton, the icon bitmap at (-4,-8), then notices.
-  auto name = fonts_.rasterize_centered(state.name, 16, true, true, 0xffffffU, 144);
+  auto name = fonts_.rasterize_centered(state.name, 16, true, TextEffect::outline, 0xffffffU, 144);
   const int name_y = name.height > 30 ? 508 : 520;
   draw(std::move(name), 50, name_y);
   if (state.button) {
@@ -460,7 +460,7 @@ void Hud::social(const HudState::Social& state) {
          508 + static_cast<double>(i) * (size + 2));
   }
   if (!state.notice.empty()) {
-    draw(fonts_.rasterize_centered(state.notice, 16, true, true, 0xff4444U, 188), 6, 562);
+    draw(fonts_.rasterize_centered(state.notice, 16, true, TextEffect::outline, 0xff4444U, 188), 6, 562);
   }
   if (state.enabled) {
     const double width =
@@ -492,7 +492,7 @@ void Hud::party(const HudState::Party& state) {
       }
       blit(portrait, x - 4, y - 4);
       // SimpleText(13,color,false,66,20) with a default DropShadowFilter.
-      draw(fonts_.rasterize(member->name, 13, true, true, member->color, 0, 0, 1, 66, 20), x + 32,
+      draw(fonts_.rasterize(member->name, 13, true, TextEffect::outline, member->color, 0, 0, 1, 66, 20), x + 32,
            y + 6, 1, identity ? nullptr : &color_transform);
     }
   }
@@ -697,7 +697,7 @@ void Hud::snapped_rectangle(double x, double y, double width, double height, std
 
 void Hud::text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y,
                double opacity, unsigned shadow_strength, int field_width) {
-  draw(fonts_.rasterize(value, size, bold, true, color, x - std::floor(x), y - std::floor(y),
+  draw(fonts_.rasterize(value, size, bold, TextEffect::outline, color, x - std::floor(x), y - std::floor(y),
                         shadow_strength, field_width),
        x, y, opacity);
 }

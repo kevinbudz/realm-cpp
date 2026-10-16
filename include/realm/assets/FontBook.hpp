@@ -85,8 +85,12 @@ struct RichLine {
   bool bold{};
   double x{};
 };
-// An outline around rich text fields (EquipmentToolTip's text; Flash used a soft drop shadow).
-enum class TextFilter { none, outline };
+// The effect drawn behind a TextField: none, Flash's blurred black drop shadow, or (for the HUD) a
+// crisp black outline.
+enum class TextEffect { none, shadow, outline };
+
+// EquipmentToolTip's DropShadowFilter(0,0,0,.5,12,12) on text fields.
+enum class TextFilter { none, soft_shadow };
 
 // Text from the original regular/bold Myriad OTFs in the Flash source, rasterized with FreeType.
 class FontBook {
@@ -104,12 +108,12 @@ class FontBook {
                                               bool bold = false, bool shadow = false,
                                               std::uint32_t color = 0xffffff,
                                               Vec2 pixel_phase = {}) const;
-  // Outlined text: the former GlowFilter blur (blurX = blurY) sets an outline blur/2 logical px
-  // wide, so blur 4 (CharacterStatusText) is 2 px and blur 2 (names, tier tags) is 1 px. Outlines
-  // are always opaque; strength is kept for existing callers.
+  // GlowFilter blur (blurX = blurY) and strength. blur 4 is the 5-tap filter at 1x
+  // (CharacterStatusText); blur 2 is the legacy radius-1 filter (ItemTile tier tags). The default
+  // stays at 2 for existing glow callers.
   [[nodiscard]] TextBitmap rasterize_glow(std::string_view text, int size, bool bold,
                                           std::uint32_t color, unsigned strength = 10,
-                                          double blur = 2) const;
+                                          double blur = 2, bool outline = false) const;
   // Chat's CFF TextLine uses natural font advances and a baseline origin,
   // rather than SimpleText's TextField metrics and gutters.
   [[nodiscard]] double line_measure(std::string_view text, int size = 14, bool bold = true) const;
@@ -129,11 +133,19 @@ class FontBook {
   [[nodiscard]] double baseline(int size, bool bold = false) const;
   // Unrounded advance width of a single line, as TextLineMetrics.width.
   [[nodiscard]] double measure(std::string_view text, int size, bool bold = false) const;
+  [[nodiscard]] TextBitmap rasterize(std::string_view text, int size, bool bold,
+                                     TextEffect effect, std::uint32_t color = 0xffffff,
+                                     double phase = 0, double vertical_phase = 0,
+                                     unsigned shadow_strength = 1, int field_width = 0,
+                                     int field_height = 0) const;
   [[nodiscard]] TextBitmap rasterize(std::string_view text, int size, bool bold = false,
                                      bool shadow = false, std::uint32_t color = 0xffffff,
                                      double phase = 0, double vertical_phase = 0,
                                      unsigned shadow_strength = 1, int field_width = 0,
-                                     int field_height = 0) const;
+                                     int field_height = 0) const {
+    return rasterize(text, size, bold, shadow ? TextEffect::shadow : TextEffect::none, color,
+                     phase, vertical_phase, shadow_strength, field_width, field_height);
+  }
   // One auto-sized single-line TextField with mixed bold/regular spans.
   [[nodiscard]] TextBitmap rasterize_spans(std::span<const TextSpan> spans, int size, bool shadow,
                                            std::uint32_t color,
@@ -151,8 +163,15 @@ class FontBook {
   // A wordWrap TextField of fixed width with centered paragraphs. The image
   // origin is the field origin; height is the field height (textHeight + 4).
   [[nodiscard]] TextBitmap rasterize_centered(std::string_view text, int size, bool bold,
-                                              bool shadow, std::uint32_t color, int field_width,
+                                              TextEffect effect, std::uint32_t color,
+                                              int field_width,
                                               unsigned shadow_strength = 1) const;
+  [[nodiscard]] TextBitmap rasterize_centered(std::string_view text, int size, bool bold,
+                                              bool shadow, std::uint32_t color, int field_width,
+                                              unsigned shadow_strength = 1) const {
+    return rasterize_centered(text, size, bold, shadow ? TextEffect::shadow : TextEffect::none,
+                              color, field_width, shadow_strength);
+  }
 
   [[nodiscard]] std::size_t cache_bytes() const { return cache_bytes_; }
 
@@ -164,8 +183,8 @@ class FontBook {
   struct NativeFonts;
   std::unique_ptr<NativeFonts> native_;
   double pixel_scale_{1};
-  [[nodiscard]] TextBitmap rasterize_native(std::string_view text, int size, bool bold, bool shadow,
-                                            std::uint32_t color, double phase,
+  [[nodiscard]] TextBitmap rasterize_native(std::string_view text, int size, bool bold,
+                                            TextEffect effect, std::uint32_t color, double phase,
                                             double vertical_phase, unsigned strength,
                                             int field_width, int field_height, double density,
                                             Vec2 pixel_phase = {},

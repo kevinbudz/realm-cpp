@@ -134,18 +134,6 @@ void ui_outline_alpha(Image& image, double radius) {
   }
 }
 
-void ui_outline(Image& image, double radius) {
-  ui_outline_alpha(image, radius);
-  for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
-    if (const unsigned alpha = image.pixels[i + 3]; alpha && alpha != 255) {
-      for (unsigned c = 0; c < 3; ++c) {
-        image.pixels[i + c] =
-            static_cast<unsigned char>(std::min(255U, image.pixels[i + c] * 255U / alpha));
-      }
-    }
-  }
-}
-
 Image ui_image(double width, double height, double scale) {
   if (!std::isfinite(scale) || scale <= 0 || !std::isfinite(width) || !std::isfinite(height) ||
       width <= 0 || height <= 0 || width * scale > 8192 || height * scale > 8192) {

@@ -25,8 +25,6 @@ void ui_shadow(Image& image, double radius, double width, double height);
 // Adds a crisp black outline `radius` logical px wide beneath premultiplied content. Only alpha
 // changes, so the content stays premultiplied.
 void ui_outline_alpha(Image& image, double radius = 1);
-// Adds a crisp black outline to premultiplied content, then converts to straight alpha.
-void ui_outline(Image& image, double radius = 1);
 void ui_rounded_rectangle(Image& destination, double x, double y, double width, double height,
                           double radius, std::uint32_t color, double opacity,
                           bool premultiplied = false);

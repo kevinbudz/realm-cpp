@@ -1,4 +1,5 @@
 #include "realm/lib/ui/RmlHost.hpp"
+#include "realm/assets/VectorArt.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
 #include "realm/util/Utf8.hpp"
@@ -791,6 +792,53 @@ Image paint_menu_backdrop(const PaintRequest& request) {
   return image;
 }
 
+// paint(deca NAME [flip-x] [flip-y] [press] [hover] [grey]): the Deca UI art ui/deca/NAME.svg laid
+// out in the element's border box (its stretch bands grow, as Flash's scale-9 slices do) and
+// rasterized at drawable density. The flags are the Deca kit's states: mirrored,
+// SliceScalingButton's 0.9 press, its 10% cyan hover tint and GreyScale's disabled look. Each SVG
+// is parsed once.
+class DecaPainter {
+ public:
+  Image operator()(const PaintRequest& request) {
+    if (request.args.empty()) {
+      throw std::invalid_argument("'deca' needs an art name");
+    }
+    vector_art::Options options;
+    for (std::size_t i = 1; i < request.args.size(); ++i) {
+      const auto& flag = request.args[i];
+      if (flag == "flip-x") {
+        options.flip_x = true;
+      } else if (flag == "flip-y") {
+        options.flip_y = true;
+      } else if (flag == "press") {
+        options.content_scale = 0.9;
+      } else if (flag == "hover") {
+        options.tint = std::pair{0x00ffffU, 0.1};
+      } else if (flag == "grey") {
+        options.grey = true;
+      } else {
+        throw std::invalid_argument("'" + flag + "' is not a deca flag");
+      }
+    }
+    return vector_art::render(drawing(request.args[0]), request.width, request.height,
+                              request.scale, options);
+  }
+
+ private:
+  const vector_art::Drawing& drawing(const std::string& name) {
+    if (const auto found = drawings_.find(name); found != drawings_.end()) {
+      return found->second;
+    }
+    const auto* source = embedded_ui_file("deca/" + name + ".svg");
+    if (!source) {
+      throw std::invalid_argument("no Deca art named '" + name + "'");
+    }
+    return drawings_.emplace(name, vector_art::parse(*source)).first->second;
+  }
+
+  std::map<std::string, vector_art::Drawing, std::less<>> drawings_;
+};
+
 bool valid_native_image(const Image& image) {
   if (image.width <= 0 || image.height <= 0) {
     return false;
@@ -1335,6 +1383,12 @@ struct RmlHost::Impl {
       painters.add("cut-rect", paint_cut_rect, true);
       painters.add("rect", paint_rect, true);
       painters.add("menu-backdrop", paint_menu_backdrop, true);
+      painters.add(
+          "deca",
+          [deca = std::make_shared<DecaPainter>()](const PaintRequest& request) {
+            return (*deca)(request);
+          },
+          true);
     } catch (...) {
       teardown();
       throw;

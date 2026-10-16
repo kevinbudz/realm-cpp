@@ -20,7 +20,10 @@
      paint(cut-rect FILL STROKE CUT [STROKE_WIDTH])   corners cut by CUT dp, e.g. paint(cut-rect 0x363636 0xffffff 4 2);
                                                       the outline is inset by half STROKE_WIDTH so it stays inside the box
      paint(rect FILL)                                 an antialiased rectangle, e.g. paint(rect 0x545454)
-     paint(menu-backdrop)                             the options / guild menu backdrop; give the element height: 600dp */
+     paint(menu-backdrop)                             the options / guild menu backdrop; give the element height: 600dp
+     paint(deca NAME [flip-x] [flip-y] [press] [hover] [grey])
+                                                      the Deca UI art ui/deca/NAME.svg, stretched like its atlas slice;
+                                                      deca.rcss wraps it in widget classes (.deca-popup, .deca-button ...) */
 
 div,p,input,textarea,pulse-text{display:block}
 body{font-family:"Myriad Pro";color:#fff;font-size:14dp;width:100%;height:100%}

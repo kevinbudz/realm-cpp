@@ -4,6 +4,8 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <utility>
 #include <vector>
 
 // A small subset of display list rendering, enough to draw the original UI decorations natively:
@@ -30,6 +32,10 @@ struct Path {
 [[nodiscard]] Image canvas(int width, int height);
 // Nonzero fill with exact area coverage, composited source-over.
 void fill(Image& canvas, const Path& path, std::uint32_t color, double alpha = 1, Vec2 offset = {});
+// The straight 0xRRGGBB color and alpha of a paint at a pixel center (x + .5, y + .5).
+using Shade = std::function<std::pair<std::uint32_t, double>(double x, double y)>;
+// Fill with exact area coverage and a color per pixel, nonzero or even-odd, composited source-over.
+void fill(Image& canvas, const Path& path, const Shade& shade, bool even_odd);
 // A centered stroke with round joins and no caps.
 void stroke(Image& canvas, const Path& path, double width, std::uint32_t color, double alpha = 1,
             Vec2 offset = {});

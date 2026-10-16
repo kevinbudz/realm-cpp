@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -28,6 +29,18 @@ class Xml {
 
  private:
   const void* node_{};
+};
+
+// An in-memory document (no network, no entity substitution). Throws std::runtime_error when the
+// text is not well-formed XML.
+class XmlDocument {
+ public:
+  explicit XmlDocument(std::string_view text);
+
+  [[nodiscard]] Xml root() const;
+
+ private:
+  std::shared_ptr<void> document_;
 };
 
 double number(std::string_view s, double fallback = 0);

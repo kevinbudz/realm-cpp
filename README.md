@@ -192,7 +192,7 @@ Headless libraries, always built. Each row lists what the library owns and what 
 | `realm_network` | Packet codecs (`Protocol`, `Messages`), nonblocking TCP (`SocketServer`), blocking HTTP POST (`AppEngineClient`) | `realm_support` |
 | `realm_audio` | One-shot sound output and decoding (`REALM_AUDIO`) | `realm_network`, `realm_miniaudio` |
 | `realm_game` | World, entities, session, movement, combat, inventory, party, account, settings, catalog | `realm_network`, libxml2, zlib, nlohmann_json |
-| `realm_assets` | Decoded Flash assets: images, models, animations, fonts, terrain, HUD art, appearance caches | `realm_game`, libpng, FreeType |
+| `realm_assets` | Decoded Flash assets: images, models, animations, fonts, terrain, HUD art, appearance caches, and `VectorArt` (the SVG subset the Deca UI kit is drawn in) | `realm_game`, libpng, FreeType |
 | `realm_ui` | Headless UI logic: HUD, minimap, tooltips, chat, dialogs, guild screens, trade, options, `ui::Stack` | `realm_assets` |
 | `realm_fixtures` | Stress scene generator (`StressTimeline.cpp`) | `realm_assets` |
 
@@ -204,7 +204,7 @@ Viewer libraries, built when `REALM_BUILD_VIEWER=ON`:
 | `realm_ui_gpu` | GPU minimap composition | `realm_ui`, `realm_render` |
 | `realm_platform_sdl` | SDL2 window, input, and GL context | `realm_platform`, SDL2 |
 | `realm_startup` | Startup screens: controller, HTTP task service, retained view model | `realm_ui`, `realm_render` |
-| `realm_ui_rmlui` | The one RmlUi context, the embedded `ui/*.rml` and `ui/*.rcss` files, and the vendored RmlUi GL3 and SDL backends | `realm_ui`, RmlUi, SDL2, OpenGL |
+| `realm_ui_rmlui` | The one RmlUi context, the embedded `ui/*.rml` and `ui/*.rcss` files and `ui/deca/*.svg` art, and the vendored RmlUi GL3 and SDL backends | `realm_ui`, RmlUi, SDL2, OpenGL |
 | `realm_ui_views` | RmlUi presentation of retained surfaces and the startup screens | `realm_ui_rmlui`, `realm_startup`, `realm_render` |
 | `realm_application` | The `realm_client` coordinator: frame loop, layers, options, script replay, fixtures, audio bridge | the viewer libraries, `realm_audio` |
 
@@ -213,6 +213,7 @@ Executables:
 - **`realm_client`** (`src/Main.cpp`): the client. It links `realm_application`.
 - **`realm_session`** (`src/SessionMain.cpp`): a headless live protocol client, used by loopback tests.
 - **`realm_stress`** (`tools/StressInputs.cpp`): the stress-test driver. It is not a product binary.
+- **`realm_vector_render`** (`tools/VectorRender.cpp`): renders a `ui/deca` SVG to PNG with the client's rasterizer, for authoring and `tools/compare_deca_ui.py`. See [docs/deca-ui.md](docs/deca-ui.md).
 - **`realm_*_session_inputs`**, **`realm_delete_stale_inputs`**, **`realm_skin_*_inputs`**: scripted drivers that the Python loopback tests run.
 - **`realm_*_tests`**: test executables registered with `realm_add_test`. See [tests/README.md](tests/README.md).
 
@@ -322,6 +323,7 @@ Not Flash-derived: "flash" in `Particles.hpp` and `Hud.cpp` means a visual flash
 ## Documentation
 
 - [docs/fps-optimizations.md](docs/fps-optimizations.md): the GPU minimap, terrain chunk, and streaming design. Measurements are in [docs/fps-optimization-results.json](docs/fps-optimization-results.json).
+- [docs/deca-ui.md](docs/deca-ui.md): the Deca UI kit (`io.decagames.rotmg.ui`) redrawn as vector art, `ui/deca.rcss`, and the atlas extract, trace and compare tools.
 - [tests/README.md](tests/README.md): test labels, fixtures, and the checksum oracle.
 - [Completed Flash gap audit](docs/history/flash-gap-audit.md): implemented parity gaps, source findings and validation.
 - [docs/history/](docs/history/README.md): historical records, not current process. These include the [port spec](docs/history/port-spec.md), [progress log](docs/history/progress.md), [Flash UI specs](docs/history/flash-specs.md), [UI parity audit](docs/history/ui-parity-audit.md), and the [task](docs/history/client-task-chain.md) and [quality](docs/history/client-quality-chain.md) chains.

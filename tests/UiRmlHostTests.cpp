@@ -64,6 +64,16 @@ const std::string modal_document =
 <style>body{background-color:#00000080}#ok{position:absolute;left:350dp;top:400dp;width:100dp;height:30dp}</style></head>
 <body><div id="ok" class="button t16b">OK</div></body></rml>)";
 
+// deca.rcss classes painted from the embedded ui/deca vector art.
+const std::string deca_document =
+    R"(<rml><head><title>deca</title><link type="text/rcss" href="flash.rcss"/><link type="text/rcss" href="text.rcss"/>
+<link type="text/rcss" href="deca.rcss"/>
+<style>body{background-color:transparent}#button{position:absolute;left:600dp;top:400dp;width:120dp}
+#popup{position:absolute;left:600dp;top:460dp;width:150dp;height:80dp}
+#tab{position:absolute;left:600dp;top:550dp;width:120dp}</style></head>
+<body><div id="button" class="deca-button"></div><div id="popup" class="deca-popup"></div>
+<div id="tab" class="deca-tab open left"></div></body></rml>)";
+
 struct Counts {
   std::uint64_t text{}, paint{}, uploads{}, meshes{}, native_uploads{}, native_bytes{},
       native_meshes{};
@@ -354,6 +364,26 @@ void run(const FontBook& fonts, const HudArt& art) {
   check(delta.native_uploads == 1 && delta.native_bytes == 16 &&
             host.stats().native_image_bytes == 16,
         "reopened document owns one freshly uploaded texture");
+  // The Deca kit: three deca.rcss elements, each painted once from its SVG; the disabled button
+  // repaints grey.
+  auto* deca = host.load_from_memory(deca_document, "deca.rml");
+  check(deca != nullptr, "a deca.rcss document loads");
+  host.show(*deca, false, false);
+  before = counts(host);
+  frame(host);
+  delta = counts(host) - before;
+  check(delta.paint == 3, "deca elements paint once each: " + std::to_string(delta.paint));
+  const auto button = pixel(660, 417);
+  check(button[1] > button[0] + 60 && button[1] > button[2] + 60,
+        "deca-button paints generic_green_button");
+  check(pixel(675, 500)[0] == 0x35, "deca-popup paints its background");
+  deca->GetElementById("button")->SetAttribute("disabled", "");
+  frame(host);
+  const auto grey = pixel(660, 417);
+  check(grey[0] == grey[1] && grey[1] == grey[2] && grey[0] > 60,
+        "a disabled deca-button paints grey");
+  host.close(deca);
+  frame(host);
   check(host.stats().log_errors == 0 && host.stats().log_warnings == 0, "no RmlUi diagnostics");
   gl_clean("first host");
 }  // destroyed with both documents and a listener alive

@@ -87,6 +87,10 @@ include(cmake/ClientTargets.cmake)
 add_executable(realm_session src/SessionMain.cpp)
 target_link_libraries(realm_session PRIVATE realm_game realm_ui)
 
+# Renders ui/deca SVGs with the client's rasterizer, for authoring and tools/compare_deca_ui.py. Not a ctest.
+add_executable(realm_vector_render tools/VectorRender.cpp)
+target_link_libraries(realm_vector_render PRIVATE realm_assets)
+
 add_executable(realm_stress tools/StressInputs.cpp)
 target_link_libraries(realm_stress PRIVATE nlohmann_json::nlohmann_json realm_assets realm_fixtures realm_game realm_support)
 
@@ -277,6 +281,8 @@ if(BUILD_TESTING)
         SOURCES tests/ComposeTests.cpp LINK realm_assets)
     realm_add_test(NAME ui_rectangle TARGET realm_ui_rectangle_tests LABELS unit
         SOURCES tests/UiRectangleTests.cpp LINK realm_assets)
+    realm_add_test(NAME vector_art TARGET realm_vector_art_tests LABELS unit
+        SOURCES tests/VectorArtTests.cpp LINK realm_assets DEFINES REALM_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     realm_add_test(NAME world_storage TARGET realm_world_storage_tests LABELS unit
         SOURCES tests/WorldStorageTests.cpp LINK realm_game)
     realm_add_test(NAME texture_residency TARGET realm_texture_residency_tests LABELS unit

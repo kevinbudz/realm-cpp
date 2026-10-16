@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="38" height="14" viewBox="0 0 38 14" data-stretch-x="18 19">
+  <!-- tab_open_decor_center: Deca UI frame tab_open_decor_center. Traced from the atlas frame. Stretches along x 18-19. -->
+  <path fill="#282828" fill-opacity="0.8" fill-rule="evenodd" d="M4.5 0 L11 0 L11 1 L12 1 L12 0 L25 0 L25 1 L26 1 L26 0 L33 0 L33 1 L34 1 L34 3 L38 3 L38 14 L0 14 L0 3 L1.5 3 Z M11 1 L10 1 L10 2 L11 2 Z M27 1 L26 1 L26 2 L27 2 Z M10 2 L9 2 L9 3 L10 3 Z M28 2 L27 2 L27 3 L28 3 Z M9 3 L8 3 L8 4 L9 4 Z M29 3 L28 3 L28 4 L29 4 Z M8 4 L7 4 L7 5 L8 5 Z M30 4 L29 4 L29 5 L30 5 Z M7 5 L6 5 L6 6 L7 6 Z M31 5 L30 5 L30 6 L31 6 Z M6 6 L5 6 L5 7 L6 7 Z M32 6 L31 6 L31 7 L32 7 Z M5 7 L4 7 L4 8 L5 8 Z M33 7 L32 7 L32 8 L33 8 Z"/>
+  <path fill="#2d2d2d" fill-opacity="0.686" fill-rule="evenodd" d="M4 0 L12 0 L12 0.5 L4.5 8 L0 8 L0 3 L3 3 L3 1 L4 1 Z M25 0 L32.5 0 L35.5 3 L38 3 L38 8 L32.5 8 L25 0.5 Z"/>
+  <path fill="#353535" fill-rule="evenodd" d="M4 0 L11 0 L11 0.5 L3.5 8 L0 8 L0 3 L3 3 L3 1 L4 1 Z M26 0 L33 0 L33 1 L34 1 L34 3 L38 3 L38 8 L33.5 8 L26 0.5 Z"/>
+  <path fill="#3f3f3f" fill-rule="evenodd" d="M1.5 5 L0 5 L0 3 L2.5 3 L5.5 0 L6 0 L6 0.5 Z M34.5 3 L38 3 L38 5 L34 5 L34 3.5 L31 0.5 L31 0 L31.5 0 Z"/>
+</svg>

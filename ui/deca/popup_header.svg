@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="39" height="127" viewBox="0 0 39 127" data-stretch-x="19 20">
+  <!-- popup_header: UIPopup header panel (PopupHeader TYPE_FULL). Stretches along x 19-20. -->
+  <!-- panel -->
+  <path fill="#353535" d="M0 0 L1.5 0 L19 17.5 L20 17.5 L37.5 0 L39 0 L39 126 L38 126 L20 108 L19 108 L1 126 L0 126 Z"/>
+  <!-- lit notch edge -->
+  <path fill="#3f3f3f" d="M-2 -3.5 L19 17.5 L20 17.5 L41 -3.5 L42.273 -2.227 L20.746 19.3 L18.254 19.3 L-3.273 -2.227 Z"/>
+  <!-- upper groove -->
+  <path fill="#2c2c2c" d="M-22.453 3.534 L17.708 23.1 L22.32 23.1 L62.96 -17.54 L63.525 -16.975 L22.651 23.9 L17.524 23.9 L-22.803 4.254 Z"/>
+  <!-- lower groove -->
+  <path fill="#2c2c2c" d="M-22.803 121.246 L17.524 101.6 L22.651 101.6 L63.525 142.475 L62.96 143.04 L22.32 102.4 L17.708 102.4 L-22.453 121.966 Z"/>
+</svg>

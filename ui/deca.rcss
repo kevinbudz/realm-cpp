@@ -1,0 +1,105 @@
+/* Deca UI kit (io.decagames.rotmg.ui): popups, buttons, tabs, scroll bar, fields, list items and dividers, drawn from
+   the vector redraws in ui/deca/*.svg instead of the client.swf texture atlas, so they stay sharp at any density.
+   Link it after flash.rcss and text.rcss: <link type="text/rcss" href="deca.rcss"/>.
+
+   Every class paints its element's border box with paint(deca NAME [flip-x] [flip-y] [press] [hover] [grey]). An SVG
+   stretches only inside its data-stretch-x / data-stretch-y band, as the atlas frame's 3grid/9grid slice does in
+   SliceScalingBitmap, so give elements at least the frame's natural size (noted per class, in dp) along an axis the
+   frame does not stretch. The flags are SliceScalingButton's states: hover is Tint.add(0x00FFFF, 0.1), press the 0.9
+   scale, grey GreyScale.setGreyScale for a disabled button.
+
+   Text uses DefaultLabelFormat; pair the classes below with the matching text.rcss size class (.t14b, .t16 ...). */
+
+/* Popups (UIPopup, ModalPopup, PopupHeader). */
+.deca-popup{decorator:paint(deca popup_background_simple)}                     /* 9grid, at least 20 x 22 */
+.deca-popup-decorated{decorator:paint(deca popup_background_decoration)}       /* 9grid, at least 34 x 34 */
+.deca-inset{decorator:paint(deca popup_content_inset)}                         /* 9grid, at least 24 x 24 */
+.deca-inset-decorated{decorator:paint(deca popup_content_decoration)}          /* 9grid, at least 24 x 24 */
+.deca-popup-header{min-width:39dp;height:127dp;decorator:paint(deca popup_header)}
+.deca-popup-footer{min-width:38dp;height:43dp;decorator:paint(deca popup_footer)}
+.deca-popup-title{min-width:210dp;height:70dp;decorator:paint(deca popup_header_title)}
+.deca-modal-title{min-width:92dp;height:47dp;decorator:paint(deca modal_header_title)}
+.deca-header-button-decor{width:60dp;height:50dp;decorator:paint(deca popup_header_button_decor)}
+.deca-header-button-decor.flip{decorator:paint(deca popup_header_button_decor flip-x)}
+
+/* DefaultLabelFormat titles and text. The host's font-effect is Flash's TextField drop shadow. */
+.deca-title{color:#eaeaea;font-weight:bold;font-size:32dp;font-effect:shadow(0px 0px #000)}          /* defaultPopupTitle */
+.deca-title-medium{color:#eaeaea;font-weight:bold;font-size:22dp;font-effect:shadow(0px 0px #000)}   /* defaultMediumPopupTitle */
+.deca-title-small{color:#eaeaea;font-weight:bold;font-size:14dp;font-effect:shadow(0px 0px #000)}    /* defaultSmallPopupTitle */
+.deca-modal-title-text{color:#fff;font-size:18dp;font-effect:shadow(0px 0px #000)}                   /* defaultModalTitle */
+.deca-modal-text{color:#fff;font-size:14dp;text-align:center}                                        /* defaultTextModalText */
+
+/* SliceScalingButton over generic_green_button (3grid along x, 35 high) with defaultButtonLabel text. */
+.deca-button{box-sizing:border-box;min-width:35dp;height:35dp;color:#fff;font-size:16dp;text-align:center;
+    decorator:paint(deca generic_green_button)}
+.deca-button:hover{decorator:paint(deca generic_green_button hover)}
+.deca-button:hover:active{decorator:paint(deca generic_green_button hover press)}
+.deca-button[disabled]{decorator:paint(deca generic_green_button grey)}
+
+/* Fixed-size icon buttons. */
+.deca-close-button{width:38dp;height:35dp;decorator:paint(deca close_button)}
+.deca-close-button:hover{decorator:paint(deca close_button hover)}
+.deca-close-button:hover:active{decorator:paint(deca close_button hover press)}
+.deca-info-button{width:38dp;height:35dp;decorator:paint(deca info_button)}
+.deca-info-button:hover{decorator:paint(deca info_button hover)}
+.deca-info-button:hover:active{decorator:paint(deca info_button hover press)}
+.deca-add-button{width:38dp;height:35dp;decorator:paint(deca add_button)}
+.deca-add-button:hover{decorator:paint(deca add_button hover)}
+.deca-add-button:hover:active{decorator:paint(deca add_button hover press)}
+.deca-tab-info-button{width:23dp;height:23dp;decorator:paint(deca tab_info_button)}
+.deca-resources-add-button{width:23dp;height:23dp;decorator:paint(deca resourcesAddButton)}
+.deca-refresh-icon{width:18dp;height:18dp;decorator:paint(deca refresh_icon)}
+.deca-spinner-up{width:18dp;height:10dp;decorator:paint(deca spinner_up_arrow)}
+.deca-spinner-down{width:18dp;height:10dp;decorator:paint(deca spinner_up_arrow flip-y)}
+
+/* UITabs: TabButton (left / center / right / borderless; .open is the selected tab, 41 high, idle 33 high) over a
+   TabContentBackground. Labels are defaultInactiveTab / defaultActiveTab. */
+.deca-tab{box-sizing:border-box;min-width:17dp;height:33dp;color:#616161;font-size:14dp;font-weight:bold;
+    decorator:paint(deca tab_button_center_idle)}
+.deca-tab.left{decorator:paint(deca tab_button_left_idle)}
+.deca-tab.right{decorator:paint(deca tab_button_right_idle)}
+.deca-tab.borderless{decorator:paint(deca tab_button_borderless_idle)}
+.deca-tab.open{min-width:80dp;height:41dp;color:#eaeaea;font-effect:shadow(0px 0px #000);
+    decorator:paint(deca tab_button_center_open)}
+.deca-tab.open.left{min-width:83dp;decorator:paint(deca tab_button_left_open)}
+.deca-tab.open.right{min-width:83dp;decorator:paint(deca tab_button_right_open)}
+.deca-tab.open.borderless{min-width:70dp;height:36dp;decorator:paint(deca tab_button_borderless)}
+.deca-tab-decor{min-width:38dp;height:14dp;decorator:paint(deca tab_open_decor_center)}
+.deca-tab-decor.left{min-width:44dp;decorator:paint(deca tab_open_decor_left)}
+.deca-tab-decor.right{min-width:44dp;decorator:paint(deca tab_open_decor_right)}
+.deca-tab-content{decorator:paint(deca tab_cointainer_background)}                 /* 9grid, at least 31 x 31 */
+.deca-tab-content.filled{decorator:paint(deca tab_cointainer_background_filled)}
+.deca-tab-inset{decorator:paint(deca tab_inset_content_background)}                /* 9grid, at least 18 x 18 */
+
+/* List items (friends, guild and quest lists). */
+.deca-list-item{decorator:paint(deca listitem_content_background)}                  /* 9grid, at least 18 x 18 */
+.deca-list-item.inactive{decorator:paint(deca listitem_content_background_inactive)}
+.deca-list-item.indicator{decorator:paint(deca listitem_content_background_indicator)}
+.deca-list-item.selected{decorator:paint(deca listitem_content_background_selected)}
+
+/* Fields (InputTextField backgrounds) and checkboxes. */
+.deca-field{decorator:paint(deca black_field_background)}                           /* 9grid, at least 24 x 23 */
+.deca-bordered-field{min-width:33dp;height:28dp;decorator:paint(deca bordered_field)}
+input.deca-checkbox{width:13dp;height:13dp;decorator:paint(deca checkbox_empty)}
+input.deca-checkbox:checked{decorator:paint(deca checkbox_filled)}
+
+/* Dividers and decorations (3grid along x, fixed height). */
+.deca-divider{min-width:18dp;height:10dp;decorator:paint(deca content_divider)}
+.deca-divider.white{decorator:paint(deca content_divider_white)}
+.deca-divider-title{min-width:77dp;height:31dp;decorator:paint(deca content_divider_title)}
+.deca-divider-small-title{min-width:18dp;height:16dp;decorator:paint(deca content_divider_smalltitle_white)}
+.deca-title-decoration{min-width:92dp;height:34dp;decorator:paint(deca content_title_decoration)}
+.deca-main-button-decoration{min-width:79dp;height:47dp;decorator:paint(deca main_button_decoration)}
+.deca-main-button-decoration.dark{decorator:paint(deca main_button_decoration_dark)}
+.deca-content-button-decoration{min-width:215dp;height:85dp;decorator:paint(deca content_button_decoration)}
+
+/* UIScrollbar: a 17 dp scrollbar_background track and a 15 dp scrollbar_slider inset by 1 dp, at least 39 dp tall. */
+.deca-scroll scrollbarvertical{width:17dp;margin-left:4dp}
+.deca-scroll scrollbarvertical slidertrack{width:17dp;background-color:transparent;
+    decorator:paint(deca scrollbar_background)}
+.deca-scroll scrollbarvertical sliderbar{width:15dp;margin-left:1dp;min-height:39dp;background-color:transparent;
+    border-radius:0;decorator:paint(deca scrollbar_slider)}
+.deca-scroll scrollbarvertical sliderbar:hover,
+.deca-scroll scrollbarvertical sliderbar:active{background-color:transparent}
+.deca-scroll scrollbarvertical sliderarrowdec,
+.deca-scroll scrollbarvertical sliderarrowinc{display:none}

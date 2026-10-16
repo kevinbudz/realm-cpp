@@ -187,11 +187,15 @@ int main(int argc, char** argv) {
       return true;
     };
     check(check_lower_is_better(
-              "cooldown", "Cooldown:", [](const auto& item) { return item.xml.has("Cooldown"); },
+              "cooldown", "Cooldown:",
+              [](const auto& item) { return item.usable && item.xml.has("Cooldown"); },
               [](const auto& item) { return item.xml.number("Cooldown", .2); }),
           "cooldown comparison fixtures exist");
     check(check_lower_is_better(
-              "MP cost", "MP Cost:", [](const auto& item) { return item.xml.has("MpCost"); },
+              "MP cost", "MP Cost:",
+              [](const auto& item) {
+                return item.usable && item.xml.has("MpCost") && !item.xml.has("MultiPhase");
+              },
               [](const auto& item) { return item.xml.number("MpCost"); }),
           "MP cost comparison fixtures exist");
     check(check_lower_is_better(
@@ -258,6 +262,64 @@ int main(int argc, char** argv) {
         catalog, {.item = {type("Loot Tier Potion"), -1}, .equipped = {}, .usable = true});
     check(!custom.custom.empty() && contains(custom.custom, "Duration: 30 min"),
           "ExtraTooltipData is rendered in its own custom section");
+    const auto has_line = [](const std::vector<realm::RichLine>& lines, std::string_view prefix) {
+      return std::any_of(lines.begin(), lines.end(), [&](const auto& line) {
+        std::string value;
+        for (const auto& span : line.spans) {
+          value += span.text;
+        }
+        return value.starts_with(prefix);
+      });
+    };
+    auto nova = realm::item_tooltip_content(
+        catalog, {.item = {type("Elemental Detonation Spell"), -1}, .equipped = {}, .usable = true});
+    check(!has_line(nova.effects, "Shots:") && !has_line(nova.effects, "Rate of Fire:") &&
+              !has_line(nova.effects, "Arc Gap:") && has_line(nova.effects, "Damage:") &&
+              contains(nova.effects, "-Spell: 20 shots"),
+          "bullet-nova spells omit the duplicated shot count, rate of fire and arc gap");
+    auto shuriken = realm::item_tooltip_content(
+        catalog, {.item = {type("Basic Star"), -1}, .equipped = {}, .usable = true});
+    check(has_line(shuriken.effects, "Shots:") && has_line(shuriken.effects, "Rate of Fire:") &&
+              has_line(shuriken.effects, "Arc Gap:"),
+          "shuriken keeps its projectile shot count and rate of fire");
+    const auto first_with = [&](std::string_view kind) {
+      for (const auto& object : catalog.objects()) {
+        for (const auto activate : object.xml.children("Activate")) {
+          if (activate.text() == kind) {
+            return realm::item_tooltip_content(
+                catalog, {.item = {object.type, -1}, .equipped = {}, .usable = true});
+          }
+        }
+      }
+      throw std::runtime_error("Missing fixture with activation " + std::string(kind));
+    };
+    for (const auto& object : catalog.objects()) {
+      const auto activations = object.xml.children("Activate");
+      const bool trap = std::any_of(activations.begin(), activations.end(),
+                                    [](const auto& activation) { return activation.text() == "Trap"; });
+      if (trap) {
+        const auto trap_content = realm::item_tooltip_content(
+            catalog, {.item = {object.type, -1}, .equipped = {}, .usable = true});
+        check(has_line(trap_content.effects, "    Applies ") &&
+                  !has_line(trap_content.effects, "    Applies Slowed for 0 secs") &&
+                  !contains(trap_content.effects, "    Applies Paralyzed for 0 secs"),
+              "trap durations come from condDuration");
+      }
+    }
+    const auto star = realm::item_tooltip_content(
+        catalog, {.item = {type("Basic Star"), -1}, .equipped = {}, .usable = true});
+    check(!has_line(star.effects, "On Use:") && !has_line(star.effects, "-"),
+          "shuriken throws do not list an unnamed On Use entry");
+    const auto skull = first_with("VampireBlast");
+    check(has_line(skull.effects, "-Skull: Deals ") && !has_line(skull.effects, "-Skull: Heals"),
+          "skull describes its damage and healing without a fixed heal amount");
+    const auto grenade = first_with("PoisonGrenade");
+    check(has_line(grenade.effects, "-Poison: Deals ") &&
+              !has_line(grenade.effects, "-Poison: Deals 0 damage"),
+          "poison grenade shows its total damage over its duration");
+    check(contains(first_with("Dye").effects, "-Changes texture of your character") &&
+              contains(first_with("Backpack").effects, "-Adds 8 inventory spaces, once per character"),
+          "dyes and backpacks describe what they do instead of a bare dash");
     hud.inventory.selected = 1;
     check(!realm::item_tooltip_target(world, hud, {34, 400}), "stats body has no item hover");
     check(realm::item_tooltip_target(world, hud, {34, 324}).has_value(),
@@ -268,7 +330,7 @@ int main(int argc, char** argv) {
           "backpack resolves wrong-class items");
     content = realm::item_tooltip_content(catalog, *target);
     check(contains(content.restrictions, "Not usable by Wizard") &&
-              contains(content.effects, "+2 Vitality") && contains(content.effects, "+2 Wisdom"),
+              contains(content.effects, "    +2 Vitality") && contains(content.effects, "    +2 Wisdom"),
           "class warning and XML boost mapping");
     hud.inventory.dragging = 12;
     check(!realm::item_tooltip_target(world, hud, {34, 400}), "drag suppresses item tooltip");
@@ -285,11 +347,11 @@ int main(int argc, char** argv) {
     target = realm::item_tooltip_target(world, hud, {34, 528});
     check(target && target->owner == realm::TooltipOwner::container &&
               contains(realm::item_tooltip_content(catalog, *target).effects,
-                       "Permanently increases Dexterity"),
+                       "-Increases Dexterity by 1"),
           "container resolves permanent potion effect");
     check(contains(realm::item_tooltip_content(catalog, *target).restrictions,
-                   "Double-Click to take & Shift-Click to use"),
-          "NPC consumable instructions");
+                   "Double-Click to consume"),
+          "consumable instructions match Astrum");
     world.remove(77);
     check(!realm::item_tooltip_target(world, hud, {34, 528}),
           "removed container cannot leave stale tooltip");
@@ -312,7 +374,7 @@ int main(int argc, char** argv) {
     auto trade = realm::item_tooltip_target(world, {type("Health Potion"), -1},
                                             realm::TooltipOwner::other_player);
     check(trade && contains(realm::item_tooltip_content(catalog, *trade).restrictions,
-                            "Double-Click to take & Shift-Click to use"),
+                            "Double-Click to consume"),
           "trade owner uses OTHER_PLAYER");
     for (int i = 4; i < 12; ++i) {
       realm::set_inventory_item(*world.entity(99), i, {type("Health Potion"), -1});
@@ -323,12 +385,11 @@ int main(int argc, char** argv) {
     for (int i = 12; i < 20; ++i) {
       realm::set_inventory_item(*world.entity(99), i, {type("Health Potion"), -1});
     }
-    trade = realm::item_tooltip_target(world, {type("Health Potion"), -1},
+    trade = realm::item_tooltip_target(world, {type("Energy Staff"), -1},
                                        realm::TooltipOwner::other_player);
-    check(
-        trade->inventory_full && contains(realm::item_tooltip_content(catalog, *trade).restrictions,
-                                          "Double-Click or Shift-Click on item to use"),
-        "full inventory changes instructions for other owners");
+    check(trade->inventory_full && contains(realm::item_tooltip_content(catalog, *trade).restrictions,
+                                            "Double-Click to equip"),
+          "full inventory changes equipment instructions for other owners");
     realm::set_inventory_item(*world.entity(99), 4, {0, -1});
     trade = realm::item_tooltip_target(world, {type("Health Potion"), -1},
                                        realm::TooltipOwner::other_player);

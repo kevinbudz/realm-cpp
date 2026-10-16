@@ -70,7 +70,7 @@ int main() {
     world.goto_entity(-2, {51, 50.5});
     check(mini.update(world, *world.entity(-2), 0) && mini.colored_rows() == before_move,
           "focus movement recolored terrain");
-    check(mini.zoom_levels() == std::vector<double>({4, 2, 1.92}),
+    check(mini.zoom_levels() == std::vector<double>({4, 2, 1.82}),
           "minimap zoom levels differ from source");
     mini.zoom_out();
     mini.zoom_out();

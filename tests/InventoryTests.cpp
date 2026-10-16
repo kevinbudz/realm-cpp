@@ -1,3 +1,4 @@
+#include "realm/assets/InventoryLayout.hpp"
 #include "realm/game/Inventory.hpp"
 #include "realm/hud/HudInput.hpp"
 #include "flash_assets.hpp"
@@ -182,9 +183,9 @@ int main() {
     check(realm::HudInput::slot_at({150, 450}, 2) == 19 &&
               realm::HudInput::slot_at({20, 386}, 1) == -1,
           "backpack and stats hit routing");
-    check(realm::HudInput::slot_at({14, 304}, 0) == -1 &&
+    check(realm::HudInput::slot_at({14, 305}, 0) == -1 &&
               realm::HudInput::slot_at({55, 310}, 0) == -1 &&
-              realm::HudInput::slot_at({20, 422}, 0) == -1,
+              realm::HudInput::slot_at({20, 426}, 0) == -1,
           "cuts and gaps are not slots");
     input.down({20, 386}, state);
     input.move({23, 386}, 0);
@@ -219,8 +220,8 @@ int main() {
     input.down({20, 386}, state);
     action = input.up({20, 386}, false, true, 901, state);
     check(action && action->kind == realm::InventoryActionKind::transfer, "ctrl-click transfer");
-    input.down({72, 360}, state);
-    (void)input.up({72, 360}, false, false, 902, state);
+    input.down({157, 360}, state);
+    (void)input.up({157, 360}, false, false, 902, state);
     check(input.selected() == 2, "backpack tab selected");
     input.down({20, 386}, state);
     input.move({24, 386}, 2);
@@ -230,8 +231,8 @@ int main() {
           "focus loss cancels drag and preserves tab");
     input.cancel(true);
     check(input.selected() == 0, "map reset restores default tab");
-    input.down({42, 360}, state);
-    (void)input.up({42, 360}, false, false, 903, state);
+    input.down({100, 360}, state);
+    (void)input.up({100, 360}, false, false, 903, state);
     check(input.selected() == 1, "stats tab selected");
     input.down({20, 386}, state);
     input.move({24, 386}, 1);
@@ -250,15 +251,54 @@ int main() {
     input.cycle_tabs(false);
     check(input.selected() == 0, "two-tab cycle excludes backpack");
     state.backpack = false;
-    input.down({72, 360}, state);
-    (void)input.up({72, 360}, false, false, 905, state);
-    check(input.selected() == 0, "absent backpack tab ignores clicks");
-    input.down({36, 360}, state);
-    (void)input.up({36, 360}, false, false, 906, state);
+    input.down({196, 360}, state);
+    (void)input.up({196, 360}, false, false, 905, state);
+    check(input.selected() == 0, "click beyond the two-tab strip is ignored");
+    input.down({99, 360}, state);
+    (void)input.up({99, 360}, false, false, 906, state);
     check(input.selected() == 0, "tab padding ignores clicks");
-    input.down({100, 360}, state);
+    input.down({99, 360}, state);
     (void)input.up({42, 360}, false, false, 907, state);
     check(input.selected() == 0, "release over tab without pressing it does not select");
+    check(realm::inventory_tab_rect(2, 1).x == 101 && realm::inventory_tab_rect(2, 1).width == 83 &&
+              realm::inventory_tab_rect(3, 0).width == 55 &&
+              realm::inventory_tab_rect(3, 2).x + realm::inventory_tab_rect(3, 2).width == 184,
+          "tabs split the strip from x 16 to 184, remainder to the leftmost tabs");
+    // Tabs end at HUD y 377 (backdrop row 77); the panel's light band below them (HUD rows 378..379)
+    // is not a hit.
+    input.down({150, 379}, state);
+    (void)input.up({150, 379}, false, false, 908, state);
+    check(input.selected() == 0, "panel outline below an unselected tab is not a tab hit");
+    // The two-tab strip is x 16 to 183 (tab 1 is 101 to 183); pixels beside it are not tab hits.
+    input.down({183, 360}, state);
+    (void)input.up({183, 360}, false, false, 909, state);
+    check(input.selected() == 1, "last strip pixel selects tab 1");
+    input.down({184, 360}, state);
+    (void)input.up({184, 360}, false, false, 910, state);
+    input.down({15, 360}, state);
+    (void)input.up({15, 360}, false, false, 911, state);
+    check(input.selected() == 1, "pixels just outside the strip are not tab hits");
+    input.down({16, 360}, state);
+    (void)input.up({16, 360}, false, false, 912, state);
+    check(input.selected() == 0, "first strip pixel selects tab 0");
+    // Drag-to-store covers HUD rows 358..502 (inventory_store_top up to, not including, 503).
+    input.down({20, 386}, state);
+    input.move({24, 386}, 0);
+    action = input.up({100, 357}, false, false, 913, state);
+    check(!action, "drag released above the store area does not store");
+    input.down({20, 386}, state);
+    input.move({24, 386}, 0);
+    action = input.up({100, 358}, false, false, 914, state);
+    check(action && action->kind == realm::InventoryActionKind::store && action->source == 4,
+          "drag released on the store area's top row stores");
+    input.down({20, 386}, state);
+    input.move({24, 386}, 0);
+    action = input.up({100, 502}, false, false, 915, state);
+    check(action && action->kind == realm::InventoryActionKind::store, "bottom store row stores");
+    input.down({20, 386}, state);
+    input.move({24, 386}, 0);
+    action = input.up({100, 503}, false, false, 916, state);
+    check(!action, "drag released below the store area does not store");
     const auto hud = realm::HudState::player(world, *world.entity(99));
     check(hud.stats[3].cap == 75 && hud.stats[4].cap == 40 && hud.stats[5].cap == 60,
           "HUD class cap mapping");
@@ -302,34 +342,34 @@ int main() {
     hero.profile.stats[4] = 50;
     check(!inv.use_potion(1, 1003), "full MP sends no magic potion");
     using realm::HudInput;
-    check(HudInput::potion_at({20, 470}, 0) == 0 && HudInput::potion_at({110, 470}, 2) == 1 &&
-              HudInput::potion_at({20, 470}, 1) == -1,
+    check(HudInput::potion_at({20, 474}, 0) == 0 && HudInput::potion_at({110, 474}, 2) == 1 &&
+              HudInput::potion_at({20, 474}, 1) == -1,
           "potion views on both inventory tabs only");
-    check(HudInput::potion_at({14, 468}, 0) == -1 && HudInput::potion_at({14, 491}, 0) == -1 &&
-              HudInput::potion_at({185, 468}, 0) == -1 && HudInput::potion_at({185, 491}, 0) == -1,
+    check(HudInput::potion_at({14, 472}, 0) == -1 && HudInput::potion_at({14, 495}, 0) == -1 &&
+              HudInput::potion_at({185, 472}, 0) == -1 && HudInput::potion_at({185, 495}, 0) == -1,
           "potion cut corners");
-    check(HudInput::potion_at({100, 470}, 0) == -1 && HudInput::potion_at({20, 493}, 0) == -1,
+    check(HudInput::potion_at({100, 474}, 0) == -1 && HudInput::potion_at({20, 497}, 0) == -1,
           "potion gaps");
-    check(HudInput::potion_at({30, 458}, 0) == 0 && HudInput::slot_at({30, 458}, 0) == -1 &&
-              HudInput::slot_at({20, 458}, 0) == 8 && HudInput::slot_at({120, 458}, 2) == -1,
+    check(HudInput::potion_at({30, 462}, 0) == 0 && HudInput::slot_at({30, 462}, 0) == -1 &&
+              HudInput::slot_at({20, 462}, 0) == 8 && HudInput::slot_at({120, 462}, 2) == -1,
           "potion icons cover the lower grid row");
     HudInput pin;
-    check(!pin.up({20, 470}, false, false, 1000, state), "first potion click waits");
-    action = pin.up({20, 470}, false, false, 1249, state);
+    check(!pin.up({20, 474}, false, false, 1000, state), "first potion click waits");
+    action = pin.up({20, 474}, false, false, 1249, state);
     check(action && action->kind == realm::InventoryActionKind::potion && action->source == 0,
           "potion double-click under 250ms");
-    (void)pin.up({20, 470}, false, false, 1300, state);
-    check(!pin.up({20, 470}, false, false, 1550, state), "potion double-click deadline exclusive");
-    (void)pin.up({20, 470}, false, false, 2000, state);
-    pin.move({20, 440}, 0);
-    check(!pin.up({20, 470}, false, false, 2100, state),
+    (void)pin.up({20, 474}, false, false, 1300, state);
+    check(!pin.up({20, 474}, false, false, 1550, state), "potion double-click deadline exclusive");
+    (void)pin.up({20, 474}, false, false, 2000, state);
+    pin.move({20, 444}, 0);
+    check(!pin.up({20, 474}, false, false, 2100, state),
           "leaving the view cancels its pending click");
     pin.cancel();
-    action = pin.up({110, 470}, true, false, 2200, state);
+    action = pin.up({110, 474}, true, false, 2200, state);
     check(action && action->source == 1, "shift-click uses immediately");
-    (void)pin.up({20, 470}, false, false, 2300, state);
-    check(!pin.up({110, 470}, false, false, 2350, state), "double-click requires the same view");
-    action = pin.up({110, 470}, false, false, 2400, state);
+    (void)pin.up({20, 474}, false, false, 2300, state);
+    check(!pin.up({110, 474}, false, false, 2350, state), "double-click requires the same view");
+    action = pin.up({110, 474}, false, false, 2400, state);
     check(action && action->source == 1, "second view double-click");
     check(HudInput::slot_at({20, 514}, 0, true) == 20 &&
               HudInput::slot_at({150, 590}, 0, true) == 27 &&

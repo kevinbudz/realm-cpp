@@ -280,6 +280,9 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
         }
         auto quad = placed ? *placed : surface->quad(at, {w, 0}, {0, h});
         quad.owner = surface;
+        // CharacterStatusText's fade of randomized (damage) text; the kind 5 shader multiplies the
+        // tint's alpha into the coverage. Other texts stay opaque.
+        quad.multiply[3] *= static_cast<float>(realm::StatusTexts::opacity(text, status_time));
         overlay_storage[overlay.size()] = quad;
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
@@ -370,7 +373,8 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
       if (cs.minimap) {
         overlay_storage[overlay.size()] =
             cs.minimap_gpu.build(*cs.minimap, cs.world, *player, cs.angle,
-                                 {width - 196 * ui_scale, 4 * ui_scale}, ui_scale);
+                                 {width - (realm::minimap_size + 9) * ui_scale, 9 * ui_scale},
+                                 ui_scale);
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
 
@@ -594,6 +598,13 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
                 cs.quest_arrow.position(), cs.quest_arrow.rotation(),
                 tip.content_width() * tip_scale, tip.content_height() * tip_scale,
                 cs.camera.scale());
+            // The frame is the content plus six logical pixels on every side (ToolTip.draw). The
+            // next frame's hover and presses use it, as the tooltip is a child of the arrow.
+            constexpr double frame_inset = 6;
+            cs.quest_arrow.set_tooltip_bounds(
+                {content.x - frame_inset * tip_scale, content.y - frame_inset * tip_scale,
+                 (tip.content_width() + 2 * frame_inset) * tip_scale,
+                 (tip.content_height() + 2 * frame_inset) * tip_scale});
             const auto quad = cs.quest_tooltip_texture.quad(
                 {content.x - realm::QuestToolTip::origin * tip_scale,
                  content.y - realm::QuestToolTip::origin * tip_scale},
@@ -633,7 +644,7 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
         const auto ids =
             (!cs.tooltip_pointer_valid || (cs.player_menu && cs.player_menu->visible()))
                 ? std::vector<std::int32_t>{}
-                : cs.minimap->hover_players(cs.world, *focus, {pointer.x - 4, pointer.y - 4});
+                : cs.minimap->hover_players(cs.world, *focus, {pointer.x - 9, pointer.y - 9});
         if (cs.player_group->tooltip(realm::player_group_targets(cs.world, ids), screen_pointer,
                                      width, height, scale)) {
           cs.group_texture.update(cs.player_group->image());

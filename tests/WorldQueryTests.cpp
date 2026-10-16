@@ -217,7 +217,7 @@ std::array<std::int32_t, realm::Party::members_shown> reference_party(const real
 std::vector<std::int32_t> reference_hover(const realm::World& world, const realm::Minimap& minimap,
                                           const realm::Entity& focus, realm::Vec2 pointer) {
   std::vector<std::int32_t> result;
-  if (pointer.x < 0 || pointer.y < 0 || pointer.x >= 192 || pointer.y >= 192) {
+  if (pointer.x < 0 || pointer.y < 0 || pointer.x >= realm::minimap_size || pointer.y >= realm::minimap_size) {
     return result;
   }
   for (const auto& entity : world.entities()) {

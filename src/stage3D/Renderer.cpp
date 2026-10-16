@@ -121,11 +121,17 @@ uniform sampler2D surface;
 uniform bool standalone;
 uniform bool clipped;
 uniform vec4 clipRect;
+uniform float clipCut;
 uniform vec2 viewport;
 out vec4 color;
 void main() {
     vec2 screen = vec2(gl_FragCoord.x, viewport.y - gl_FragCoord.y);
     if (clipped && (any(lessThan(screen,clipRect.xy)) || any(greaterThanEqual(screen,clipRect.xy+clipRect.zw)))) discard;
+    // Cut corners: each corner of the clip square loses a clipCut-sized triangle (device px).
+    if (clipped) {
+        vec2 inset = min(screen - clipRect.xy, clipRect.xy + clipRect.zw - screen);
+        if (inset.x + inset.y < clipCut) discard;
+    }
     if (mode > 16.5 && mode < 17.5) {
         // Wall corner (vertex_shader): solid faces are black; textured faces sample their sprite as the mesh program
         // does.
@@ -596,6 +602,7 @@ Renderer::Renderer(std::size_t capacity, bool persistent_streaming,
     ground_time_ = glGetUniformLocation(program_, "groundTime");
     clip_location_ = glGetUniformLocation(program_, "clipped");
     clip_rect_ = glGetUniformLocation(program_, "clipRect");
+    clip_cut_ = glGetUniformLocation(program_, "clipCut");
     triangle_list_location_ = glGetUniformLocation(program_, "triangleList");
     glUniform1i(glGetUniformLocation(program_, "geometry"), 2);
     glGenVertexArrays(1, &vao_);
@@ -735,9 +742,11 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       glUniform1i(clip_location_, 1);
       glUniform4f(clip_rect_, command.origin[0], command.origin[1], command.axis_x[0],
                   command.axis_y[1]);
+      glUniform1f(clip_cut_, static_cast<float>(command.uv_offset[0]));
       draw_batch(layer->quads, 0, width, height, layer->buffer, false);
       quads_bound = false;
       glUniform1i(clip_location_, 0);
+      glUniform1f(clip_cut_, 0);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
       ++first;
       continue;
@@ -923,6 +932,7 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   glBindVertexArray(vao_);
   glUniform1i(ground_location_, 0);
   glUniform1i(clip_location_, 0);
+  glUniform1f(clip_cut_, 0);
 
   upload_meshes(quads, overlay);
   bind_walls();
@@ -1137,6 +1147,7 @@ void Renderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, i
   glUniform1i(surface_location_, 1);
   glUniform1i(ground_location_, 0);
   glUniform1i(clip_location_, 0);
+  glUniform1f(clip_cut_, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);

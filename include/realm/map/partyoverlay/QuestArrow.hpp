@@ -38,6 +38,12 @@ class QuestArrow {
 
   [[nodiscard]] Tooltip tooltip() const { return tooltip_; }
 
+  // The drawn frame of the tooltip beside the arrow, in drawable pixels. ApplicationLoopRender
+  // reports it after update() draws the tooltip; update() clears it when no tooltip is drawn.
+  void set_tooltip_bounds(Rect bounds) { tooltip_bounds_ = bounds; }
+
+  // The arrow's triangle or the tooltip frame last drawn beside it. The tooltip is a child of the
+  // arrow in QuestArrow.as, so a pointer over either hovers the arrow.
   [[nodiscard]] bool hit(Vec2 pointer) const;
 
   [[nodiscard]] static Image image(double rotation, double density) {
@@ -55,5 +61,6 @@ class QuestArrow {
   bool visible_{};
   bool hover_{};
   Tooltip tooltip_{Tooltip::none};
+  Rect tooltip_bounds_{};
 };
 }

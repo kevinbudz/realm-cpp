@@ -1,11 +1,13 @@
 #include "realm/hud/Hud.hpp"
+#include "realm/assets/InventoryLayout.hpp"
 #include "flash_party_transforms.hpp"
 #include <algorithm>
 #include <cmath>
 
 namespace realm {
 namespace {
-// The tab panel (y 300-500) and the interaction panel below it redraw separately.
+// The tab panel (y 300-499) and the interaction panel below it (y 500-599) redraw separately. The
+// interaction panel also repaints the tab panel's bottom outline, rows 500-503 of its backdrop.
 HudState::Inventory upper(HudState::Inventory inventory) {
   std::fill(inventory.items.begin() + container_slot, inventory.items.end(), -1);
   std::fill(inventory.restricted.begin() + container_slot, inventory.restricted.end(), false);
@@ -208,22 +210,37 @@ void Hud::inventory(const HudState::Inventory& state) {
   if (state.selected < 0 || state.selected > 2 || (state.selected == 2 && !state.backpack)) {
     throw std::runtime_error("Invalid HUD inventory tab");
   }
+  // Only the tab panel's rows (300-499); its bottom outline is drawn by inventory_bottom().
   blit(art_->image(
            "backdrop" + std::to_string(state.backpack) + "s" + std::to_string(state.selected),
            image_.pixel_scale),
-       0, 300);
+       0, inventory_panel_y, HudRegion{0, inventory_panel_y, 200, 500 - inventory_panel_y});
   for (int i = 0; i < 4; ++i) {
-    tile(state, i, i, 14 + 44 * i, 304, true);
+    tile(state, i, i, 14 + 44 * i, equipment_row_y, true);
   }
   if (state.selected != 1) {
     for (int i = 0; i < 8; ++i) {
-      tile(state, (state.selected == 2 ? 12 : 4) + i, i, 14 + 44 * (i % 4), 380 + 44 * (i / 4),
-           false);
+      tile(state, (state.selected == 2 ? 12 : 4) + i, i, 14 + 44 * (i % 4),
+           inventory_grid_y + 44 * (i / 4), false);
     }
     if (state.potions[0] >= 0 && state.potions[1] >= 0) {
       potions(state.potions);
     }
   }
+}
+
+void Hud::inventory_bottom(const HudState::Inventory& state) {
+  if (!art_ || !state.enabled) {
+    return;
+  }
+  // The rows from HUD 500 to the backdrop's end are the panel's bottom outline and the background
+  // under it. They are painted with the lower panel, so an interaction repaint restores them before
+  // it draws over them.
+  blit(art_->image("backdrop" + std::to_string(state.backpack) + "s" +
+                       std::to_string(state.selected),
+                   image_.pixel_scale),
+       0, inventory_panel_y,
+       HudRegion{0, 500, 200, inventory_panel_y + inventory_backdrop_height - 500});
 }
 
 void Hud::tile(const HudState::Inventory& state, int index, int position, int x, int y,
@@ -289,16 +306,31 @@ void Hud::container(const HudState::Inventory& state) {
 }
 
 void Hud::potions(const std::array<int, 2>& counts) {
-  // PotionSlotView.setData: the source never clears available, so its
-  // grayscale filter is not reachable.
+  // Zolmex PotionSlotView.setData: the source never clears available, so its
+  // grayscale filter is not reachable. A stocked slot shows its count (size 18 bold, colored by
+  // amount) with a "/6" sub text and the icon at x+6; an empty slot keeps the buy layout at x+13.
   for (std::size_t i = 0; i < counts.size(); ++i) {
     const int x = potion_view_x[i];
-    const bool stocked = counts[i] > 0;
+    const int count = counts[i];
+    const bool stocked = count > 0;
     blit(art_->image((stocked ? "potionuse" : "potionbuy") + std::to_string(i), image_.pixel_scale),
          x, potion_view_y);
-    text(stocked ? std::to_string(counts[i]) : "0", 13, false, stocked ? 0xffffffU : 11184810U,
-         x + 47, potion_view_y + 2, 1, 2, 24);
-    blit(art_->image("potion" + std::to_string(potion_types[i])), x + 13, potion_view_y - 11);
+    if (stocked) {
+      // setData: one potion is red, 2-4 orange, and more than 4 green.
+      std::uint32_t color = 3007543U;
+      if (count <= 1) {
+        color = 16589603U;
+      } else if (count <= 4) {
+        color = 16611363U;
+      }
+      text(std::to_string(count), 18, true, color, x + 55, potion_view_y + 1, 1, 2, 84);
+      text("/6", 12, false, 0xb6b6b6U, x + 67, potion_view_y + 7, 1, 2, 84);
+    } else {
+      text("0", 13, false, 11184810U, x + 47, potion_view_y + 2, 1, 2, 24);
+    }
+    // The icon is Flash's 55, drawn at the HUD density with sharp bilinear sampling (see HudArt).
+    blit(art_->image("potion" + std::to_string(potion_types[i]), image_.pixel_scale),
+         stocked ? x + 6 : x + 13, potion_view_y - 11);
   }
 }
 
@@ -521,7 +553,7 @@ void Hud::stats(const std::array<HudStatState, 6>& state) {
   // StatsView centers its entire two-column bounds. Its vertical position is
   // set once with the initial '-' fields, before any server values arrive.
   const double x = 7 + 30 + (191 - (left + 95.5 + right)) / 2;
-  const double y = 373 + (126 - (30 + std::max(fonts_.layout("ATT -", 13).height,
+  const double y = inventory_stats_y + (126 - (30 + std::max(fonts_.layout("ATT -", 13).height,
                                                fonts_.layout("-", 13, true).height))) /
                              2;
   for (std::size_t i = 0; i < state.size(); ++i) {
@@ -559,6 +591,7 @@ bool Hud::update(const HudState& state) {
     rectangle(0, 0, 200, 600, 3552822);
     heading(state);
     inventory(state.inventory);
+    inventory_bottom(state.inventory);
     container(state.inventory);
     portal(state.portal);
     button(state.button);
@@ -571,6 +604,7 @@ bool Hud::update(const HudState& state) {
     for (const auto& meter : state.bars) {
       bar(meter);
     }
+    minimap_frame();
     changes_.push_back({0, 0, 200, 600});
   } else {
     const bool heading_changed = state_.name != state.name ||
@@ -585,12 +619,15 @@ bool Hud::update(const HudState& state) {
       for (const auto& meter : state.bars) {
         bar(meter);
       }
+      // The clear above overwrote the frame's bottom rows (190..196).
+      minimap_frame();
       changes_.push_back({0, 190, 200, 110});
     }
     if (art_ && (!same_lower(state_.inventory, state.inventory) || state_.portal != state.portal ||
                  state_.button != state.button || state_.sellable != state.sellable ||
                  state_.party != state.party || state_.social != state.social)) {
       rectangle(0, 500, 200, 100, 3552822);
+      inventory_bottom(state.inventory);
       container(state.inventory);
       portal(state.portal);
       button(state.button);
@@ -608,7 +645,7 @@ bool Hud::update(const HudState& state) {
       changes_.push_back({0, 300, 200, 200});
     } else if (art_ && state.inventory.enabled && state.inventory.selected == 1 &&
                state_.stats != state.stats) {
-      const HudRegion area{0, 373, 200, 127};
+      const HudRegion area{0, inventory_stats_y, 200, 500 - inventory_stats_y};
       blit(art_->image("backdrop" + std::to_string(state.inventory.backpack) + "s1",
                        image_.pixel_scale),
            0, 300, area);
@@ -695,9 +732,17 @@ void Hud::snapped_rectangle(double x, double y, double width, double height, std
   }
 }
 
+void Hud::minimap_frame() {
+  // The minimap view is an overlay at (9, 9) with 182 px sides. Its frame art sits at (4, 4) and
+  // leaves a 2 px light ring around the clipped view.
+  if (art_) {
+    blit(art_->image("minimapframe", image_.pixel_scale), 4, 4);
+  }
+}
+
 void Hud::text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y,
-               double opacity, unsigned shadow_strength, int field_width) {
-  draw(fonts_.rasterize(value, size, bold, TextEffect::outline, color, x - std::floor(x), y - std::floor(y),
+               double opacity, unsigned shadow_strength, int field_width, TextEffect effect) {
+  draw(fonts_.rasterize(value, size, bold, effect, color, x - std::floor(x), y - std::floor(y),
                         shadow_strength, field_width),
        x, y, opacity);
 }
@@ -788,7 +833,7 @@ void Hud::bar(const StatusBarState& state) {
   snapped_rectangle(12, state.y, 176, 16, 5526612);
   snapped_rectangle(12, state.y, state.maximum > 0 ? 176.0 * value / state.maximum : 176, 16,
                     state.color);
-  text(state.label, 14, true, 0xffffff, 12, state.y - 3);
+  text(state.label, 14, true, 0xffffff, 12, state.y - 2, 1, 1, 0, TextEffect::shadow);
   const auto amount =
       std::to_string(value) + (state.maximum > 0 ? "/" + std::to_string(state.maximum) : "");
   const auto boost = state.boost ? " (" + std::string(state.boost > 0 ? "+" : "") +
@@ -797,9 +842,9 @@ void Hud::bar(const StatusBarState& state) {
   const auto amount_width = fonts_.layout(amount, 14, true).width;
   const auto boost_width = boost.empty() ? 0 : fonts_.layout(boost, 14, true).width;
   const double ax = 12 + 88 - (amount_width + boost_width) / 2;
-  text(amount, 14, true, color, ax, state.y - 3);
+  text(amount, 14, true, color, ax, state.y - 2, 1, 1, 0, TextEffect::shadow);
   if (!boost.empty()) {
-    text(boost, 14, true, color, ax + amount_width, state.y - 3, .6);
+    text(boost, 14, true, color, ax + amount_width, state.y - 2, .6, 1, 0, TextEffect::shadow);
   }
 }
 }

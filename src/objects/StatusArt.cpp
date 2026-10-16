@@ -2,6 +2,7 @@
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace realm {
 namespace {
@@ -15,6 +16,40 @@ int texture_height(const ObjectDef& definition) {
     return flash::sheets[static_cast<std::size_t>(texture.sheet)].height;
   }
   return 8;
+}
+
+int texture_width(const ObjectDef& definition) {
+  const auto& texture = definition.texture;
+  if (texture.animated >= 0 &&
+      static_cast<std::size_t>(texture.animated) < flash::animated.size()) {
+    return flash::animated[static_cast<std::size_t>(texture.animated)].width;
+  }
+  if (texture.sheet >= 0 && static_cast<std::size_t>(texture.sheet) < flash::sheets.size()) {
+    return flash::sheets[static_cast<std::size_t>(texture.sheet)].width;
+  }
+  return 8;
+}
+
+// SplitMix64 finalizer: well-mixed bits from a key, so randomized texts need no RNG state.
+std::uint64_t mix(std::uint64_t value) {
+  value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+  value = (value ^ (value >> 27U)) * 0x94d049bb133111ebULL;
+  return value ^ (value >> 31U);
+}
+
+// The key of a randomized text: its object, the time it was reported and its sequence number.
+// The same events in the same order give the same scatter, so a fixed clock repeats its frames.
+std::uint64_t draw_seed(const StatusEvent& event, std::uint32_t sequence) {
+  const auto object_time =
+      (static_cast<std::uint64_t>(static_cast<std::uint32_t>(event.object_id)) << 32U) |
+      static_cast<std::uint32_t>(event.time_ms);
+  return mix(mix(object_time) + sequence);
+}
+
+// RandomUtil.plusMinus(range), deterministic: uniform in [-range, range) for one salted draw.
+double plus_minus(std::uint64_t seed, std::uint64_t salt, double range) {
+  const std::uint64_t bits = mix(seed + salt * 0x9e3779b97f4a7c15ULL) >> 11U;
+  return (static_cast<double>(bits) / 9007199254740992.0 * 2 - 1) * range;
 }
 }
 
@@ -126,9 +161,19 @@ void StatusTexts::add(const World& world, StatusEvent event) {
   text.lifetime = std::max(1, event.lifetime);
   text.offset_time = event.offset_time;
   // The constructor reads the texture of the object when the text is created.
+  int width = 8;
   if (const auto* definition = world.catalog().object(object->type)) {
     text.texture_height = texture_height(*definition);
+    width = texture_width(*definition);
   }
+  if (event.randomized) {
+    // randomized=true: offset_.x = plusMinus(texture.width / 2), driftDirection_ = plusMinus(20).
+    const auto seed = draw_seed(event, sequence_);
+    text.randomized = true;
+    text.offset_x = plus_minus(seed, 1, width / 2.0);
+    text.drift_x = plus_minus(seed, 2, randomized_drift);
+  }
+  ++sequence_;
   if (texts_.size() >= capacity) {
     texts_.erase(texts_.begin());
   }
@@ -162,10 +207,25 @@ Vec2 StatusTexts::position(const StatusText& text, Vec2 object_screen, int objec
                            std::int32_t time) {
   // offset_ = (0, -texture.height * size / 100 * 5 - 20); drift = dt / lifetime * 40 upward;
   // the label is centered on that point.
-  const double drift = static_cast<double>(time - text.start) / text.lifetime * max_drift;
+  const double fraction = static_cast<double>(time - text.start) / text.lifetime;
+  const double drift = fraction * max_drift;
   const double y = -text.texture_height * (object_size / 100.0) * 5 - 20 - drift;
-  return {object_screen.x + (-text.label.width / 2 + text.label.offset.x) * zoom,
+  // randomized: x = offset.x + drift away from the center, drift = dt / lifetime * drift_x.
+  double x = 0;
+  if (text.randomized) {
+    x = text.offset_x + (text.offset_x > 0 ? 1 : -1) * fraction * text.drift_x;
+  }
+  return {object_screen.x + (x - text.label.width / 2 + text.label.offset.x) * zoom,
           object_screen.y + (y - text.label.height / 2 + text.label.offset.y) * zoom};
+}
+
+double StatusTexts::opacity(const StatusText& text, std::int32_t time) {
+  if (!text.randomized) {
+    return 1;
+  }
+  // alpha = 1.0 / (drift / 15.0) with drift = dt / lifetime * 20; Flash clamps it to 1.
+  const double drift = static_cast<double>(time - text.start) / text.lifetime * randomized_drift;
+  return drift <= 15 ? 1 : 15 / drift;
 }
 
 std::uint32_t breath_bar_back_color(int breath, std::int32_t time_ms) {

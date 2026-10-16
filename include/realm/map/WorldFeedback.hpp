@@ -15,13 +15,16 @@ struct DamageCue {
   std::vector<std::uint8_t> effects;
 };
 
-// A CharacterStatusText request: floating text above an object.
+// A CharacterStatusText request: floating text above an object. A randomized request (damage
+// numbers) scatters sideways and drifts; `time_ms` is the report time that seeds the scatter.
 struct StatusEvent {
   std::int32_t object_id{};
   std::string text;
   std::uint32_t color{};
   int lifetime{};
   int offset_time{};
+  bool randomized{};
+  std::int32_t time_ms{};
 };
 
 // Bounded world-space feedback waiting for the rendered status overlay.

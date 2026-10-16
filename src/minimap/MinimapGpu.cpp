@@ -41,26 +41,23 @@ Quad MinimapGpu::build(Minimap& minimap, const World& world, const Entity& focus
   quads.reserve(view.markers.size() + 4);
   if (!minimap.zoom_levels().empty()) {
     const double zoom = minimap.zoom_levels()[static_cast<std::size_t>(minimap.zoom_index())];
-    const double tx = std::clamp(-view.focus.x * zoom, 96 - image.width * zoom, -96.0);
-    const double ty = std::clamp(-view.focus.y * zoom, 96 - image.height * zoom, -96.0);
-    auto map = map_.quad(origin, {192 * scale, 0}, {0, 192 * scale});
+    const double tx = std::clamp(-view.focus.x * zoom, minimap_half - image.width * zoom, -minimap_half);
+    const double ty = std::clamp(-view.focus.y * zoom, minimap_half - image.height * zoom, -minimap_half);
+    auto map = map_.quad(origin, {minimap_size * scale, 0}, {0, minimap_size * scale});
     map.kind = 13;
-    map.uv = {static_cast<float>((-96 - std::trunc(tx * 20) / 20) / zoom / image.width),
-              static_cast<float>((-96 - std::trunc(ty * 20) / 20) / zoom / image.height),
-              static_cast<float>(192 / zoom / image.width),
-              static_cast<float>(192 / zoom / image.height)};
+    map.uv = {static_cast<float>((-minimap_half - std::trunc(tx * 20) / 20) / zoom / image.width),
+              static_cast<float>((-minimap_half - std::trunc(ty * 20) / 20) / zoom / image.height),
+              static_cast<float>(minimap_size / zoom / image.width),
+              static_cast<float>(minimap_size / zoom / image.height)};
     quads.push_back(map);
     for (const auto& marker : view.markers) {
-      double x = marker.position.x * zoom + tx;
-      double y = marker.position.y * zoom + ty;
-      const auto outside = std::max(std::abs(x), std::abs(y));
-      if (outside >= 96) {
-        x *= 96 / outside;
-        y *= 96 / outside;
-      }
+      const auto offset =
+          clamp_marker_offset({marker.position.x * zoom + tx, marker.position.y * zoom + ty});
+      const double x = offset.x;
+      const double y = offset.y;
       // A padded quad supplies fractional marker coverage at its edges.
-      const double left = std::round((96 + x - 2) * 20) / 20;
-      const double top = std::round((96 + y - 2) * 20) / 20;
+      const double left = std::round((minimap_half + x - 2) * 20) / 20;
+      const double top = std::round((minimap_half + y - 2) * 20) / 20;
       Quad q;
       q.kind = 15;
       q.origin = floats({origin.x + std::floor(left * scale), origin.y + std::floor(top * scale)});
@@ -74,17 +71,17 @@ Quad MinimapGpu::build(Minimap& minimap, const World& world, const Entity& focus
       q.uv_offset[0] = static_cast<float>(scale);
       quads.push_back(q);
     }
-    const double px = 96 + view.focus.x * zoom + tx;
-    const double py = 96 + view.focus.y * zoom + ty;
+    const double px = minimap_half + view.focus.x * zoom + tx;
+    const double py = minimap_half + view.focus.y * zoom + ty;
     auto arrow = arrow_.quad({origin.x + (px - 16) * scale, origin.y + (py - 16) * scale},
                              {32 * scale, 0}, {0, 32 * scale});
     arrow.kind = 16;
     arrow.uv_offset = {static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle))};
     quads.push_back(arrow);
     auto out =
-        out_.quad({origin.x + 172 * scale, origin.y + 4 * scale}, {16 * scale, 0}, {0, 16 * scale});
+        out_.quad({origin.x + (minimap_size - 20) * scale, origin.y + 4 * scale}, {16 * scale, 0}, {0, 16 * scale});
     auto in =
-        in_.quad({origin.x + 172 * scale, origin.y + 14 * scale}, {16 * scale, 0}, {0, 16 * scale});
+        in_.quad({origin.x + (minimap_size - 20) * scale, origin.y + 14 * scale}, {16 * scale, 0}, {0, 16 * scale});
     if (minimap.button_zoom() <= 0) {
       out.multiply = {.5F, .5F, .5F, 1};
     }
@@ -98,8 +95,10 @@ Quad MinimapGpu::build(Minimap& minimap, const World& world, const Entity& focus
   command.kind = 14;
   command.owner = layer_;
   command.origin = floats(origin);
-  command.axis_x = {static_cast<float>(192 * scale), 0};
-  command.axis_y = {0, static_cast<float>(192 * scale)};
+  command.axis_x = {static_cast<float>(minimap_size * scale), 0};
+  command.axis_y = {0, static_cast<float>(minimap_size * scale)};
+  // Corner cut for the shader's clip triangles, in device px.
+  command.uv_offset[0] = static_cast<float>(minimap_clip_cut * scale);
   return command;
 }
 }

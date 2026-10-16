@@ -26,8 +26,9 @@ void QuestArrow::update(const World& world, const Quest& quest, const Camera& ca
     hover_ = true;
   }
   // QuestArrow.getToolTip: the full tooltip while hovered or new, else the portrait when enabled.
-  // No tooltip while the arrow is hidden.
+  // No tooltip while the arrow is hidden. The frame is set again by the render path if it draws.
   tooltip_ = Tooltip::none;
+  tooltip_bounds_ = {};
   if (!visible_) {
     return;
   }
@@ -39,7 +40,17 @@ void QuestArrow::update(const World& world, const Quest& quest, const Camera& ca
 }
 
 bool QuestArrow::hit(Vec2 pointer) const {
-  return visible_ && GameObjectArrow::contains(position_, rotation_, size, pointer, scale_);
+  if (!visible_) {
+    return false;
+  }
+  if (GameObjectArrow::contains(position_, rotation_, size, pointer, scale_)) {
+    return true;
+  }
+  // QuestToolTip and PortraitToolTip are children of the arrow in QuestArrow.as, so their frame
+  // hovers and takes presses as the arrow does. An empty frame (no tooltip drawn) hits nothing.
+  const auto& b = tooltip_bounds_;
+  return pointer.x >= b.x && pointer.x < b.x + b.width && pointer.y >= b.y &&
+         pointer.y < b.y + b.height;
 }
 
 void QuestArrow::refresh(const World& world, const Quest& quest, const Camera& camera,

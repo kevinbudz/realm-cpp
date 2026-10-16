@@ -68,9 +68,14 @@ class Appearances {
   void clear() const;
   // Pure bitmap operation (TextureRedrawer.redraw), exposed for independent source-reference
   // fixtures and UI art. Without `glow` only the outline is drawn, as GlowRedrawer.outlineGlow with
-  // no glow color.
+  // no glow color. `device_scale` multiplies the texel scale of 5 * size / 100 (HUD density).
+  // `sharp` is opt-in: it resamples with an exact integer nearest upscale followed by an area
+  // reduction, so each texel keeps its exact scale with a one-pixel blended seam. The margins scale
+  // with `device_scale` so the sprite keeps its logical center. The outline and glow are computed
+  // from the final alpha in both modes. The default arguments keep the original output exactly.
   [[nodiscard]] Image compose(const Image& source, const Image* mask, int size, bool pad,
-                              std::uint32_t tex1, std::uint32_t tex2, bool glow = true) const;
+                              std::uint32_t tex1, std::uint32_t tex2, bool glow = true,
+                              double device_scale = 1, bool sharp = false) const;
 
   [[nodiscard]] const AnimationLibrary& animations() const { return animations_; }
 

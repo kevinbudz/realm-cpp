@@ -43,8 +43,8 @@ Center opaque_center(const realm::Image& image) {
   return center_of(image, [](const unsigned char* p) { return p[3] >= 128; });
 }
 
-// Opaque silhouette pixels, tinted exactly RGB 54 on the RGB 69 tile. The tile's antialiased
-// corners are not tinted.
+// Opaque silhouette pixels, tinted exactly RGB 54 on the frame_dark (RGB 36,34,34) equipped tile.
+// The tile's antialiased corners are not tinted.
 Center dark_center(const realm::Image& image) {
   return center_of(image, [](const unsigned char* p) {
     return p[0] == 54 && p[1] == 54 && p[2] == 54 && p[3] == 255;

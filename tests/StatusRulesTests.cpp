@@ -294,6 +294,115 @@ void texts(FontBook& fonts) {
         "bounded, newest kept");
 }
 
+// The sprite width StatusArt reads for an object: its animated frame, else its sheet.
+int sprite_width(const ObjectDef& definition) {
+  const auto& texture = definition.texture;
+  check(texture.animated >= 0 || texture.sheet >= 0, "the Wizard has a sprite");
+  if (texture.animated >= 0) {
+    return flash::animated[static_cast<std::size_t>(texture.animated)].width;
+  }
+  return flash::sheets[static_cast<std::size_t>(texture.sheet)].width;
+}
+
+void scatter() {
+  Fixture f;
+  // Only the damage number is randomized; condition names, Immune and level/exp text are plain.
+  f.world.report_damage(2, 37, 1000, std::array<std::uint8_t, 1>{condition::weak});
+  auto events = f.world.take_status_events();
+  check(events.size() == 2 && events[0].text == "Weak" && !events[0].randomized &&
+            events[1].text == "-37" && events[1].randomized && events[1].time_ms == 1000,
+        "only the damage number is randomized");
+  f.world.entity(2)->combat.condition = condition::bit(condition::stun_immune);
+  f.world.report_damage(2, 0, 1000, std::array<std::uint8_t, 1>{condition::stunned});
+  events = f.world.take_status_events();
+  check(events.size() == 1 && events[0].text == "Immune" && !events[0].randomized,
+        "Immune is plain");
+  f.world.entity(2)->combat.condition = 0;
+  f.tick(2, {{stat(StatId::LEVEL_STAT), 5}, {stat(StatId::EXP_STAT), 10}});
+  (void)f.world.take_status_events();
+  f.tick(2, {{stat(StatId::EXP_STAT), 35}});
+  events = f.world.take_status_events();
+  check(events.size() == 1 && events[0].text == "+25 EXP" && !events[0].randomized,
+        "exp text is plain");
+
+  // Scatter is within half the sprite's width, drift within 20 px, varies on both sides, and is
+  // the same for the same events in the same order.
+  const auto* wizard = f.catalog.object("Wizard");
+  check(wizard != nullptr, "Wizard exists");
+  const double half = sprite_width(*wizard) / 2.0;
+  check(half > 0, "Wizard has a width");
+  StatusTexts texts;
+  StatusTexts again;
+  for (int i = 0; i < 32; ++i) {
+    const StatusEvent event{2, "-" + std::to_string(i), 0xff0000U, 1000, 0, true, 1000};
+    texts.add(f.world, event);
+    again.add(f.world, event);
+  }
+  check(texts.texts().size() == 32 && again.texts().size() == 32, "randomized texts are queued");
+  bool positive = false, negative = false, varied = false;
+  for (std::size_t i = 0; i < texts.texts().size(); ++i) {
+    const auto& text = texts.texts()[i];
+    check(text.randomized, "damage text is randomized");
+    check(
+        std::abs(text.offset_x) <= half && std::abs(text.drift_x) <= StatusTexts::randomized_drift,
+        "offset within half the width, drift within 20 px");
+    positive |= text.offset_x > 0;
+    negative |= text.offset_x < 0;
+    varied |= text.offset_x != texts.texts()[0].offset_x;
+    check(text.offset_x == again.texts()[i].offset_x && text.drift_x == again.texts()[i].drift_x,
+          "same inputs give the same scatter");
+  }
+  check(positive && negative && varied, "scatter varies on both sides");
+  StatusTexts later;
+  later.add(f.world, {2, "-0", 0xff0000U, 1000, 0, true, 1001});
+  check(later.texts()[0].offset_x != texts.texts()[0].offset_x ||
+            later.texts()[0].drift_x != texts.texts()[0].drift_x,
+        "the report time is part of the key");
+
+  // x = offset + sign(offset) * dt / lifetime * drift_x: drift moves a text away from the center on
+  // its own side, and y keeps the plain upward drift. Label width 0 keeps the centering out.
+  StatusText sized;
+  sized.started = true;
+  sized.start = 10000;
+  sized.lifetime = 1000;
+  sized.label.width = 0;
+  sized.label.height = 30;
+  sized.randomized = true;
+  sized.offset_x = 10;
+  sized.drift_x = 20;
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10000).x, 110, 1e-9, "offset at the start");
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).x, 120, 1e-9,
+       "positive offset and drift: right");
+  sized.offset_x = -10;
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).x, 80, 1e-9,
+       "negative offset and drift: left");
+  sized.drift_x = -20;
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).x, 100, 1e-9,
+       "negative offset, negative drift: back to the center");
+  sized.offset_x = 10;
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).x, 100, 1e-9,
+       "positive offset, negative drift: back to the center");
+  sized.offset_x = -10;
+  sized.drift_x = 20;
+  near(StatusTexts::position(sized, {100, 200}, 100, 2, 10500).x, 60, 1e-9,
+       "zoom scales the sideways position");
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).y, 200 - 80 - 15, 1e-9,
+       "vertical drift is unchanged");
+  sized.randomized = false;
+  near(StatusTexts::position(sized, {100, 200}, 100, 1, 10500).x, 100, 1e-9,
+       "plain text ignores the scatter");
+
+  // Alpha: 1 until 75% of the lifetime, 0.75 at the end; plain text stays opaque.
+  sized.randomized = true;
+  near(StatusTexts::opacity(sized, 10000), 1, 1e-9, "opaque at the start");
+  near(StatusTexts::opacity(sized, 10750), 1, 1e-9, "opaque at 75%");
+  near(StatusTexts::opacity(sized, 10800), 15.0 / 16, 1e-9, "80%: 15 / 16");
+  near(StatusTexts::opacity(sized, 10900), 15.0 / 18, 1e-9, "90%: 15 / 18");
+  near(StatusTexts::opacity(sized, 11000), 0.75, 1e-9, "0.75 at the end");
+  sized.randomized = false;
+  near(StatusTexts::opacity(sized, 11000), 1, 1e-9, "plain text stays opaque");
+}
+
 void art_cache(FontBook& fonts, const std::filesystem::path& root) {
   AnimationLibrary animations(root);
   Appearances appearances(root, animations);
@@ -363,6 +472,7 @@ int main() {
     events();
     progress();
     texts(fonts);
+    scatter();
     art_cache(fonts, realm::flash::source_root);
     std::cout << "status rules passed (" << checks << " checks)\n";
   } catch (const std::exception& e) {

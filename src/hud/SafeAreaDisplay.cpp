@@ -4,6 +4,37 @@
 
 namespace realm {
 namespace {
+// The logical rows [top, bottom), relative to the origin of the bitmap's text, that hold alpha.
+struct InkRows {
+  double top{};
+  double bottom{};
+};
+
+InkRows ink_rows(const TextBitmap& text) {
+  const auto& image = text.image;
+  int first = -1;
+  int end = 0;
+  for (int y = 0; y < image.height; ++y) {
+    for (int x = 0; x < image.width; ++x) {
+      const auto at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) +
+                       static_cast<std::size_t>(x)) *
+                      4;
+      if (image.pixels[at + 3]) {
+        if (first < 0) {
+          first = y;
+        }
+        end = y + 1;
+        break;
+      }
+    }
+  }
+  if (first < 0) {
+    return {};
+  }
+  const double scale = image.pixel_scale;
+  return {text.offset.y + first / scale, text.offset.y + end / scale};
+}
+
 void premultiplied_to_straight(Image& image) {
   for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
     const unsigned alpha = image.pixels[i + 3];
@@ -29,14 +60,22 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
   const auto number = stars < 0 ? TextBitmap{}
                                 : fonts.rasterize(std::to_string(stars), 18, true,
                                                   TextEffect::outline, 0xffffff, 0, 0, 2);
-  const auto star = stars < 0 ? Image{} : art.rank_star_icon(stars);
-  // FameUtil's Sprite is scaled 1.4; the 8px image margin only holds the
-  // DropShadowFilter output and is outside the Sprite's layout bounds.
+  const double density = fonts.pixel_scale();
+  const auto star = stars < 0 ? Image{} : art.rank_star_icon(stars, 1.4, density);
+  // FameUtil's Sprite is scaled 1.4; the 8px image margin holds the outline and is
+  // outside the Sprite's layout bounds.
   const auto star_size = art.rank_star_size();
   const double star_w = star_size.x;
   const double star_h = star_size.y;
   const double rank_icon_x = rank_x + number.width + 2;
-  const double rank_icon_y = rank_y + std::trunc(number.height / 2.0 - star_h / 2.0) + 1;
+  // The star's centre sits on the middle of the number's ink, outline included, snapped to the
+  // device pixel grid.
+  double rank_icon_y = rank_y;
+  if (stars >= 0) {
+    const auto ink = ink_rows(number);
+    const double middle = rank_y + (ink.top + ink.bottom) / 2;
+    rank_icon_y = std::round((middle - star_h / 2) * density) / density;
+  }
   const double rank_right = stars < 0 ? rank_x : rank_icon_x + star_w + 8;
   const double rank_bottom =
       stars < 0 ? rank_y : std::max(rank_y + number.height, rank_icon_y + star_h + 8);

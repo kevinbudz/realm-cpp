@@ -9,10 +9,22 @@
 #include <string_view>
 
 namespace realm {
-// PotionInventoryView layout below the 84-pixel InventoryGrid.
-inline constexpr int potion_view_y = 468;
+// The inventory section (tabs, panel, slot grid, potions and Stats text) sits 4 px lower than it did,
+// so the tabs stand 6 px under the equipped box (HUD 300..349) and the panel ends at HUD 501, above
+// the loot container at 508.
+// The 8 inventory slots: 40 px tiles at x 14 + 44 i and y inventory_grid_y + 44 j (rows 384..467).
+inline constexpr int inventory_grid_y = 384;
+// The Stats text is centred in the 126 px from this row to the lower panel at HUD 500.
+inline constexpr int inventory_stats_y = 377;
+// Drag-to-store area, HUD y 358..502 (the panel's bottom outline ends at 501).
+inline constexpr int inventory_store_top = 358;
+inline constexpr int inventory_store_bottom = 503;
+// PotionInventoryView layout below the 84-pixel InventoryGrid (HUD rows 472..495).
+inline constexpr int potion_view_y = 472;
 inline constexpr std::array<int, 2> potion_view_x{14, 102};
 inline constexpr std::array<int, 2> potion_types{2594, 2595};
+// The equipped row's 40 px tiles at x 14 + 44 i, inside the header frame (2 px gap on every side).
+inline constexpr int equipment_row_y = 305;
 // The empty 172-pixel ContainerGrid is centered in the panel at HUD y 500.
 inline constexpr int container_x = 14;
 inline constexpr int container_y = 508;
@@ -38,6 +50,8 @@ class Hud {
  private:
   void blit(const Image& image, int x, int y, HudRegion clip = {0, 0, 200, 600});
   void inventory(const HudState::Inventory& state);
+  // Backdrop rows 500-503 (HUD), the panel's bottom outline. Drawn with the lower panel.
+  void inventory_bottom(const HudState::Inventory& state);
   void potions(const std::array<int, 2>& counts);
   void container(const HudState::Inventory& state);
   void portal(const HudState::Portal& state);
@@ -58,8 +72,11 @@ class Hud {
   void rectangle(double x, int y, double width, int height, std::uint32_t color);
   // Fills the logical rectangle with its edges rounded to whole device pixels.
   void snapped_rectangle(double x, double y, double width, double height, std::uint32_t color);
+  // The frame around the minimap overlay, drawn under it at logical (4, 4) to (196, 196).
+  void minimap_frame();
   void text(std::string_view value, int size, bool bold, std::uint32_t color, double x, double y,
-            double alpha = 1, unsigned shadow_strength = 1, int field_width = 0);
+            double alpha = 1, unsigned shadow_strength = 1, int field_width = 0,
+            TextEffect effect = TextEffect::outline);
   void bar(const StatusBarState& state);
   const FontBook& fonts_;
   const HudArt* art_{};

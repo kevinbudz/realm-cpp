@@ -141,6 +141,8 @@ class ChatView {
   std::vector<std::size_t> shown_;
   std::uint64_t revision_{~0ULL};
   double scale_{};
+  // Middle of a capital-and-digit row's ink, from the row top, at scale_.
+  double text_center_{};
   double top_{};
   double surface_height_{};
   Image image_;

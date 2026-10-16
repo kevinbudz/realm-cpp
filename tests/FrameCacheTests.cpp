@@ -181,7 +181,7 @@ int main() {
         cpu.set_pixel_scale(scale);
         cpu.update(mini_world, player, angle);
         bitmap.update(cpu.image());
-        overlay[0] = bitmap.quad({8, 8}, {192 * scale, 0}, {0, 192 * scale});
+        overlay[0] = bitmap.quad({8, 8}, {minimap_size * scale, 0}, {0, minimap_size * scale});
       } else {
         overlay[0] = gpu_view.build(gpu, mini_world, player, angle, {8, 8}, scale);
       }

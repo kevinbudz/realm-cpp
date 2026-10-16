@@ -249,16 +249,16 @@ namespace {
 // viewport is passed in rather than captured from a local lambda.
 realm::Vec2 minimap_point(const realm::ui::Viewport& viewport, realm::Vec2 drawable) {
   const auto p = viewport.sidebar(drawable);
-  return realm::Vec2{p.x - 4, p.y - 4};
+  return realm::Vec2{p.x - 9, p.y - 9};
 }
 
 bool minimap_inside(realm::Vec2 m) {
-  return m.x >= 0 && m.x < 192 && m.y >= 0 && m.y < 192;
+  return m.x >= 0 && m.x < realm::minimap_size && m.y >= 0 && m.y < realm::minimap_size;
 }
 }  // namespace
 
-// Minimap: 192 px square, 4 px in from the sidebar's top-left; zoom buttons on press, a group menu
-// on release.
+// Minimap: minimap_size px square, 9 px in from the sidebar's top-left; zoom buttons on press, a
+// group menu on release.
 void configure_minimap_layer(ClientState& cs, ClientLayers& layers) {
   const auto& options = cs.o;
   auto& minimap_layer = layers.minimap_layer;
@@ -267,13 +267,27 @@ void configure_minimap_layer(ClientState& cs, ClientLayers& layers) {
     return cs.ui_viewport.valid() && minimap_inside(minimap_point(cs.ui_viewport, p));
   };
   minimap_layer.on_event = [&](const UiEvent& e) -> UiResult {
+    // MapUserInput.onMouseWheel: a positive step zooms in, any other step zooms out. Only the
+    // minimap's own area takes the wheel.
+    if (e.kind == UiKind::wheel) {
+      if (!cs.ui_viewport.valid() || !minimap_inside(minimap_point(cs.ui_viewport, e.point))) {
+        return UiResult::pass;
+      }
+      if (e.wheel > 0) {
+        cs.minimap->zoom_in();
+      } else {
+        cs.minimap->zoom_out();
+      }
+      return UiResult::consumed;
+    }
     if (!left_button(e) || !cs.ui_viewport.valid()) {
       return UiResult::pass;
     }
 
     const auto m = minimap_point(cs.ui_viewport, e.point);
     const bool inside = minimap_inside(m);
-    const bool zoom_button = m.x >= 172 && m.x < 188 && m.y >= 4 && m.y < 30;
+    const bool zoom_button = m.x >= realm::minimap_size - 20 && m.x < realm::minimap_size - 4 &&
+                             m.y >= 4 && m.y < 30;
     if (e.kind == UiKind::pointer_down) {
       if (!inside) {
         return UiResult::pass;
@@ -307,8 +321,8 @@ void configure_minimap_layer(ClientState& cs, ClientLayers& layers) {
 }
 
 // Party arrows at the playfield edge open the group menu for the players they point at. The quest
-// arrow sits above them and takes presses without a menu, as QuestArrow stops its MOUSE_DOWN from
-// reaching the map.
+// arrow and its tooltip frame sit above them and take presses without a menu, as QuestArrow stops
+// its MOUSE_DOWN from reaching the map.
 void configure_arrows_layer(ClientState& cs, ClientLayers& layers) {
   auto& arrows_layer = layers.arrows_layer;
   arrows_layer.is_active = [&] { return cs.player_group && cs.game_session; };

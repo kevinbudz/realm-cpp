@@ -1,6 +1,7 @@
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/minimap/Minimap.hpp"
 #include "flash_assets.hpp"
+#include <cmath>
 #include <iostream>
 
 namespace {
@@ -32,32 +33,32 @@ int main() {
     Minimap map(catalog, animations, flash::source_root);
     map.update(world, *world.entity(99), 0);
     const auto hover = [&](Vec2 p) { return map.hover_players(world, *world.entity(99), p); };
-    check(hover({100, 96}) == std::vector<std::int32_t>{7, 2},
+    check(hover({95, 91}) == std::vector<std::int32_t>{7, 2},
           "group preserves encountered order without ID or distance sorting");
-    check(hover({95, 96}).empty(), "exact five-pixel radius excludes the player");
-    check(hover({95.01, 96}) == std::vector<std::int32_t>{7},
+    check(hover({90, 91}).empty(), "exact five-pixel radius excludes the player");
+    check(hover({90.01, 91}) == std::vector<std::int32_t>{7},
           "inside five-pixel radius includes the player");
-    check(hover({191, 191}) == std::vector<std::int32_t>{8, 3},
+    check(hover({178, 178}) == std::vector<std::int32_t>{8, 3},
           "off-window players group at ray-clamped corner");
-    check(hover({192, 191}).empty() && hover({-1, 96}).empty(), "outside map hides tooltip");
+    check(hover({182, 180}).empty() && hover({-1, 91}).empty(), "outside map hides tooltip");
     auto* definition = const_cast<ObjectDef*>(catalog.object(wizard));
     definition->no_minimap = true;
-    check(hover({100, 96}).empty(), "NoMiniMap players excluded from hover");
+    check(hover({95, 91}).empty(), "NoMiniMap players excluded from hover");
     definition->no_minimap = false;
     world.goto_entity(8, {90, 70});
     const auto edge =
         map.marker_position(world, *world.entity(99), world.entity(8)->motion.position);
-    check(edge.x == 192 && edge.y == 144, "edge clamp retains ray direction");
+    check(std::abs(edge.x - 180) < 1e-9 && std::abs(edge.y - 135.5) < 1e-9, "edge clamp retains ray direction");
     world.goto_entity(8, {0, 0});
     world.goto_entity(99, {1, 1});
     map.update(world, *world.entity(99), 1.2);
-    check(map.marker_position(world, *world.entity(99), {0, 0}).x == 0,
+    check(std::abs(map.marker_position(world, *world.entity(99), {0, 0}).x - 4) < 1e-9,
           "focus near edge uses translated map bounds");
     world.goto_entity(99, {50, 50});
     world.goto_entity(8, {90, 90});
     map.zoom_out();
     map.update(world, *world.entity(99), 0);
-    check(map.marker_position(world, *world.entity(99), {51, 50}).x == 98,
+    check(map.marker_position(world, *world.entity(99), {51, 50}).x == 93,
           "hover projection uses current zoom");
     map.zoom_in();
     map.update(world, *world.entity(99), 0);

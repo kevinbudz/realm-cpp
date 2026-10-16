@@ -138,7 +138,7 @@ int main() {
       check(item.image().height == static_cast<int>(std::ceil(item.height() * density)) &&
                 player.image().height == static_cast<int>(std::ceil(380 * density)),
             "tooltip textures resize");
-      check(minimap.image().width == static_cast<int>(std::ceil(192 * density)),
+      check(minimap.image().width == static_cast<int>(std::ceil(minimap_size * density)),
             "minimap renders target pixels");
       // Exercise stats, hotkeys, native tier labels and the panel button.
       auto varied = state;

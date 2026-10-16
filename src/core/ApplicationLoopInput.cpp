@@ -384,7 +384,8 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
         for (std::size_t slot = 0; slot < inventory_keys.size(); ++slot) {
           if (bound(inventory_keys[slot])) {
             if (const auto* player = cs.world.entity(cs.world.player_id())) {
-              cs.game_session->use_item(
+              // MapUserInput.useItem: a matching equipment slot takes the item, else it is used.
+              cs.game_session->equip_or_use(
                   {player->id,
                    static_cast<std::uint8_t>((cs.hud_input.selected() == 2 ? 12 : 4) + slot)},
                   time);

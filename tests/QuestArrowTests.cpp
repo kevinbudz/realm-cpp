@@ -110,6 +110,32 @@ int main() {
     check(arrow.visible() && arrow.hit({590, 325}), "hit tests the visible triangle");
     check(!arrow.hit({596, 333}), "outside the triangle is not a hit");
 
+    // The tooltip frame the render path drew counts as the arrow, as QuestToolTip is a child of
+    // QuestArrow in QuestArrow.as: a pointer moved from the arrow onto the tooltip keeps the hover.
+    // Each update clears the frame, so a tooltip that is no longer drawn holds nothing.
+    preferences.show_quest_portraits = true;
+    world.set_preferences(preferences);
+    arrow.update(world, quest, camera, {}, true, 800, 600, 7000);
+    check(arrow.tooltip() == QuestArrow::Tooltip::portrait && !arrow.hit({500, 320}),
+          "no frame is hit before a tooltip is drawn");
+    arrow.set_tooltip_bounds({480, 300, 94, 50});
+    check(arrow.hit({500, 320}) && !arrow.hit({470, 320}) && !arrow.hit({500, 355}),
+          "the drawn frame is a hit and its edges are not");
+    arrow.update(world, quest, camera, {590, 325}, true, 800, 600, 7000);
+    check(arrow.hovered() && arrow.tooltip() == QuestArrow::Tooltip::quest,
+          "hover from the arrow shows the full tooltip");
+    arrow.set_tooltip_bounds({480, 300, 94, 50});
+    arrow.update(world, quest, camera, {500, 320}, true, 800, 600, 7000);
+    check(arrow.hovered() && arrow.tooltip() == QuestArrow::Tooltip::quest &&
+              near(arrow.position().x, 600),
+          "pointer moved onto the tooltip keeps the hover and the full tooltip");
+    arrow.set_tooltip_bounds({480, 300, 94, 50});
+    arrow.update(world, quest, camera, {300, 100}, true, 800, 600, 7000);
+    check(!arrow.hovered() && arrow.tooltip() == QuestArrow::Tooltip::portrait,
+          "leaving the tooltip releases the hover");
+    arrow.update(world, quest, camera, {500, 320}, true, 800, 600, 7000);
+    check(!arrow.hovered(), "a tooltip not redrawn since the last update holds no hover");
+
     // quest_target snapshots what the tooltips draw; QuestToolTip and PortraitToolTip redraw only
     // on change.
     const auto target = quest_target(world, 7);

@@ -82,7 +82,9 @@ void WorldFeedback::report_damage(std::int32_t object_id, int amount, std::int32
     offset += 500;
   }
   if (amount > 0) {
-    add_status(object_id, "-" + std::to_string(amount), pierced ? 0x9000ffU : 0xff0000U, 1000, 0);
+    // CharacterStatusText(..., randomized = true) for the damage number only.
+    add_status({object_id, "-" + std::to_string(amount), pierced ? 0x9000ffU : 0xff0000U, 1000, 0,
+                true, time});
   }
   if (damage_cues_.size() >= maximum_damage_cues) {
     damage_cues_.pop_front();

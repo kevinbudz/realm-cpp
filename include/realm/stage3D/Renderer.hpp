@@ -200,5 +200,6 @@ class Renderer {
   int ground_time_{};
   int clip_location_{};
   int clip_rect_{};
+  int clip_cut_{};
 };
 }

@@ -8,7 +8,7 @@ A native C++20 client for the RotMG game served by `../realm-server`. It renders
 - **Play:** movement, shooting and abilities, inventory and potions, portals, parties and quest targets with edge arrows and tooltips, player menus, trading, guild invitations, chat and speech balloons. Davy Jones's Locker has its key HUD; idle players receive warnings and disconnect after 20 minutes.
 - **Guilds:** registrar, guild hall entry, guild board, chronicle, and account name changes.
 - **World:** JM and WMAP maps, terrain transitions, 3D models, connected walls, cave walls, stalagmites, multiline signs, death particles, status effects, Drunk and Blind filters, dyes, and skins. Tutorial maps show proximity-driven HUD highlights.
-- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and an Options screen with rebindable keys. Item tooltips retain the Astrum styling.
+- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and an Options screen with rebindable keys. Item tooltips retain the Astrum styling and Astrum ability, stat and specification text.
 - **Audio:** one-shot sound effects through the vendored miniaudio output.
 - **Map editor:** ground, object and region palettes with original art; draw, erase, sample, named objects, rectangles, pan/zoom, undo/redo, JM load/save, and existing-character map testing.
 

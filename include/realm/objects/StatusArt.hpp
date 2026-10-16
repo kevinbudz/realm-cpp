@@ -76,6 +76,11 @@ struct StatusText {
   std::int32_t start{};
   // Source texture height of the object's sprite (the text floats above it).
   int texture_height{8};
+  // randomized=true (damage numbers): the text starts offset_x px from the object's center and
+  // drifts sideways by drift_x px over its lifetime. Zero for the other texts.
+  bool randomized{};
+  double offset_x{};
+  double drift_x{};
   StatusArt::Label label;
   double label_scale{};
 };
@@ -85,6 +90,9 @@ class StatusTexts {
  public:
   static constexpr std::size_t capacity = 48;
   static constexpr double max_drift = 40;
+  // CharacterStatusText.MAX_DRIFT (20): bounds the sideways drift and sets the fade of randomized
+  // texts.
+  static constexpr double randomized_drift = 20;
   void add(const World& world, StatusEvent event);
 
   void clear() { texts_.clear(); }
@@ -102,8 +110,14 @@ class StatusTexts {
   [[nodiscard]] static Vec2 position(const StatusText& text, Vec2 object_screen, int object_size,
                                      double zoom, std::int32_t time);
 
+  // Alpha of the label: 1 / (drift / 15) for randomized texts, where drift = dt / lifetime * 20,
+  // clamped to 1 (so opaque until 75% of the lifetime). Other texts stay opaque.
+  [[nodiscard]] static double opacity(const StatusText& text, std::int32_t time);
+
  private:
   std::vector<StatusText> texts_;
+  // Counts accepted adds. With the object and report time, it keys the randomized draws.
+  std::uint32_t sequence_{};
 };
 
 // Player.drawBreathBar: back color lerps from 0x545454 to red with |sin(t/300)| * b below the

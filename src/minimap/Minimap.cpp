@@ -160,7 +160,7 @@ bool Minimap::sync(const World& world) {
                                        static_cast<std::size_t>(world.height()) * 4)};
     rows_.assign(static_cast<std::size_t>(world.height()), 0);
     zoom_levels_.clear();
-    const double minimum = std::max(192.0 / world.width(), 192.0 / world.height());
+    const double minimum = std::max(minimap_size / static_cast<double>(world.width()), minimap_size / static_cast<double>(world.height()));
     for (double zoom = 4; zoom > minimum; zoom /= 2) {
       zoom_levels_.push_back(zoom);
     }
@@ -199,7 +199,7 @@ void Minimap::set_pixel_scale(double scale) {
   if (image_.pixel_scale == scale) {
     return;
   }
-  image_ = ui_image(192, 192, scale);
+  image_ = ui_image(minimap_size, minimap_size, scale);
   drawn_zoom_ = -1;
 }
 
@@ -265,27 +265,37 @@ const MinimapView& Minimap::prepare_gpu(const World& world, const Entity& focus,
   return view;
 }
 
+Vec2 clamp_marker_offset(Vec2 offset) {
+  double x = offset.x;
+  double y = offset.y;
+  const double outside = std::max(std::abs(x), std::abs(y));
+  if (outside >= minimap_marker_limit) {
+    x *= minimap_marker_limit / outside;
+    y *= minimap_marker_limit / outside;
+  }
+  const double diagonal = std::abs(x) + std::abs(y);
+  if (diagonal > minimap_marker_diagonal) {
+    x *= minimap_marker_diagonal / diagonal;
+    y *= minimap_marker_diagonal / diagonal;
+  }
+  return {x, y};
+}
+
 Vec2 Minimap::marker_position(const World& world, const Entity& focus, Vec2 position) const {
   if (zoom_levels_.empty()) {
     return {-1000, -1000};
   }
   const double zoom = zoom_levels_[static_cast<std::size_t>(zoom_index_)];
-  const double tx = std::clamp(-focus.motion.position.x * zoom, 96 - world.width() * zoom, -96.0);
-  const double ty = std::clamp(-focus.motion.position.y * zoom, 96 - world.height() * zoom, -96.0);
-  double x = position.x * zoom + tx;
-  double y = position.y * zoom + ty;
-  const double outside = std::max(std::abs(x), std::abs(y));
-  if (outside >= 96) {
-    x *= 96 / outside;
-    y *= 96 / outside;
-  }
-  return {96 + x, 96 + y};
+  const double tx = std::clamp(-focus.motion.position.x * zoom, minimap_half - world.width() * zoom, -minimap_half);
+  const double ty = std::clamp(-focus.motion.position.y * zoom, minimap_half - world.height() * zoom, -minimap_half);
+  const auto offset = clamp_marker_offset({position.x * zoom + tx, position.y * zoom + ty});
+  return {minimap_half + offset.x, minimap_half + offset.y};
 }
 
 std::vector<std::int32_t> Minimap::hover_players(const World& world, const Entity& focus,
                                                  Vec2 pointer) const {
   std::vector<std::int32_t> result;
-  if (pointer.x < 0 || pointer.y < 0 || pointer.x >= 192 || pointer.y >= 192) {
+  if (pointer.x < 0 || pointer.y < 0 || pointer.x >= minimap_size || pointer.y >= minimap_size) {
     return result;
   }
   world.each_player([&](const Entity& entity) {
@@ -312,15 +322,15 @@ void Minimap::rectangle(double x, double y, double width, double height, std::ui
   x = std::round(x * 20) / 20;
   y = std::round(y * 20) / 20;
   for (int row = std::max(0, static_cast<int>(std::floor(y)));
-       row < std::min(192, static_cast<int>(std::ceil(y + height))); ++row) {
+       row < std::min(minimap_size, static_cast<int>(std::ceil(y + height))); ++row) {
     for (int col = std::max(0, static_cast<int>(std::floor(x)));
-         col < std::min(192, static_cast<int>(std::ceil(x + width))); ++col) {
+         col < std::min(minimap_size, static_cast<int>(std::ceil(x + width))); ++col) {
       const double cx = std::clamp(
           std::min(x + width, col + 1.0) - std::max(x, static_cast<double>(col)), 0.0, 1.0);
       const double cy = std::clamp(
           std::min(y + height, row + 1.0) - std::max(y, static_cast<double>(row)), 0.0, 1.0);
       const unsigned alpha = static_cast<unsigned>(std::lround(cx * 4) * std::lround(cy * 4)) * 16U;
-      const auto at = static_cast<std::size_t>(row * 192 + col) * 4;
+      const auto at = static_cast<std::size_t>(row * minimap_size + col) * 4;
       for (unsigned c = 0; c < 3; ++c) {
         image_.pixels[at + c] = static_cast<unsigned char>(
             (((color >> (16U - 8U * c)) & 255U) * alpha +
@@ -380,15 +390,15 @@ bool Minimap::render(const World& world, const MinimapView& view) {
     return false;
   }
   const double zoom = zoom_levels_[static_cast<std::size_t>(zoom_index_)];
-  const double tx = std::clamp(-view.focus.x * zoom, 96 - map_.width * zoom, -96.0);
-  const double ty = std::clamp(-view.focus.y * zoom, 96 - map_.height * zoom, -96.0);
+  const double tx = std::clamp(-view.focus.x * zoom, minimap_half - map_.width * zoom, -minimap_half);
+  const double ty = std::clamp(-view.focus.y * zoom, minimap_half - map_.height * zoom, -minimap_half);
   const double density = image_.pixel_scale;
   for (int y = 0; y < image_.height; ++y) {
     for (int x = 0; x < image_.width; ++x) {
       const int mx =
-          static_cast<int>(std::floor(((x + .5) / density - 96 - std::trunc(tx * 20) / 20) / zoom));
+          static_cast<int>(std::floor(((x + .5) / density - minimap_half - std::trunc(tx * 20) / 20) / zoom));
       const int my =
-          static_cast<int>(std::floor(((y + .5) / density - 96 - std::trunc(ty * 20) / 20) / zoom));
+          static_cast<int>(std::floor(((y + .5) / density - minimap_half - std::trunc(ty * 20) / 20) / zoom));
       if (mx < 0 || my < 0 || mx >= map_.width || my >= map_.height) {
         opaque_pixel(image_, x, y, 1776411);
       } else {
@@ -400,17 +410,12 @@ bool Minimap::render(const World& world, const MinimapView& view) {
     }
   }
   for (const auto& marker : view.markers) {
-    double x = marker.position.x * zoom + tx;
-    double y = marker.position.y * zoom + ty;
-    const double outside = std::max(std::abs(x), std::abs(y));
-    if (outside >= 96) {
-      x *= 96 / outside;
-      y *= 96 / outside;
-    }
-    rectangle(96 + x - 2, 96 + y - 2, 4, 4, marker.color);
+    const auto offset =
+        clamp_marker_offset({marker.position.x * zoom + tx, marker.position.y * zoom + ty});
+    rectangle(minimap_half + offset.x - 2, minimap_half + offset.y - 2, 4, 4, marker.color);
   }
-  const double px = 96 + view.focus.x * zoom + tx;
-  const double py = 96 + view.focus.y * zoom + ty;
+  const double px = minimap_half + view.focus.x * zoom + tx;
+  const double py = minimap_half + view.focus.y * zoom + ty;
   const double cosine = std::cos(view.angle);
   const double sine = std::sin(view.angle);
   for (int y = std::max(0, static_cast<int>(std::floor((py - 16) * density)));
@@ -435,9 +440,27 @@ bool Minimap::render(const World& world, const MinimapView& view) {
       }
     }
   }
-  bitmap(out_button_, 172, 4, 2, 2, button_zoom_ > 0 ? 1 : .5);
-  bitmap(in_button_, 172, 14, 2, 2,
+  bitmap(out_button_, minimap_size - 20, 4, 2, 2, button_zoom_ > 0 ? 1 : .5);
+  bitmap(in_button_, minimap_size - 20, 14, 2, 2,
          button_zoom_ < static_cast<int>(zoom_levels_.size()) - 1 ? 1 : .5);
+  // The GPU clip discards the corner triangles, so the CPU view leaves them transparent too.
+  const int reach = static_cast<int>(std::ceil(minimap_clip_cut * density));
+  const auto cut_corner = [&](int x, int y) {
+    const double sx = (x + .5) / density;
+    const double sy = (y + .5) / density;
+    if (std::min(sx, minimap_size - sx) + std::min(sy, minimap_size - sy) < minimap_clip_cut) {
+      std::fill_n(image_.pixels.begin() + static_cast<std::ptrdiff_t>((y * image_.width + x) * 4), 4,
+                  static_cast<unsigned char>(0));
+    }
+  };
+  for (int y = 0; y < reach; ++y) {
+    for (int x = 0; x < reach; ++x) {
+      cut_corner(x, y);
+      cut_corner(image_.width - 1 - x, y);
+      cut_corner(x, image_.height - 1 - y);
+      cut_corner(image_.width - 1 - x, image_.height - 1 - y);
+    }
+  }
   view_ = view;
   drawn_zoom_ = zoom_index_;
   drawn_button_ = button_zoom_;

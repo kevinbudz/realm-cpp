@@ -1,6 +1,7 @@
 #include "realm/assets/HudArt.hpp"
 #include "realm/assets/FlashDraw.hpp"
 #include "realm/assets/FontBook.hpp"
+#include "realm/assets/InventoryLayout.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>
@@ -17,8 +18,14 @@ constexpr std::size_t cache_byte_limit = 8 * 1024 * 1024;
 constexpr std::uint32_t text_gray = 11776947;
 constexpr std::uint32_t panel_gray = 3552822;
 constexpr std::uint32_t tile_gray = 5526612;
-constexpr std::uint32_t equipment_gray = 4539717;
 constexpr std::uint32_t restricted_red = 6036765;
+// Inventory and minimap palette. frame_dark (0x242222) is the dark fill and dark outline of the
+// inventory tab strip, content panel, equipped box and minimap. outline_light is the light outline.
+// frame_light is the minimap's inner ring.
+constexpr std::uint32_t frame_light = 0x5a5a5a;
+constexpr std::uint32_t frame_dark = 0x242222;
+constexpr std::uint32_t outline_light = 0x626262;
+constexpr std::uint32_t equip_fill = 0x454545;
 constexpr double panel_width = 188;
 constexpr double panel_height = 84;
 // GraphicsUtil cut corners of the equipment, inventory and trade grids.
@@ -179,6 +186,32 @@ Image shifted_horizontally(const Image& source, int shift) {
   return result;
 }
 
+// Bounds of the pixels with alpha of at least 128, in source pixels: [left, right) x [top, bottom).
+struct OpaqueBounds {
+  int left{};
+  int top{};
+  int right{};
+  int bottom{};
+};
+
+OpaqueBounds opaque_bounds(const Image& source) {
+  OpaqueBounds bounds{source.width, source.height, 0, 0};
+  for (int y = 0; y < source.height; ++y) {
+    for (int x = 0; x < source.width; ++x) {
+      if (source.pixels[static_cast<std::size_t>((y * source.width + x) * 4 + 3)] >= 128) {
+        bounds.left = std::min(bounds.left, x);
+        bounds.top = std::min(bounds.top, y);
+        bounds.right = std::max(bounds.right, x + 1);
+        bounds.bottom = std::max(bounds.bottom, y + 1);
+      }
+    }
+  }
+  if (bounds.right <= bounds.left) {
+    return {};
+  }
+  return bounds;
+}
+
 // Content center minus cell center across the opaque columns of an 8-pixel cell, in source pixels;
 // 0 when empty.
 double opaque_column_offset(const Image& source) {
@@ -266,8 +299,10 @@ struct HudArt::Sources {
   // TextureRedrawer.redraw, premultiplied: the resized outlined texture with GlowRedrawer's
   // GlowFilter(0, .3, 12, 12, 2) drawn over the outline.
   Image redraw(const Image& source, const Image* mask, int size, bool pad, std::uint32_t tex1,
-               std::uint32_t tex2, bool glow = true) const {
-    auto image = appearances->compose(source, mask, size, pad, tex1, tex2, false);
+               std::uint32_t tex2, bool glow = true, double device_scale = 1,
+               bool sharp = false) const {
+    auto image =
+        appearances->compose(source, mask, size, pad, tex1, tex2, false, device_scale, sharp);
     image.pixel_scale = 1;
     premultiply(image);
     if (glow) {
@@ -282,7 +317,7 @@ struct HudArt::Sources {
 
   // One animation frame redrawn, with its dye mask.
   Image frame_texture(AnimationFrame frame, int size, bool pad, std::uint32_t tex1,
-                      std::uint32_t tex2) const {
+                      std::uint32_t tex2, double device_scale = 1, bool sharp = false) const {
     const auto& images = appearances->animations().images();
     auto source = images.at(frame.image);
     normalize_flash_png(source);
@@ -291,7 +326,8 @@ struct HudArt::Sources {
       mask = images.at(static_cast<std::size_t>(frame.mask));
       normalize_flash_png(mask);
     }
-    return redraw(source, frame.mask >= 0 ? &mask : nullptr, size, pad, tex1, tex2);
+    return redraw(source, frame.mask >= 0 ? &mask : nullptr, size, pad, tex1, tex2, true,
+                  device_scale, sharp);
   }
 
   // GameObject.getPortrait: TextureData.texture_ (the standing frame from imageFromAngle(0), which
@@ -327,7 +363,10 @@ struct HudArt::Sources {
 
   // ObjectLibrary.getRedrawnTextureFromType, premultiplied. `fixed_portrait` draws at
   // portrait_size of the texture's width instead of `size`.
-  Image object_texture(int type, int size, bool pad, bool fixed_portrait = false) {
+  // `device_scale` and `sharp` pass through to compose (see Appearances::compose); the defaults
+  // draw the original texture.
+  Image object_texture(int type, int size, bool pad, bool fixed_portrait = false,
+                       double device_scale = 1, bool sharp = false) {
     const auto* object = catalog->object(static_cast<std::uint16_t>(type));
     if (!object) {
       throw std::runtime_error("Unknown object type");
@@ -340,11 +379,12 @@ struct HudArt::Sources {
           frame,
           fixed_portrait ? portrait_size(appearances->animations().images().at(frame.image).width)
                          : size,
-          pad, object->tex1, object->tex2);
+          pad, object->tex1, object->tex2, device_scale, sharp);
     }
     if (texture.sheet < 0 || static_cast<std::size_t>(texture.sheet) >= flash::sheets.size()) {
       const auto source = sprite("lofiObj3", 255);
-      return redraw(source, fixed_portrait ? portrait_size(source.width) : size, pad);
+      return redraw(source, nullptr, fixed_portrait ? portrait_size(source.width) : size, pad, 0, 0,
+                    true, device_scale, sharp);
     }
     const auto source =
         sprite(flash::sheets[static_cast<std::size_t>(texture.sheet)].name, texture.index);
@@ -356,7 +396,7 @@ struct HudArt::Sources {
                     texture.mask_index);
     }
     return redraw(source, mask.pixels.empty() ? nullptr : &mask, scaled, pad, object->tex1,
-                  object->tex2);
+                  object->tex2, true, device_scale, sharp);
   }
 
   // Item tiles center the visible columns of their 8-pixel cell, not the cell: a 7-wide sprite
@@ -386,15 +426,37 @@ struct HudArt::Sources {
     return *star;
   }
 
-  Image rank_star_icon(int stars, double scale) {
+  // The star is drawn at scale * pixel_scale device pixels, so it is rasterized at the UI density
+  // instead of being resampled. Its 8 logical pixel margin holds the outline, and the outline is
+  // the same crisp black outline the text gets.
+  Image rank_star_icon(int stars, double scale, double pixel_scale) {
     const auto& shape = star_shape();
-    const int margin = 8;
-    auto image = fd::canvas(static_cast<int>(std::ceil(shape.width() * scale)) + margin * 2,
-                            static_cast<int>(std::ceil(shape.height() * scale)) + margin * 2);
-    fd::draw_shape(image, shape, margin - shape.left * scale, margin - shape.top * scale, scale,
-                   star_color(stars));
-    fd::drop_shadow(image, 0, 0, 0, 1, 4, 4, 2);
+    const int margin = static_cast<int>(std::lround(8 * pixel_scale));
+    const double device_scale = scale * pixel_scale;
+    auto image =
+        fd::canvas(static_cast<int>(std::ceil(shape.width() * device_scale)) + margin * 2,
+                   static_cast<int>(std::ceil(shape.height() * device_scale)) + margin * 2);
+    // The shape's top-left lands on a device pixel: the margin is whole device pixels.
+    fd::draw_shape(image, shape, margin - shape.left * device_scale,
+                   margin - shape.top * device_scale, device_scale, star_color(stars));
+    // ui_outline_alpha reads the density for its radius, so it must be set first.
+    image.pixel_scale = pixel_scale;
+    ui_outline_alpha(image);
     return image;
+  }
+
+  // The chat badge's disc: centre and radius in logical units within its 32x32 canvas.
+  struct ChatDisc {
+    double x{};
+    double y{};
+    double radius{};
+  };
+
+  ChatDisc chat_disc() {
+    const auto& shape = star_shape();
+    const double w = std::trunc(shape.width() / 2 + 2);
+    const double h = std::trunc(shape.height() / 2 + 2);
+    return {8 + w, 8 + h, w};
   }
 
   const fd::Shape& cross_shape() {
@@ -749,7 +811,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     auto image = raster(40, 40, density);
     fd::Path shape;
     shape.cut_edge_rect(0, 0, 40, 40, 4, equipment_cuts[static_cast<std::size_t>(value)]);
-    image.fill(shape, key.starts_with("equipment") ? equipment_gray : restricted_red);
+    // Equipped cells use the box's equip_fill, so the row has no dividers.
+    image.fill(shape, key.starts_with("equipment") ? equip_fill : restricted_red);
     return std::move(image.image);
   }
   if (key.starts_with("empty")) {
@@ -766,7 +829,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     auto image = raster(40, 40, density);
     fd::Path shape;
     shape.cut_edge_rect(0, 0, 40, 40, 4, equipment_cuts[static_cast<std::size_t>(extra)]);
-    image.fill(shape, equipment_gray);
+    image.fill(shape, equip_fill);
     assets.slot_background(image.image, value, 0, true, {});
     return std::move(image.image);
   }
@@ -785,6 +848,26 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       return std::move(image.image);
     }
   }
+  if (key == "minimapframe") {
+    if (dry) {
+      return Image{};
+    }
+    // The minimap frame: a 3 px frame_dark outline with cut corners (cut 7), a 2 px frame_light
+    // ring at rows and columns 3..4 (cut 5), and a frame_dark interior from inset 5 with the map's
+    // corner cut (4, minimap_clip_cut). The map view is inset 5 px, so the light ring is the 2 px
+    // visible around it and no light shows under the map.
+    auto image = raster(192, 192, density);
+    fd::Path outer;
+    outer.cut_edge_rect(0, 0, 192, 192, 7);
+    image.fill(outer, frame_dark);
+    fd::Path ring;
+    ring.cut_edge_rect(3, 3, 186, 186, 5);
+    image.fill(ring, frame_light);
+    fd::Path interior;
+    interior.cut_edge_rect(5, 5, 182, 182, 4);
+    image.fill(interior, frame_dark);
+    return std::move(image.image);
+  }
   if (key.starts_with("backdrop") && key.size() == 11 && key[9] == 's') {
     const bool backpack = key[8] == '1';
     const int selected = key[10] - '0';
@@ -795,27 +878,69 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       return Image{};
     }
     // The inventory side panel below the stats, in HUD coordinates offset by y 300.
-    auto image = raster(200, 200, density);
+    auto image = raster(200, inventory_backdrop_height, density);
     fd::Path base;
-    base.rect(0, 0, 200, 200);
+    base.rect(0, 0, 200, inventory_backdrop_height);
     image.fill(base, panel_gray);
-    fd::Path header;
-    header.cut_edge_rect(11, 1, 178, 46, 6);
-    image.fill(header, 6776679);
-    // TabStripView(186, 153) at (7, 46): tabs, then its content background above them. The tab
-    // icons are bitmaps placed at logical offsets.
-    for (int tab = 0; tab < (backpack ? 3 : 2); ++tab) {
-      const double tx = 7 + tab * 30;
-      const double ty = 46 + 8;
-      fd::Path shape;
-      shape.round_rect(tx, ty, 28, 35, 9);
-      image.fill(shape, tab == selected ? 2368034 : 7039594);
-      ui_blit(image.image, assets.redraw(assets.sprite("lofiInterfaceBig", 24 + tab), 20, true),
-              tx - 5, ty - 11, true, true);
+    // Equipped box: an outline_light frame, a frame_dark frame inside it, and one flat equip_fill
+    // box. The cells share that fill, so the row has no dividers.
+    fd::Path box_light;
+    box_light.cut_edge_rect(9, 0, 182, 50, 8);
+    image.fill(box_light, outline_light);
+    fd::Path box_dark;
+    box_dark.cut_edge_rect(11, 2, 178, 46, 7);
+    image.fill(box_dark, frame_dark);
+    fd::Path box;
+    box.cut_edge_rect(13, 4, 174, 42, 6);
+    image.fill(box, equip_fill);
+    // Content panel: a 2 px outline_light frame with all four corners cut 8, around a frame_dark
+    // interior cut 6. Its light top band is rows 78..79 (inventory_tab_bottom). The interior (x 10..189,
+    // rows 80..199) leaves 4 px around the slots (x 14..185, rows 84..167) and the potions (rows
+    // 172..195), matching the 4 px slot gaps. It is drawn before the tabs, which stand on that band
+    // between the chamfers.
+    fd::Path content_light;
+    content_light.cut_edge_rect(8, inventory_tab_bottom, 184, 124, 8);
+    image.fill(content_light, outline_light);
+    fd::Path content_dark;
+    content_dark.cut_edge_rect(10, inventory_tab_bottom + 2, 180, 120, 6);
+    image.fill(content_dark, frame_dark);
+    // Tabs: inventory_tab_rect spreads them across the strip (x 16 to 183, between the panel's top
+    // chamfers). Both kinds have square bottom corners and cut top corners. An unselected tab is a
+    // 2 px outline_light frame (top corners cut 8) around a frame_dark interior (top corners cut
+    // 6). The interior runs straight down to row 77, where the panel's light band (rows 78..79)
+    // begins. A selected tab is one solid outline_light shape (top corners cut 8) that runs into
+    // that light band through row 79.
+    const int tab_count = backpack ? 3 : 2;
+    constexpr std::array<bool, 4> tab_cuts{true, true, false, false};
+    for (int tab = 0; tab < tab_count; ++tab) {
+      const auto slot = inventory_tab_rect(tab_count, tab);
+      const double x = slot.x;
+      const double w = slot.width;
+      if (tab == selected) {
+        fd::Path solid;
+        solid.cut_edge_rect(x, inventory_tab_top, w, 24, 8, tab_cuts);
+        image.fill(solid, outline_light);
+        continue;
+      }
+      fd::Path outer;
+      outer.cut_edge_rect(x, inventory_tab_top, w, 22, 8, tab_cuts);
+      image.fill(outer, outline_light);
+      fd::Path interior;
+      interior.cut_edge_rect(x + 2, inventory_tab_top + 2, w - 4, 20, 6, tab_cuts);
+      image.fill(interior, frame_dark);
     }
-    fd::Path content;
-    content.cut_edge_rect(7, 46 + 27, 186, 126, 6);
-    image.fill(content, 2368034);
+    // Icons are white and centred by their opaque bounds on each tab's centre (horizontally) and
+    // on row 67.5 (vertically: the centre of the interior's rows 58..77), in whole logical pixels.
+    // They are clipped to the tab's interior (columns x + 2 to x + width - 3, rows 58 to 77).
+    for (int tab = 0; tab < tab_count; ++tab) {
+      const auto slot = inventory_tab_rect(tab_count, tab);
+      const auto icon = assets.redraw(assets.sprite("lofiInterfaceBig", 24 + tab), 20, true);
+      const auto bounds = opaque_bounds(icon);
+      ui_blit(image.image, icon,
+              std::round(slot.x + slot.width / 2.0 - (bounds.left + bounds.right) / 2.0),
+              std::round(inventory_tab_top + 11.5 - (bounds.top + bounds.bottom) / 2.0), true,
+              true, 1, slot.x + 2, inventory_tab_top + 2, slot.width - 4, 20);
+    }
     return std::move(image.image);
   }
   if (key.starts_with("statlabel")) {
@@ -863,7 +988,13 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     if (dry) {
       return Image{};
     }
-    return assets.object_texture(value, 55, false);
+    // Flash's PotionSlotView draws 55, which is 2.75 device pixels per texel. Nearest sampling
+    // makes those texels 2 and 3 pixels wide, so the icon uses sharp bilinear sampling: each texel
+    // keeps its exact 2.75 pixels with a one-pixel blended seam. The icon is drawn at the HUD
+    // density (2.75 * density per texel), so the HUD never resamples it.
+    auto image = assets.object_texture(value, 55, false, false, density, true);
+    image.pixel_scale = density;
+    return image;
   }
   // Interaction panels (InteractPanel images whose panel origin is at (6, 8)), without the object
   // name.
@@ -1109,19 +1240,24 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     if (dry) {
       return Image{};
     }
-    // FameUtil.numStarsToIcon: the star over a translucent disc, with
-    // DropShadowFilter(0,0,0,.5,6,6,1).
+    // FameUtil.numStarsToIcon: the star over a translucent disc. Both are drawn at the requested
+    // density with the same logical 32x32 geometry, so the disc edge stays antialiased rather than
+    // blurred. The star alone takes the text outline before it is composited over the disc.
     const auto& shape = assets.star_shape();
-    const double w = std::trunc(shape.width() / 2 + 2);
-    const double h = std::trunc(shape.height() / 2 + 2);
-    auto image = fd::canvas(32, 32);
-    fd::Path disc;
-    disc.circle(8 + w, 8 + h, w);
-    fd::fill(image, disc, 0, .4);
-    fd::draw_shape(image, shape, 8 + 2 - shape.left, 8 + 1 - shape.top, 1,
-                   assets.star_color(value));
-    fd::drop_shadow(image, 0, 0, 0, .5, 6, 6, 1);
-    return image;
+    const auto disc = assets.chat_disc();
+    auto badge = raster(32, 32, density);
+    fd::Path circle;
+    circle.circle(disc.x, disc.y, disc.radius);
+    badge.fill(circle, 0, .4);
+    auto star = fd::canvas(badge.image.width, badge.image.height);
+    star.pixel_scale = badge.image.pixel_scale;
+    const double k = badge.kx;
+    // The star's logical top-left (10, 10) lands on a device pixel.
+    fd::draw_shape(star, shape, std::round((8 + 2) * k) - shape.left * k,
+                   std::round((8 + 2) * k) - shape.top * k, k, assets.star_color(value));
+    ui_outline_alpha(star);
+    fd::draw(badge.image, star, 0, 0);
+    return std::move(badge.image);
   }
   if (key.starts_with("tradefill")) {
     std::string rest = key.substr(9);
@@ -1399,14 +1535,22 @@ Vec2 HudArt::rank_star_size(double scale) const {
   return {shape.width() * scale, shape.height() * scale};
 }
 
-Image HudArt::rank_star_icon(int stars, double scale) const {
+Image HudArt::rank_star_icon(int stars, double scale, double pixel_scale) const {
   if (stars < 0) {
     return {};
   }
   if (!std::isfinite(scale) || scale <= 0) {
     throw std::invalid_argument("Invalid rank star scale");
   }
-  return sources().rank_star_icon(stars, scale);
+  if (!std::isfinite(pixel_scale) || pixel_scale <= 0 || pixel_scale > 16) {
+    throw std::invalid_argument("Invalid rank star density");
+  }
+  return sources().rank_star_icon(stars, scale, pixel_scale);
+}
+
+Vec2 HudArt::chat_star_center() const {
+  const auto disc = sources().chat_disc();
+  return {disc.x, disc.y};
 }
 
 Image HudArt::star_graphic(std::uint32_t tint, double scale) const {

@@ -5,6 +5,16 @@
 #include <unordered_map>
 
 namespace realm {
+// Logical side of the minimap view; its centre is minimap_half. The view is a square with its four
+// corners cut by minimap_clip_cut (a triangle each, in logical px), matching the sidebar frames.
+inline constexpr int minimap_size = 182;
+inline constexpr double minimap_half = minimap_size / 2.0;
+inline constexpr int minimap_clip_cut = 4;
+// Marker offsets from the centre are limited so a 4 px dot stays inside the square and clear of the
+// corner triangles: |x| and |y| <= half - 2, and |x| + |y| <= 2 half - 4 - cut.
+inline constexpr double minimap_marker_limit = minimap_half - 2;
+inline constexpr double minimap_marker_diagonal = 2 * minimap_half - 4 - minimap_clip_cut;
+
 struct MinimapMarker {
   Vec2 position;
   std::uint32_t color{};
@@ -22,13 +32,16 @@ struct MinimapView {
 
 // The map is remembered at one pixel per tile. Only changed source rows are
 // recolored; an unchanged view does no rasterization or texture upload.
+// Clamps a marker offset from the view centre (logical px) to the marker limits above.
+[[nodiscard]] Vec2 clamp_marker_offset(Vec2 offset);
+
 class Minimap {
  public:
   Minimap(const Catalog& catalog, const AnimationLibrary& animations,
           const std::filesystem::path& root);
   bool update(const World& world, const Entity& focus, double angle);
   bool render(const World& world, const MinimapView& view);
-  // GPU path gathers markers and synchronizes fog memory without rasterizing the 192x192 view.
+  // GPU path gathers markers and synchronizes fog memory without rasterizing the minimap_size view.
   const MinimapView& prepare_gpu(const World& world, const Entity& focus, double angle);
 
   [[nodiscard]] const Image& map_image() const { return map_; }
@@ -44,7 +57,7 @@ class Minimap {
   [[nodiscard]] int button_zoom() const { return button_zoom_; }
 
   void set_pixel_scale(double scale);
-  // Logical 192x192 minimap coordinates; strict radius and current entity order.
+  // Logical minimap_size x minimap_size coordinates; strict radius and current entity order.
   [[nodiscard]] std::vector<std::int32_t> hover_players(const World& world, const Entity& focus,
                                                         Vec2 pointer) const;
   [[nodiscard]] Vec2 marker_position(const World& world, const Entity& focus, Vec2 position) const;
@@ -78,7 +91,8 @@ class Minimap {
   Image out_button_;
   Image in_button_;
   Image map_;
-  Image image_{192, 192, std::vector<unsigned char>(192 * 192 * 4)};
+  Image image_{minimap_size, minimap_size,
+               std::vector<unsigned char>(static_cast<std::size_t>(minimap_size) * minimap_size * 4)};
   std::unordered_map<std::uint16_t, std::uint32_t> ground_colors_;
   std::unordered_map<std::uint16_t, std::uint32_t> object_colors_;
   mutable std::unordered_map<std::uint64_t, std::uint32_t> texture_colors_;

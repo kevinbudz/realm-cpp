@@ -2,6 +2,7 @@
 // identical bytes for random geometry, scales, colors, premultiplied and straight destinations,
 // partially transparent backgrounds.
 #include "realm/assets/Image.hpp"
+#include "realm/minimap/Minimap.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -201,7 +202,7 @@ int main(int argc, char**) {
       }
     }
     if (argc > 1) {  // --profile: 6000 minimap markers at 1080p density
-      realm::Image image{192 * 2, 192 * 2, std::vector<unsigned char>(192 * 2 * 192 * 2 * 4, 255)};
+      realm::Image image{realm::minimap_size * 2, realm::minimap_size * 2, std::vector<unsigned char>(realm::minimap_size * 2 * realm::minimap_size * 2 * 4, 255)};
       image.pixel_scale = 1.8;
       for (int variant = 0; variant < 2; ++variant) {
         const auto t0 = std::chrono::steady_clock::now();

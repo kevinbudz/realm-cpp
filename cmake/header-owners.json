@@ -60,6 +60,7 @@
   "include/realm/assets/FontBook.hpp": "realm_assets",
   "include/realm/assets/FlashDraw.hpp": "realm_assets",
   "include/realm/assets/HudArt.hpp": "realm_assets",
+  "include/realm/assets/InventoryLayout.hpp": "realm_assets",
   "include/realm/engine3d/Model3D.hpp": "realm_assets",
   "include/realm/engine3d/ConnectedObjects.hpp": "realm_assets",
   "include/realm/background/BackdropData.hpp": "realm_assets",

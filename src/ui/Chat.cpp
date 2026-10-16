@@ -17,7 +17,6 @@ constexpr double next_width = 576;
 // bitmap's baseline sits relative to that line top.
 constexpr double text_baseline_offset = -3;
 constexpr double text_gutter = 2;
-constexpr double icon_y = -2;
 // ElementFormats colors.
 constexpr std::uint32_t normal_color = 0xffffff;
 constexpr std::uint32_t server_color = 0xffff00;
@@ -31,6 +30,33 @@ constexpr std::uint32_t separator_color = 0x363636;
 constexpr std::uint32_t tell_color = 0x00f0ff;
 constexpr std::uint32_t guild_color = 0xa6ff5d;
 constexpr std::uint32_t default_name_draw_color = 0x00fe00;
+
+// The middle of a capital and digit's ink at 14 bold, from the row top, where the text pieces are
+// blitted. The rank badge is centred on it.
+double capital_center(const FontBook& fonts) {
+  const auto reference = fonts.rasterize("H0", 14, true, false, 0xffffff);
+  const auto& image = reference.image;
+  int first = -1;
+  int end = 0;
+  for (int y = 0; y < image.height; ++y) {
+    for (int x = 0; x < image.width; ++x) {
+      const auto at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) +
+                       static_cast<std::size_t>(x)) *
+                      4;
+      if (image.pixels[at + 3]) {
+        if (first < 0) {
+          first = y;
+        }
+        end = y + 1;
+        break;
+      }
+    }
+  }
+  if (first < 0) {
+    return text_baseline_offset;
+  }
+  return text_baseline_offset + reference.offset.y + (first + end) / (2 * image.pixel_scale);
+}
 }
 
 void Chat::push(ChatLine line) {
@@ -324,6 +350,9 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
   if (shown == shown_ && chat.revision() == revision_ && scale == scale_) {
     return false;
   }
+  if (scale != scale_) {
+    text_center_ = capital_center(fonts_);
+  }
   shown_ = shown;
   revision_ = chat.revision();
   scale_ = scale;
@@ -358,10 +387,12 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
       const double left = 2 + (r == 0 ? 0 : indent);
       for (const auto& piece : row.pieces) {
         if (piece.icon >= 0) {
-          // The rank icon's baked origin is at (8,8). Its GraphicElement sits on
-          // the baseline and TextBoxLine lowers the sprite by 3.
-          ui_blit(image_, art_->image("chatstar" + std::to_string(piece.icon)), left + piece.x - 8,
-                  y + icon_y - 8, true, true);
+          // The badge is drawn at the chat density. Its disc centre sits on the row's capital
+          // middle, snapped to the device pixel grid, and the badge is blitted from its origin.
+          const double center_y = std::round((y + text_center_) * scale) / scale;
+          const auto disc = art_->chat_star_center();
+          ui_blit(image_, art_->image("chatstar" + std::to_string(piece.icon), scale),
+                  left + piece.x - 8, center_y - disc.y, true, true);
           continue;
         }
         const auto bitmap = fonts_.rasterize(piece.text, 14, true, false, piece.color);

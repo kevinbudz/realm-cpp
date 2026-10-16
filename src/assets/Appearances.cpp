@@ -247,7 +247,8 @@ const Image& Appearances::textile(std::uint32_t op) const {
 }
 
 Image Appearances::compose(const Image& source, const Image* mask, int size, bool pad,
-                           std::uint32_t tex1, std::uint32_t tex2, bool glow) const {
+                           std::uint32_t tex1, std::uint32_t tex2, bool glow, double device_scale,
+                           bool sharp) const {
   REALM_ZONE("appearance.compose");
   // Texturing is done on a 5x bitmap before size scaling. Textile origin is
   // the frame origin, including transparent extended-attack padding.
@@ -303,16 +304,45 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
 
   // Raster bounds protect against hostile size stats; density tracks the
   // reduction so world placement still preserves the authoritative size.
-  const double factor = 5 * std::max(1, dyed ? size / 5 * 5 : size) / 100.0;
-  const int wanted_w = std::max(1, static_cast<int>(factor * source.width));
-  const int wanted_h = std::max(1, static_cast<int>(factor * source.height));
+  const double factor = 5 * std::max(1, dyed ? size / 5 * 5 : size) / 100.0 * device_scale;
+  // Sharp sizes round to the nearest device pixel; the default truncates as before.
+  const auto scaled = [sharp](double extent) {
+    return std::max(1, sharp ? static_cast<int>(std::lround(extent)) : static_cast<int>(extent));
+  };
+  const int wanted_w = scaled(factor * source.width);
+  const int wanted_h = scaled(factor * source.height);
   const double density = std::min(1.0, 1024.0 / std::max(wanted_w, wanted_h));
   const int w = std::max(1, static_cast<int>(wanted_w * density));
   const int h = std::max(1, static_cast<int>(wanted_h * density));
-  Image result{w + 24, h + (pad ? 24 : 13),
-               std::vector<unsigned char>(static_cast<std::size_t>(w + 24) *
-                                          static_cast<std::size_t>(h + (pad ? 24 : 13)) * 4)};
+  // The sprite block sits `margin` pixels from the top and left, with `bottom` pixels below it.
+  // Sharp sizes scale both with the device scale; the defaults are 12 and 1 (12 when padded).
+  const int margin = sharp ? std::max(1, static_cast<int>(std::lround(12 * device_scale))) : 12;
+  const int bottom = sharp
+                         ? std::max(1, static_cast<int>(std::lround((pad ? 12 : 1) * device_scale)))
+                         : (pad ? 12 : 1);
+  Image result{w + 2 * margin, h + margin + bottom,
+               std::vector<unsigned char>(static_cast<std::size_t>(w + 2 * margin) *
+                                          static_cast<std::size_t>(h + margin + bottom) * 4)};
   result.pixel_scale = density;
+
+  // Sharp bilinear: an exact nearest upscale by the integer ceil(w / input width), then an area
+  // reduction to w (below). Upscaling copies texels, so the reduction sees the same texel grid.
+  Image upscaled;
+  if (sharp && (w > input->width || h > input->height)) {
+    const int kx = std::max(1, (w + input->width - 1) / input->width);
+    const int ky = std::max(1, (h + input->height - 1) / input->height);
+    upscaled = {input->width * kx, input->height * ky,
+                std::vector<unsigned char>(static_cast<std::size_t>(input->width * kx) *
+                                           static_cast<std::size_t>(input->height * ky) * 4)};
+    for (int y = 0; y < upscaled.height; ++y) {
+      for (int x = 0; x < upscaled.width; ++x) {
+        const auto from = static_cast<std::size_t>(((y / ky) * input->width + x / kx) * 4);
+        const auto to = static_cast<std::size_t>((y * upscaled.width + x) * 4);
+        std::copy_n(input->pixels.data() + from, 4, upscaled.pixels.data() + to);
+      }
+    }
+    input = &upscaled;
+  }
 
   // Same arithmetic as compose_reference, with per-column and per-row terms computed once instead
   // of once per pixel.
@@ -323,15 +353,17 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
     std::size_t offset{};
   };
 
+  // `area` weights every upscaled destination by the source texels it covers, as the reduction
+  // does; the default picks one texel per destination when upscaling.
   const auto spans = [&](int count, int from, int source_count, std::vector<Span>& out,
-                         std::vector<double>& weights) {
+                         std::vector<double>& weights, bool area) {
     out.resize(static_cast<std::size_t>(count));
     weights.clear();
+    const bool nearest = count >= source_count && !area;
     for (int i = 0; i < count; ++i) {
-      const double start = count >= source_count ? std::floor((i + .49999) * source_count / count)
-                                                 : static_cast<double>(i) * source_count / count;
-      const double end =
-          count >= source_count ? start + 1 : static_cast<double>(i + 1) * source_count / count;
+      const double start = nearest ? std::floor((i + .49999) * source_count / count)
+                                   : static_cast<double>(i) * source_count / count;
+      const double end = nearest ? start + 1 : static_cast<double>(i + 1) * source_count / count;
       auto& span = out[static_cast<std::size_t>(i)];
       span.first = static_cast<int>(start);
       span.last = std::min(source_count, static_cast<int>(std::ceil(end)));
@@ -347,11 +379,12 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   static thread_local std::vector<Span> row_spans;
   static thread_local std::vector<double> column_weights;
   static thread_local std::vector<double> row_weights;
-  spans(w, input->width, input->width, column_spans, column_weights);
-  spans(h, input->height, input->height, row_spans, row_weights);
+  spans(w, input->width, input->width, column_spans, column_weights, sharp);
+  spans(h, input->height, input->height, row_spans, row_weights, sharp);
   for (int y = 0; y < h; ++y) {
     const auto& ry = row_spans[static_cast<std::size_t>(y)];
-    const int subtract = static_cast<int>(40 * std::max(0.0, 2.0 * (y + 12) / result.height - 1));
+    const int subtract =
+        static_cast<int>(40 * std::max(0.0, 2.0 * (y + margin) / result.height - 1));
     for (int x = 0; x < w; ++x) {
       const auto& rx = column_spans[static_cast<std::size_t>(x)];
       const double area = rx.extent * ry.extent;
@@ -370,7 +403,7 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
           channels[3] += input->pixels[src + 3] * weight;
         }
       }
-      const auto dst = static_cast<std::size_t>(((y + 12) * result.width + x + 12) * 4);
+      const auto dst = static_cast<std::size_t>(((y + margin) * result.width + x + margin) * 4);
       if (channels[3] > 0) {
         for (int channel = 0; channel < 3; ++channel) {
           result.pixels[dst + static_cast<std::size_t>(channel)] = static_cast<unsigned char>(

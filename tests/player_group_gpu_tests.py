@@ -42,7 +42,7 @@ for mode in ['allowed','forbidden','invisible']:
   if mode=='allowed':
    actions+=['1200 move 704 100','1300 click 704 100','1400 move 578 120',cap(1500,'cooldown'),'1600 click 578 120',cap(1750,'refused'),
     '1850 move 704 100','1950 click 704 100','2050 move 578 120',cap(6100,'mid'),'11200 click 578 120',cap(11400,'ready-result'),
-    '11500 move 795 195',cap(11600,'edge'),
+    '11500 move 787 187',cap(11600,'edge'),
     '11700 resize 1280 720','11800 move 1164 120',cap(12000,'tooltip-1280'),
     '12100 click 1164 120','12200 move 1004 148',cap(12300,'menu-1280'),
     '12400 resize 1600 1200','12500 move 1408 200',cap(12700,'tooltip-1600'),

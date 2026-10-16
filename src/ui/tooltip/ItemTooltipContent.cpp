@@ -68,31 +68,45 @@ double round_to_two(double value) {
   return std::round(value * 100) / 100;
 }
 
-bool same_activation(const Xml& left, const Xml& right) {
-  if (left.text() != right.text()) {
-    return false;
-  }
-  const auto kind = left.text();
-  if (!left.attribute("stat").empty() || !right.attribute("stat").empty()) {
-    return left.attribute("stat") == right.attribute("stat");
-  }
-  if (!left.attribute("effect").empty() || !right.attribute("effect").empty()) {
-    return left.attribute("effect") == right.attribute("effect");
-  }
-  return true;
+// Astrum's EquipmentToolTip hides shots, dyes and pets from the On Use list. The realm-client
+// data names the star throw ShurikenAbility, so both spellings are hidden.
+bool activation_ignored(std::string_view kind) {
+  return kind == "Shoot" || kind == "PermaPet" || kind == "Pet" || kind == "Create" ||
+         kind == "UnlockPortal" || kind == "Shuriken" || kind == "ShurikenAbility" ||
+         kind == "DazeBlast";
 }
 
+// Trap and Lightning store their condition as condEffect/condDuration, not effect/duration.
+std::string activation_attribute(const Xml& activate, std::string_view name) {
+  if (!activate.attribute(name).empty()) {
+    return std::string(name);
+  }
+  if (name == "effect") {
+    return "condEffect";
+  }
+  if (name == "duration") {
+    return "condDuration";
+  }
+  return std::string(name);
+}
+
+std::string stat_label(int id) {
+  const int index = stat_index(id);
+  return index < 0 ? "Invalid Stat!" : std::string(stat_names[static_cast<std::size_t>(index)]);
+}
+
+// Astrum pairs an activation with the worn item's activation of the same kind and occurrence.
 Xml matching_activation(const std::vector<Xml>& current, std::size_t index,
                         const std::vector<Xml>& equipped) {
-  const auto& selected = current[index];
+  const auto kind = current[index].text();
   std::size_t occurrence{};
   for (std::size_t i = 0; i < index; ++i) {
-    if (same_activation(current[i], selected)) {
+    if (current[i].text() == kind) {
       ++occurrence;
     }
   }
   for (const auto& candidate : equipped) {
-    if (same_activation(candidate, selected)) {
+    if (candidate.text() == kind) {
       if (occurrence == 0) {
         return candidate;
       }
@@ -100,6 +114,13 @@ Xml matching_activation(const std::vector<Xml>& current, std::size_t index,
     }
   }
   return {};
+}
+
+bool has_activation(const std::vector<Xml>& activations, const std::string& kind,
+                    std::string_view attribute, const std::string& value) {
+  return std::any_of(activations.begin(), activations.end(), [&](const Xml& candidate) {
+    return candidate.text() == kind && candidate.attribute(attribute) == value;
+  });
 }
 
 int effective_damage(int base, std::int32_t data) {
@@ -112,7 +133,7 @@ double effective_rate(const ObjectDef& item, std::int32_t data) {
 }
 
 double effective_cooldown(const ObjectDef& item, std::int32_t data) {
-  return item.xml.number("Cooldown", .2) * (1 - item_data::stat(data, item_data::cooldown));
+  return item.xml.number("Cooldown", .5) * (1 - item_data::stat(data, item_data::cooldown));
 }
 }
 
@@ -271,34 +292,70 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
     line.spans.push_back({std::move(value), color});
     content.effects.push_back(std::move(line));
   };
-  auto activation_line = [&](std::initializer_list<std::pair<std::string, std::uint32_t>> spans) {
+  // Astrum's EquipmentToolTip writes every activation as an indented, dash-prefixed line.
+  auto make_line = [](std::initializer_list<std::pair<std::string, std::uint32_t>> spans,
+                      double x) {
     RichLine line;
-    line.x = 14;
+    line.x = x;
     for (const auto& span : spans) {
       if (!span.first.empty()) {
         line.spans.push_back({span.first, span.second});
       }
     }
-    content.effects.push_back(std::move(line));
+    return line;
+  };
+  auto activation_line = [&](std::initializer_list<std::pair<std::string, std::uint32_t>> spans) {
+    content.effects.push_back(make_line(spans, 10));
   };
 
-  if (xml.has("NumProjectiles")) {
-      const int shots = xml.integer("NumProjectiles");
-      const int other = equipped ? equipped->xml.integer("NumProjectiles", 1) : 0;
-    effect("Shots", std::to_string(shots),
-           equipped ? comparison_color(shots - other) : no_comparison_color(target.usable));
-  }
   if (xml.has("Projectile")) {
     const auto projectile = xml.child("Projectile");
     const double mod = item_data::stat(target.item.data, item_data::damage);
     const auto other_projectile = equipped ? equipped->xml.child("Projectile") : Xml{};
-    if (!xml.has("NumProjectiles")) {
-      const int shots = item->num_projectiles;
-      const int other = equipped ? equipped->num_projectiles : 0;
+    // A spell's bolt is only the template for its nova, so its shot count and rate of fire
+    // duplicate the "Spell: N shots" On Use line and are omitted.
+    const auto activations = xml.children("Activate");
+    const bool spell = std::any_of(activations.begin(), activations.end(), [](const Xml& activation) {
+      return activation.text() == "BulletNova";
+    });
+    const int shots = item->num_projectiles;
+    const int other_shots = equipped ? equipped->num_projectiles : 0;
+    if (!spell) {
       effect("Shots", std::to_string(shots),
-             equipped ? target.usable ? comparison_color(shots - other) : effect_color
-                      : no_comparison_color(target.usable));
+             equipped ? comparison_color(shots - other_shots) : no_comparison_color(target.usable));
     }
+
+    const auto conditions = projectile.children("ConditionEffect");
+    if (!conditions.empty()) {
+      content.effects.push_back(paragraph("Shot Effect(s):", body_color));
+    }
+    for (const auto condition : conditions) {
+      const auto effect_name = condition.text();
+      const auto duration_text = condition.attribute("duration");
+      const double duration = duration_text.empty() ? 0 : std::stod(duration_text);
+      double old_duration{};
+      bool found{};
+      if (equipped && other_projectile) {
+        for (const auto old : other_projectile.children("ConditionEffect")) {
+          if (old.text() == effect_name) {
+            const auto old_text = old.attribute("duration");
+            old_duration = old_text.empty() ? 0 : std::stod(old_text);
+            found = true;
+            break;
+          }
+        }
+      }
+      const auto color =
+          equipped ? (found ? comparison_color(duration - old_duration) : better_color)
+                   : no_comparison_color(target.usable);
+      content.effects.push_back(make_line({{"    Inflicts ", body_color},
+                                           {effect_name, color},
+                                           {" for ", body_color},
+                                           {number(duration), color},
+                                           {" secs", body_color}},
+                                          0));
+    }
+
     const int base_minimum = projectile.integer("Damage", projectile.integer("MinDamage"));
     const int base_maximum = projectile.integer("Damage", projectile.integer("MaxDamage"));
     const int minimum = base_minimum + static_cast<int>(base_minimum * mod);
@@ -329,49 +386,23 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
     effect("Range", number(range),
            equipped ? target.usable ? comparison_color(range - other_range) : effect_color
                     : no_comparison_color(target.usable));
-    if (projectile.has("MultiHit")) {
-      effect("", "Shots hit multiple targets");
-    }
-    if (projectile.has("PassesCover")) {
-      effect("", "Shots pass through obstacles");
-    }
     const double rate = effective_rate(*item, target.item.data);
     const double rate_mod = item_data::stat(target.item.data, item_data::rate_of_fire,
                                             .05 * xml.number("RateOfFire", 1));
     const double other_rate = equipped ? effective_rate(*equipped, equipped_data) : 0;
-    effect("Rate of Fire",
-           std::to_string(static_cast<int>(xml.number("RateOfFire", 1) * 100) +
-                          static_cast<int>(rate_mod * 100)) +
-               "%" +
-               (rate_mod ? " (+" + std::to_string(static_cast<int>(rate_mod * 100)) + "%)" : ""),
-           equipped ? target.usable ? comparison_color(rate - other_rate) : effect_color
-                    : no_comparison_color(target.usable));
-    for (const auto condition : projectile.children("ConditionEffect")) {
-      const auto effect_name = condition.text();
-      const auto duration_text = condition.attribute("duration");
-      const double duration = duration_text.empty() ? 0 : std::stod(duration_text);
-      double old_duration{};
-      bool found{};
-      if (equipped && other_projectile) {
-        for (const auto old : other_projectile.children("ConditionEffect")) {
-          if (old.text() == effect_name) {
-            const auto old_text = old.attribute("duration");
-            old_duration = old_text.empty() ? 0 : std::stod(old_text);
-            found = true;
-            break;
-          }
-        }
-      }
-      const auto color =
-          equipped ? target.usable
-                         ? (found ? comparison_color(duration - old_duration) : better_color)
-                         : effect_color
-                   : no_comparison_color(target.usable);
-      effect("Shot Effect", effect_name + " for " + number(duration) + " secs", color);
+    if (!spell) {
+      effect("Rate of Fire",
+             std::to_string(static_cast<int>(xml.number("RateOfFire", 1) * 100) +
+                            static_cast<int>(rate_mod * 100)) +
+                 "%" +
+                 (rate_mod ? " (+" + std::to_string(static_cast<int>(rate_mod * 100)) + "%)" : ""),
+             equipped ? target.usable ? comparison_color(rate - other_rate) : effect_color
+                      : no_comparison_color(target.usable));
     }
     const double arc = xml.number("ArcGap", 11.25);
     const double old_arc = equipped ? equipped->xml.number("ArcGap", 11.25) : 0;
-    if (arc > 0) {
+    // Arc gap spreads a volley, but a nova always fires its fixed 20-shot pattern.
+    if (arc > 0 && !spell) {
       effect("Arc Gap", number(arc),
              equipped ? target.usable ? comparison_color(old_arc - arc) : effect_color
                       : no_comparison_color(target.usable));
@@ -379,126 +410,209 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
     if (projectile.has("ArmorPiercing")) {
       effect("", "Shots ignore defense of target", special_color);
     }
+    if (projectile.has("Boomerang")) {
+      effect("", "Shots boomerang");
+    }
+    if (projectile.has("MultiHit")) {
+      effect("", "Shots hit multiple targets");
+    }
+    if (projectile.has("PassesCover")) {
+      effect("", "Shots pass through obstacles");
+    }
+    if (projectile.has("Parametric")) {
+      effect("", "Shots are parametric");
+    }
   }
 
   const auto activates = xml.children("Activate");
-  const bool has_use = std::any_of(activates.begin(), activates.end(), [](const Xml& activation) {
-    const auto kind = activation.text();
-    return kind != "Shoot" && kind != "PermaPet" && kind != "Pet" && kind != "Create" &&
-           kind != "UnlockPortal" && kind != "Shuriken" && kind != "DazeBlast";
-  });
-  if (has_use) {
-    effect("On Use", "");
-  }
   const auto equipped_activates =
       equipped ? equipped->xml.children("Activate") : std::vector<Xml>{};
-  for (std::size_t activation_index = 0; activation_index < activates.size(); ++activation_index) {
-    const auto activate = activates[activation_index];
+  const bool has_use = std::any_of(activates.begin(), activates.end(), [](const Xml& activation) {
+    return !activation_ignored(activation.text());
+  });
+  if (has_use) {
+    content.effects.push_back(paragraph("On Use:", body_color));
+  }
+  for (std::size_t index = 0; index < activates.size(); ++index) {
+    const auto activate = activates[index];
     const auto kind = activate.text();
-    const auto amount = activate.attribute("amount");
-    const auto duration = activate.attribute("duration");
-    const auto range = activate.attribute("range");
-    const auto radius = activate.attribute("radius");
-    const auto damage = activate.attribute("totalDamage");
-    const auto condition = activate.attribute("effect");
-    const auto matched = matching_activation(activates, activation_index, equipped_activates);
-    auto value_color = [&](std::string_view attribute, bool lower_is_better = false) {
+    if (activation_ignored(kind)) {
+      continue;
+    }
+    const auto matched = matching_activation(activates, index, equipped_activates);
+    // Astrum compares against the matching worn activation; unusable items stay neutral.
+    auto value_color = [&](std::string_view attribute) {
       if (!target.usable) {
         return effect_color;
       }
       if (!matched) {
         return better_color;
       }
-      const auto difference =
-          attribute_number(activate, attribute) - attribute_number(matched, attribute);
-      return comparison_color(lower_is_better ? -difference : difference);
+      return comparison_color(attribute_number(activate, activation_attribute(activate, attribute)) -
+                              attribute_number(matched, activation_attribute(matched, attribute)));
     };
-    const auto condition_color =
-        target.usable ? (matched ? effect_color : better_color) : effect_color;
-    if (kind == "ConditionEffectAura") {
-      activation_line(
-          {{"Party Effect: Within ", body_color}, {range + " sqrs", value_color("range")}});
-      activation_line({{condition, condition_color},
-                       {" for ", body_color},
-                       {duration + " secs", value_color("duration")}});
-    } else if (kind == "ConditionEffectSelf") {
-      activation_line({{"Effect on Self: ", body_color},
-                       {condition, condition_color},
-                       {" for ", body_color},
-                       {duration + " secs", value_color("duration")}});
+    const std::string condition = activate.attribute(activation_attribute(activate, "effect"));
+    const std::string stat = activate.attribute("stat");
+    auto condition_color = [&]() {
+      if (!target.usable) {
+        return effect_color;
+      }
+      if (!matched) {
+        return better_color;
+      }
+      return has_activation(equipped_activates, kind, "effect", condition) ? effect_color
+                                                                          : better_color;
+    };
+    auto stat_color = [&]() {
+      if (!target.usable) {
+        return effect_color;
+      }
+      if (!matched) {
+        return better_color;
+      }
+      return has_activation(equipped_activates, kind, "stat", stat) ? effect_color : better_color;
+    };
+    const auto value = [&](std::string_view attribute) {
+      return number(attribute_number(activate, activation_attribute(activate, attribute)));
+    };
+    const auto sign = [&](std::string_view attribute) {
+      return attribute_number(activate, attribute) > 0 ? std::string("+") : std::string();
+    };
+    const int stat_id = std::stoi(stat.empty() ? "-1" : stat);
+
+    if (kind == "IncrementStat") {
+      activation_line({{"-", body_color},
+                       {"Increases ", body_color},
+                       {stat_label(stat_id), effect_color},
+                       {" by ", body_color},
+                       {value("amount"), effect_color}});
     } else if (kind == "Heal" || kind == "Magic") {
-      activation_line({{"+", body_color},
-                       {amount, value_color("amount")},
+      activation_line({{"-", body_color},
+                       {"Heals ", body_color},
+                       {value("amount"), value_color("amount")},
                        {kind == "Heal" ? " HP" : " MP", body_color}});
-    } else if (kind == "HealNova") {
-      activation_line({{"Party Heal: ", body_color},
-                       {amount, value_color("amount")},
-                       {" HP at ", body_color},
-                       {range, value_color("range")},
+    } else if (kind == "HealNova" || kind == "MagicNova") {
+      activation_line({{"-", body_color},
+                       {"Heals ", body_color},
+                       {value("amount"), value_color("amount")},
+                       {kind == "HealNova" ? " HP in " : " MP in ", body_color},
+                       {value("range"), value_color("range")},
                        {" sqrs", body_color}});
-    } else if (kind == "MagicNova") {
-      activation_line({{"Fill Party Magic: ", body_color},
-                       {amount, value_color("amount")},
-                       {" MP at ", body_color},
-                       {range, value_color("range")},
-                       {" sqrs", body_color}});
-    } else if (kind == "Teleport") {
-      effect("", "Teleport to Target");
-    } else if (kind == "VampireBlast") {
-      activation_line({{"Steal ", body_color},
-                       {damage, value_color("totalDamage")},
-                       {" HP within ", body_color},
-                       {radius, value_color("radius")},
-                       {" sqrs", body_color}});
-    } else if (kind == "Trap") {
-      activation_line({{"Trap: ", body_color},
-                       {damage, value_color("totalDamage")},
-                       {" HP within ", body_color},
-                       {radius, value_color("radius")},
-                       {" sqrs", body_color}});
-      activation_line({{"Applies ", body_color},
-                       {condition, condition_color},
+    } else if (kind == "StatBoostSelf") {
+      activation_line({{"-", body_color},
+                       {"On Self: ", body_color},
+                       {sign("amount") + value("amount"), value_color("amount")},
+                       {" ", body_color},
+                       {stat_label(stat_id), stat_color()},
                        {" for ", body_color},
-                       {duration, value_color("duration")},
+                       {value("duration"), value_color("duration")},
+                       {" secs", body_color}});
+    } else if (kind == "StatBoostAura") {
+      activation_line({{"-", body_color},
+                       {"On Allies: ", body_color},
+                       {sign("amount") + value("amount"), value_color("amount")},
+                       {" ", body_color},
+                       {stat_label(stat_id), stat_color()},
+                       {" in ", body_color},
+                       {value("range"), value_color("range")},
+                       {" sqrs for ", body_color},
+                       {value("duration"), value_color("duration")},
+                       {" secs", body_color}});
+    } else if (kind == "BulletNova") {
+      activation_line({{"-", body_color},
+                       {"Spell: ", special_color},
+                       {"20", effect_color},
+                       {" shots", body_color}});
+    } else if (kind == "ConditionEffectSelf") {
+      activation_line({{"-", body_color},
+                       {"On Self: ", body_color},
+                       {condition, condition_color()},
+                       {" for ", body_color},
+                       {value("duration"), value_color("duration")},
+                       {" secs", body_color}});
+    } else if (kind == "ConditionEffectAura") {
+      activation_line({{"-", body_color},
+                       {"On Allies: ", body_color},
+                       {condition, condition_color()},
+                       {" in ", body_color},
+                       {value("range"), value_color("range")},
+                       {" sqrs for ", body_color},
+                       {value("duration"), value_color("duration")},
+                       {" secs", body_color}});
+    } else if (kind == "Teleport") {
+      activation_line({{"-", body_color}, {"Teleports to cursor", body_color}});
+    } else if (kind == "PoisonGrenade") {
+      activation_line({{"-", body_color},
+                       {"Poison: Deals ", body_color},
+                       {value("totalDamage"), value_color("totalDamage")},
+                       {" damage in ", body_color},
+                       {value("radius"), value_color("radius")},
+                       {" sqrs over ", body_color},
+                       {value("duration"), value_color("duration")},
+                       {" secs", body_color}});
+    } else if (kind == "VampireBlast") {
+      activation_line({{"-", body_color},
+                       {"Skull: Deals ", body_color},
+                       {value("totalDamage"), value_color("totalDamage")},
+                       {" damage in ", body_color},
+                       {value("radius"), value_color("radius")},
+                       {" sqrs and heals players there for the damage dealt", body_color}});
+    } else if (kind == "Trap") {
+      activation_line({{"-", body_color},
+                       {"Trap: Deals ", body_color},
+                       {value("totalDamage"), value_color("totalDamage")},
+                       {" damage in ", body_color},
+                       {value("radius"), value_color("radius")},
+                       {" sqrs", body_color}});
+      activation_line({{"    Applies ", body_color},
+                       {condition.empty() ? "Slowed" : condition, condition_color()},
+                       {" for ", body_color},
+                       {value("duration"), value_color("duration")},
                        {" secs", body_color}});
     } else if (kind == "StasisBlast") {
-      activation_line({{"Stasis on Group: ", body_color},
-                       {duration, value_color("duration")},
+      activation_line({{"-", body_color},
+                       {"Stasis enemies within 3 sqrs for ", body_color},
+                       {value("duration"), value_color("duration")},
                        {" secs", body_color}});
     } else if (kind == "Decoy") {
-      activation_line({{"Decoy: Lasts for ", body_color},
-                       {duration, value_color("duration")},
+      activation_line({{"-", body_color},
+                       {"Decoy: Lasts for ", body_color},
+                       {value("duration"), value_color("duration")},
                        {" secs", body_color}});
     } else if (kind == "Lightning") {
-      activation_line({{"Lightning: ", body_color},
-                       {damage, value_color("totalDamage")},
-                       {" damage to ", body_color},
-                       {activate.attribute("maxTargets"), value_color("maxTargets")},
-                       {" targets", body_color}});
-    } else if (kind == "PoisonGrenade") {
-      activation_line({{"Poison Grenade: ", body_color},
-                       {damage, value_color("totalDamage")},
-                       {" HP over ", body_color},
-                       {duration, value_color("duration")},
-                       {" secs within ", body_color},
-                       {radius, value_color("radius")},
-                       {" sqrs", body_color}});
-    } else if (kind == "RemoveNegativeConditions" || kind == "RemoveNegativeConditionsSelf") {
-      effect("", "Removes negative conditions");
-    } else if (kind == "BulletNova") {
-      effect("Shots", "20");
-    } else if (kind == "Shuriken") {
-      effect("Shots", amount);
-      effect("", "Stars seek nearby enemies");
-      effect("", "Dazes nearby enemies");
-    } else if (kind == "IncrementStat") {
-      const int index = stat_index(std::stoi(activate.attribute("stat", "-1")));
-      if (index >= 0) {
-        effect("", index < 2 ? "+" + amount + " " +
-                                   std::string(stat_names[static_cast<std::size_t>(index)])
-                             : "Permanently increases " +
-                                   std::string(stat_names[static_cast<std::size_t>(index)]));
+      activation_line({{"-", body_color},
+                       {"Lightning: Targets ", body_color},
+                       {value("maxTargets"), value_color("maxTargets")},
+                       {" enemies dealing ", body_color},
+                       {value("totalDamage"), value_color("totalDamage")},
+                       {" damage", body_color}});
+      if (!condition.empty()) {
+        activation_line({{"    Applies ", body_color},
+                         {condition, condition_color()},
+                         {" for ", body_color},
+                         {value("duration"), value_color("duration")},
+                         {" secs", body_color}});
       }
+    } else if (kind == "ClearConditionEffectAura") {
+      activation_line({{"-", body_color},
+                       {"Removes all condition effects from allies in ", body_color},
+                       {value("range"), value_color("range")},
+                       {" sqrs", body_color}});
+    } else if (kind == "RemoveNegativeConditions") {
+      activation_line({{"-", body_color},
+                       {"Removes all negative condition effects from allies in ", body_color},
+                       {value("range"), value_color("range")},
+                       {" sqrs", body_color}});
+    } else if (kind == "ClearConditionEffectSelf" || kind == "ClearConditionsEffectSelf") {
+      activation_line({{"-", body_color}, {"Removes all condition effects", body_color}});
+    } else if (kind == "RemoveNegativeConditionsSelf") {
+      activation_line({{"-", body_color}, {"Removes all negative condition effects", body_color}});
+    } else if (kind == "Dye") {
+      activation_line({{"-", body_color}, {"Changes texture of your character", body_color}});
+    } else if (kind == "Backpack") {
+      activation_line({{"-", body_color}, {"Adds 8 inventory spaces, once per character", body_color}});
+    } else {
+      activation_line({{"-", body_color}});
     }
   }
 
@@ -527,7 +641,7 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
     present[i] = present[i] || datas[i] != 0;
   }
   if (std::any_of(present.begin(), present.end(), [](bool value) { return value; })) {
-    effect("On Equip", "");
+    content.effects.push_back(paragraph("On Equip:", body_color));
     // AVM2's initial Dictionary has four key buckets; it grows after the third key.
     // Preserve insertion order for collisions until growth gives each boost its own bucket.
     const auto first_key = order.front();
@@ -559,36 +673,19 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
           : target.usable ? (boosts[i] < 0 ? worse_color : better_color)
                           : effect_color;
       effect("",
-             (boosts[i] >= 0 ? "+" : "") + std::to_string(boosts[i]) +
+             std::string("    ") + (boosts[i] > 0 ? "+" : "") + std::to_string(boosts[i]) +
                  (datas[i] > 0 ? " (+" + std::to_string(datas[i]) + ")" : "") + " " +
                  std::string(stat_names[i]),
              color);
     }
   }
 
-  const double cooldown_mod = item_data::stat(target.item.data, item_data::cooldown);
-  if (xml.has("Cooldown") || cooldown_mod) {
-    const double cooldown = effective_cooldown(*item, target.item.data);
-    const double old = equipped ? effective_cooldown(*equipped, equipped_data) : 0;
-    effect("Cooldown",
-           number(cooldown) + "s" +
-               (cooldown_mod ? " (-" + std::to_string(static_cast<int>(cooldown_mod * 100)) + "%)"
-                             : ""),
-           equipped ? target.usable ? comparison_color(old - cooldown) : effect_color
-                    : no_comparison_color(target.usable));
-  }
-  if (xml.has("Doses")) {
+  if (xml.integer("Doses") > 0) {
     const int doses = xml.integer("Doses");
     const int old = equipped ? equipped->xml.integer("Doses") : 0;
+    effect("Max Doses", std::to_string(xml.integer("MaxDoses")));
     effect("Doses", std::to_string(doses),
            equipped ? target.usable ? comparison_color(doses - old) : effect_color
-                    : no_comparison_color(target.usable));
-  }
-  if (xml.has("MpCost")) {
-    const int cost = xml.integer("MpCost");
-    const int old = equipped ? equipped->xml.integer("MpCost") : 0;
-    effect("MP Cost", std::to_string(cost),
-           equipped ? target.usable ? comparison_color(old - cost) : effect_color
                     : no_comparison_color(target.usable));
   }
   const int fame_mod = static_cast<int>(item_data::stat(target.item.data, 1U << 19U, 1));
@@ -602,30 +699,42 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
            equipped ? target.usable ? comparison_color(fame - old) : effect_color
                     : no_comparison_color(target.usable));
   }
+  if (item->usable && xml.has("MpCost") && !xml.has("MultiPhase")) {
+    const int cost = xml.integer("MpCost");
+    const int old = equipped ? equipped->xml.integer("MpCost") : 0;
+    effect("MP Cost", std::to_string(cost),
+           equipped ? target.usable ? comparison_color(old - cost) : effect_color
+                    : no_comparison_color(target.usable));
+  }
+  if (item->usable && xml.has("MultiPhase")) {
+    const int cost = xml.integer("MpEndCost");
+    const int old = equipped ? equipped->xml.integer("MpEndCost") : 0;
+    effect("MP Cost", std::to_string(cost),
+           equipped ? target.usable ? comparison_color(old - cost) : effect_color
+                    : no_comparison_color(target.usable));
+  }
+  if (item->usable) {
+    const double cooldown_mod = item_data::stat(target.item.data, item_data::cooldown);
+    const double cooldown = effective_cooldown(*item, target.item.data);
+    const double old = equipped ? effective_cooldown(*equipped, equipped_data) : 0;
+    effect("Cooldown",
+           number(cooldown) + " secs" +
+               (cooldown_mod ? " (-" + std::to_string(static_cast<int>(cooldown_mod * 100)) + "%)"
+                             : ""),
+           equipped ? target.usable ? comparison_color(old - cooldown) : effect_color
+                    : no_comparison_color(target.usable));
+  }
+  if (xml.has("Resurrects")) {
+    content.effects.push_back(paragraph("This item resurrects you from death", body_color));
+  }
 
   auto restriction = [&](std::string text, std::uint32_t color = body_color, bool bold = false) {
     content.restrictions.push_back(paragraph(std::move(text), color, bold));
   };
-  const bool equip = target.inventory_full || target.owner == TooltipOwner::player;
-  if (target.usable) {
-    if (item->usable) {
-      restriction("Press [" + std::string(key_name(target.use_special)) + "] in world to use",
-                  0xffffff);
+  if (!target.usable) {
+    if (const auto* player = item_definition(catalog, target.player_type)) {
+      restriction("Not usable by " + player->display_id, warning_color, true);
     }
-    if (item->usable || (!item->consumable && !item->inventory_use)) {
-      restriction("Must be equipped to use");
-      restriction(equip ? "Double-Click to equip" : "Double-Click to take");
-    } else if (item->consumable) {
-      restriction("Consumed with use");
-      restriction(equip ? "Double-Click or Shift-Click on item to use"
-                        : "Double-Click to take & Shift-Click to use",
-                  0xffffff);
-    } else {
-      restriction("Can be used multiple times");
-      restriction("Double-Click or Shift-Click on item to use", 0xffffff);
-    }
-  } else if (const auto* player = item_definition(catalog, target.player_type)) {
-    restriction("Not usable by " + player->display_id, warning_color, true);
   }
   if (item->slot_type != 10 && item->slot_type != 9) {
     std::string classes;
@@ -639,6 +748,18 @@ ItemTooltipContent item_tooltip_content(const Catalog& catalog, const ItemToolti
       }
     }
     restriction("Usable by: " + classes);
+  }
+  if (item->usable) {
+    restriction("Press [" + std::string(key_name(target.use_special)) + "] in world to use",
+                0xdedaeb);
+  }
+  if (equippable) {
+    const bool equip = target.inventory_full || target.owner == TooltipOwner::player;
+    restriction("Must be equipped to use");
+    restriction(equip ? "Double-Click to equip" : "Double-Click to take");
+  }
+  if (item->consumable) {
+    restriction("Double-Click to consume");
   }
   for (const auto requirement : xml.children("EquipRequirement")) {
     if (requirement.text() == "Stat") {

@@ -1,4 +1,5 @@
 #include "realm/hud/HudInput.hpp"
+#include "realm/assets/InventoryLayout.hpp"
 #include <cmath>
 
 namespace realm {
@@ -44,15 +45,16 @@ int HudInput::slot_at(Vec2 p, int selected, bool container) {
   if (potion_at(p, selected) >= 0) {
     return -1;
   }
-  const bool equipment = p.y >= 304 && p.y < 344;
+  const bool equipment = p.y >= equipment_row_y && p.y < equipment_row_y + 40;
   const bool lower = container && p.y >= container_y && p.y < container_y + 84;
-  if (!equipment && !lower && (selected == 1 || p.y < 380 || p.y >= 464)) {
+  if (!equipment && !lower &&
+      (selected == 1 || p.y < inventory_grid_y || p.y >= inventory_grid_y + 84)) {
     return -1;
   }
   if (p.x < 14 || p.x >= 186) {
     return -1;
   }
-  const int top = equipment ? 304 : lower ? container_y : 380;
+  const int top = equipment ? equipment_row_y : lower ? container_y : inventory_grid_y;
   const int col = static_cast<int>((p.x - 14) / 44);
   const int row = equipment ? 0 : static_cast<int>((p.y - top) / 44);
   const double x = p.x - 14 - 44 * col;
@@ -71,11 +73,19 @@ int HudInput::slot_at(Vec2 p, int selected, bool container) {
 }
 
 int HudInput::tab_at(Vec2 point, bool backpack) {
-  if (point.y < 354 || point.y >= 373 || point.x < 7 || point.x >= 7 + 30 * (backpack ? 3 : 2)) {
+  // The same layout as the art (inventory_tab_rect): backdrop rows 56..77, shifted to HUD y.
+  if (point.y < inventory_panel_y + inventory_tab_top ||
+      point.y >= inventory_panel_y + inventory_tab_bottom) {
     return -1;
   }
-  const int tab = static_cast<int>((point.x - 7) / 30);
-  return point.x - 7 - 30 * tab < 28 ? tab : -1;
+  const int count = backpack ? 3 : 2;
+  for (int tab = 0; tab < count; ++tab) {
+    const auto slot = inventory_tab_rect(count, tab);
+    if (point.x >= slot.x && point.x < slot.x + slot.width) {
+      return tab;
+    }
+  }
+  return -1;
 }
 
 void HudInput::down(Vec2 point, const HudState::Inventory& state) {
@@ -132,7 +142,8 @@ std::optional<InventoryAction> HudInput::up(Vec2 point, bool shift, bool control
     if (point.x < 0) {
       return InventoryAction{InventoryActionKind::drop, source};
     }
-    if (point.x >= 7 && point.x < 193 && point.y >= 354 && point.y < 499) {
+    if (point.x >= 7 && point.x < 193 && point.y >= inventory_store_top &&
+        point.y < inventory_store_bottom) {
       return InventoryAction{InventoryActionKind::store, source};
     }
     return {};

@@ -112,7 +112,7 @@ void ItemTooltip::text(std::span<const RichLine> lines, int size, bool bold, int
   const double snapped = std::round(y * 4) / 4;
   const double phase = snapped - std::floor(snapped);
   auto bitmap = fonts_.rasterize_rich(lines, size, bold, field_width, field_height, phase,
-                                      TextFilter::soft_shadow);
+                                      TextFilter::outline);
   if (image_.pixel_scale != 1) {
     ui_blit_text(image_, bitmap, padding + x + bitmap.offset.x,
                  padding + std::floor(snapped) + bitmap.offset.y, false, true);

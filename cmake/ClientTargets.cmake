@@ -74,7 +74,7 @@ realm_library(realm_game src/mapeditor/MapDocument.cpp src/tutorial/Tutorial.cpp
     src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/appengine/CharacterFame.cpp src/appengine/Legend.cpp src/appengine/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)
 realm_library(realm_assets src/engine3d/Model3D.cpp src/engine3d/ConnectedObjects.cpp src/assets/Image.cpp src/assets/AnimationLibrary.cpp src/assets/ProcessedTextures.cpp src/assets/Appearances.cpp
-    src/map/Terrain.cpp src/assets/FontBook.cpp src/assets/FlashDraw.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
+    src/map/Terrain.cpp src/assets/FontBook.cpp src/assets/FlashDraw.cpp src/assets/VectorArt.cpp src/assets/HudArt.cpp src/background/BackdropData.cpp src/objects/StatusArt.cpp)
 target_link_libraries(realm_assets PUBLIC realm_game PRIVATE PNG::PNG Freetype::Freetype ZLIB::ZLIB nlohmann_json::nlohmann_json)
 realm_library(realm_ui src/mapeditor/EditorScreen.cpp src/tutorial/TutorialView.cpp src/hud/KeysView.cpp src/ui/panels/GuildInvite.cpp src/hud/Hud.cpp src/hud/HudState.cpp src/hud/CreditDisplay.cpp src/hud/SafeAreaDisplay.cpp src/ui/tooltip/SavedCharacterTooltip.cpp src/ui/tooltip/RankToolTip.cpp src/ui/tooltip/ClassToolTip.cpp src/hud/HudInput.cpp src/minimap/Minimap.cpp src/ui/tooltip/ItemTooltip.cpp src/ui/tooltip/ItemTooltipContent.cpp src/ui/tooltip/PlayerTooltip.cpp
     src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/map/partyoverlay/GameObjectArrow.cpp src/map/partyoverlay/QuestArrow.cpp
@@ -103,12 +103,14 @@ if(REALM_BUILD_VIEWER)
     target_link_libraries(realm_startup PUBLIC realm_ui realm_render)
     # RmlUi's MIT SDL platform and GL3 renderer backends, vendored unmodified in third_party/rmlui.
     set(REALM_RMLUI_BACKENDS "${RMLUI_BACKENDS_DIR}/RmlUi_Renderer_GL3.cpp" "${RMLUI_BACKENDS_DIR}/RmlUi_Platform_SDL.cpp")
-    # ui/*.rml and ui/*.rcss are embedded into the binary: the client has no loose UI files to ship.
-    file(GLOB REALM_UI_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ui/*.rml" "${PROJECT_SOURCE_DIR}/ui/*.rcss")
+    # ui/*.rml, ui/*.rcss and the Deca UI vector art ui/deca/*.svg are embedded into the binary: the client has no loose
+    # UI files to ship.
+    file(GLOB REALM_UI_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ui/*.rml" "${PROJECT_SOURCE_DIR}/ui/*.rcss"
+        "${PROJECT_SOURCE_DIR}/ui/deca/*.svg")
     string(REPLACE ";" "|" REALM_UI_FILE_ARGUMENT "${REALM_UI_FILES}")
     set(REALM_UI_EMBEDDED "${GENERATED_DIR}/ui_files.cpp")
     add_custom_command(OUTPUT "${REALM_UI_EMBEDDED}"
-        COMMAND "${CMAKE_COMMAND}" "-DOUTPUT=${REALM_UI_EMBEDDED}" "-DFILES=${REALM_UI_FILE_ARGUMENT}" -P "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake"
+        COMMAND "${CMAKE_COMMAND}" "-DOUTPUT=${REALM_UI_EMBEDDED}" "-DROOT=${PROJECT_SOURCE_DIR}/ui" "-DFILES=${REALM_UI_FILE_ARGUMENT}" -P "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake"
         DEPENDS ${REALM_UI_FILES} "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake" VERBATIM)
     realm_library(realm_ui_rmlui src/lib/ui/RmlHost.cpp "${REALM_UI_EMBEDDED}" ${REALM_RMLUI_BACKENDS})
     target_link_libraries(realm_ui_rmlui PUBLIC realm_ui PRIVATE RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW)

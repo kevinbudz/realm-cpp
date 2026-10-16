@@ -139,6 +139,7 @@ void set_native_image(Rml::Element& element, const Image& image, std::uint64_t r
 void set_native_source(Rml::Element& element, HudRegion source);
 void set_native_tint(Rml::Element& element, std::array<float, 4> multiply);
 
-// The embedded ui/ files (name without directory -> contents), generated at build time.
+// The embedded ui/ files by path relative to ui/ ("flash.rcss", "deca/close_button.svg"), generated
+// at build time.
 [[nodiscard]] const std::string* embedded_ui_file(std::string_view name);
 }

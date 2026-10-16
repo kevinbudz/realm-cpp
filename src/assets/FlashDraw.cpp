@@ -91,14 +91,20 @@ class Coverage {
     }
   }
 
+  // Nonzero coverage is the clamped winding area; even-odd folds it into [0, 1] every two windings.
   template <class Paint>
-  void paint(Paint&& paint) const {
+  void paint(Paint&& paint, bool even_odd = false) const {
     for (int y = 0; y < height_; ++y) {
       double sum{};
       for (int x = 0; x < width_ - 2; ++x) {
         sum += cells_[static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) +
                       static_cast<std::size_t>(x)];
-        const double coverage = std::min(1.0, std::abs(sum));
+        double coverage = std::abs(sum);
+        if (even_odd) {
+          coverage = std::fmod(coverage, 2.0);
+          coverage = coverage > 1 ? 2 - coverage : coverage;
+        }
+        coverage = std::min(1.0, coverage);
         if (coverage > 1e-4) {
           paint(x, y, coverage);
         }
@@ -532,6 +538,27 @@ void fill(Image& image, const Path& path, std::uint32_t color, double alpha, Vec
     }
   }
   coverage.paint([&](int x, int y, double c) { composite(image, x, y, color, c * alpha); });
+}
+
+void fill(Image& image, const Path& path, const Shade& shade, bool even_odd) {
+  if (image.width == 0 || image.height == 0) {
+    return;
+  }
+
+  Coverage coverage(image.width, image.height);
+  for (const auto& contour : path.contours) {
+    if (contour.size() > 1) {
+      add_polygon(coverage, contour, true, {});
+    }
+  }
+  coverage.paint(
+      [&](int x, int y, double c) {
+        const auto [color, alpha] = shade(x + .5, y + .5);
+        if (alpha > 0) {
+          composite(image, x, y, color, c * std::min(alpha, 1.0));
+        }
+      },
+      even_odd);
 }
 
 void stroke(Image& image, const Path& path, double width, std::uint32_t color, double alpha,

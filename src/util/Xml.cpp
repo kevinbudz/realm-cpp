@@ -90,4 +90,17 @@ double Xml::number(std::string_view name, double fallback) const {
 int Xml::integer(std::string_view name, int fallback) const {
   return static_cast<int>(number(name, fallback));
 }
+
+XmlDocument::XmlDocument(std::string_view text) {
+  auto* document = xmlReadMemory(text.data(), static_cast<int>(text.size()), nullptr, nullptr,
+                                 XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+  if (!document) {
+    throw std::runtime_error("Malformed XML document");
+  }
+  document_ = std::shared_ptr<void>(document, [](void* p) { xmlFreeDoc(static_cast<xmlDoc*>(p)); });
+}
+
+Xml XmlDocument::root() const {
+  return Xml(xmlDocGetRootElement(static_cast<xmlDoc*>(document_.get())));
+}
 }

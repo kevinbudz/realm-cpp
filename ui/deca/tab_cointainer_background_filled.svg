@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="31" height="31" viewBox="0 0 31 31" data-stretch-x="15 16" data-stretch-y="15 16">
+  <!-- tab_cointainer_background_filled: TabContentView panel. Stretches along x 15-16 and y 15-16. -->
+  <!-- panel -->
+  <path fill="#353535" d="M12.5 0 L18.5 0 L31 12.5 L31 18.5 L18.5 31 L12.5 31 L0 18.5 L0 12.5 Z"/>
+  <!-- lit rim -->
+  <path fill="#3f3f3f" d="M0 12.5 L12.5 0 L18.5 0 L31 12.5 L31 13.2 L30.3 13.2 L18.5 1.6 L12.5 1.6 L0.7 13.2 L0 13.2 Z"/>
+</svg>

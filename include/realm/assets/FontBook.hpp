@@ -85,8 +85,8 @@ struct RichLine {
   bool bold{};
   double x{};
 };
-// EquipmentToolTip's DropShadowFilter(0,0,0,.5,12,12) on text fields.
-enum class TextFilter { none, soft_shadow };
+// An outline around rich text fields (EquipmentToolTip's text; Flash used a soft drop shadow).
+enum class TextFilter { none, outline };
 
 // Text from the original regular/bold Myriad OTFs in the Flash source, rasterized with FreeType.
 class FontBook {
@@ -104,9 +104,9 @@ class FontBook {
                                               bool bold = false, bool shadow = false,
                                               std::uint32_t color = 0xffffff,
                                               Vec2 pixel_phase = {}) const;
-  // GlowFilter blur (blurX = blurY) and strength. blur 4 is the 5-tap filter at 1x
-  // (CharacterStatusText); blur 2 is the legacy radius-1 filter (ItemTile tier tags). The default
-  // stays at 2 for existing glow callers.
+  // Outlined text: the former GlowFilter blur (blurX = blurY) sets an outline blur/2 logical px
+  // wide, so blur 4 (CharacterStatusText) is 2 px and blur 2 (names, tier tags) is 1 px. Outlines
+  // are always opaque; strength is kept for existing callers.
   [[nodiscard]] TextBitmap rasterize_glow(std::string_view text, int size, bool bold,
                                           std::uint32_t color, unsigned strength = 10,
                                           double blur = 2) const;

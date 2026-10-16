@@ -47,7 +47,7 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
 
 StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t color) {
   color &= 0xffffffU;
-  // CharacterStatusText: GlowFilter(0,1,4,4,2,1), blur 4 and strength 2.
+  // CharacterStatusText: GlowFilter(0,1,4,4,2,1), drawn as a black outline (blur 4).
   return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2, 4);
 }
 

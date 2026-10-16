@@ -418,8 +418,8 @@ struct HudArt::Sources {
     return {run.width, run.height, fonts.measure(text, size, bold), fonts.line_advance(size, bold)};
   }
 
-  // A SimpleText at (x, y); shadow is the strength of a DropShadowFilter(0,0,0,1,4,4,strength), or
-  // 0 for none.
+  // A SimpleText at (x, y); shadow is the strength of its black outline (Flash used a
+  // DropShadowFilter(0,0,0,1,4,4,strength)), or 0 for none.
   void text(Image& canvas, std::string_view value, int size, bool bold, std::uint32_t color,
             double x, double y, unsigned shadow = 0) const {
     // BitmapData.draw places glyphs on the twentieth-pixel grid horizontally and the quarter-pixel
@@ -667,7 +667,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
         xml.has("NoTierTag")) {
       return image;
     }
-    // TierUtil.getTierTag with ItemTile's GlowFilter(0, 1, 2, 2, 10).
+    // TierUtil.getTierTag with ItemTile's GlowFilter(0, 1, 2, 2, 10), drawn as a black outline.
     std::string tag = "UT";
     std::uint32_t color = 0x8A2BE2;
     if (xml.has("Tier")) {
@@ -679,7 +679,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     }
     auto layer = fd::canvas(40, 40);
     assets.text(layer, tag, 12, true, color, 40 - assets.field(tag, 12, true).width, 24);
-    fd::glow(layer, 0, 1, 2, 2, 10);
+    ui_outline_alpha(layer, 1);
     fd::draw(image, layer, 0, 0);
     return image;
   }

@@ -87,8 +87,9 @@ int main() {
     const auto origin = fonts.rasterize_at_scale("H", 36, 2, true, false, 0xffffff);
     const auto fractional = fonts.rasterize_at_scale("H", 36, 2, true, false, 0xffffff, {.25, .25});
     const auto first = centroid(origin.image), second = centroid(fractional.image);
-    check(std::abs(second.x - first.x - .25) < .04 && std::abs(second.y - first.y - .25) < .04,
-          "animated glyph coverage follows fractional motion without pixel steps");
+    // Pens keep their sub-pixel horizontal phase; baselines snap to whole pixels for sharp hinting.
+    check(std::abs(second.x - first.x - .25) < .04 && std::abs(second.y - first.y) < .04,
+          "animated glyph coverage follows fractional horizontal motion on whole-pixel baselines");
     check(fonts.pixel_scale() == 1, "animated rasterization leaves retained UI density unchanged");
     const auto base_hud = [&] {
       hud.update(state);

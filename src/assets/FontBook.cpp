@@ -12,6 +12,10 @@
 
 namespace realm {
 namespace {
+// Light hinting fits stems and x-heights to the vertical pixel grid only, so horizontal advances
+// and sub-pixel pen positions are unchanged while horizontal strokes render sharp.
+constexpr FT_Int32 glyph_load_flags = FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT;
+
 // Vertical phases lie on the twentieth-pixel (twips) grid.
 int style(int size, bool bold, bool shadow, double vertical_phase = 0, bool cached = false) {
   const auto twips = std::lround(vertical_phase * 20);
@@ -58,96 +62,11 @@ void composite(Image& target, const Image& bitmap, int gx, int gy, int padding, 
   }
 }
 
-// The blurX=blurY=4 filter has five centered taps weighted 1,2,2,2,1.
-// It truncates after the horizontal pass, then again after the vertical
-// pass. Alpha compositing uses a 256 divisor. Filters act on the complete
-// clipped TextField: a per-glyph shadow would darken the preceding glyph.
-void finish(Image& image, bool shadow, unsigned shadow_strength, double blur = 4) {
-  if (shadow && (image.pixel_scale != 1 || blur != 4)) {
-    const int w = image.width, h = image.height,
-              radius = std::max(1, static_cast<int>(std::round(blur / 2 * image.pixel_scale)));
-    std::vector<unsigned> horizontal(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    const unsigned taps = static_cast<unsigned>(radius * 2 + 1);
-    for (int y = 0; y < h; ++y) {
-      unsigned sum{};
-      for (int x = -radius; x < w; ++x) {
-        if (x + radius < w) {
-          sum +=
-              image
-                  .pixels[(static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x + radius)) *
-                              4 +
-                          3];
-        }
-        if (x - radius - 1 >= 0) {
-          sum -= image.pixels[(static_cast<std::size_t>(y) * w +
-                               static_cast<std::size_t>(x - radius - 1)) *
-                                  4 +
-                              3];
-        }
-        if (x >= 0) {
-          horizontal[static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x)] = sum / taps;
-        }
-      }
-    }
-    for (int x = 0; x < w; ++x) {
-      unsigned sum{};
-      for (int y = -radius; y < h; ++y) {
-        if (y + radius < h) {
-          sum += horizontal[static_cast<std::size_t>(y + radius) * w + static_cast<std::size_t>(x)];
-        }
-        if (y - radius - 1 >= 0) {
-          sum -= horizontal[static_cast<std::size_t>(y - radius - 1) * w +
-                            static_cast<std::size_t>(x)];
-        }
-        if (y >= 0) {
-          auto& a =
-              image.pixels[(static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x)) * 4 + 3];
-          a = static_cast<unsigned char>(
-              a + (std::min(255U, sum / taps * shadow_strength) * (255U - a) / 255U));
-        }
-      }
-    }
-    shadow = false;
-  }
-  if (shadow) {
-    const int w = image.width, h = image.height;
-    std::vector<unsigned char> horizontal(static_cast<std::size_t>(w) *
-                                          static_cast<std::size_t>(h));
-    constexpr unsigned weights[]{1, 2, 2, 2, 1};
-    for (int y = 0; y < h; ++y) {
-      for (int x = 0; x < w; ++x) {
-        unsigned sum{};
-        for (int k = -2; k <= 2; ++k) {
-          if (x + k >= 0 && x + k < w) {
-            sum += weights[k + 2] *
-                   image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                 static_cast<std::size_t>(x + k)) *
-                                    4 +
-                                3];
-          }
-        }
-        horizontal[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                   static_cast<std::size_t>(x)] = static_cast<unsigned char>(sum >> 3U);
-      }
-    }
-    for (int y = 0; y < h; ++y) {
-      for (int x = 0; x < w; ++x) {
-        unsigned sum{};
-        for (int k = -2; k <= 2; ++k) {
-          if (y + k >= 0 && y + k < h) {
-            sum += weights[k + 2] *
-                   horizontal[static_cast<std::size_t>(y + k) * static_cast<std::size_t>(w) +
-                              static_cast<std::size_t>(x)];
-          }
-        }
-        auto& alpha = image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                    static_cast<std::size_t>(x)) *
-                                       4 +
-                                   3];
-        alpha = static_cast<unsigned char>(
-            alpha + (std::min(255U, (sum >> 3U) * shadow_strength) * (256U - alpha) >> 8U));
-      }
-    }
+// Text effects act on the complete clipped TextField: a crisp black outline (see ui_outline_alpha)
+// replaces Flash's blurred drop shadow, so glyph edges stay sharp against any background.
+void finish(Image& image, bool outline, double radius = 1) {
+  if (outline) {
+    ui_outline_alpha(image, radius);
   }
   // Convert the internal premultiplied bytes to their PNG representation.
   for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
@@ -158,52 +77,6 @@ void finish(Image& image, bool shadow, unsigned shadow_strength, double blur = 4
     for (unsigned c = 0; c < 3; ++c) {
       image.pixels[i + c] = static_cast<unsigned char>(
           std::min(255U, (static_cast<unsigned>(image.pixels[i + c]) << 8U) / alpha));
-    }
-  }
-}
-
-// DropShadowFilter(0,0,0,.5,12,12) at quality 1, each pass sums 13 taps weighted 1,2,...,2,1;
-// the horizontal pass divides by 24, the vertical pass by 48 (including half alpha), truncating
-// both. Resized text uses a box of the same logical radius.
-void soft_shadow(Image& image) {
-  const int w = image.width, h = image.height;
-  std::vector<unsigned> horizontal(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-  const bool exact = image.pixel_scale == 1;
-  const int radius = exact ? 6 : std::max(1, static_cast<int>(std::lround(6 * image.pixel_scale)));
-  const auto weight = [&](int k) { return exact && std::abs(k) == radius ? 1U : 2U; };
-  const unsigned total = exact ? 24U : static_cast<unsigned>(radius * 2 + 1) * 2U;
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      unsigned sum{};
-      for (int k = -radius; k <= radius; ++k) {
-        if (x + k >= 0 && x + k < w) {
-          sum +=
-              weight(k) * image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                        static_cast<std::size_t>(x + k)) *
-                                           4 +
-                                       3];
-        }
-      }
-      horizontal[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                 static_cast<std::size_t>(x)] = sum / total;
-    }
-  }
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      unsigned sum{};
-      for (int k = -radius; k <= radius; ++k) {
-        if (y + k >= 0 && y + k < h) {
-          sum +=
-              weight(k) * horizontal[static_cast<std::size_t>(y + k) * static_cast<std::size_t>(w) +
-                                     static_cast<std::size_t>(x)];
-        }
-      }
-      const unsigned shadow = sum / (total * 2U);
-      auto& alpha = image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                  static_cast<std::size_t>(x)) *
-                                     4 +
-                                 3];
-      alpha = static_cast<unsigned char>(alpha + (std::min(255U, shadow) * (256U - alpha) >> 8U));
     }
   }
 }
@@ -296,29 +169,28 @@ TextBitmap FontBook::rasterize_at_scale(std::string_view text, int size, double 
 }
 
 TextBitmap FontBook::rasterize_glow(std::string_view text, int size, bool bold, std::uint32_t color,
-                                    unsigned strength, double blur) const {
+                                    unsigned, double blur) const {
   if (!std::isfinite(blur) || blur <= 0 || blur > 16) {
-    throw std::invalid_argument("Invalid glow blur");
+    throw std::invalid_argument("Invalid outline blur");
   }
   const double scale = pixel_scale_;
-  auto render = [this, text = std::string(text), size, bold, color, strength, blur,
-                 scale](Vec2 phase) {
-    // The glow reaches blur/2 logical pixels past the ink; padding=ceil(blur) keeps that reach
-    // inside the bitmap.
+  auto render = [this, text = std::string(text), size, bold, color, blur, scale](Vec2 phase) {
+    // The outline reaches blur/2 logical pixels (plus an antialiased rim) past the ink;
+    // padding=ceil(blur) keeps that reach inside the bitmap.
     const double padding = std::ceil(blur);
     // The glyph origin sits padding+phase inside the bitmap: whole pixels placed by the blit,
     // remainder by the glyphs.
     const double dx = padding * scale + phase.x, dy = padding * scale + phase.y,
                  nx = std::floor(dx), ny = std::floor(dy);
     const auto core = rasterize_at_scale(text, size, scale, bold, false, color, {dx - nx, dy - ny});
-    // One extra column on the right: auto-sized glyph ink and glow are not cut by the bitmap edge.
+    // One extra column on the right: auto-sized glyph ink and outline are not cut by the bitmap edge.
     TextBitmap result{ui_image(core.image.width / scale + padding * 2 + 2 + phase.x / scale,
                                core.image.height / scale + padding * 2 + phase.y / scale, scale),
                       {-padding, -padding},
                       core.width,
                       core.height};
     ui_blit(result.image, core.image, nx / scale, ny / scale, false, true);
-    finish(result.image, true, strength, blur);
+    finish(result.image, true, blur / 2);
     return result;
   };
   auto result = render({});
@@ -365,7 +237,7 @@ TextBitmap FontBook::rasterize_line(std::string_view text, double scale, std::ui
 
 TextBitmap FontBook::rasterize_native(std::string_view text, int size, bool bold, bool shadow,
                                       std::uint32_t color, double phase, double vertical_phase,
-                                      unsigned strength, int field_width, int field_height,
+                                      unsigned, int field_width, int field_height,
                                       double density, Vec2 pixel_phase,
                                       bool natural_metrics) const {
   REALM_ZONE("text.rasterize");
@@ -441,15 +313,16 @@ TextBitmap FontBook::rasterize_native(std::string_view text, int size, bool bold
     const double origin = (x + phase + padding + gutter) * output_scale + pixel_phase.x;
     const double baseline_y =
         (y + baseline + vertical_phase + padding) * output_scale + pixel_phase.y;
-    FT_Vector delta{static_cast<FT_Pos>(std::lround((origin - std::floor(origin)) * 64)),
-                    static_cast<FT_Pos>(-std::lround((baseline_y - std::floor(baseline_y)) * 64))};
+    // Baselines snap to whole pixels so the light hinter's vertical grid fit stays sharp; pens
+    // keep their sub-pixel horizontal phase.
+    FT_Vector delta{static_cast<FT_Pos>(std::lround((origin - std::floor(origin)) * 64)), 0};
     FT_Set_Transform(face, nullptr, &delta);
-    if (FT_Load_Char(face, code, FT_LOAD_RENDER | FT_LOAD_NO_HINTING)) {
+    if (FT_Load_Char(face, code, glyph_load_flags)) {
       throw std::runtime_error("Cannot rasterize native glyph");
     }
     const auto& bitmap = face->glyph->bitmap;
     const int ox = static_cast<int>(std::floor(origin)) + face->glyph->bitmap_left;
-    const int oy = static_cast<int>(std::floor(baseline_y)) - face->glyph->bitmap_top;
+    const int oy = static_cast<int>(std::lround(baseline_y)) - face->glyph->bitmap_top;
     for (unsigned row = 0; row < bitmap.rows; ++row) {
       for (unsigned col = 0; col < bitmap.width; ++col) {
         const int px = ox + static_cast<int>(col), py = oy + static_cast<int>(row);
@@ -482,7 +355,7 @@ TextBitmap FontBook::rasterize_native(std::string_view text, int size, bool bold
   }
 
   FT_Set_Transform(face, nullptr, nullptr);
-  finish(result.image, shadow, strength);
+  finish(result.image, shadow);
   return result;
 }
 
@@ -546,10 +419,9 @@ Image FontBook::render_glyph(const GlyphSource& source, Vec2* offset) const {
   if (FT_Set_Char_Size(font, 0, static_cast<FT_F26Dot6>(source.size) * 64, 72, 72)) {
     throw std::runtime_error("Cannot size native font");
   }
-  FT_Vector delta{static_cast<FT_Pos>(std::lround((origin - std::floor(origin)) * 64)),
-                  static_cast<FT_Pos>(-std::lround((baseline - std::floor(baseline)) * 64))};
+  FT_Vector delta{static_cast<FT_Pos>(std::lround((origin - std::floor(origin)) * 64)), 0};
   FT_Set_Transform(font, nullptr, &delta);
-  const auto error = FT_Load_Char(font, source.code, FT_LOAD_RENDER | FT_LOAD_NO_HINTING);
+  const auto error = FT_Load_Char(font, source.code, glyph_load_flags);
   FT_Set_Transform(font, nullptr, nullptr);
   if (error) {
     throw std::runtime_error("Cannot rasterize native glyph");
@@ -557,7 +429,7 @@ Image FontBook::render_glyph(const GlyphSource& source, Vec2* offset) const {
   const auto& bitmap = font->glyph->bitmap;
   if (offset) {
     *offset = {std::floor(origin) + font->glyph->bitmap_left,
-               std::floor(baseline) - font->glyph->bitmap_top};
+               std::round(baseline) - font->glyph->bitmap_top};
   }
   Image result{static_cast<int>(std::max(1U, bitmap.width)),
                static_cast<int>(std::max(1U, bitmap.rows)),
@@ -743,7 +615,7 @@ TextBitmap FontBook::rasterize(std::string_view text, int size, bool bold, bool 
     composite(result.image, image(glyph.image), static_cast<int>(glyph.position.x),
               static_cast<int>(glyph.position.y), padding, right, bottom, color);
   }
-  finish(result.image, shadow, shadow_strength);
+  finish(result.image, shadow);
   return result;
 }
 
@@ -790,7 +662,7 @@ TextBitmap FontBook::rasterize_spans(std::span<const TextSpan> spans, int size, 
       }
       // Apply the filter once to the complete field, including mixed spans.
       premultiply_flash_bitmap(result.image);
-      finish(result.image, shadow, 1);
+      finish(result.image, shadow);
       return result;
     };
     auto result = render({});
@@ -831,7 +703,7 @@ TextBitmap FontBook::rasterize_spans(std::span<const TextSpan> spans, int size, 
     composite(result.image, image(glyph.image), static_cast<int>(glyph.position.x),
               static_cast<int>(glyph.position.y), padding, w + padding, h + padding, color);
   }
-  finish(result.image, shadow, 1);
+  finish(result.image, shadow);
   return result;
 }
 
@@ -857,7 +729,7 @@ TextBitmap FontBook::rasterize_rich(std::span<const RichLine> lines, int size, b
       field_height > 0 ? field_height
                        : static_cast<double>(lines.size()) * static_cast<double>(advance) / 20 + 4;
   const double bottom = field_height > 0 ? field_height + vertical_phase : 1e9;
-  const bool soft = filter == TextFilter::soft_shadow;
+  const bool outlined = filter == TextFilter::outline;
   auto text_of = [](const RichLine& line) {
     std::string text;
     for (const auto& span : line.spans) {
@@ -869,8 +741,8 @@ TextBitmap FontBook::rasterize_rich(std::span<const RichLine> lines, int size, b
     const double scale = pixel_scale_;
     std::vector<RichLine> owned(lines.begin(), lines.end());
     auto render = [this, owned = std::move(owned), size, field_bold, field_width, height, bottom,
-                   soft, scale, line_y, text_of](Vec2 pixel_phase) {
-      const double padding = soft ? 8 : 0;
+                   outlined, scale, line_y, text_of](Vec2 pixel_phase) {
+      const double padding = outlined ? 8 : 0;
       TextBitmap result{
           ui_image(field_width + 2 * padding + pixel_phase.x / scale,
                    std::ceil(height) + 1 + 2 * padding + pixel_phase.y / scale, scale),
@@ -900,10 +772,10 @@ TextBitmap FontBook::rasterize_rich(std::span<const RichLine> lines, int size, b
         }
       }
       premultiply_flash_bitmap(result.image);
-      if (soft) {
-        soft_shadow(result.image);
+      if (outlined) {
+        ui_outline_alpha(result.image);
       }
-      finish(result.image, false, 1);
+      finish(result.image, false);
       return result;
     };
     auto result = render({});
@@ -911,7 +783,7 @@ TextBitmap FontBook::rasterize_rich(std::span<const RichLine> lines, int size, b
     return result;
   }
 
-  const int padding = soft ? 8 : 0;
+  const int padding = outlined ? 8 : 0;
   if (height > 8192) {
     throw std::runtime_error("Text field exceeds size limit");
   }
@@ -948,10 +820,10 @@ TextBitmap FontBook::rasterize_rich(std::span<const RichLine> lines, int size, b
                 bottom, color);
     }
   }
-  if (soft) {
-    soft_shadow(result.image);
+  if (outlined) {
+    ui_outline_alpha(result.image);
   }
-  finish(result.image, false, 1);
+  finish(result.image, false);
   return result;
 }
 
@@ -1048,7 +920,7 @@ TextBitmap FontBook::rasterize_centered(std::string_view text, int size, bool bo
         ui_blit(result.image, part.image, nx / scale, ny / scale);
       }
       premultiply_flash_bitmap(result.image);
-      finish(result.image, shadow, shadow_strength);
+      finish(result.image, shadow);
       return result;
     };
     auto result = render({});
@@ -1086,7 +958,7 @@ TextBitmap FontBook::rasterize_centered(std::string_view text, int size, bool bo
                 height - 2, color);
     }
   }
-  finish(result.image, shadow, shadow_strength);
+  finish(result.image, shadow);
   return result;
 }
 

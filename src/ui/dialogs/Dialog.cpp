@@ -42,7 +42,7 @@ TextBitmap title_bitmap(const FontBook& fonts, std::string_view text) {
       ui_blit(result.image, placed.image, x, y, false, false, 1, 8, 8, 300, h);
     }
     premultiply_flash_bitmap(result.image);
-    ui_shadow(result.image, 4, 316 + phase.x / scale, h + 16 + phase.y / scale);
+    ui_outline(result.image);
     return result;
   });
 }
@@ -59,7 +59,7 @@ TextBitmap body_bitmap(const FontBook& fonts, std::string_view text) {
     double y = 8 + phase.y / scale;
     const auto placed = place_text(base, scale, x, y);
     ui_blit(halo, placed.image, x, y, false, true);
-    ui_shadow(halo, 3, width, height);
+    ui_outline(halo);
     return TextBitmap{std::move(halo), {-8, -8}, base.width, base.height};
   });
 }

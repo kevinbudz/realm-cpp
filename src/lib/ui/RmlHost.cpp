@@ -252,8 +252,8 @@ class HostFonts final : public Rml::FontEngineInterface {
 
   Rml::FontEffectsHandle PrepareFontEffects(Rml::FontFaceHandle,
                                             const Rml::FontEffectList& effects) override {
-    // Only the TextField drop shadow is supported: a font-effect behind the text that has no
-    // texture of its own.
+    // Only the shadow font-effect is supported (a back-layer effect with no texture of its own);
+    // it selects FontBook's black text outline.
     for (const auto& effect : effects) {
       if (effect->GetLayer() == Rml::FontEffect::Layer::Back && !effect->HasUniqueTexture()) {
         return 1;
@@ -293,22 +293,18 @@ class HostFonts final : public Rml::FontEngineInterface {
     const double density = font.density;
 
     // The bitmap's glyph origin sits (padding+gutter, baseline+padding) logical px in; its
-    // whole-pixel origin is floored and the remainder, quantized to a quarter pixel, becomes the
-    // glyph phase.
+    // whole-pixel origin is floored and the horizontal remainder, quantized to a quarter pixel,
+    // becomes the glyph phase. Baselines round to whole pixels so hinted glyphs stay sharp.
     const double bx = position.x - (padding + text_gutter) * density;
     const double by = position.y - (font.baseline + padding) * density;
     double ox = std::floor(bx);
-    double oy = std::floor(by);
+    const double oy = std::round(by);
     double px = std::round((bx - ox) * 4) / 4;
-    double py = std::round((by - oy) * 4) / 4;
+    const double py = 0;
 
     if (px >= 1) {
       ox += 1;
       px = 0;
-    }
-    if (py >= 1) {
-      oy += 1;
-      py = 0;
     }
 
     const std::string text(string.begin(), string.size());

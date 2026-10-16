@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace realm {
 void ui_rounded_rectangle(Image& dst, double x, double y, double width, double height,
@@ -77,6 +78,64 @@ void ui_shadow(Image& image, double radius, double width, double height) {
     }
   }
 
+  for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
+    if (const unsigned alpha = image.pixels[i + 3]; alpha && alpha != 255) {
+      for (unsigned c = 0; c < 3; ++c) {
+        image.pixels[i + c] =
+            static_cast<unsigned char>(std::min(255U, image.pixels[i + c] * 255U / alpha));
+      }
+    }
+  }
+}
+
+void ui_outline_alpha(Image& image, double radius) {
+  const int w = image.width, h = image.height;
+  // The outline is a grayscale dilation of coverage by a disc of `radius` device-scaled pixels,
+  // with a one-pixel antialiased rim so curves and diagonals stay smooth.
+  const double r = std::max(1.0, radius * image.pixel_scale);
+  const int reach = static_cast<int>(std::ceil(r + 1));
+  struct Tap {
+    int dx, dy;
+    unsigned weight;
+  };
+  std::vector<Tap> taps;
+  for (int dy = -reach; dy <= reach; ++dy) {
+    for (int dx = -reach; dx <= reach; ++dx) {
+      const double weight = std::clamp(r + 1 - std::hypot(dx, dy), 0.0, 1.0);
+      if (weight > 0 && (dx || dy)) {
+        taps.push_back({dx, dy, static_cast<unsigned>(std::lround(weight * 256))});
+      }
+    }
+  }
+  std::vector<unsigned char> source(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
+  for (std::size_t i = 0; i < source.size(); ++i) {
+    source[i] = image.pixels[i * 4 + 3];
+  }
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      const auto at = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                      static_cast<std::size_t>(x);
+      const unsigned alpha = source[at];
+      if (alpha == 255) {
+        continue;
+      }
+      unsigned outline{};
+      for (const auto& tap : taps) {
+        const int sx = x + tap.dx, sy = y + tap.dy;
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) {
+          continue;
+        }
+        outline = std::max(outline, source[static_cast<std::size_t>(sy) * w + sx] * tap.weight);
+      }
+      outline = std::min(255U, (outline + 128U) >> 8U);
+      image.pixels[at * 4 + 3] =
+          static_cast<unsigned char>(alpha + (outline * (255U - alpha) + 127U) / 255U);
+    }
+  }
+}
+
+void ui_outline(Image& image, double radius) {
+  ui_outline_alpha(image, radius);
   for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
     if (const unsigned alpha = image.pixels[i + 3]; alpha && alpha != 255) {
       for (unsigned c = 0; c < 3; ++c) {

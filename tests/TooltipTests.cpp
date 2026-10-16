@@ -340,7 +340,7 @@ int main(int argc, char** argv) {
               !realm::item_tooltip_target(world, hud, {55, 400}) &&
               !realm::item_tooltip_target(world, hud, {-20, 400}),
           "empty slots and gaps hide tooltip");
-    check(!realm::item_tooltip_target(world, hud, {30, 458}), "potion slots have no Flash tooltip");
+    check(!realm::item_tooltip_target(world, hud, {30, 480}), "potion slots have no Flash tooltip");
     world.add(77, type("Loot Bag"), {2.5, 3.9});
     realm::set_inventory_item(*world.entity(77), 0, {type("Potion of Dexterity"), -1});
     hud = realm::HudState::player(world, *world.entity(99));

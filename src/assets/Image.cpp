@@ -146,6 +146,24 @@ Image ui_image(double width, double height, double scale) {
           scale};
 }
 
+OpaqueBounds opaque_bounds(const Image& source) {
+  OpaqueBounds bounds{source.width, source.height, 0, 0};
+  for (int y = 0; y < source.height; ++y) {
+    for (int x = 0; x < source.width; ++x) {
+      if (source.pixels[static_cast<std::size_t>((y * source.width + x) * 4 + 3)] >= 128) {
+        bounds.left = std::min(bounds.left, x);
+        bounds.top = std::min(bounds.top, y);
+        bounds.right = std::max(bounds.right, x + 1);
+        bounds.bottom = std::max(bounds.bottom, y + 1);
+      }
+    }
+  }
+  if (bounds.right <= bounds.left) {
+    return {};
+  }
+  return bounds;
+}
+
 namespace {
 // std::lround for a non-negative value without the libm call: truncate, then round the fraction
 // half up (exact, as v - r is exact).

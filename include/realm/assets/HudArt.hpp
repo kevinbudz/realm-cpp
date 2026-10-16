@@ -31,7 +31,7 @@ class HudArt {
   // The star at `scale` logical units, rasterized at `pixel_scale` device pixels per logical unit
   // with the text outline. The image has an 8 logical pixel margin and carries its pixel_scale.
   [[nodiscard]] Image rank_star_icon(int stars, double scale = 1.4, double pixel_scale = 1) const;
-  // The chat rank badge's disc centre, in logical units from the top-left of its 32x32 canvas.
+  // The chat rank badge's centre, in logical units from the top-left of its 32x32 canvas.
   [[nodiscard]] Vec2 chat_star_center() const;
   // StarGraphic without filters, tinted by RGB multipliers (0xffffff keeps the star's own color).
   [[nodiscard]] Image star_graphic(std::uint32_t tint, double scale = 1) const;

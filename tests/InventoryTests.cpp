@@ -185,8 +185,23 @@ int main() {
           "backpack and stats hit routing");
     check(realm::HudInput::slot_at({14, 305}, 0) == -1 &&
               realm::HudInput::slot_at({55, 310}, 0) == -1 &&
-              realm::HudInput::slot_at({20, 426}, 0) == -1,
+              realm::HudInput::slot_at({20, 426}, 0) == -1 &&
+              realm::HudInput::slot_at({20, 427}, 0) == -1 &&
+              realm::HudInput::slot_at({20, 428}, 0) == 8,
           "cuts and gaps are not slots");
+    // The 2 px gap between columns 0 and 1 is x 55..56. The grid edges are x 13 to 186 and rows 384
+    // to 469 (inclusive). Column 0's top-left cut hides the grid's corner pixel at (13, 384), so the
+    // left edge is probed lower in the cell.
+    check(realm::HudInput::slot_at({55, 386}, 0) == -1 &&
+              realm::HudInput::slot_at({56, 386}, 0) == -1 &&
+              realm::HudInput::slot_at({57, 386}, 0) == 5 &&
+              realm::HudInput::slot_at({186, 450}, 0) == 11 &&
+              realm::HudInput::slot_at({187, 450}, 0) == -1 &&
+              realm::HudInput::slot_at({12, 400}, 0) == -1 &&
+              realm::HudInput::slot_at({13, 400}, 0) == 4 &&
+              realm::HudInput::slot_at({20, 469}, 0) == 8 &&
+              realm::HudInput::slot_at({20, 470}, 0) == -1,
+          "inventory grid gaps and edges");
     input.down({20, 386}, state);
     input.move({23, 386}, 0);
     check(input.dragging() == -1, "three-pixel drag threshold exclusive");
@@ -254,33 +269,39 @@ int main() {
     input.down({196, 360}, state);
     (void)input.up({196, 360}, false, false, 905, state);
     check(input.selected() == 0, "click beyond the two-tab strip is ignored");
+    // The two-tab gap is x 99..100 (tab 0 ends at 98, tab 1 starts at 101).
     input.down({99, 360}, state);
     (void)input.up({99, 360}, false, false, 906, state);
     check(input.selected() == 0, "tab padding ignores clicks");
-    input.down({99, 360}, state);
+    input.down({100, 360}, state);
     (void)input.up({42, 360}, false, false, 907, state);
     check(input.selected() == 0, "release over tab without pressing it does not select");
-    check(realm::inventory_tab_rect(2, 1).x == 101 && realm::inventory_tab_rect(2, 1).width == 83 &&
-              realm::inventory_tab_rect(3, 0).width == 55 &&
-              realm::inventory_tab_rect(3, 2).x + realm::inventory_tab_rect(3, 2).width == 184,
-          "tabs split the strip from x 16 to 184, remainder to the leftmost tabs");
-    // Tabs end at HUD y 377 (backdrop row 77); the panel's light band below them (HUD rows 378..379)
+    check(realm::inventory_tab_rect(2, 0).x == 17 &&
+              realm::inventory_tab_rect(2, 0).width == 82 &&
+              realm::inventory_tab_rect(2, 1).x == 101 &&
+              realm::inventory_tab_rect(2, 1).width == 82 &&
+              realm::inventory_tab_rect(3, 0).width == 54 &&
+              realm::inventory_tab_rect(3, 2).x + realm::inventory_tab_rect(3, 2).width == 183,
+          "tabs split the strip from x 17 to 183, remainder to the leftmost tabs");
+    // Tabs end at HUD y 379 (backdrop row 79); the panel's light band below them (HUD rows 380..381)
     // is not a hit.
-    input.down({150, 379}, state);
-    (void)input.up({150, 379}, false, false, 908, state);
+    input.down({150, 380}, state);
+    (void)input.up({150, 380}, false, false, 908, state);
     check(input.selected() == 0, "panel outline below an unselected tab is not a tab hit");
-    // The two-tab strip is x 16 to 183 (tab 1 is 101 to 183); pixels beside it are not tab hits.
+    // The two-tab strip is x 17 to 182 (tab 0 is 17 to 98, tab 1 is 101 to 182). Each boundary
+    // probe is run from a state where a wrong hit would change the selection.
     input.down({183, 360}, state);
     (void)input.up({183, 360}, false, false, 909, state);
-    check(input.selected() == 1, "last strip pixel selects tab 1");
-    input.down({184, 360}, state);
-    (void)input.up({184, 360}, false, false, 910, state);
-    input.down({15, 360}, state);
-    (void)input.up({15, 360}, false, false, 911, state);
-    check(input.selected() == 1, "pixels just outside the strip are not tab hits");
+    check(input.selected() == 0, "pixel 183, just past the strip, is ignored");
+    input.down({182, 360}, state);
+    (void)input.up({182, 360}, false, false, 910, state);
+    check(input.selected() == 1, "last strip pixel 182 selects tab 1");
     input.down({16, 360}, state);
-    (void)input.up({16, 360}, false, false, 912, state);
-    check(input.selected() == 0, "first strip pixel selects tab 0");
+    (void)input.up({16, 360}, false, false, 911, state);
+    check(input.selected() == 1, "pixel 16, just before the strip, is ignored");
+    input.down({17, 360}, state);
+    (void)input.up({17, 360}, false, false, 912, state);
+    check(input.selected() == 0, "first strip pixel 17 selects tab 0");
     // Drag-to-store covers HUD rows 358..502 (inventory_store_top up to, not including, 503).
     input.down({20, 386}, state);
     input.move({24, 386}, 0);
@@ -345,10 +366,14 @@ int main() {
     check(HudInput::potion_at({20, 474}, 0) == 0 && HudInput::potion_at({110, 474}, 2) == 1 &&
               HudInput::potion_at({20, 474}, 1) == -1,
           "potion views on both inventory tabs only");
-    check(HudInput::potion_at({14, 472}, 0) == -1 && HudInput::potion_at({14, 495}, 0) == -1 &&
-              HudInput::potion_at({185, 472}, 0) == -1 && HudInput::potion_at({185, 495}, 0) == -1,
+    // The four corner pixels of the two potion slots (x 13..98 and 101..186, rows 472..495).
+    check(HudInput::potion_at({13, 472}, 0) == -1 && HudInput::potion_at({13, 495}, 0) == -1 &&
+              HudInput::potion_at({186, 472}, 0) == -1 && HudInput::potion_at({186, 495}, 0) == -1,
           "potion cut corners");
-    check(HudInput::potion_at({100, 474}, 0) == -1 && HudInput::potion_at({20, 497}, 0) == -1,
+    // The 2 px gap between the potions is x 99..100, and the row ends at HUD 495.
+    check(HudInput::potion_at({98, 474}, 0) == 0 && HudInput::potion_at({99, 474}, 0) == -1 &&
+              HudInput::potion_at({100, 474}, 0) == -1 && HudInput::potion_at({101, 474}, 0) == 1 &&
+              HudInput::potion_at({20, 495}, 0) == 0 && HudInput::potion_at({20, 496}, 0) == -1,
           "potion gaps");
     check(HudInput::potion_at({30, 462}, 0) == 0 && HudInput::slot_at({30, 462}, 0) == -1 &&
               HudInput::slot_at({20, 462}, 0) == 8 && HudInput::slot_at({120, 462}, 2) == -1,
@@ -375,11 +400,18 @@ int main() {
               HudInput::slot_at({150, 590}, 0, true) == 27 &&
               HudInput::slot_at({20, 514}, 1, true) == 20,
           "container slots on every tab");
+    // The container's 42 px tiles span x 14 to 187 and rows 508 to 593 (inclusive). Its
+    // bottom-right corner pixel is (187, 593), which the six-pixel cut removes.
     check(HudInput::slot_at({20, 514}, 0) == -1 && HudInput::slot_at({14, 508}, 0, true) == -1 &&
               HudInput::slot_at({185, 508}, 0, true) == -1 &&
-              HudInput::slot_at({185, 591}, 0, true) == -1 &&
+              HudInput::slot_at({187, 593}, 0, true) == -1 &&
               HudInput::slot_at({14, 591}, 0, true) == -1,
           "container cuts and absence");
+    check(HudInput::slot_at({187, 530}, 0, true) == 23 &&
+              HudInput::slot_at({188, 530}, 0, true) == -1 &&
+              HudInput::slot_at({20, 593}, 0, true) == 24 &&
+              HudInput::slot_at({20, 594}, 0, true) == -1,
+          "container right and bottom edges");
     auto bag_state = state;
     bag_state.container = 77;
     bag_state.items[20] = staff->type;

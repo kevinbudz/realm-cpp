@@ -135,7 +135,6 @@ class ChatView {
   };
 
   [[nodiscard]] std::vector<Row> layout(const ChatLine& line) const;
-  void glow();
   const FontBook& fonts_;
   const HudArt* art_{};
   std::vector<std::size_t> shown_;

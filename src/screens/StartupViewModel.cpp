@@ -585,8 +585,9 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
   }
   // Compose only the clipped viewport, never an unbounded bitmap of all rows.
   auto panel = ui_image(756, 430, fonts_.pixel_scale());
-  const auto paint = [&](std::string_view text, int size, std::uint32_t color, double x, double y) {
-    const auto bitmap = fonts_.rasterize(text, size, true, true, color, x - std::floor(x));
+  const auto paint = [&](std::string_view text, int size, std::uint32_t color, double x, double y,
+                         TextEffect effect = TextEffect::shadow) {
+    const auto bitmap = fonts_.rasterize(text, size, true, effect, color, x - std::floor(x));
     ui_blit(panel, bitmap.image, std::floor(x) + bitmap.offset.x, y + bitmap.offset.y);
   };
   const double offset =
@@ -659,7 +660,7 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
                   item_def->tier >= 0 ? white
                   : set               ? 0xff9900
                                       : 0x8a2be2,
-                  x + 40 - fonts_.layout(tag, 12, true).width, y + 32);
+                  x + 40 - fonts_.layout(tag, 12, true).width, y + 32, TextEffect::outline);
           }
         }
       }

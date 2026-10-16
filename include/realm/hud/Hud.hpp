@@ -9,19 +9,26 @@
 #include <string_view>
 
 namespace realm {
-// The inventory section (tabs, panel, slot grid, potions and Stats text) sits 4 px lower than it did,
-// so the tabs stand 6 px under the equipped box (HUD 300..349) and the panel ends at HUD 501, above
-// the loot container at 508.
-// The 8 inventory slots: 40 px tiles at x 14 + 44 i and y inventory_grid_y + 44 j (rows 384..467).
+// The tabs stand 6 px under the equipped box (HUD 300..349). The panel's bottom outline ends at HUD
+// 499, above the loot container at 508.
+// The 8 inventory slots: 42 px tiles (inventory_tile_size) on an inventory_pitch (44 px) step from
+// (inventory_grid_x, inventory_grid_y). Columns are x 13, 57, 101, 145 (the last ends at 186) and
+// rows are y 384 and 428 (the second ends at 469). The 2 px gaps are between cells and between the
+// grid and potions. The columns are centred on the equipped 40 px tiles (centres 34, 78, 122, 166).
+inline constexpr int inventory_grid_x = 13;
 inline constexpr int inventory_grid_y = 384;
+inline constexpr int inventory_pitch = 44;
+inline constexpr int inventory_tile_size = 42;
 // The Stats text is centred in the 126 px from this row to the lower panel at HUD 500.
 inline constexpr int inventory_stats_y = 377;
-// Drag-to-store area, HUD y 358..502 (the panel's bottom outline ends at 501).
+// Drag-to-store area, HUD y 358..502 (the panel's bottom outline ends at 499).
 inline constexpr int inventory_store_top = 358;
 inline constexpr int inventory_store_bottom = 503;
-// PotionInventoryView layout below the 84-pixel InventoryGrid (HUD rows 472..495).
+// PotionInventoryView layout: two potion_slot_width (86 px) slots 2 px apart, at x 13 and 101, on
+// HUD rows 472..495. The grid's last row ends at 469, so the potions sit 2 px below it.
+inline constexpr int potion_slot_width = 86;
 inline constexpr int potion_view_y = 472;
-inline constexpr std::array<int, 2> potion_view_x{14, 102};
+inline constexpr std::array<int, 2> potion_view_x{13, 101};
 inline constexpr std::array<int, 2> potion_types{2594, 2595};
 // The equipped row's 40 px tiles at x 14 + 44 i, inside the header frame (2 px gap on every side).
 inline constexpr int equipment_row_y = 305;
@@ -50,7 +57,8 @@ class Hud {
  private:
   void blit(const Image& image, int x, int y, HudRegion clip = {0, 0, 200, 600});
   void inventory(const HudState::Inventory& state);
-  // Backdrop rows 500-503 (HUD), the panel's bottom outline. Drawn with the lower panel.
+  // Backdrop rows 500-503 (HUD), the background under the panel's outline (which ends at 499).
+  // Drawn with the lower panel.
   void inventory_bottom(const HudState::Inventory& state);
   void potions(const std::array<int, 2>& counts);
   void container(const HudState::Inventory& state);
@@ -60,7 +68,7 @@ class Hud {
   void party(const HudState::Party& state);
   void social(const HudState::Social& state);
   void native_button(HudRect area, std::string_view label, bool hover, double text_x);
-  void tier(const ObjectDef& item, int x, int y);
+  void tier(const ObjectDef& item, int x, int y, int size);
   void draw(TextBitmap bitmap, double x, double y, double alpha = 1,
             const ColorTransform* transform = nullptr);
   // An unfiltered TextField renders straight into the stage rather than

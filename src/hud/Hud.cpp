@@ -7,7 +7,8 @@
 namespace realm {
 namespace {
 // The tab panel (y 300-499) and the interaction panel below it (y 500-599) redraw separately. The
-// interaction panel also repaints the tab panel's bottom outline, rows 500-503 of its backdrop.
+// interaction panel also repaints rows 500-503 of the tab panel's backdrop, which lie below its
+// bottom outline (the outline ends at 499).
 HudState::Inventory upper(HudState::Inventory inventory) {
   std::fill(inventory.items.begin() + container_slot, inventory.items.end(), -1);
   std::fill(inventory.restricted.begin() + container_slot, inventory.restricted.end(), false);
@@ -110,9 +111,9 @@ std::optional<TextBitmap> tier_bitmap(const FontBook& fonts, const ObjectDef& it
                               10, 2, true);
 }
 
-void Hud::tier(const ObjectDef& item, int x, int y) {
+void Hud::tier(const ObjectDef& item, int x, int y, int size) {
   if (auto label = tier_bitmap(fonts_, item)) {
-    draw(*label, x + 40 - label->width, y + 24);
+    draw(*label, x + size - label->width, y + size - 16);
   }
 }
 
@@ -210,7 +211,8 @@ void Hud::inventory(const HudState::Inventory& state) {
   if (state.selected < 0 || state.selected > 2 || (state.selected == 2 && !state.backpack)) {
     throw std::runtime_error("Invalid HUD inventory tab");
   }
-  // Only the tab panel's rows (300-499); its bottom outline is drawn by inventory_bottom().
+  // Only the tab panel's rows (300-499), which include the whole bottom outline (it ends at 499).
+  // Rows 500-503 are drawn by inventory_bottom().
   blit(art_->image(
            "backdrop" + std::to_string(state.backpack) + "s" + std::to_string(state.selected),
            image_.pixel_scale),
@@ -220,8 +222,9 @@ void Hud::inventory(const HudState::Inventory& state) {
   }
   if (state.selected != 1) {
     for (int i = 0; i < 8; ++i) {
-      tile(state, (state.selected == 2 ? 12 : 4) + i, i, 14 + 44 * (i % 4),
-           inventory_grid_y + 44 * (i / 4), false);
+      tile(state, (state.selected == 2 ? 12 : 4) + i, i,
+           inventory_grid_x + inventory_pitch * (i % 4),
+           inventory_grid_y + inventory_pitch * (i / 4), false);
     }
     if (state.potions[0] >= 0 && state.potions[1] >= 0) {
       potions(state.potions);
@@ -233,9 +236,9 @@ void Hud::inventory_bottom(const HudState::Inventory& state) {
   if (!art_ || !state.enabled) {
     return;
   }
-  // The rows from HUD 500 to the backdrop's end are the panel's bottom outline and the background
-  // under it. They are painted with the lower panel, so an interaction repaint restores them before
-  // it draws over them.
+  // The rows from HUD 500 to the backdrop's end are the background below the panel's bottom outline
+  // (which ends at 499). They are painted with the lower panel, so an interaction repaint restores
+  // them before it draws over them.
   blit(art_->image("backdrop" + std::to_string(state.backpack) + "s" +
                        std::to_string(state.selected),
                    image_.pixel_scale),
@@ -245,6 +248,8 @@ void Hud::inventory_bottom(const HudState::Inventory& state) {
 
 void Hud::tile(const HudState::Inventory& state, int index, int position, int x, int y,
                bool equipped) {
+  // Equipped tiles are 40 px; inventory and container tiles are inventory_tile_size (42 px).
+  const int size = equipped ? 40 : inventory_tile_size;
   const int type = index == state.dragging ? -1 : state.items.at(static_cast<std::size_t>(index));
   std::string background;
   if (equipped) {
@@ -262,8 +267,16 @@ void Hud::tile(const HudState::Inventory& state, int index, int position, int x,
   if (image_.pixel_scale != 1 && background.starts_with("hotkey")) {
     blit(art_->image("inventory" + std::to_string(position), image_.pixel_scale), x, y);
     const auto label = std::to_string(position + 1);
-    draw_direct(fonts_.rasterize(label, 26, true, false, 3552822, 0, 0, 1, 26, 30),
-                x + 20 - fonts_.layout(label, 26, true).width / 2, y + 2, 3552822);
+    const auto number = fonts_.rasterize(label, 26, true, false, 3552822, 0, 0, 1, 26, 30);
+    // Centre the digit's drawn pixels on the tile's middle, as HudArt does at 1x. The bitmap is at
+    // device density, so its ink is divided back to logical units, and draw_direct adds the logical
+    // offset to the origin it is given.
+    const auto ink = opaque_bounds(number.image);
+    const double scale = number.image.pixel_scale;
+    const double center_x = (ink.left + ink.right) / (2 * scale) + number.offset.x;
+    const double center_y = (ink.top + ink.bottom) / (2 * scale) + number.offset.y;
+    draw_direct(number, x + std::round(size / 2.0 - center_x),
+                y + std::round(size / 2.0 - center_y) - 1, 3552822);
   } else {
     blit(art_->image(background, image_.pixel_scale), x, y);
   }
@@ -278,7 +291,7 @@ void Hud::tile(const HudState::Inventory& state, int index, int position, int x,
   const auto& icon =
       art_->image((equipped && state.dim.at(static_cast<std::size_t>(position)) ? "dim" : "item") +
                   std::to_string(type));
-  blit(icon, x + 20 - icon.width / 2, y + 20 - icon.height / 2);
+  blit(icon, x + size / 2 - icon.width / 2, y + size / 2 - icon.height / 2);
   if (state.tiers) {
     if (image_.pixel_scale != 1 || !art_->contains("tier" + std::to_string(type))) {
       // HUD art carries the original labels at base density only.
@@ -288,9 +301,10 @@ void Hud::tile(const HudState::Inventory& state, int index, int position, int x,
       if (!item) {
         throw std::logic_error("Resized tier labels require item definitions");
       }
-      tier(*item, x, y);
+      tier(*item, x, y, size);
     } else {
-      blit(art_->image("tier" + std::to_string(type)), x, y);
+      // The baked tier art is a 40 px canvas whose label sits at its bottom right.
+      blit(art_->image("tier" + std::to_string(type)), x + size - 40, y + size - 40);
     }
   }
 }
@@ -323,8 +337,9 @@ void Hud::potions(const std::array<int, 2>& counts) {
       } else if (count <= 4) {
         color = 16611363U;
       }
-      text(std::to_string(count), 18, true, color, x + 55, potion_view_y + 1, 1, 2, 84);
-      text("/6", 12, false, 0xb6b6b6U, x + 67, potion_view_y + 7, 1, 2, 84);
+      text(std::to_string(count), 18, true, color, x + 55, potion_view_y + 1, 1, 2,
+           potion_slot_width);
+      text("/6", 12, false, 0xb6b6b6U, x + 67, potion_view_y + 7, 1, 2, potion_slot_width);
     } else {
       text("0", 13, false, 11184810U, x + 47, potion_view_y + 2, 1, 2, 24);
     }

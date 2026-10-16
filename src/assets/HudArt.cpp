@@ -20,12 +20,12 @@ constexpr std::uint32_t panel_gray = 3552822;
 constexpr std::uint32_t tile_gray = 5526612;
 constexpr std::uint32_t restricted_red = 6036765;
 // Inventory and minimap palette. frame_dark (0x242222) is the dark fill and dark outline of the
-// inventory tab strip, content panel, equipped box and minimap. outline_light is the light outline.
-// frame_light is the minimap's inner ring.
+// content panel, equipped box and minimap. outline_light is the light outline. frame_light is the
+// minimap's inner ring. Unselected tab interiors use equip_fill.
 constexpr std::uint32_t frame_light = 0x5a5a5a;
 constexpr std::uint32_t frame_dark = 0x242222;
 constexpr std::uint32_t outline_light = 0x626262;
-constexpr std::uint32_t equip_fill = 0x454545;
+constexpr std::uint32_t equip_fill = 0x424242;
 constexpr double panel_width = 188;
 constexpr double panel_height = 84;
 // GraphicsUtil cut corners of the equipment, inventory and trade grids.
@@ -184,32 +184,6 @@ Image shifted_horizontally(const Image& source, int shift) {
     }
   }
   return result;
-}
-
-// Bounds of the pixels with alpha of at least 128, in source pixels: [left, right) x [top, bottom).
-struct OpaqueBounds {
-  int left{};
-  int top{};
-  int right{};
-  int bottom{};
-};
-
-OpaqueBounds opaque_bounds(const Image& source) {
-  OpaqueBounds bounds{source.width, source.height, 0, 0};
-  for (int y = 0; y < source.height; ++y) {
-    for (int x = 0; x < source.width; ++x) {
-      if (source.pixels[static_cast<std::size_t>((y * source.width + x) * 4 + 3)] >= 128) {
-        bounds.left = std::min(bounds.left, x);
-        bounds.top = std::min(bounds.top, y);
-        bounds.right = std::max(bounds.right, x + 1);
-        bounds.bottom = std::max(bounds.bottom, y + 1);
-      }
-    }
-  }
-  if (bounds.right <= bounds.left) {
-    return {};
-  }
-  return bounds;
 }
 
 // Content center minus cell center across the opaque columns of an 8-pixel cell, in source pixels;
@@ -445,18 +419,12 @@ struct HudArt::Sources {
     return image;
   }
 
-  // The chat badge's disc: centre and radius in logical units within its 32x32 canvas.
-  struct ChatDisc {
-    double x{};
-    double y{};
-    double radius{};
-  };
-
-  ChatDisc chat_disc() {
+  // The chat badge's centre in logical units within its 32x32 canvas.
+  Vec2 chat_badge_center() {
     const auto& shape = star_shape();
     const double w = std::trunc(shape.width() / 2 + 2);
     const double h = std::trunc(shape.height() / 2 + 2);
-    return {8 + w, 8 + h, w};
+    return {8 + w, 8 + h};
   }
 
   const fd::Shape& cross_shape() {
@@ -584,7 +552,8 @@ struct HudArt::Sources {
 
   // Slot / EquipmentTile background art: the slot-type image at 4x in the panel gray, or a hotkey
   // number.
-  void slot_background(Image& canvas, int type, int hotkey, bool equipment_tile, Vec2 offset) {
+  void slot_background(Image& canvas, int type, int hotkey, bool equipment_tile, Vec2 offset,
+                       int tile_size) {
     const auto art = slot_art(type, equipment_tile);
     if (art.index >= 0) {
       auto image = sprite(art.sheet, art.index);
@@ -607,12 +576,16 @@ struct HudArt::Sources {
       ui_blit(canvas, enlarged, offset.x + 4 + dx, offset.y + 4 + dy, true, true);
     } else if (hotkey > 0) {
       const auto value = std::to_string(hotkey);
-      const auto metrics = field(value, 26, true);
-      // The number is drawn into a 26x30 bitmap, which snaps to the nearest pixel.
+      // The number is drawn into a 26x30 bitmap and centred by its drawn pixels on the tile's
+      // middle (tile_size / 2: 20 for an equipped 40 px tile, 21 for a 42 px tile). The advance box
+      // would leave a digit's side bearings off-centre, and the top-aligned line left it high.
       auto bitmap = fd::canvas(26, 30);
       text(bitmap, value, 26, true, panel_gray, 0, 0);
-      ui_blit(canvas, bitmap, offset.x + std::round(20 - metrics.width / 2), offset.y + 2, true,
-              true);
+      const auto ink = opaque_bounds(bitmap);
+      ui_blit(canvas, bitmap,
+              offset.x + std::round(tile_size / 2.0 - (ink.left + ink.right) / 2.0),
+              offset.y + std::round(tile_size / 2.0 - (ink.top + ink.bottom) / 2.0) - 1,
+              true, true);
     }
   }
 };
@@ -729,7 +702,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
         xml.has("NoTierTag")) {
       return image;
     }
-    // TierUtil.getTierTag with ItemTile's GlowFilter(0, 1, 2, 2, 10).
+    // TierUtil.getTierTag. ItemTile's GlowFilter(0, 1, 2, 2, 10) halo is replaced by the 1 px black
+    // outline that tier_bitmap uses, so the tag reads the same at every pixel scale.
     std::string tag = "UT";
     std::uint32_t color = 0x8A2BE2;
     if (xml.has("Tier")) {
@@ -741,7 +715,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     }
     auto layer = fd::canvas(40, 40);
     assets.text(layer, tag, 12, true, color, 40 - assets.field(tag, 12, true).width, 24);
-    fd::glow(layer, 0, 1, 2, 2, 10);
+    // Outline only, no glow. The 1 px reach stays inside the 40x40 canvas for every tier tag.
+    ui_outline_alpha(layer);
     fd::draw(image, layer, 0, 0);
     return image;
   }
@@ -830,7 +805,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     fd::Path shape;
     shape.cut_edge_rect(0, 0, 40, 40, 4, equipment_cuts[static_cast<std::size_t>(extra)]);
     image.fill(shape, equip_fill);
-    assets.slot_background(image.image, value, 0, true, {});
+    assets.slot_background(image.image, value, 0, true, {}, 40);
     return std::move(image.image);
   }
   for (const std::string_view prefix : {"inventory", "hotkey", "restricted"}) {
@@ -838,12 +813,12 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       if (dry) {
         return Image{};
       }
-      auto image = raster(40, 40, density);
+      auto image = raster(42, 42, density);
       fd::Path shape;
-      shape.cut_edge_rect(0, 0, 40, 40, 4, inventory_cuts[static_cast<std::size_t>(value)]);
+      shape.cut_edge_rect(0, 0, 42, 42, 6, inventory_cuts[static_cast<std::size_t>(value)]);
       image.fill(shape, prefix == "restricted" ? restricted_red : tile_gray);
       if (prefix == "hotkey") {
-        assets.slot_background(image.image, 0, value + 1, false, {});
+        assets.slot_background(image.image, 0, value + 1, false, {}, 42);
       }
       return std::move(image.image);
     }
@@ -894,22 +869,23 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     box.cut_edge_rect(13, 4, 174, 42, 6);
     image.fill(box, equip_fill);
     // Content panel: a 2 px outline_light frame with all four corners cut 8, around a frame_dark
-    // interior cut 6. Its light top band is rows 78..79 (inventory_tab_bottom). The interior (x 10..189,
-    // rows 80..199) leaves 4 px around the slots (x 14..185, rows 84..167) and the potions (rows
-    // 172..195), matching the 4 px slot gaps. It is drawn before the tabs, which stand on that band
-    // between the chamfers.
+    // interior cut 7. It spans x 9..190 and rows 80..199 (HUD 380..499). Its light top band is
+    // rows 80..81 (inventory_tab_bottom). The interior (x 11..188, rows 82..197) leaves 2 px around
+    // the cells (x 13..186, rows 84..169) and the potions (x 13..186, rows 172..195). The 2 px gaps
+    // between the cells, between the grid and the potions, and between the potions show this same
+    // frame_dark. It is drawn before the tabs, which stand on that band between the chamfers.
     fd::Path content_light;
-    content_light.cut_edge_rect(8, inventory_tab_bottom, 184, 124, 8);
+    content_light.cut_edge_rect(9, inventory_tab_bottom, 182, 120, 8);
     image.fill(content_light, outline_light);
     fd::Path content_dark;
-    content_dark.cut_edge_rect(10, inventory_tab_bottom + 2, 180, 120, 6);
+    content_dark.cut_edge_rect(11, inventory_tab_bottom + 2, 178, 116, 7);
     image.fill(content_dark, frame_dark);
-    // Tabs: inventory_tab_rect spreads them across the strip (x 16 to 183, between the panel's top
+    // Tabs: inventory_tab_rect spreads them across the strip (x 17 to 182, between the panel's top
     // chamfers). Both kinds have square bottom corners and cut top corners. An unselected tab is a
-    // 2 px outline_light frame (top corners cut 8) around a frame_dark interior (top corners cut
-    // 6). The interior runs straight down to row 77, where the panel's light band (rows 78..79)
-    // begins. A selected tab is one solid outline_light shape (top corners cut 8) that runs into
-    // that light band through row 79.
+    // 2 px outline_light frame (top corners cut 8) around an equip_fill interior (top corners cut
+    // 7). Its outer shape runs through row 79, and the interior runs straight down to row 79, where
+    // the panel's light band (rows 80..81) begins. A selected tab is one solid outline_light shape
+    // (top corners cut 8) that runs into that light band through row 81.
     const int tab_count = backpack ? 3 : 2;
     constexpr std::array<bool, 4> tab_cuts{true, true, false, false};
     for (int tab = 0; tab < tab_count; ++tab) {
@@ -918,28 +894,28 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       const double w = slot.width;
       if (tab == selected) {
         fd::Path solid;
-        solid.cut_edge_rect(x, inventory_tab_top, w, 24, 8, tab_cuts);
+        solid.cut_edge_rect(x, inventory_tab_top, w, 26, 8, tab_cuts);
         image.fill(solid, outline_light);
         continue;
       }
       fd::Path outer;
-      outer.cut_edge_rect(x, inventory_tab_top, w, 22, 8, tab_cuts);
+      outer.cut_edge_rect(x, inventory_tab_top, w, 24, 8, tab_cuts);
       image.fill(outer, outline_light);
       fd::Path interior;
-      interior.cut_edge_rect(x + 2, inventory_tab_top + 2, w - 4, 20, 6, tab_cuts);
-      image.fill(interior, frame_dark);
+      interior.cut_edge_rect(x + 2, inventory_tab_top + 2, w - 4, 22, 7, tab_cuts);
+      image.fill(interior, equip_fill);
     }
     // Icons are white and centred by their opaque bounds on each tab's centre (horizontally) and
-    // on row 67.5 (vertically: the centre of the interior's rows 58..77), in whole logical pixels.
-    // They are clipped to the tab's interior (columns x + 2 to x + width - 3, rows 58 to 77).
+    // on row 68.5 (vertically: the centre of the interior's rows 58..79), in whole logical pixels.
+    // They are clipped to the tab's interior (columns x + 2 to x + width - 3, rows 58 to 79).
     for (int tab = 0; tab < tab_count; ++tab) {
       const auto slot = inventory_tab_rect(tab_count, tab);
       const auto icon = assets.redraw(assets.sprite("lofiInterfaceBig", 24 + tab), 20, true);
       const auto bounds = opaque_bounds(icon);
       ui_blit(image.image, icon,
               std::round(slot.x + slot.width / 2.0 - (bounds.left + bounds.right) / 2.0),
-              std::round(inventory_tab_top + 11.5 - (bounds.top + bounds.bottom) / 2.0), true,
-              true, 1, slot.x + 2, inventory_tab_top + 2, slot.width - 4, 20);
+              std::round(inventory_tab_top + 12.5 - (bounds.top + bounds.bottom) / 2.0), true,
+              true, 1, slot.x + 2, inventory_tab_top + 2, slot.width - 4, 22);
     }
     return std::move(image.image);
   }
@@ -967,16 +943,17 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     if (dry) {
       return Image{};
     }
-    auto image = raster(84, 24, density);
+    // Two 86 px slots (potion_slot_width) sit 2 px apart in Hud::potions().
+    auto image = raster(86, 24, density);
     const auto& cuts = potion_cuts[static_cast<std::size_t>(value)];
     fd::Path outer;
-    outer.cut_edge_rect(0, 0, 84, 24, 4, cuts);
+    outer.cut_edge_rect(0, 0, 86, 24, 6, cuts);
     if (key.starts_with("potionuse")) {
       image.fill(outer, tile_gray);
     } else {
       image.fill(outer, 4078909);
       fd::Path inner;
-      inner.cut_edge_rect(2, 2, 80, 20, 4, cuts);
+      inner.cut_edge_rect(2, 2, 82, 20, 5, cuts);
       image.fill(inner, 2368034);
     }
     return std::move(image.image);
@@ -1240,15 +1217,11 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     if (dry) {
       return Image{};
     }
-    // FameUtil.numStarsToIcon: the star over a translucent disc. Both are drawn at the requested
-    // density with the same logical 32x32 geometry, so the disc edge stays antialiased rather than
-    // blurred. The star alone takes the text outline before it is composited over the disc.
+    // FameUtil.numStarsToIcon: the star over no backing disc, so the badge is the star alone. It is
+    // drawn at the requested density with the same logical 32x32 geometry, so its edges stay
+    // antialiased rather than blurred, and it takes the same crisp black outline the text gets.
     const auto& shape = assets.star_shape();
-    const auto disc = assets.chat_disc();
     auto badge = raster(32, 32, density);
-    fd::Path circle;
-    circle.circle(disc.x, disc.y, disc.radius);
-    badge.fill(circle, 0, .4);
     auto star = fd::canvas(badge.image.width, badge.image.height);
     star.pixel_scale = badge.image.pixel_scale;
     const double k = badge.kx;
@@ -1295,7 +1268,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     fd::Path shape;
     shape.cut_edge_rect(4, 4, 40, 40, 4, trade_cuts[static_cast<std::size_t>(value)]);
     fd::fill(image, shape, tile_gray);
-    assets.slot_background(image, extra, value - 3, false, {4, 4});
+    assets.slot_background(image, extra, value - 3, false, {4, 4}, 40);
     return image;
   }
   // Skin chooser art.
@@ -1549,8 +1522,7 @@ Image HudArt::rank_star_icon(int stars, double scale, double pixel_scale) const 
 }
 
 Vec2 HudArt::chat_star_center() const {
-  const auto disc = sources().chat_disc();
-  return {disc.x, disc.y};
+  return sources().chat_badge_center();
 }
 
 Image HudArt::star_graphic(std::uint32_t tint, double scale) const {

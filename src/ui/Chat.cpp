@@ -387,15 +387,15 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
       const double left = 2 + (r == 0 ? 0 : indent);
       for (const auto& piece : row.pieces) {
         if (piece.icon >= 0) {
-          // The badge is drawn at the chat density. Its disc centre sits on the row's capital
+          // The badge is drawn at the chat density. Its centre sits on the row's capital
           // middle, snapped to the device pixel grid, and the badge is blitted from its origin.
           const double center_y = std::round((y + text_center_) * scale) / scale;
-          const auto disc = art_->chat_star_center();
+          const auto center = art_->chat_star_center();
           ui_blit(image_, art_->image("chatstar" + std::to_string(piece.icon), scale),
-                  left + piece.x - 8, center_y - disc.y, true, true);
+                  left + piece.x - 8, center_y - center.y, true, true);
           continue;
         }
-        const auto bitmap = fonts_.rasterize(piece.text, 14, true, false, piece.color);
+        const auto bitmap = fonts_.rasterize(piece.text, 14, true, TextEffect::outline, piece.color);
         ui_blit_text(image_, bitmap, left + piece.x - text_gutter + bitmap.offset.x,
                      y + text_baseline_offset + bitmap.offset.y, false, true);
       }
@@ -413,81 +413,14 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
     // TextField scrolls horizontally to keep the caret in view.
     const double scroll = std::max(0.0, text_width + 4 - 598);
     if (!chat.input().empty()) {
-      const auto bitmap = fonts_.rasterize(chat.input(), 14, true, false, 0xffffff);
+      const auto bitmap = fonts_.rasterize(chat.input(), 14, true, TextEffect::outline, 0xffffff);
       ui_blit_text(image_, bitmap, bitmap.offset.x - scroll, field_y + bitmap.offset.y, false, true,
                    1, 1, field_y + 1, 597, 17);
     }
     ui_rectangle(image_, std::min(596.0, 2 + text_width - scroll), field_y + 2, 1, 14, 0xffffff,
                  true);
   }
-  glow();
   ++rebuilds_;
   return true;
-}
-
-void ChatView::glow() {
-  // GlowFilter(0,1,3,3,2,1): a 3-pixel box blur of coverage at double
-  // strength, composited as black beneath the premultiplied text.
-  const int width = image_.width;
-  const int height = image_.height;
-  const int radius = std::max(1, static_cast<int>(std::lround(image_.pixel_scale)));
-  const unsigned taps = static_cast<unsigned>(2 * radius + 1);
-  std::vector<unsigned> horizontal(static_cast<std::size_t>(width) *
-                                   static_cast<std::size_t>(height));
-  const auto alpha = [&](int x, int y) {
-    return static_cast<unsigned>(
-        image_.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
-                       static_cast<std::size_t>(x)) *
-                          4 +
-                      3]);
-  };
-  for (int y = 0; y < height; ++y) {
-    unsigned sum{};
-    for (int x = -radius; x < width + radius; ++x) {
-      if (x + radius < width) {
-        sum += alpha(x + radius, y);
-      }
-      if (x - radius - 1 >= 0) {
-        sum -= alpha(x - radius - 1, y);
-      }
-      if (x >= 0 && x < width) {
-        horizontal[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
-                   static_cast<std::size_t>(x)] = sum;
-      }
-    }
-  }
-  std::vector<unsigned> column(static_cast<std::size_t>(height));
-  for (int x = 0; x < width; ++x) {
-    unsigned sum{};
-    for (int y = -radius; y < height + radius; ++y) {
-      if (y + radius < height) {
-        sum += horizontal[static_cast<std::size_t>(y + radius) * static_cast<std::size_t>(width) +
-                          static_cast<std::size_t>(x)];
-      }
-      if (y - radius - 1 >= 0) {
-        sum -=
-            horizontal[static_cast<std::size_t>(y - radius - 1) * static_cast<std::size_t>(width) +
-                       static_cast<std::size_t>(x)];
-      }
-      if (y >= 0 && y < height) {
-        column[static_cast<std::size_t>(y)] = sum;
-      }
-    }
-    for (int y = 0; y < height; ++y) {
-      const unsigned blurred =
-          std::min(255U, column[static_cast<std::size_t>(y)] * 2 / (taps * taps));
-      auto* pixel = &image_.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
-                                    static_cast<std::size_t>(x)) *
-                                   4];
-      const unsigned opacity = pixel[3];
-      const unsigned combined = opacity + blurred * (255U - opacity) / 255U;
-      // Black adds coverage only; convert premultiplied color to straight alpha.
-      for (int c = 0; c < 3; ++c) {
-        pixel[c] =
-            static_cast<unsigned char>(combined ? std::min(255U, pixel[c] * 255U / combined) : 0U);
-      }
-      pixel[3] = static_cast<unsigned char>(combined);
-    }
-  }
 }
 }

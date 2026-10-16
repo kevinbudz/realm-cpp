@@ -14,6 +14,15 @@ struct Image {
 };
 
 [[nodiscard]] Image ui_image(double width, double height, double scale);
+// Bounds of pixels with alpha >= 128, as [left, right) x [top, bottom) in image pixels. Empty
+// images return all zeros.
+struct OpaqueBounds {
+  int left{};
+  int top{};
+  int right{};
+  int bottom{};
+};
+[[nodiscard]] OpaqueBounds opaque_bounds(const Image& source);
 void ui_blit(Image& destination, const Image& source, double x, double y,
              bool source_premultiplied = false, bool destination_premultiplied = false,
              double opacity = 1, double clip_x = 0, double clip_y = 0, double clip_width = 1e9,

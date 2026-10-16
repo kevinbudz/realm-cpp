@@ -67,18 +67,23 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
   const auto star_size = art.rank_star_size();
   const double star_w = star_size.x;
   const double star_h = star_size.y;
-  const double rank_icon_x = rank_x + number.width + 2;
-  // The star's centre sits on the middle of the number's ink, outline included, snapped to the
-  // device pixel grid.
+  // The star leads, at rank_x, and the number follows it after a 2 px gap. The number sits 2 px
+  // lower than the star's centre line.
+  const double rank_icon_x = rank_x;
+  const double rank_number_x = rank_icon_x + star_w + 2;
+  const double rank_text_y = rank_y + 2;
+  // The star's centre sits on the middle of the number's ink at rank_y, outline included, snapped
+  // to the device pixel grid.
   double rank_icon_y = rank_y;
   if (stars >= 0) {
     const auto ink = ink_rows(number);
     const double middle = rank_y + (ink.top + ink.bottom) / 2;
     rank_icon_y = std::round((middle - star_h / 2) * density) / density;
   }
-  const double rank_right = stars < 0 ? rank_x : rank_icon_x + star_w + 8;
+  const double rank_right =
+      stars < 0 ? rank_x : std::max(rank_icon_x + star_w + 8, rank_number_x + number.width + 8);
   const double rank_bottom =
-      stars < 0 ? rank_y : std::max(rank_y + number.height, rank_icon_y + star_h + 8);
+      stars < 0 ? rank_y : std::max(rank_text_y + number.height, rank_icon_y + star_h + 8);
 
   const bool has_guild = !guild.empty();
   const auto guild_art = has_guild && guild_rank % 10 == 0 && guild_rank >= 0 && guild_rank <= 40
@@ -89,10 +94,12 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
 
   // With no rank display, the guild's own bitmap starts at x=56. Do not keep
   // the otherwise-unused rank anchor in the output bounds.
-  double left = stars >= 0 ? std::min({rank_x - 2, rank_x + number.offset.x, rank_icon_x - 8})
-                           : (has_guild ? guild_icon_x : 0);
-  double top = stars >= 0 ? std::min({rank_y + number.offset.y, rank_icon_y - 8, rank_icon_y - 3})
-                          : (has_guild ? guild_icon_y : 0);
+  double left = stars >= 0
+                    ? std::min({rank_x - 2, rank_number_x + number.offset.x, rank_icon_x - 8})
+                    : (has_guild ? guild_icon_x : 0);
+  double top = stars >= 0
+                   ? std::min({rank_text_y + number.offset.y, rank_icon_y - 8, rank_icon_y - 3})
+                   : (has_guild ? guild_icon_y : 0);
   double right = stars >= 0 ? rank_right : left;
   double bottom = stars >= 0 ? rank_bottom : top;
   if (has_guild) {
@@ -115,9 +122,9 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
   double layout_left = stars >= 0 ? rank_x - 2 : (has_guild ? guild_icon_x : 0);
   double layout_top =
       stars >= 0 ? std::min(rank_y, rank_icon_y - 3) : (has_guild ? guild_icon_y : 0);
-  double layout_right = stars >= 0 ? rank_icon_x + star_w + 4 : layout_left;
+  double layout_right = stars >= 0 ? rank_number_x + number.width + 4 : layout_left;
   double layout_bottom =
-      stars >= 0 ? std::max(rank_y + number.height, rank_icon_y + star_h + 5) : layout_top;
+      stars >= 0 ? std::max(rank_text_y + number.height, rank_icon_y + star_h + 5) : layout_top;
   if (has_guild) {
     layout_left = std::min(layout_left, guild_icon_x);
     layout_top = std::min(layout_top, guild_icon_y);
@@ -137,8 +144,8 @@ SafeAreaDisplayImage render_safe_area_display(const FontBook& fonts, const HudAr
   result.image = ui_image(right - left, bottom - top, fonts.pixel_scale());
 
   if (stars >= 0) {
-    const double text_x = rank_x - left;
-    const double text_y = rank_y - top;
+    const double text_x = rank_number_x - left;
+    const double text_y = rank_text_y - top;
     const double icon_x = rank_icon_x - left;
     const double icon_y = rank_icon_y - top;
     ui_blit_text(result.image, number, text_x + number.offset.x, text_y + number.offset.y, false,

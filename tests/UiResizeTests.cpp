@@ -115,7 +115,19 @@ int main() {
         check(differences > 100, "larger text is rerasterized, not replicated base pixels");
         const auto tag = tier_bitmap(fonts, *catalog.object(staff));
         check(tag && tag->image.pixel_scale == 2 && tag->offset.x == -2,
-              "tiers use target-density glyphs and the tight two-pixel glow padding");
+              "tiers use target-density glyphs and the tight two-pixel outline padding");
+        // The 1 px black outline reaches at most 2 device pixels past the ink, so the outermost
+        // device ring of the padded tag stays clear (no glow fills the padding).
+        std::size_t ring_alpha{};
+        for (int y = 0; y < tag->image.height; ++y) {
+          for (int x = 0; x < tag->image.width; ++x) {
+            if (x == 0 || y == 0 || x == tag->image.width - 1 || y == tag->image.height - 1) {
+              ring_alpha +=
+                  tag->image.pixels[(static_cast<std::size_t>(y) * tag->image.width + x) * 4 + 3];
+            }
+          }
+        }
+        check(ring_alpha == 0, "tier outline stays inside its padding");
       }
       check(hud.update(state), "same HUD content redraws after density change");
       check(hud.image().height == static_cast<int>(std::ceil(600 * density)),

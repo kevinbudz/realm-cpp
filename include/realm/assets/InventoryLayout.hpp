@@ -3,19 +3,19 @@
 // (HudInput.cpp). Coordinates are backdrop-local: the backdrop is drawn at HUD x 0 and HUD y 300.
 namespace realm {
 // The tab strip spans the straight part of the content panel's top edge, between its top
-// chamfers (the panel's outer light is cut 8 from x 8): x 16 up to, not including, 184.
-inline constexpr int inventory_tab_left = 16;
-inline constexpr int inventory_tab_right = 184;
+// chamfers (the panel's outer light is cut 8 from x 9): x 17 up to, not including, 183.
+inline constexpr int inventory_tab_left = 17;
+inline constexpr int inventory_tab_right = 183;
 inline constexpr int inventory_tab_gap = 2;
-// Tabs cover rows 56..77 (bottom exclusive 78), and that is the tab hit range. Their bottoms stand
-// on the content panel's light top band (rows 78..79). A selected tab's solid fill runs through
+// Tabs cover rows 56..79 (bottom exclusive 80), and that is the tab hit range. Their bottoms stand
+// on the content panel's light top band (rows 80..81). A selected tab's solid fill runs through
 // those rows; they are not a tab hit. The tabs are 6 px below the equipped box, whose last row is 49.
 inline constexpr int inventory_tab_top = 56;
-inline constexpr int inventory_tab_bottom = 78;
+inline constexpr int inventory_tab_bottom = 80;
 // HUD y of the backdrop's top row.
 inline constexpr int inventory_panel_y = 300;
-// The backdrop covers HUD rows 300..503. The panel's bottom outline ends at row 201 (HUD 501), and the
-// rows under it are the lower panel's background.
+// The backdrop covers HUD rows 300..503. The panel's bottom outline ends at row 199 (HUD 499), and
+// rows 500..503 are the lower panel's background.
 inline constexpr int inventory_backdrop_height = 204;
 
 struct InventoryTabSlot {

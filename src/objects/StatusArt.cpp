@@ -54,7 +54,8 @@ double plus_minus(std::uint64_t seed, std::uint64_t salt, double range) {
 }
 
 StatusArt::Label StatusArt::label(std::string key, std::string_view text, int size,
-                                  std::uint32_t color, unsigned strength, double blur) {
+                                  std::uint32_t color, unsigned strength, double blur,
+                                  bool outline) {
   if (!text_) {
     return {};
   }
@@ -63,7 +64,8 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
     lru_.splice(lru_.begin(), lru_, it->second.lru);
     return it->second.label;
   }
-  const auto bitmap = fonts_.rasterize_glow(text, size, true, color, strength, blur);
+  const auto bitmap = outline ? fonts_.rasterize(text, size, true, TextEffect::outline, color)
+                              : fonts_.rasterize_glow(text, size, true, color, strength, blur);
   Label result{std::make_shared<const Image>(bitmap.image), bitmap.width, bitmap.height,
                bitmap.offset};
   const std::size_t bytes = result.image->pixels.size();
@@ -82,12 +84,13 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
 
 StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t color) {
   color &= 0xffffffU;
-  // CharacterStatusText: GlowFilter(0,1,4,4,2,1), blur 4 and strength 2.
-  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2, 4);
+  // CharacterStatusText: the black outline in place of its GlowFilter(0,1,4,4,2,1).
+  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 0, 0, true);
 }
 
 StatusArt::Label StatusArt::name(std::string_view text) {
-  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2);
+  // GameObject.drawName: the black outline in place of its GlowFilter(0,1,3,3,2,1).
+  return label("n:" + std::string(text), text, 16, 0xffffffU, 0, 0, true);
 }
 
 StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size) {

@@ -15,14 +15,14 @@ int HudInput::potion_at(Vec2 p, int selected) {
     if (x >= 13 && x < 59 && y >= -11 && y < 24) {
       return i;
     }
-    if (x < 0 || x >= 84 || y < 0 || y >= 24) {
+    if (x < 0 || x >= potion_slot_width || y < 0 || y >= 24) {
       continue;
     }
-    // PotionInventoryView cuts: left [1,0,0,1], right [0,1,1,0].
-    if (i == 0 && (x + y < 4 || x + 24 - y < 4)) {
+    // PotionInventoryView cuts: left [1,0,0,1], right [0,1,1,0], six pixels to match the art.
+    if (i == 0 && (x + y < 6 || x + 24 - y < 6)) {
       continue;
     }
-    if (i == 1 && (84 - x + y < 4 || 108 - x - y < 4)) {
+    if (i == 1 && (potion_slot_width - x + y < 6 || potion_slot_width + 24 - x - y < 6)) {
       continue;
     }
     return i;
@@ -46,34 +46,47 @@ int HudInput::slot_at(Vec2 p, int selected, bool container) {
     return -1;
   }
   const bool equipment = p.y >= equipment_row_y && p.y < equipment_row_y + 40;
-  const bool lower = container && p.y >= container_y && p.y < container_y + 84;
-  if (!equipment && !lower &&
-      (selected == 1 || p.y < inventory_grid_y || p.y >= inventory_grid_y + 84)) {
+  const bool lower = container && p.y >= container_y &&
+                     p.y < container_y + inventory_pitch + inventory_tile_size;
+  // The inventory grid and the loot container use inventory_tile_size (42 px) tiles on an
+  // inventory_pitch step: the grid starts at (inventory_grid_x, inventory_grid_y) and the container
+  // at x 14. The equipment row keeps 40 px tiles on a 44 px step from x 14.
+  const bool grid = !equipment && !lower;
+  if (grid && (selected == 1 || p.y < inventory_grid_y ||
+               p.y >= inventory_grid_y + inventory_pitch + inventory_tile_size)) {
     return -1;
   }
-  if (p.x < 14 || p.x >= 186) {
+  const int tile = equipment ? 40 : inventory_tile_size;
+  const int left = grid ? inventory_grid_x : 14;
+  const int pitch = grid ? inventory_pitch : 44;
+  const int right = left + 3 * pitch + tile;
+  if (p.x < left || p.x >= right) {
     return -1;
   }
   const int top = equipment ? equipment_row_y : lower ? container_y : inventory_grid_y;
-  const int col = static_cast<int>((p.x - 14) / 44);
-  const int row = equipment ? 0 : static_cast<int>((p.y - top) / 44);
-  const double x = p.x - 14 - 44 * col;
-  const double y = p.y - top - 44 * row;
-  if (x >= 40 || y >= 40) {
+  const int col = static_cast<int>((p.x - left) / pitch);
+  const int row = equipment ? 0 : static_cast<int>((p.y - top) / pitch);
+  const double x = p.x - left - pitch * col;
+  const double y = p.y - top - pitch * row;
+  if (x >= tile || y >= tile) {
     return -1;
   }
-  // Cut corners follow ItemGrid.CutsByNum at the same four-pixel radius.
-  if (col == 0 && ((row == 0 && x + y < 4) || ((equipment || row == 1) && x + 40 - y < 4))) {
+  // Cut corners follow ItemGrid.CutsByNum and match the drawn tiles: the inventory and container
+  // tiles are cut 6 px, and the equipped tiles are cut 4 px.
+  const int cut = equipment ? 4 : 6;
+  if (col == 0 &&
+      ((row == 0 && x + y < cut) || ((equipment || row == 1) && x + tile - y < cut))) {
     return -1;
   }
-  if (col == 3 && ((row == 0 && 40 - x + y < 4) || ((equipment || row == 1) && 80 - x - y < 4))) {
+  if (col == 3 &&
+      ((row == 0 && tile - x + y < cut) || ((equipment || row == 1) && 2 * tile - x - y < cut))) {
     return -1;
   }
   return equipment ? col : (lower ? container_slot : selected == 2 ? 12 : 4) + row * 4 + col;
 }
 
 int HudInput::tab_at(Vec2 point, bool backpack) {
-  // The same layout as the art (inventory_tab_rect): backdrop rows 56..77, shifted to HUD y.
+  // The same layout as the art (inventory_tab_rect): backdrop rows 56..79, shifted to HUD y.
   if (point.y < inventory_panel_y + inventory_tab_top ||
       point.y >= inventory_panel_y + inventory_tab_bottom) {
     return -1;

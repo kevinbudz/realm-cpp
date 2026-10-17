@@ -392,11 +392,34 @@ bool GuildMembers::update(const FontBook& fonts, double width, double height, do
   }
   const double logical_width = width / scale_;
   const double x = (logical_width - 800) / 2;
-  image_ = ui_image(logical_width, 600, scale_);
+  // Same size as ui_image would allocate; cleared in place so each rebuild reuses the buffer.
+  if (image_.pixel_scale == scale_ &&
+      image_.width == static_cast<int>(std::ceil(logical_width * scale_)) &&
+      image_.height == static_cast<int>(std::ceil(600 * scale_))) {
+    std::fill(image_.pixels.begin(), image_.pixels.end(), 0);
+  } else {
+    image_ = ui_image(logical_width, 600, scale_);
+  }
   ui_menu_backdrop(image_, logical_width);
+  if (texts_scale_ != fonts.pixel_scale()) {
+    texts_.clear();
+    texts_scale_ = fonts.pixel_scale();
+  }
+  // Rasterized once per text and style, so scrolling only redraws rows that enter the view.
+  std::map<std::tuple<std::string, int, bool, std::uint32_t>, TextBitmap> texts;
   const auto text = [&](std::string_view value, int size, bool bold, std::uint32_t color, double px,
                         double py, double align = 0, bool clip = false) {
-    const auto bitmap = fonts.rasterize(value, size, bold, true, color);
+    const auto key = std::make_tuple(std::string(value), size, bold, color);
+    auto found = texts.find(key);
+    if (found == texts.end()) {
+      auto previous = texts_.find(key);
+      found = texts
+                  .emplace(key, previous != texts_.end()
+                                    ? std::move(previous->second)
+                                    : fonts.rasterize(value, size, bold, true, color))
+                  .first;
+    }
+    const auto& bitmap = found->second;
     ui_blit_text(image_, bitmap, x + px - align * bitmap.width + bitmap.offset.x,
                  py + bitmap.offset.y, false, true, 1, clip ? x + 10 : 0, clip ? 110 : 0,
                  clip ? 756 : logical_width, clip ? 430 : 600);
@@ -490,6 +513,7 @@ bool GuildMembers::update(const FontBook& fonts, double width, double height, do
       }
     }
   }
+  texts_ = std::move(texts);
   dirty_ = false;
   return true;
 }

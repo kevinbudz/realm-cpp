@@ -1,5 +1,7 @@
 #include "realm/hud/CreditDisplay.hpp"
+#include "realm/assets/VectorArt.hpp"
 #include <algorithm>
+#include <stdexcept>
 
 namespace realm {
 namespace {
@@ -17,7 +19,7 @@ void premultiplied_to_straight(Image& image) {
 }
 
 CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& art, int credits,
-                                         int fame) {
+                                         int fame, bool fame_button, bool fame_hover) {
   constexpr int font_size = 18;
   const auto& coin = art.image("skincreditcoin");
   const auto& fame_icon = art.image("skinfame");
@@ -33,7 +35,14 @@ CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& ar
   const double credits_x = coin_x - credits_text.width + 8;
   const double fame_icon_x = credits_x - fame_icon.width;
   const double fame_text_x = fame_icon_x - fame_text.width + 8;
-  const double left = std::min(fame_text_x + fame_text.offset.x, credits_x + credits_text.offset.x);
+  // _fameButton.x = fameIcon.x - fameText.width - 16, which is 24 left of fameText.x; y = 7.
+  constexpr double button_size = 23;
+  constexpr double button_y = 7;
+  const double button_x = fame_text_x - 24;
+  double left = std::min(fame_text_x + fame_text.offset.x, credits_x + credits_text.offset.x);
+  if (fame_button) {
+    left = std::min(left, button_x);
+  }
   const double width = -left;
   const double height = coin.height;
 
@@ -41,6 +50,24 @@ CreditDisplayImage render_credit_display(const FontBook& fonts, const HudArt& ar
   result.image = ui_image(width, height, fonts.pixel_scale());
   result.origin_offset = {left, 0};
   result.layout_bounds = {fame_text_x, 0, -fame_text_x, height};
+  if (fame_button) {
+    result.fame_button = {button_x, button_y, button_size, button_size};
+    static const auto drawing = [] {
+      const auto* source = vector_art::embedded_deca_svg("tab_info_button.svg");
+      if (!source) {
+        throw std::logic_error("Missing Deca UI art: tab_info_button");
+      }
+      return vector_art::parse(*source);
+    }();
+    vector_art::Options options;
+    if (fame_hover) {
+      options.tint = std::pair{0x00ffffU, 0.1};
+    }
+    const double scale = fonts.pixel_scale();
+    auto button = vector_art::render(drawing, button_size, button_size, scale, options);
+    button.pixel_scale = scale;
+    ui_blit(result.image, button, width + button_x, button_y, true, true);
+  }
 
   ui_blit(result.image, fame_icon, width + fame_icon_x, 0, true, true);
   ui_blit_text(result.image, fame_text, width + fame_text_x + fame_text.offset.x,

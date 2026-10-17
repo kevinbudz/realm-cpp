@@ -1,0 +1,37 @@
+<rml>
+  <head>
+    <title>fame overview</title>
+    <link type="text/rcss" href="flash.rcss" />
+    <link type="text/rcss" href="text.rcss" />
+    <link type="text/rcss" href="deca.rcss" />
+    <link type="text/rcss" href="fame.rcss" />
+  </head>
+  <body>
+    <div id="scrim"></div>
+    <div id="popup">
+      <div id="background" class="deca-popup"></div>
+      <div id="title" class="deca-modal-title"><div id="title-text" class="t14b">Fame Overview</div></div>
+      <div id="info" class="deca-info-button" data-tip="info"></div>
+      <div id="close" class="deca-close-button" data-action="close"></div>
+      <div id="content">
+        <div id="portrait-frame" class="deca-inset-decorated"></div>
+        <native-image id="portrait"></native-image>
+        <div id="name" class="t18b"></div>
+        <div id="level" class="t12b"></div>
+        <div id="created" class="t12b"></div>
+        <div id="base-fame"><span id="base-value" class="t22b"></span><img class="fame-icon" src="art:currency1" /></div>
+        <div id="tab-inset" class="deca-tab-inset"></div>
+        <div id="content-inset" class="deca-inset"></div>
+        <div id="tabs">
+          <div class="deca-tab borderless open t14b" data-action="tab" data-index="0">Statistics</div>
+          <div class="deca-tab borderless t14b" data-action="tab" data-index="1">Dungeons</div>
+        </div>
+        <div id="lines" class="deca-scroll"></div>
+        <div id="status" class="t14b"></div>
+        <div id="death-label" class="t18b">Fame on Death:</div>
+        <div id="death-fame"><span id="death-value" class="t18b"></span><img class="fame-icon" src="art:currency1" /></div>
+      </div>
+      <div id="tooltip"><div id="tip-title" class="t14b"></div><div id="tip-body" class="t13"></div></div>
+    </div>
+  </body>
+</rml>

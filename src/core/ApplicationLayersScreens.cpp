@@ -2,6 +2,70 @@
 
 namespace realm::application {
 
+// CreditDisplay's Nexus fame button (_fameButton): hover tints it, a click opens
+// FameContentPopup for the current character.
+void configure_fame_button_layer(ClientState& cs, ClientLayers& layers) {
+  auto& layer = layers.fame_button_layer;
+  const auto inside = [&](realm::Vec2 p) {
+    const auto& r = cs.fame_button_rect;
+    return cs.fame_button_shown && r.width > 0 && p.x >= r.x && p.x < r.x + r.width && p.y >= r.y &&
+           p.y < r.y + r.height;
+  };
+  layer.is_active = [&] { return cs.fame_popup && cs.fame_button_shown && cs.game_session; };
+  layer.is_covering = inside;
+  layer.on_cancel = [&] { cs.fame_button_hover = false; };
+  layer.on_reset = [&](UiReset) { cs.fame_button_hover = false; };
+  layer.on_event = [&, inside](const UiEvent& e) -> UiResult {
+    if (window_left(e)) {
+      cs.fame_button_hover = false;
+      return UiResult::pass;
+    }
+    if (e.kind == UiKind::pointer_move) {
+      cs.fame_button_hover = inside(e.point);
+      return UiResult::pass;
+    }
+    if (!left_button(e) || !inside(e.point)) {
+      return UiResult::pass;
+    }
+    if (e.kind == UiKind::pointer_down) {
+      return UiResult::capture;
+    }
+    cs.fame_button_hover = false;
+    cs.fame_popup->open(cs.app_host, cs.o.app_port, cs.game_session->credentials(),
+                        cs.game_session->character_id());
+    return UiResult::consumed;
+  };
+}
+
+// FameContentPopup is modal: the RmlUi host takes its pointer and wheel events, Escape closes it.
+void configure_fame_layer(ClientState& cs, ClientLayers& layers) {
+  auto& layer = layers.fame_layer;
+  layer.is_active = [&] { return cs.fame_popup && cs.fame_popup->visible(); };
+  layer.is_modal = [] { return true; };
+  layer.on_cancel = [&] {
+    if (cs.production_ui) {
+      cs.production_ui->host().layer().cancel();
+    }
+  };
+  layer.on_reset = [&](UiReset) {
+    if (cs.fame_popup) {
+      cs.fame_popup->close();
+    }
+  };
+  layer.on_event = [&](const UiEvent& e) -> UiResult {
+    if (e.kind == UiKind::key_down) {
+      if (!e.repeat &&
+          realm::sdl_keys::flash_code(static_cast<SDL_Keycode>(e.key)) == realm::key_escape) {
+        cs.fame_popup->close();
+      }
+    } else if (e.kind != UiKind::key_up && e.kind != UiKind::text &&
+               e.kind != UiKind::composition && e.kind != UiKind::resized && cs.production_ui) {
+      cs.production_ui->host().layer().handle(e);
+    }
+    return UiResult::consumed;
+  };
+}
+
 void configure_skins_layer(ClientState& cs, ClientLayers& layers) {
   auto& skins_layer = layers.skins_layer;
   skins_layer.is_active = [&] { return cs.skins && cs.skins->visible(); };

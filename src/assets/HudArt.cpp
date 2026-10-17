@@ -1406,6 +1406,30 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     }
     return assets.redraw(assets.sprite("lofiObj3", key == "skinfame" ? 224 : 225), 40, true);
   }
+  // FameContentPopup: StatsLine's locked-bonus padlock (lofiInterface2 5 resized to 36 with
+  // Tint.add(0x982722, 1)) and DungeonLine's portal texture (TextureRedrawer.redraw to 40).
+  if (key == "famelock") {
+    if (dry) {
+      return Image{};
+    }
+    auto image = assets.redraw(assets.sprite("lofiInterface2", 5), 36, true, false);
+    for (std::size_t i = 0; i + 3 < image.pixels.size(); i += 4) {
+      const unsigned alpha = image.pixels[i + 3];
+      image.pixels[i] = static_cast<unsigned char>(0x98 * alpha / 255);
+      image.pixels[i + 1] = static_cast<unsigned char>(0x27 * alpha / 255);
+      image.pixels[i + 2] = static_cast<unsigned char>(0x22 * alpha / 255);
+    }
+    return image;
+  }
+  if (keyed(key, "fameportal", 1, 65535, value)) {
+    if (!object(value)) {
+      return std::nullopt;
+    }
+    if (dry) {
+      return Image{};
+    }
+    return assets.object_texture(value, 40, true);
+  }
   if (key == "famebackground") {
     if (dry) {
       return Image{};

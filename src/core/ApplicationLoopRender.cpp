@@ -342,15 +342,28 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
       if (cs.hud_art) {
         const int credits = player->profile.stats.value_or(realm::flash::StatId::CREDITS_STAT, 0);
         const int fame = player->profile.stats.value_or(realm::flash::StatId::FAME_STAT, 0);
+        // CreditDisplayMediator adds the resource buttons only in the Nexus.
+        const bool fame_button = cs.fame_popup && cs.game_session &&
+                                 cs.game_session->map_info().name == "Nexus";
+        const bool fame_hover = fame_button && cs.fame_button_hover;
         if (credits != cs.displayed_credits || fame != cs.displayed_fame ||
-            cs.credit_density != ui_scale) {
-          cs.credit_image = realm::render_credit_display(cs.fonts, *cs.hud_art, credits, fame);
+            cs.credit_density != ui_scale || fame_button != cs.fame_button_shown ||
+            fame_hover != cs.credit_hover_drawn) {
+          cs.credit_image = realm::render_credit_display(cs.fonts, *cs.hud_art, credits, fame,
+                                                         fame_button, fame_hover);
+          cs.fame_button_shown = fame_button;
+          cs.credit_hover_drawn = fame_hover;
           cs.credit_texture.update(cs.credit_image.image);
           cs.displayed_credits = credits;
           cs.displayed_fame = fame;
           cs.credit_density = ui_scale;
         }
 
+        const auto& button = cs.credit_image.fame_button;
+        cs.fame_button_rect = fame_button ? realm::Rect{width - 206 * ui_scale + button.x * ui_scale,
+                                                        button.y * ui_scale, button.width * ui_scale,
+                                                        button.height * ui_scale}
+                                          : realm::Rect{};
         overlay_storage[overlay.size()] = cs.credit_texture.quad(
             {width - 206 * ui_scale + cs.credit_image.origin_offset.x * ui_scale,
              cs.credit_image.origin_offset.y * ui_scale},

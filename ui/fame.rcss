@@ -1,0 +1,74 @@
+/* FameContentPopup (io/decagames/rotmg/fame): a 340 x 505 ModalPopup with Flash's positions in dp. The popup's
+   content box sits at (11, 48): the 362 dp wide popup_background_simple starts 22 dp down (half the 47 dp
+   modal_header_title, less one), and the content begins 26 dp below that.
+
+   Colours (DefaultLabelFormat and the fame lines):
+     title      #eaeaea   popup title, active tab, "Fame on Death:"; inactive tab #616161
+     detail     #8c8c8c   level and creation lines; line labels #8a8a8a
+     fame       #ffbe44   the base fame number; fame on death and bonus values #ffc800
+     stat       #549a2e   a non-zero statistic
+     row        #1e1e1e   every other line's cut-edge background
+     tooltip    #363636   TextToolTip fill, border #9b9b9b
+     shadow     DropShadow01 (#034000 at 0.6) on the title and name, as close as the host's shadow effect allows */
+
+body{z-index:110;background-color:transparent}
+#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#000000cc}
+#popup{position:absolute;left:50%;top:50%;width:362dp;height:564dp;margin-left:-181dp;margin-top:-282dp}
+#popup div,#popup native-image,#popup img{position:absolute}
+
+#background{left:0;top:22dp;width:362dp;height:542dp}
+#title{left:9dp;top:0;width:344dp}
+#title-text{left:0;top:0;width:100%;height:47dp;line-height:47dp;text-align:center;color:#eaeaea;
+    font-effect:shadow(0px 0px #034000)}
+#info{left:12dp;top:5dp}
+#close{left:312dp;top:5dp}
+
+#content{left:11dp;top:48dp;width:340dp;height:505dp}
+#portrait-frame{left:0;top:5dp;width:69dp;height:80dp}
+#name{left:75dp;top:8dp;color:#ffffff;white-space:nowrap;font-effect:shadow(0px 0px #034000)}
+#level,#created{left:75dp;color:#8c8c8c;white-space:nowrap}
+#level{top:30dp}
+#created{top:42dp}
+#base-fame{left:75dp;top:60dp;white-space:nowrap;color:#ffbe44}
+#popup #base-fame span,#popup #death-fame span{position:static;display:inline-block}
+#popup .fame-icon{position:static;display:inline-block;width:20dp;height:20dp;margin-left:3dp;vertical-align:middle}
+
+#tab-inset{left:0;top:90dp;width:340dp;height:45dp}
+#content-inset{left:0;top:125dp;width:340dp;height:353dp}
+#tabs{left:0;top:91dp;width:340dp;height:36dp}
+#tabs .deca-tab{width:165dp;top:3dp;line-height:33dp;text-align:center;decorator:none}
+#tabs .deca-tab:first-child{left:3dp}
+#tabs .deca-tab:last-child{left:171dp}
+#tabs .deca-tab.open{top:0;height:36dp;line-height:36dp;decorator:paint(deca tab_button_borderless)}
+
+/* The tab's 340 x 342 mask at (0, 127); the 17 dp UIScrollbar's left edge lands at x = 315 as in Flash. */
+#lines{left:0;top:127dp;width:332dp;height:342dp;overflow-y:auto}
+#popup #lines div{position:static}
+#status{left:0;top:280dp;width:340dp;text-align:center;color:#8a8a8a}
+
+#death-label{left:0;top:485dp;color:#eaeaea}
+#death-fame{left:0;top:485dp;width:333dp;text-align:right;color:#ffc800;white-space:nowrap}
+
+/* StatsLine (22 dp pitch, 306 x 20 rows) and DungeonLine (27 dp pitch, 306 x 25 rows), six dp in. */
+#popup #lines .line{position:relative;display:block;margin-left:6dp;width:306dp;height:22dp}
+#popup #lines .line.dungeon{height:27dp}
+#popup #lines .line.title{height:22dp}
+#popup #lines .dungeon-title{height:22dp}
+#popup #lines .line.odd .row{position:absolute;left:0;top:0;width:306dp;height:20dp;
+    decorator:paint(cut-rect 0x1e1e1e none 5)}
+#popup #lines .line.dungeon.odd .row{height:25dp}
+#popup #lines .label{position:absolute;left:2dp;top:2dp;color:#8a8a8a;white-space:nowrap}
+#popup #lines .line.dungeon .label{left:24dp;top:4dp}
+#popup #lines .line.title .label{color:#ffffff}
+#popup #lines .value{position:absolute;right:4dp;top:2dp;color:#549a2e;white-space:nowrap}
+#popup #lines .line.dungeon .value{top:4dp}
+#popup #lines .value.bonus{color:#ffc800}
+#popup #lines .value.zero{color:#8a8a8a}
+#popup #lines native-image,#popup #lines img{position:absolute}
+#popup #lines .lock{left:275dp;top:-8dp}
+
+/* TextToolTip(0x363636, 0x9B9B9B, title, body, 200): placed beside the pointer by FameContentPopup. */
+#tooltip{display:none;width:200dp;padding:6dp 8dp;background-color:#363636;border:2dp #9b9b9b;z-index:5}
+#popup #tooltip div{position:static;display:block}
+#tip-title{color:#ffffff}
+#tip-body{color:#b3b3b3}

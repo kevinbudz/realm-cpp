@@ -26,6 +26,7 @@ inline bool window_left(const UiEvent& e) {
 // it through a unique_ptr.
 struct ClientLayers {
   realm::ui::FunctionLayer hud_layer{"hud"};
+  realm::ui::FunctionLayer fame_button_layer{"fame-button"};
   realm::ui::FunctionLayer minimap_layer{"minimap"};
   realm::ui::FunctionLayer trade_layer{"trade"};
   realm::ui::FunctionLayer arrows_layer{"party-arrows"};
@@ -35,6 +36,7 @@ struct ClientLayers {
   realm::ui::FunctionLayer interaction_layer{"interaction"};
   realm::ui::FunctionLayer board_layer{"guild-board"};
   realm::ui::FunctionLayer members_layer{"guild-members"};
+  realm::ui::FunctionLayer fame_layer{"fame"};
   realm::ui::FunctionLayer skins_layer{"skins"};
   realm::ui::FunctionLayer options_layer{"options"};
   realm::ui::FunctionLayer dialog_layer{"dialog"};
@@ -62,6 +64,8 @@ void configure_interaction_layer(ClientState& cs, ClientLayers& layers);
 void configure_board_layer(ClientState& cs, ClientLayers& layers);
 void configure_members_layer(ClientState& cs, ClientLayers& layers);
 // ApplicationLayersScreens.cpp
+void configure_fame_button_layer(ClientState& cs, ClientLayers& layers);
+void configure_fame_layer(ClientState& cs, ClientLayers& layers);
 void configure_skins_layer(ClientState& cs, ClientLayers& layers);
 void configure_options_layer(ClientState& cs, ClientLayers& layers);
 void configure_dialog_layer(ClientState& cs, ClientLayers& layers);

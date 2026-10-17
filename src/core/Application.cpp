@@ -76,6 +76,9 @@ int run(int argc, char** argv) {
     configure_hud_layer(cs, *layers);
     cs.ui_stack.add(layers->hud_layer);
 
+    configure_fame_button_layer(cs, *layers);
+    cs.ui_stack.add(layers->fame_button_layer);
+
     configure_minimap_layer(cs, *layers);
     cs.ui_stack.add(layers->minimap_layer);
 
@@ -102,6 +105,9 @@ int run(int argc, char** argv) {
 
     configure_members_layer(cs, *layers);
     cs.ui_stack.add(layers->members_layer);
+
+    configure_fame_layer(cs, *layers);
+    cs.ui_stack.add(layers->fame_layer);
 
     configure_skins_layer(cs, *layers);
     cs.ui_stack.add(layers->skins_layer);

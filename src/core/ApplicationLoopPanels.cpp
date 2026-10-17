@@ -146,6 +146,9 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
   if (cs.options_screen) {
     cs.options_screen->update(!menus);
   }
+  if (cs.fame_popup) {
+    cs.fame_popup->update(!menus);
+  }
 
   if (options.world && !menus) {
     if (const auto quad = cs.perf_quad(height)) {

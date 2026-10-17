@@ -279,6 +279,7 @@ Types whose AS3 class has a different name:
 | `PlayerTooltip` (`ui/tooltip/PlayerTooltip`) | `PlayerToolTip` |
 | `SavedCharacterTooltipImage` (`ui/tooltip/SavedCharacterTooltip`) | `MyPlayerToolTip` |
 | `SkinChooser` (`ui/SkinChooser`) | `CharacterSkinListView` |
+| `CharacterFameStats` (`appengine/CharacterFameStats`) | `FameTracker` |
 | `Trade`, `TradeView` (`ui/Trade`) | `TradePanel` |
 | `OptionsMenu` (`ui/options/OptionsMenu`) | `Options` |
 | `OptionsScreen` (`ui/options/OptionsScreen`) | `Options` |

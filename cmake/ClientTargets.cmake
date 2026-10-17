@@ -66,7 +66,7 @@ if(REALM_AUDIO)
 endif()
 realm_library(realm_game src/mapeditor/MapDocument.cpp src/tutorial/Tutorial.cpp src/game/IdleWatcher.cpp src/objects/Catalog.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
     src/map/WorldSoundEvents.cpp src/map/World.cpp src/map/Quest.cpp src/messaging/Session.cpp src/objects/Movement.cpp
-    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/appengine/CharacterFame.cpp src/appengine/Legend.cpp src/appengine/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
+    src/objects/Combat.cpp src/game/Inventory.cpp src/objects/Party.cpp src/appengine/SavedCharactersList.cpp src/appengine/CharacterFame.cpp src/appengine/CharacterFameStats.cpp src/appengine/Legend.cpp src/appengine/GuildMemberList.cpp src/parameters/Settings.cpp src/map/PostEffects.cpp)
 target_link_libraries(realm_game PUBLIC realm_network PRIVATE LibXml2::LibXml2 ZLIB::ZLIB nlohmann_json::nlohmann_json)
 # The Deca UI vector art (ui/deca/*.svg) is embedded in the headless assets library: HudArt draws the HUD buttons from it,
 # and the RmlUi host's deca painter reads the same copy through vector_art::embedded_deca_svg.
@@ -124,7 +124,7 @@ if(REALM_BUILD_VIEWER)
     target_include_directories(realm_ui_rmlui SYSTEM PRIVATE "${RMLUI_BACKENDS_DIR}")
     target_compile_definitions(realm_ui_rmlui PRIVATE RMLUI_GL3_CUSTOM_LOADER=<GL/glew.h> RMLUI_SDL_VERSION_MAJOR=2)
     set_source_files_properties(${REALM_RMLUI_BACKENDS} PROPERTIES COMPILE_OPTIONS -w)
-    realm_library(realm_ui_views src/lib/ui/RetainedUi.cpp src/screens/StartupRml.cpp src/ui/options/OptionsScreen.cpp)
+    realm_library(realm_ui_views src/lib/ui/RetainedUi.cpp src/screens/StartupRml.cpp src/ui/options/OptionsScreen.cpp src/fame/FameContentPopup.cpp)
     target_link_libraries(realm_ui_views PUBLIC realm_ui_rmlui realm_startup realm_render PRIVATE RmlUi::Core SDL2::SDL2)
     realm_library(realm_application src/core/Application.cpp src/core/ApplicationState.cpp src/core/ApplicationLayersHud.cpp src/core/ApplicationLayersSocial.cpp src/core/ApplicationLayersScreens.cpp src/core/ApplicationLoop.cpp src/core/ApplicationLoopInput.cpp src/core/ApplicationLoopUpdate.cpp src/core/ApplicationLoopRender.cpp src/core/ApplicationLoopPanels.cpp src/core/ApplicationOptions.cpp src/core/ApplicationScript.cpp src/core/ApplicationFixtures.cpp src/core/ApplicationAudio.cpp)
     target_link_libraries(realm_application PRIVATE realm_startup realm_ui_views realm_platform_sdl realm_fixtures realm_ui_gpu)

@@ -28,6 +28,7 @@
 #include "realm/hud/KeysView.hpp"
 #include "realm/ui/options/OptionsMenu.hpp"
 #include "realm/ui/options/OptionsScreen.hpp"
+#include "realm/fame/FameContentPopup.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
 #include "realm/map/partyoverlay/QuestArrow.hpp"
 #include "realm/ui/menu/PlayerGroup.hpp"
@@ -147,6 +148,11 @@ struct ClientState {
   int displayed_credits = -1;
   int displayed_fame = -1;
   double credit_density{};
+  // The Nexus fame button in drawable pixels (empty outside the Nexus) and its hover state.
+  realm::Rect fame_button_rect{};
+  bool fame_button_shown{};
+  bool fame_button_hover{};
+  bool credit_hover_drawn{};
   realm::SafeAreaDisplayImage safe_area_image;
   realm::ui::RetainedSurface safe_area_texture;
   std::string displayed_guild;
@@ -212,6 +218,8 @@ struct ClientState {
   realm::OptionsMenu options_menu;
   // The Settings screen over options_menu; null without the RmlUi host.
   std::unique_ptr<realm::OptionsScreen> options_screen;
+  // FameContentPopup, opened from the CreditDisplay fame button; null without the RmlUi host.
+  std::unique_ptr<realm::FameContentPopup> fame_popup;
   // A slider drag changes values on every move; they are saved once the pointer lets go.
   bool options_unsaved{};
   realm::platform::CursorSet cursors;

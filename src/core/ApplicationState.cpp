@@ -212,6 +212,9 @@ ClientState::ClientState(Options options)
       options_screen(production_ui ? std::make_unique<realm::OptionsScreen>(options_menu,
                                                                             production_ui->host())
                                    : nullptr),
+      fame_popup(production_ui && hud_art ? std::make_unique<realm::FameContentPopup>(
+                                               production_ui->host(), catalog, *hud_art)
+                                         : nullptr),
       cursors(make_cursor_set(o.root)),
       members(hud_art ? *hud_art : members_art),
 

@@ -13,6 +13,18 @@ inline long round_up(double value) noexcept {
   const auto whole = static_cast<long>(value);
   return value - static_cast<double>(whole) >= .5 ? whole + 1 : whole;
 }
+
+// v / 255.0 for every byte v, computed once (the same division the per-pixel code performs).
+const std::array<double, 256>& unit_alpha() {
+  static const std::array<double, 256> table = [] {
+    std::array<double, 256> values{};
+    for (std::size_t v = 0; v < values.size(); ++v) {
+      values[v] = static_cast<double>(v) / 255.0;
+    }
+    return values;
+  }();
+  return table;
+}
 }
 
 std::array<std::uint32_t, 2> world_dyes(const World& world, const Entity& entity) {
@@ -376,6 +388,8 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   static thread_local std::vector<double> row_weights;
   spans(w, input->width, input->width, column_spans, column_weights, sharp);
   spans(h, input->height, input->height, row_spans, row_weights, sharp);
+  const auto& unit = unit_alpha();
+  const unsigned char* const pixels = input->pixels.data();
   for (int y = 0; y < h; ++y) {
     const auto& ry = row_spans[static_cast<std::size_t>(y)];
     const int subtract =
@@ -387,15 +401,19 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
       for (int sy = ry.first; sy < ry.last; ++sy) {
         const double wy = row_weights[ry.offset + static_cast<std::size_t>(sy - ry.first)];
         for (int sx = rx.first; sx < rx.last; ++sx) {
+          const auto src = static_cast<std::size_t>((sy * input->width + sx) * 4);
+          const unsigned char a = pixels[src + 3];
+          // A transparent texel adds +0 to every channel, so it is skipped.
+          if (!a) {
+            continue;
+          }
           const double weight =
               column_weights[rx.offset + static_cast<std::size_t>(sx - rx.first)] * wy / area;
-          const auto src = static_cast<std::size_t>((sy * input->width + sx) * 4);
-          const double alpha = input->pixels[src + 3] / 255.0;
+          const double alpha = unit[a];
           for (int channel = 0; channel < 3; ++channel) {
-            channels[channel] +=
-                input->pixels[src + static_cast<std::size_t>(channel)] * alpha * weight;
+            channels[channel] += pixels[src + static_cast<std::size_t>(channel)] * alpha * weight;
           }
-          channels[3] += input->pixels[src + 3] * weight;
+          channels[3] += a * weight;
         }
       }
       const auto dst = static_cast<std::size_t>(((y + margin) * result.width + x + margin) * 4);
@@ -481,7 +499,7 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   }
   for (std::size_t i = 0; i < count; ++i) {
     const auto dst = i * 4;
-    const double alpha = alpha_plane[i] / 255.0;
+    const double alpha = unit[alpha_plane[i]];
     const double backdrop = std::max(outline_plane[i] * .8, glow ? halo[i] * .6 : 0) / 255.0;
     const double output = alpha + backdrop * (1 - alpha);
     result.pixels[dst + 3] = static_cast<unsigned char>(std::min(round_up(output * 255), 255L));

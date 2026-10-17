@@ -746,6 +746,28 @@ void World::load_jm_text(std::string_view source, int wrap_border) {
   net::Reader reader(data);
   std::int32_t fake_id = 2130706432;
   bool spawned{};
+  // A dictionary entry resolves once, at its first cell: its ids are looked up once, and its
+  // unresolved ids are reported once, at first use, as before.
+  struct Resolved {
+    bool ready{};
+    bool has_ground{};
+    const GroundDef* ground{};
+    std::string ground_id;
+    bool ground_reported{};
+    struct Object {
+      const nlohmann::json* json{};
+      const ObjectDef* definition{};
+      std::string id;
+      bool reported{};
+    };
+    std::vector<Object> objects;
+  };
+  std::vector<Resolved> resolved(dictionary.size());
+  const auto report = [&](const std::string& id) {
+    if (std::find(unresolved_.begin(), unresolved_.end(), id) == unresolved_.end()) {
+      unresolved_.push_back(id);
+    }
+  };
   for (int y = 0; y < height_; ++y) {
     for (int source_x = 0; source_x < width; ++source_x) {
       const auto index = reader.i16();
@@ -753,17 +775,32 @@ void World::load_jm_text(std::string_view source, int wrap_border) {
         throw std::runtime_error("JM dictionary index out of range");
       }
       const auto& entry = dictionary[static_cast<std::size_t>(index)];
+      auto& info = resolved[static_cast<std::size_t>(index)];
+      if (!info.ready) {
+        info.ready = true;
+        if (entry.contains("ground")) {
+          info.has_ground = true;
+          info.ground_id = entry["ground"].get<std::string>();
+          info.ground = catalog_.ground(info.ground_id);
+        }
+        if (entry.contains("objs")) {
+          for (const auto& object : entry["objs"]) {
+            auto id = object.at("id").get<std::string>();
+            const auto* definition = catalog_.object(id);
+            info.objects.push_back({&object, definition, std::move(id)});
+          }
+        }
+      }
       // MapBackground writes the map again at its own width, clipped to the border.
       for (int x = source_x; x < width_; x += width) {
         auto* cell = tile(x, y);
-        if (entry.contains("ground")) {
-          const auto id = entry["ground"].get<std::string>();
-          const auto* ground = catalog_.ground(id);
-          if (ground) {
-            cell->type = ground->type;
-            remember_ground(x, y, ground->type);
-          } else if (std::find(unresolved_.begin(), unresolved_.end(), id) == unresolved_.end()) {
-            unresolved_.push_back(id);
+        if (info.has_ground) {
+          if (info.ground) {
+            cell->type = info.ground->type;
+            remember_ground(x, y, info.ground->type);
+          } else if (!info.ground_reported) {
+            info.ground_reported = true;
+            report(info.ground_id);
           }
         }
         if (entry.contains("regions")) {
@@ -774,17 +811,14 @@ void World::load_jm_text(std::string_view source, int wrap_border) {
             }
           }
         }
-        if (entry.contains("objs")) {
-          for (const auto& object : entry["objs"]) {
-            const auto id = object.at("id").get<std::string>();
-            const auto* definition = catalog_.object(id);
-            if (definition) {
-              auto& entity =
-                  add(fake_id++, definition->type, {x + .5, y + .5}, object.value("size", -1));
-              entity.profile.name = object.value("name", std::string{});
-            } else if (std::find(unresolved_.begin(), unresolved_.end(), id) == unresolved_.end()) {
-              unresolved_.push_back(id);
-            }
+        for (auto& object : info.objects) {
+          if (object.definition) {
+            auto& entity = add(fake_id++, object.definition->type, {x + .5, y + .5},
+                               object.json->value("size", -1));
+            entity.profile.name = object.json->value("name", std::string{});
+          } else if (!object.reported) {
+            object.reported = true;
+            report(object.id);
           }
         }
       }

@@ -147,17 +147,6 @@ class Scene {
   void build_terrain(const World& world, const Terrain& terrain, const Camera& camera, Atlas& atlas,
                      Vec2 position, int distance, std::int32_t time, std::vector<Quad>& out);
 
-  // Tiles of one terrain chunk whose ground has a top texture: row-major indices (x + y * map
-  // width), read at `revision`.
-  struct TopChunk {
-    std::uint64_t revision{};
-    bool valid{};
-    std::vector<std::uint32_t> tiles;
-  };
-
-  std::unordered_map<int, TopChunk> top_chunks_;
-  std::vector<std::uint32_t> top_tiles_;
-  [[nodiscard]] const TopChunk& top_chunk(const World& world, int x, int y);
   std::size_t depth_bucket_minimum_{256};
   std::array<std::uint64_t, 5> submitted_{};
 
@@ -259,12 +248,16 @@ class Scene {
   struct TypeEntry {
     const ObjectDef* def{};
     std::uint8_t draw_class{};
+    // model_index of def->model, when the def has a model.
+    std::optional<std::uint32_t> model;
     bool known{};
   };
 
   std::vector<TypeEntry> types_;
   const Catalog* types_catalog_{};
   [[nodiscard]] const TypeEntry& type_entry(const Catalog& catalog, std::uint16_t type);
+  // The first flash of each target, by index into world.particles().flashes(), for this build.
+  std::unordered_map<std::int32_t, std::size_t> flash_index_;
   std::vector<Visible> visible_, visible_scratch_;
 
   struct DrawItem {

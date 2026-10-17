@@ -480,28 +480,12 @@ const Scene::TypeEntry& Scene::type_entry(const Catalog& catalog, std::uint16_t 
     entry.def = catalog.object(type);
     entry.draw_class =
         static_cast<std::uint8_t>(entry.def ? draw_class(entry.def->class_name) : DrawClass::other);
+    if (entry.def && !entry.def->model.empty()) {
+      entry.model = model_index(entry.def->model);
+    }
     entry.known = true;
   }
   return entry;
-}
-
-const Scene::TopChunk& Scene::top_chunk(const World& world, int x, int y) {
-  auto& chunk = top_chunks_[x + y * ((world.width() + 7) / 8)];
-  const auto revision = world.terrain_chunk_revision(x * 8, y * 8);
-  if (!chunk.valid || chunk.revision != revision) {
-    chunk.tiles.clear();
-    for (int ty = y * 8; ty < std::min(world.height(), y * 8 + 8); ++ty) {
-      for (int tx = x * 8; tx < std::min(world.width(), x * 8 + 8); ++tx) {
-        const auto* ground = world.catalog().ground(world.tile(tx, ty)->type);
-        if (ground && (ground->top.sheet >= 0 || ground->top.animated >= 0)) {
-          chunk.tiles.push_back(static_cast<std::uint32_t>(tx + ty * world.width()));
-        }
-      }
-    }
-    chunk.revision = revision;
-    chunk.valid = true;
-  }
-  return chunk;
 }
 
 void Scene::build_terrain(const World& world, const Terrain& terrain, const Camera& camera,
@@ -591,6 +575,13 @@ void Scene::build_terrain(const World& world, const Terrain& terrain, const Came
   // driver overhead.
   if (!ground_buffer_ || ground_bounds_ != bounds || ground_buffer_revision_ != terrain_rebuilds_) {
     std::vector<Quad> instances;
+    std::size_t total = 0;
+    for (int y = y0; y <= y1; ++y) {
+      for (int x = x0; x <= x1; ++x) {
+        total += ground_chunks_.at(x + y * columns).instances.size();
+      }
+    }
+    instances.reserve(total);
     for (int y = y0; y <= y1; ++y) {
       for (int x = x0; x <= x1; ++x) {
         for (const auto& q : ground_chunks_.at(x + y * columns).instances) {
@@ -679,7 +670,6 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   if (appearance_world_ != &world || generation_ != world.generation()) {
     ground_chunks_.clear();
     ground_buffer_.reset();
-    top_chunks_.clear();
     cached_source_ = terrain;
     reset_residency();
     // A map reset drops the working set, so the pages it needed go back too (the residency is
@@ -702,9 +692,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     status_list_.clear();
     status_surface_bytes_ = 0;
     appearance_bytes_ = 0;
-    if (appearances) {
-      appearances->clear();
-    }
+    // The shared compositions are keyed by source art, size and dyes only, so they stay valid on
+    // another map; their budget bounds them.
     generation_ = world.generation();
     appearance_world_ = &world;
   }
@@ -820,23 +809,28 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       });
     }
   }
+  // Each target answers with its first flash in list order, so the index keeps the first entry.
+  flash_index_.clear();
+  const auto flashes = world.particles().flashes();
+  for (std::size_t i = 0; i < flashes.size(); ++i) {
+    flash_index_.emplace(flashes[i].target, i);
+  }
   const auto flash_tint = [&](Quad& q, const Entity& e) {
-    for (const auto& flash : world.particles().flashes()) {
-      if (flash.target == e.id) {
-        const auto age = static_cast<std::int64_t>(time) - flash.born;
-        if (age < 0 || age > static_cast<std::int64_t>(flash.period) * flash.repeats) {
-          break;
-        }
-        const float intensity = static_cast<float>(
-            std::sin(static_cast<double>(age % flash.period) / flash.period * std::numbers::pi) *
-            .5);
-        for (int channel = 0; channel < 3; ++channel) {
-          q.multiply[static_cast<std::size_t>(channel)] *= 1 - intensity;
-          q.offset[static_cast<std::size_t>(channel)] =
-              intensity * static_cast<float>((flash.color >> (16 - 8 * channel)) & 255U) / 255;
-        }
-        break;
-      }
+    const auto found = flash_index_.find(e.id);
+    if (found == flash_index_.end()) {
+      return;
+    }
+    const auto& flash = flashes[found->second];
+    const auto age = static_cast<std::int64_t>(time) - flash.born;
+    if (age < 0 || age > static_cast<std::int64_t>(flash.period) * flash.repeats) {
+      return;
+    }
+    const float intensity = static_cast<float>(
+        std::sin(static_cast<double>(age % flash.period) / flash.period * std::numbers::pi) * .5);
+    for (int channel = 0; channel < 3; ++channel) {
+      q.multiply[static_cast<std::size_t>(channel)] *= 1 - intensity;
+      q.offset[static_cast<std::size_t>(channel)] =
+          intensity * static_cast<float>((flash.color >> (16 - 8 * channel)) & 255U) / 255;
     }
   };
   // Sprite-level condition cues: Stasis greys the texture (PAUSED_FILTER, uv_offset.x flags the
@@ -1074,8 +1068,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         const auto* neighbor =
             world.tile(static_cast<int>(x) + nx[side], static_cast<int>(y) + ny[side]);
         const auto* other = neighbor ? world.entity(neighbor->object_id) : nullptr;
-        const auto* other_def = other ? world.catalog().object(other->type) : nullptr;
-        if (other_def && other_def->class_name == "Wall") {
+        if (other && type_entry(world.catalog(), other->type).draw_class ==
+                         static_cast<std::uint8_t>(DrawClass::wall)) {
           continue;
         }
         const auto a = camera.world_to_screen(corners[side], 1);
@@ -1104,7 +1098,12 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       out.push_back(q);
       return;
     }
-    if (const auto model = d.model.empty() ? std::nullopt : model_index(d.model)) {
+    std::optional<std::uint32_t> model;
+    if (!d.model.empty()) {
+      const auto& type = type_entry(world.catalog(), e.type);
+      model = type.def == &d ? type.model : model_index(d.model);
+    }
+    if (model) {
       // GameObject.draw3d: a registered Model replaces the 2D sprite. The sprite is only
       // its texture; Solid* groups and sprite-less objects use the XML Color.
       const auto& chosen = tex->select(static_cast<std::uint32_t>(e.id));
@@ -1125,8 +1124,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
             const auto* tile = world.tile(static_cast<int>(e.motion.position.x + dx[side]),
                                           static_cast<int>(e.motion.position.y + dy[side]));
             const auto* object = tile ? world.entity(tile->object_id) : nullptr;
-            const auto* object_def = object ? world.catalog().object(object->type) : nullptr;
-            if (object_def && object_def->class_name == "Wall") {
+            if (object && type_entry(world.catalog(), object->type).draw_class ==
+                              static_cast<std::uint8_t>(DrawClass::wall)) {
               found = webs_.emplace(e.id, side ? 90.0 * side : d.rotation).first;
               break;
             }
@@ -1543,35 +1542,22 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   }
   {
     REALM_ZONE("scene.ground_tops");
-    // Tops of the same view rectangle, in its row-major order: sorting the indices of the
-    // overlapping chunks' top tiles gives that order (index = x + y * map width).
+    // Tops of the view rectangle, visited in row-major order (index = x + y * map width) directly.
     const int x0 = std::max(0, cx - distance);
     const int y0 = std::max(0, cy - distance);
     const int x1 = std::min(world.width() - 1, cx + distance);
     const int y1 = std::min(world.height() - 1, cy + distance);
-    const auto map_width = static_cast<std::uint32_t>(world.width());
-    top_tiles_.clear();
-    if (x0 <= x1 && y0 <= y1) {
-      for (int y = y0 / 8; y <= y1 / 8; ++y) {
-        for (int x = x0 / 8; x <= x1 / 8; ++x) {
-          for (const auto index : top_chunk(world, x, y).tiles) {
-            const auto tx = static_cast<int>(index % map_width),
-                       ty = static_cast<int>(index / map_width);
-            if (tx >= x0 && tx <= x1 && ty >= y0 && ty <= y1) {
-              top_tiles_.push_back(index);
-            }
-          }
+    for (int y = y0; y <= y1; ++y) {
+      for (int x = x0; x <= x1; ++x) {
+        const auto* ground = world.catalog().ground(world.tile(x, y)->type);
+        if (!ground || (ground->top.sheet < 0 && ground->top.animated < 0)) {
+          continue;
         }
+        const auto index = static_cast<std::uint32_t>(x + y * world.width());
+        out.push_back(
+            ground_quad(texture(ground->top, index, nullptr, angle, time, atlas, animations),
+                        {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
       }
-      std::sort(top_tiles_.begin(), top_tiles_.end());
-    }
-    for (const auto index : top_tiles_) {
-      const auto x = static_cast<int>(index % map_width);
-      const auto y = static_cast<int>(index / map_width);
-      const auto* ground = world.catalog().ground(world.tile(x, y)->type);
-      out.push_back(
-          ground_quad(texture(ground->top, index, nullptr, angle, time, atlas, animations),
-                      {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
     }
   }
   telemetry::set(telemetry::Counter::atlas_resident_bytes, residency_.used_bytes());

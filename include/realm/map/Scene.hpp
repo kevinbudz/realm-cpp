@@ -248,6 +248,8 @@ class Scene {
   struct TypeEntry {
     const ObjectDef* def{};
     std::uint8_t draw_class{};
+    // model_index of def->model, when the def has a model.
+    std::optional<std::uint32_t> model;
     bool known{};
   };
 

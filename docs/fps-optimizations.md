@@ -32,3 +32,22 @@ Focused validation (CTest names; recorded 2026-10-12, not a full-suite run): `fr
 - A triangle-list run (any run holding a wall) gives every instance `max(6, most corners in the run)` vertices. Shorter walls and sprites in that run carry padded vertices; the counters do not include the padding.
 - A clipped layer (kind 14, the minimap today) clips its walls as well as its sprites.
 - One wall store per submission: quads and overlay together may reference one `WallGeometryStore`. Scene builds a frame's walls into one store and replaces it only at the start of a build; a submission that mixes stores throws.
+
+## 2026-10-17 pass
+
+Every change keeps output identical: 1280×720 captures of nexus-pan, S1-mixed-dense, ui, churn, variety-512 and models-varied-rotating are byte-identical to d409cf3, and the stress summaries match.
+
+- RmlUi's GL3 backend (`third_party/rmlui`, see `VENDORED.md`) clears, resolves and composites only the region its geometry touched, not the whole 2× MSAA layer. A frame with no UI geometry skips the pass entirely. This was the largest fill-rate cost on weak GPUs.
+- All first-party libraries build with release IPO. The max-FPS limiter sleeps instead of busy-spinning. The renderer skips redundant surface binds and unchanged minimap layer uploads.
+- Scene build has no per-frame sort of ground tops. Flash tints, skins, wall classes and model indices are looked up through indices. Appearance compositions survive map changes.
+- Combat caches launch-angle trigonometry. Particles fold their filter rebuilds into existing passes and use an enum for emitter kinds. Chat, guild rows and dyed portraits reuse rasterized bitmaps. Compose hoists per-texel decisions out of its loops.
+- Flash PNGs are decoded once at startup and shared by atlas, terrain, minimap, appearances and animations.
+
+Median CPU ms per frame, `realm_client --benchmark --hidden` at 1920×1080, 400 frames, Mesa llvmpipe on 4 vCPUs. This is software rendering, so GPU work shows up as CPU time; it is not a hardware prediction.
+
+| Fixture | d409cf3 | this pass |
+| --- | ---: | ---: |
+| nexus-pan | 36.0 | 12.0 |
+| S2-mixed-dense | 255.0 | 154.8 |
+| S3-combat-cluster | 672.2 | 500.1 |
+| churn | 63.1 | 50.2 |

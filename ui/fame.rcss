@@ -20,8 +20,11 @@ body{z-index:110;background-color:transparent}
 #title{left:9dp;top:0;width:344dp}
 #title-text{left:0;top:0;width:100%;height:47dp;line-height:47dp;text-align:center;color:#eaeaea;
     font-effect:shadow(0px 0px #034000)}
-#info{left:12dp;top:5dp}
-#close{left:312dp;top:5dp}
+/* PopupHeader puts the buttons at the plate's x + 3 and right - 3, y = 5. These redraws centre the 38 x 35 button's
+   diamond at (19, 17) and modal_header_title's sockets 21 dp in from each end at y = 23.5, so the buttons are
+   placed to sit concentric in their sockets instead: x = 9 + 21 - 19 and 9 + 344 - 21 - 19, y = 6. */
+#info{left:11dp;top:6dp}
+#close{left:313dp;top:6dp}
 
 #content{left:11dp;top:48dp;width:340dp;height:505dp}
 #portrait-frame{left:0;top:5dp;width:69dp;height:80dp}
@@ -36,10 +39,12 @@ body{z-index:110;background-color:transparent}
 #tab-inset{left:0;top:90dp;width:340dp;height:45dp}
 #content-inset{left:0;top:125dp;width:340dp;height:353dp}
 #tabs{left:0;top:91dp;width:340dp;height:36dp}
-#tabs .deca-tab{width:165dp;top:3dp;line-height:33dp;text-align:center;decorator:none}
+/* UITabs drops an idle TabButton 3 dp, but its art is invisible (alpha 0), so every label is centred on the open
+   art's 36 dp instead and the two labels share a baseline. The tabs sit 3 dp in from each side of the 340 dp inset. */
+#tabs .deca-tab{width:165dp;top:0;height:36dp;line-height:36dp;text-align:center;decorator:none}
 #tabs .deca-tab:first-child{left:3dp}
-#tabs .deca-tab:last-child{left:171dp}
-#tabs .deca-tab.open{top:0;height:36dp;line-height:36dp;decorator:paint(deca tab_button_borderless)}
+#tabs .deca-tab:last-child{left:172dp}
+#tabs .deca-tab.open{decorator:paint(deca tab_button_borderless)}
 
 /* The tab's 340 x 342 mask at (0, 127); the 17 dp UIScrollbar's left edge lands at x = 315 as in Flash. */
 #lines{left:0;top:127dp;width:332dp;height:342dp;overflow-y:auto}

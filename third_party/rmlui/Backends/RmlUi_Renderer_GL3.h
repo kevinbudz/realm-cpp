@@ -86,6 +86,9 @@ private:
 
 	void SetScissor(Rml::Rectanglei region, bool vertically_flip = false);
 
+	// realm: grows frame_bounds to cover a RenderGeometry call with the given vertex bounds.
+	void ExtendFrameBounds(Rml::Vector2f bounds_min, Rml::Vector2f bounds_max, Rml::Vector2f translation);
+
 	void DrawFullscreenQuad();
 	void DrawFullscreenQuad(Rml::Vector2f uv_offset, Rml::Vector2f uv_scaling = Rml::Vector2f(1.f));
 
@@ -106,6 +109,14 @@ private:
 	int viewport_offset_y = 0;
 
 	Rml::CompiledGeometryHandle fullscreen_quad_geometry = {};
+
+	// realm: pixel region of the base layer written this frame, rounded outwards and padded by one pixel (invalid when nothing was drawn).
+	// Anything the bounds cannot model (transforms, layers, filters, shaders, ...) sets frame_full_screen instead. The base layer is
+	// zero outside previous_bounds at the start of a frame, so BeginFrame only clears that region, and EndFrame only resolves and
+	// composites the region drawn.
+	Rml::Rectanglei frame_bounds = Rml::Rectanglei::MakeInvalid();
+	bool frame_full_screen = false;
+	Rml::Rectanglei previous_bounds = Rml::Rectanglei::MakeInvalid();
 
 	Rml::UniquePtr<const Gfx::ProgramData> program_data;
 
@@ -140,7 +151,8 @@ private:
 
 		void SwapPostprocessPrimarySecondary();
 
-		void BeginFrame(int new_width, int new_height);
+		// Returns true if the base layer storage was (re)created, so its contents are undefined.
+		bool BeginFrame(int new_width, int new_height);
 		void EndFrame();
 
 	private:

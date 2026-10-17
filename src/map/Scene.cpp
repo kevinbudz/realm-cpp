@@ -591,6 +591,13 @@ void Scene::build_terrain(const World& world, const Terrain& terrain, const Came
   // driver overhead.
   if (!ground_buffer_ || ground_bounds_ != bounds || ground_buffer_revision_ != terrain_rebuilds_) {
     std::vector<Quad> instances;
+    std::size_t total = 0;
+    for (int y = y0; y <= y1; ++y) {
+      for (int x = x0; x <= x1; ++x) {
+        total += ground_chunks_.at(x + y * columns).instances.size();
+      }
+    }
+    instances.reserve(total);
     for (int y = y0; y <= y1; ++y) {
       for (int x = x0; x <= x1; ++x) {
         for (const auto& q : ground_chunks_.at(x + y * columns).instances) {

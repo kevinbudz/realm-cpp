@@ -485,25 +485,6 @@ const Scene::TypeEntry& Scene::type_entry(const Catalog& catalog, std::uint16_t 
   return entry;
 }
 
-const Scene::TopChunk& Scene::top_chunk(const World& world, int x, int y) {
-  auto& chunk = top_chunks_[x + y * ((world.width() + 7) / 8)];
-  const auto revision = world.terrain_chunk_revision(x * 8, y * 8);
-  if (!chunk.valid || chunk.revision != revision) {
-    chunk.tiles.clear();
-    for (int ty = y * 8; ty < std::min(world.height(), y * 8 + 8); ++ty) {
-      for (int tx = x * 8; tx < std::min(world.width(), x * 8 + 8); ++tx) {
-        const auto* ground = world.catalog().ground(world.tile(tx, ty)->type);
-        if (ground && (ground->top.sheet >= 0 || ground->top.animated >= 0)) {
-          chunk.tiles.push_back(static_cast<std::uint32_t>(tx + ty * world.width()));
-        }
-      }
-    }
-    chunk.revision = revision;
-    chunk.valid = true;
-  }
-  return chunk;
-}
-
 void Scene::build_terrain(const World& world, const Terrain& terrain, const Camera& camera,
                           Atlas& atlas, Vec2 position, int distance, std::int32_t time,
                           std::vector<Quad>& out) {
@@ -686,7 +667,6 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   if (appearance_world_ != &world || generation_ != world.generation()) {
     ground_chunks_.clear();
     ground_buffer_.reset();
-    top_chunks_.clear();
     cached_source_ = terrain;
     reset_residency();
     // A map reset drops the working set, so the pages it needed go back too (the residency is
@@ -1549,35 +1529,22 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   }
   {
     REALM_ZONE("scene.ground_tops");
-    // Tops of the same view rectangle, in its row-major order: sorting the indices of the
-    // overlapping chunks' top tiles gives that order (index = x + y * map width).
+    // Tops of the view rectangle, visited in row-major order (index = x + y * map width) directly.
     const int x0 = std::max(0, cx - distance);
     const int y0 = std::max(0, cy - distance);
     const int x1 = std::min(world.width() - 1, cx + distance);
     const int y1 = std::min(world.height() - 1, cy + distance);
-    const auto map_width = static_cast<std::uint32_t>(world.width());
-    top_tiles_.clear();
-    if (x0 <= x1 && y0 <= y1) {
-      for (int y = y0 / 8; y <= y1 / 8; ++y) {
-        for (int x = x0 / 8; x <= x1 / 8; ++x) {
-          for (const auto index : top_chunk(world, x, y).tiles) {
-            const auto tx = static_cast<int>(index % map_width),
-                       ty = static_cast<int>(index / map_width);
-            if (tx >= x0 && tx <= x1 && ty >= y0 && ty <= y1) {
-              top_tiles_.push_back(index);
-            }
-          }
+    for (int y = y0; y <= y1; ++y) {
+      for (int x = x0; x <= x1; ++x) {
+        const auto* ground = world.catalog().ground(world.tile(x, y)->type);
+        if (!ground || (ground->top.sheet < 0 && ground->top.animated < 0)) {
+          continue;
         }
+        const auto index = static_cast<std::uint32_t>(x + y * world.width());
+        out.push_back(
+            ground_quad(texture(ground->top, index, nullptr, angle, time, atlas, animations),
+                        {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
       }
-      std::sort(top_tiles_.begin(), top_tiles_.end());
-    }
-    for (const auto index : top_tiles_) {
-      const auto x = static_cast<int>(index % map_width);
-      const auto y = static_cast<int>(index / map_width);
-      const auto* ground = world.catalog().ground(world.tile(x, y)->type);
-      out.push_back(
-          ground_quad(texture(ground->top, index, nullptr, angle, time, atlas, animations),
-                      {static_cast<double>(x), static_cast<double>(y)}, camera, 1));
     }
   }
   telemetry::set(telemetry::Counter::atlas_resident_bytes, residency_.used_bytes());

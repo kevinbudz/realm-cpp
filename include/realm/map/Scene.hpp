@@ -147,17 +147,6 @@ class Scene {
   void build_terrain(const World& world, const Terrain& terrain, const Camera& camera, Atlas& atlas,
                      Vec2 position, int distance, std::int32_t time, std::vector<Quad>& out);
 
-  // Tiles of one terrain chunk whose ground has a top texture: row-major indices (x + y * map
-  // width), read at `revision`.
-  struct TopChunk {
-    std::uint64_t revision{};
-    bool valid{};
-    std::vector<std::uint32_t> tiles;
-  };
-
-  std::unordered_map<int, TopChunk> top_chunks_;
-  std::vector<std::uint32_t> top_tiles_;
-  [[nodiscard]] const TopChunk& top_chunk(const World& world, int x, int y);
   std::size_t depth_bucket_minimum_{256};
   std::array<std::uint64_t, 5> submitted_{};
 

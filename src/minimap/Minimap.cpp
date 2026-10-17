@@ -8,7 +8,16 @@
 
 namespace realm {
 namespace {
-std::uint32_t most_common(const Image& image) {
+// normalize_flash_png for one channel of a straight-alpha pixel.
+unsigned normalized_channel(unsigned value, unsigned alpha) {
+  if (alpha == 255) {
+    return value;
+  }
+  return alpha ? ((value * alpha >> 8U) << 8U) / alpha : 0;
+}
+
+// `normalize` reads the image as normalize_flash_png would have left it, without a copy.
+std::uint32_t most_common(const Image& image, bool normalize = false) {
   std::unordered_map<std::uint32_t, unsigned> counts;
   std::uint32_t best{};
   unsigned maximum{};
@@ -22,7 +31,8 @@ std::uint32_t most_common(const Image& image) {
       }
       const unsigned alpha = image.pixels[at + 3];
       auto channel = [&](unsigned c) {
-        const unsigned value = image.pixels[at + c];
+        const unsigned value = normalize ? normalized_channel(image.pixels[at + c], alpha)
+                                         : image.pixels[at + c];
         return alpha == 255 ? value
                             : flash_bitmap_colors[alpha * 256U + ((value * alpha + 255U) >> 8U)];
       };
@@ -48,19 +58,18 @@ void opaque_pixel(Image& image, int x, int y, std::uint32_t color) {
 
 Minimap::Minimap(const Catalog& catalog, const AnimationLibrary& animations,
                  const std::filesystem::path& root)
-    : catalog_(catalog), animations_(animations) {
-  for (const auto& asset : flash::assets) {
-    auto image = load_png(root / asset.path);
-    normalize_flash_png(image);
-    assets_.push_back(std::move(image));
-  }
+    : Minimap(catalog, animations, std::make_shared<const FlashImages>(root)) {}
+
+Minimap::Minimap(const Catalog& catalog, const AnimationLibrary& animations,
+                 std::shared_ptr<const FlashImages> pngs)
+    : catalog_(catalog), animations_(animations), pngs_(std::move(pngs)) {
   const auto sheet = std::find_if(flash::sheets.begin(), flash::sheets.end(),
                                   [](const auto& value) { return value.name == "lofiInterface"; });
   if (sheet == flash::sheets.end()) {
     throw std::runtime_error("Missing minimap interface sheet");
   }
   auto get = [&](int index) {
-    const auto& image = assets_.at(static_cast<std::size_t>(sheet->asset));
+    const auto& image = pngs_->normalized.at(static_cast<std::size_t>(sheet->asset));
     const int cols = image.width / sheet->width;
     return crop(image, index % cols * sheet->width, index / cols * sheet->height, sheet->width,
                 sheet->height);
@@ -91,10 +100,14 @@ Minimap::Minimap(const Catalog& catalog, const AnimationLibrary& animations,
     collect(def.texture);
   }
   for (const auto& def : catalog_.objects()) {
+    // NoMiniMap objects never reach object_color: the world records no minimap code or id for
+    // them, and gather() skips them.
+    if (def.no_minimap) {
+      continue;
+    }
     collect(def.texture);
     collect(def.top);
   }
-  std::vector<Image>().swap(assets_);
 }
 
 std::uint32_t Minimap::texture_color(const TextureDef& texture, std::uint32_t id) const {
@@ -108,9 +121,8 @@ std::uint32_t Minimap::texture_color(const TextureDef& texture, std::uint32_t id
   }
   if (selected.animated >= 0) {
     if (const auto* character = animations_.character(selected.animated, selected.index)) {
-      auto image = animations_.images().at(character->frame(0, 0, Action::stand, 0).image);
-      normalize_flash_png(image);
-      return texture_colors_[key] = most_common(image);
+      const auto& image = animations_.images().at(character->frame(0, 0, Action::stand, 0).image);
+      return texture_colors_[key] = most_common(image, true);
     }
   }
   if (selected.sheet >= 0) {
@@ -118,7 +130,7 @@ std::uint32_t Minimap::texture_color(const TextureDef& texture, std::uint32_t id
     if (sheet.asset < 0) {
       return 0;
     }
-    const auto& image = assets_.at(static_cast<std::size_t>(sheet.asset));
+    const auto& image = pngs_->normalized.at(static_cast<std::size_t>(sheet.asset));
     const int cols = image.width / sheet.width;
     return texture_colors_[key] =
                most_common(crop(image, selected.index % cols * sheet.width,

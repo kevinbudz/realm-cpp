@@ -75,7 +75,11 @@ std::array<std::uint32_t, 2> world_dyes(const World& world, const Entity& entity
 }
 
 Appearances::Appearances(const std::filesystem::path& root, const AnimationLibrary& animations)
-    : animations_(animations) {
+    : Appearances(std::make_shared<const FlashImages>(root), animations) {}
+
+Appearances::Appearances(std::shared_ptr<const FlashImages> pngs,
+                         const AnimationLibrary& animations)
+    : pngs_(std::move(pngs)), animations_(animations) {
   textile_sheets_.fill(-1);
   for (std::size_t sheet = 0; sheet < flash::sheets.size(); ++sheet) {
     const std::string_view name = flash::sheets[sheet].name;
@@ -89,15 +93,6 @@ Appearances::Appearances(const std::filesystem::path& root, const AnimationLibra
       textile_sheets_[3] = static_cast<int>(sheet);
     }
   }
-  sheets_.resize(flash::assets.size());
-  // Only image-set assets are needed. Animation strips already have owners.
-  for (const auto& sheet : flash::sheets) {
-    if (sheet.asset >= 0 && sheets_[static_cast<std::size_t>(sheet.asset)].pixels.empty()) {
-      auto& image = sheets_[static_cast<std::size_t>(sheet.asset)];
-      image = load_png(root / flash::assets[static_cast<std::size_t>(sheet.asset)].path);
-      normalize_flash_png(image);
-    }
-  }
 }
 
 Image Appearances::sprite(int sheet, int index) const {
@@ -108,7 +103,7 @@ Image Appearances::sprite(int sheet, int index) const {
   if (data.asset < 0 || index < 0 || index >= data.count) {
     return {1, 1, std::vector<unsigned char>(4)};
   }
-  const auto& image = sheets_[static_cast<std::size_t>(data.asset)];
+  const auto& image = pngs_->normalized[static_cast<std::size_t>(data.asset)];
   const int columns = image.width / data.width;
   return crop(image, index % columns * data.width, index / columns * data.height, data.width,
               data.height);

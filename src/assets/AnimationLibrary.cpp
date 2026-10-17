@@ -216,22 +216,39 @@ Character AnimationLibrary::build(const Image& strip, const Image* mask, int wid
   return result;
 }
 
-AnimationLibrary::AnimationLibrary(const std::filesystem::path& root) {
+FlashImages::FlashImages(const std::filesystem::path& root)
+    : raw(flash::assets.size()), normalized(flash::assets.size()) {
+  for (const auto& sheet : flash::animated) {
+    for (const int asset : {sheet.asset, sheet.mask}) {
+      if (asset >= 0 && raw.at(static_cast<std::size_t>(asset)).pixels.empty()) {
+        raw[static_cast<std::size_t>(asset)] =
+            load_png(root / flash::assets.at(static_cast<std::size_t>(asset)).path);
+      }
+    }
+  }
+  for (std::size_t asset = 0; asset < flash::assets.size(); ++asset) {
+    normalized[asset] = raw[asset].pixels.empty() ? load_png(root / flash::assets[asset].path)
+                                                  : raw[asset];
+    normalize_flash_png(normalized[asset]);
+  }
+}
+
+AnimationLibrary::AnimationLibrary(const std::filesystem::path& root)
+    : AnimationLibrary(FlashImages(root)) {}
+
+AnimationLibrary::AnimationLibrary(const FlashImages& pngs) {
   sheets_.reserve(flash::animated.size());
   for (const auto& sheet : flash::animated) {
-    const auto image =
-        load_png(root / flash::assets.at(static_cast<std::size_t>(sheet.asset)).path);
-    Image mask;
-    if (sheet.mask >= 0) {
-      mask = load_png(root / flash::assets.at(static_cast<std::size_t>(sheet.mask)).path);
-    }
+    const auto& image = pngs.raw.at(static_cast<std::size_t>(sheet.asset));
+    const Image* mask =
+        sheet.mask >= 0 ? &pngs.raw.at(static_cast<std::size_t>(sheet.mask)) : nullptr;
 
     std::vector<Character> characters;
     for (int y = 0; y + sheet.strip_height <= image.height; y += sheet.strip_height) {
       for (int x = 0; x + sheet.strip_width <= image.width; x += sheet.strip_width) {
         const auto strip = crop(image, x, y, sheet.strip_width, sheet.strip_height);
         const auto mask_strip =
-            sheet.mask >= 0 ? crop(mask, x, y, sheet.strip_width, sheet.strip_height) : Image{};
+            mask ? crop(*mask, x, y, sheet.strip_width, sheet.strip_height) : Image{};
         characters.push_back(build(strip, sheet.mask >= 0 ? &mask_strip : nullptr, sheet.width,
                                    sheet.height, sheet.first));
       }

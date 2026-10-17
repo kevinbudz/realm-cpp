@@ -122,6 +122,8 @@ struct ClientState {
   realm::Settings settings;
   realm::platform::WindowSession session;
   const realm::GraphicsInfo graphics;
+  // Every flash PNG, decoded once for the animation library, atlas, terrain, minimap, appearances.
+  std::shared_ptr<const realm::FlashImages> flash_images;
   realm::AnimationLibrary animations;
   realm::Catalog catalog;
   realm::Appearances appearances;

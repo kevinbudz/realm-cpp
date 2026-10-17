@@ -5,6 +5,8 @@
 #include <span>
 
 namespace realm {
+struct FlashImages;
+
 struct TileVisual {
   std::size_t image{};
   int overlay{-1};
@@ -15,6 +17,8 @@ struct TileVisual {
 class Terrain {
  public:
   Terrain(const World& world, const std::filesystem::path& root, std::size_t first_index,
+          int mask_variant = -1, bool live = false);
+  Terrain(const World& world, std::shared_ptr<const FlashImages> pngs, std::size_t first_index,
           int mask_variant = -1, bool live = false);
   ~Terrain();
   void begin_frame();

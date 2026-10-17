@@ -8,6 +8,7 @@
 #include <string_view>
 
 namespace realm {
+struct FlashImages;
 
 class Atlas {
  public:
@@ -15,6 +16,9 @@ class Atlas {
   // `dynamic_pages` extra zero-filled layers follow the static pages (same layer indices); Scene
   // packs composed bitmaps into them.
   explicit Atlas(const std::filesystem::path& flash_root, std::span<const Image> additional = {},
+                 std::size_t raw_prefix = 0, int dynamic_pages = 0);
+  // Packs the already decoded flash::assets (the same pixels the path overload loads).
+  explicit Atlas(const FlashImages& pngs, std::span<const Image> additional = {},
                  std::size_t raw_prefix = 0, int dynamic_pages = 0);
   ~Atlas();
   Atlas(const Atlas&) = delete;

@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include "realm/util/Telemetry.hpp"
 #include "realm/stage3D/Atlas.hpp"
+#include "realm/assets/AnimationLibrary.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>
@@ -14,7 +15,11 @@ bool Atlas::hardware_copy() {
 }
 
 Atlas::Atlas(const std::filesystem::path& root, std::span<const Image> additional,
-             std::size_t raw_prefix, int dynamic_pages) {
+             std::size_t raw_prefix, int dynamic_pages)
+    : Atlas(FlashImages(root), additional, raw_prefix, dynamic_pages) {}
+
+Atlas::Atlas(const FlashImages& pngs, std::span<const Image> additional, std::size_t raw_prefix,
+             int dynamic_pages) {
   if (raw_prefix > additional.size()) {
     throw std::invalid_argument("Invalid raw atlas prefix");
   }
@@ -25,13 +30,13 @@ Atlas::Atlas(const std::filesystem::path& root, std::span<const Image> additiona
   asset_count_ = flash::assets.size();
   std::vector<Image> images;
   images.reserve(asset_count_ + additional.size());
-  for (const auto& asset : flash::assets) {
-    auto image = load_png(root / asset.path);
-    normalize_flash_png(image);
+  for (std::size_t i = 0; i < flash::assets.size(); ++i) {
+    const auto& asset = flash::assets[i];
+    const auto& image = pngs.normalized.at(i);
     if (image.width != asset.width || image.height != asset.height) {
       throw std::runtime_error("Assets changed; rebuild manifest");
     }
-    images.push_back(std::move(image));
+    images.push_back(image);
   }
   images.insert(images.end(), additional.begin(), additional.end());
   for (std::size_t i = 0; i < raw_prefix; ++i) {

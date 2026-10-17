@@ -424,6 +424,7 @@ bool GuildMembers::update(const FontBook& fonts, double width, double height, do
     has_scroll_ = total_height_ > 400;
     scrollbar_.indicator(400, total_height_, false);
     const double offset = scrollbar_.pos() * std::max(0.0, total_height_ - 400);
+    const auto name_height = fonts.rasterize("Ag", 22).height;
     for (std::size_t i = 0; i < list_.members.size(); ++i) {
       const auto& member = list_.members[i];
       const double y = 110 + static_cast<double>(i) * 32 - offset;
@@ -431,7 +432,7 @@ bool GuildMembers::update(const FontBook& fonts, double width, double height, do
         continue;
       }
       const std::uint32_t color = member.name == own_ ? 0xfcc219 : 0xb3b3b3;
-      const double ty = y + 16 - fonts.rasterize("Ag", 22).height / 2;
+      const double ty = y + 16 - name_height / 2;
       text(std::to_string(i + 1) + ".", 22, true, color, 70, ty, 1, true);
       text(member.name, 22, true, color, 110, ty, 0, true);
       text(std::to_string(member.fame), 22, false, color, 418, ty, 1, true);

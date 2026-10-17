@@ -350,10 +350,10 @@ struct StartupRml::Impl {
       shown = true;
       modal = next_modal;
     }
-    const auto next_signature = signature(view);
-    if (next_signature != signature_) {
-      rebuild(view, next_signature);
-      signature_ = next_signature;
+    signature(view, next_signature_);
+    if (next_signature_ != signature_) {
+      rebuild(view, next_signature_);
+      signature_ = next_signature_;
     }
     if (view.revision != revision_ || view.sheet_revision != sheet_revision_ ||
         view.skin_revision != skin_revision_) {
@@ -367,8 +367,9 @@ struct StartupRml::Impl {
     return startup.editor_wants_text() || startup.wants_text() || host.layer().wants_text();
   }
 
-  [[nodiscard]] std::vector<NodeSignature> signature(const StartupViewSnapshot& view) const {
-    std::vector<NodeSignature> result;
+  // Fills a member scratch vector so the per-frame signature does not allocate.
+  void signature(const StartupViewSnapshot& view, std::vector<NodeSignature>& result) const {
+    result.clear();
     result.reserve(view.elements.size() + view.fields.size());
     for (std::size_t i = 0; i <= view.elements.size(); ++i) {
       for (const auto& field : view.fields) {
@@ -396,7 +397,6 @@ struct StartupRml::Impl {
       const int parent = i < view.dialog_insertion ? 0 : 1;
       result.push_back({parent, type, item.action});
     }
-    return result;
   }
 
   [[nodiscard]] Rml::ElementPtr create_element(const NodeSignature& value) {
@@ -1003,6 +1003,7 @@ struct StartupRml::Impl {
   std::vector<Node> nodes;
   std::vector<FieldNode> fields;
   std::vector<NodeSignature> signature_;
+  std::vector<NodeSignature> next_signature_;
   std::vector<SavedField> saved_fields;
   std::optional<StartupAction> hovered;
   std::uint64_t revision_{~std::uint64_t{}};

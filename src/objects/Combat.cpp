@@ -21,6 +21,16 @@ const ProjectileDef* definition(const ObjectDef& container, int id) {
 bool targetable(const Entity& entity) {
   return !(entity.combat.condition & ((1U << 20U) | (1U << 18U)));
 }
+
+// Projectile.getDirectionAngle: the heading from the shot's position now to its position 16 ms on.
+// A shot that does not move keeps its launch angle.
+double travel_angle(const FlyingProjectile& shot, Vec2 now, std::int32_t elapsed) {
+  const auto ahead = projectile_position(shot.definition->motion, shot.start, shot.aim,
+                                         shot.bullet_id, elapsed + 16);
+  const double dx = ahead.x - now.x;
+  const double dy = ahead.y - now.y;
+  return dx == 0 && dy == 0 ? shot.angle : std::atan2(dy, dx);
+}
 }
 
 Combat::Combat(World& world) : world_(world), random_(0) {}
@@ -85,6 +95,7 @@ void Combat::spawn(std::uint16_t type, int bullet_type, std::int32_t owner, std:
                             projectile->size >= 0 ? projectile->size : container->size, true);
   entity.projectile = true;
   entity.motion.facing = angle;
+  entity.motion.travel = angle;
   entity.motion.z = .5;
   if (const auto* tile = world_.tile(static_cast<int>(start.x), static_cast<int>(start.y))) {
     const auto* ground = world_.catalog().ground(tile->type);
@@ -367,6 +378,9 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
         alive = false;
       } else {
         visual->motion.position = position;
+        if (world_.preferences().smart_projectiles) {
+          visual->motion.travel = travel_angle(projectile, position, elapsed);
+        }
       }
     }
 

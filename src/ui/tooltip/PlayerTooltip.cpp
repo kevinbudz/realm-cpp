@@ -64,6 +64,7 @@ std::optional<PlayerTooltipTarget> player_tooltip_target(const World& world, std
   result.guild = member->profile.guild;
   result.fellow_guild =
       !local->profile.guild.empty() && local->profile.guild == member->profile.guild;
+  result.show_tier_tag = world.preferences().show_tier_tag;
   using S = flash::StatId;
   result.bars = {StatusBarState{"HP", 14693428, 0, member->combat.hp, member->combat.max_hp,
                                 member->profile.stats.value_or(S::MAX_HP_BOOST_STAT, 0),
@@ -387,6 +388,9 @@ void PlayerTooltip::render(const PlayerTooltipTarget& target) {
     if (art_.contains(icon)) {
       const auto& bitmap = art_.image(icon);
       blit(bitmap, x + 20 - bitmap.width / 2, equipment_y + 20 - bitmap.height / 2, true);
+    }
+    if (!target.show_tier_tag) {
+      continue;
     }
     if (image_.pixel_scale != 1) {
       if (const auto tier = tier_bitmap(fonts_, *def)) {

@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <utility>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace realm {
 struct TileState {
@@ -56,6 +57,22 @@ class World {
   }
 
   [[nodiscard]] const Preferences& preferences() const { return preferences_; }
+
+  // Party's starred players (Player.starred_ by object id), mirrored by Session each frame so the
+  // Scene can fade the Locked category without reaching into the session.
+  void set_starred_objects(const std::unordered_set<std::int32_t>& ids) {
+    if (ids != starred_objects_) {
+      starred_objects_ = ids;
+    }
+  }
+
+  [[nodiscard]] bool starred(std::int32_t object_id) const {
+    return starred_objects_.contains(object_id);
+  }
+
+  // Player Opacity for an entity: 1 for everything but other players, whose category decides
+  // their alpha (see player_alpha). Guild is a shared, non-empty guild with the focus player.
+  [[nodiscard]] float player_opacity(const Entity& e) const;
 
   // GameServerConnection.onNotification: other players' notifications are dropped with Ally
   // Notifications off.
@@ -228,6 +245,7 @@ class World {
   WorldSoundEvents sound_events_;
   std::int32_t player_id_{-1};
   Preferences preferences_;
+  std::unordered_set<std::int32_t> starred_objects_;
   std::uint32_t fake_counter_{};
   std::uint64_t minimap_revision_{};
   std::uint64_t generation_{};

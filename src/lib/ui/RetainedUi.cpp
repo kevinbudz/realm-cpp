@@ -164,6 +164,8 @@ struct RetainedUi::Impl {
 
   ~Impl() { host.close(document); }
 
+  double blur{};
+
   enum class SlotType { none, image, solid };
 
   struct Slot {
@@ -249,6 +251,19 @@ RetainedUi::~RetainedUi() = default;
 
 RmlHost& RetainedUi::host() {
   return impl_->host;
+}
+
+void RetainedUi::set_blur(double sigma) {
+  auto& impl = *impl_;
+  if (sigma == impl.blur) {
+    return;
+  }
+  impl.blur = sigma;
+  if (sigma > 0) {
+    impl.container->SetProperty("filter", "blur(" + std::to_string(sigma) + "dp)");
+  } else {
+    impl.container->RemoveProperty("filter");
+  }
 }
 
 std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t time_ms,

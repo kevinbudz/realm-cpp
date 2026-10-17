@@ -476,6 +476,16 @@ bool World::allows_notification(std::int32_t object_id) const {
   return found == EntityIndex::none || !entities_[found].player;
 }
 
+float World::player_opacity(const Entity& e) const {
+  if (!e.player) {
+    return 1;
+  }
+  const auto* focus = entity(player_id_);
+  const bool same_guild =
+      focus && !e.profile.guild.empty() && e.profile.guild == focus->profile.guild;
+  return player_alpha(preferences_, e.id == player_id_, starred(e.id), same_guild);
+}
+
 void World::notify(std::int32_t object_id, std::string text, std::uint32_t color, int lifetime,
                    int offset_time) {
   if (!entity(object_id)) {

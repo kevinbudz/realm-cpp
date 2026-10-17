@@ -1,0 +1,121 @@
+/* The Settings screen (OptionsScreen), built from parts the client already has: Flash labels (#b3b3b3 with the
+   TextField drop shadow), KeyCodeBox and ChoiceBox frames (#333333 fill, 2 dp #444444 edge, #b3b3b3 on hover), the
+   Deca scroll bar and Done button (deca.rcss), and the white scroll thumb as slider and switch knob. It fills the
+   window with no frame: a plain tint over the game, which the renderer blurs (world and HUD) while the screen is open.
+
+   Colours beyond flash.rcss:
+     label      #b3b3b3   option labels and inactive categories; disabled rows are darkened by 0.6 (#6b6b6b)
+     rule       #5e5e5e   the line under section titles (Options.layoutChrome)
+     box        #333333   key, choice, switch and search fills; edge #444444, hover edge #b3b3b3
+     on         #57ad62   a switch that is on (the Flash title green)
+     fill       #b3b3b3   the slider's filled track; track #545454 */
+
+body{z-index:100;background-color:transparent}
+#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#000000b3}
+#screen{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;display:flex;flex-direction:row;justify-content:center}
+
+#columns{display:flex;flex-direction:row;width:100%;max-width:1000dp;height:600dp}
+
+/* Sidebar: search, then the categories with the open one's sections beneath it. */
+#sidebar{display:flex;flex-direction:column;width:210dp;flex-shrink:0;padding:42dp 12dp 12dp 20dp;box-sizing:border-box}
+#nav{flex:1}
+#actions .button{height:30dp;line-height:30dp;margin-top:8dp}
+#actions .hidden{display:none}   /* Reset to Defaults and Back to Home: kept, not shown for now */
+
+/* Done: a greyscale generic_green_button over main_button_decoration, sized as the HUD portal panel's button
+   (HudArt::main_button): the frame is 46 dp wider than the face (79 - 35 + 2) and 47 dp tall, the 35 dp face centred
+   in it both ways. The label is the panel's 16 dp bold white with the drop shadow. */
+#done{position:relative;height:47dp;margin-top:8dp}
+#done .deca-main-button-decoration{position:absolute;left:0;top:0;width:100%}
+#done-button{position:absolute;left:23dp;right:23dp;top:6dp;height:35dp;line-height:35dp;text-align:center;
+    font-size:16dp;font-weight:bold;color:#ffffff;font-effect:shadow(0px 0px #000);
+    decorator:paint(deca generic_green_button grey)}
+#done-button:hover{decorator:paint(deca generic_green_button grey hover)}
+#done-button:hover:active{decorator:paint(deca generic_green_button grey hover press)}
+#search-box{position:relative;height:30dp;margin-bottom:14dp}
+#search{box-sizing:border-box;width:100%;height:30dp;padding:0 26dp 0 8dp;font-size:16dp;line-height:26dp;color:#b3b3b3;
+    background-color:#333333;border:2dp #454545;cursor:text}
+#search:hover,#search:focus{border-color:#b3b3b3}
+#search-clear{display:none;position:absolute;right:2dp;top:2dp;width:24dp;height:26dp;font-size:20dp;line-height:26dp;
+    text-align:center;color:#b3b3b3}
+#search-clear.shown{display:block}
+#search-clear:hover{color:#ffffff}
+
+.category{box-sizing:border-box;height:34dp;line-height:34dp;padding-left:10dp;font-size:20dp;font-weight:bold;
+    color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+.category:hover{color:#ffffff}
+.category.active{color:#ffffff}
+.section-links{padding:4dp 0 10dp 0}
+.section-link{height:24dp;line-height:24dp;padding-left:22dp;font-size:15dp;color:#8a8a8a;font-effect:shadow(0px 0px #000)}
+.section-link:hover,.section-link.current{color:#ffffff}
+
+/* Rows. */
+/* The rows have equal 42 dp gaps above and below (the hint fills the lower one), so the scroll bar is centred
+   vertically, and keep 16 dp from the window's right edge. */
+#main{display:flex;flex-direction:column;flex:1;min-width:0;padding:42dp 16dp 12dp 0}
+#rows{position:relative;flex:1;overflow-y:auto;padding:0 20dp 16dp 16dp}
+#hint{height:30dp;padding:12dp 24dp 0 24dp;box-sizing:border-box;font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+.section{padding-top:14dp}
+.section-title{height:30dp;line-height:30dp;font-size:20dp;font-weight:bold;color:#ffffff;
+    font-effect:shadow(0px 0px #000);border-bottom:1dp #5e5e5e;margin-bottom:4dp}
+.empty{padding:40dp 0;text-align:center;font-size:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+
+.row{display:flex;flex-direction:row;align-items:center;height:40dp;padding:0 8dp}
+.row:hover{background-color:#ffffff0d}
+.row .label{flex:1;font-size:18dp;line-height:22dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+.row .control{display:flex;flex-direction:row;align-items:center;width:240dp;flex-shrink:0}
+.row.disabled .label{color:#6b6b6b}
+.row.gallery-row{display:block;height:auto;padding:9dp 8dp 10dp 8dp}
+
+/* Gallery: each choice as a ChoiceBox-framed tile, the chosen one with a white edge. */
+.gallery{margin-top:8dp}
+.tile{display:inline-block;vertical-align:top;box-sizing:border-box;width:44dp;height:44dp;margin:0 6dp 6dp 0;padding:4dp;
+    text-align:center;font-size:16dp;line-height:36dp;font-weight:bold;color:#b3b3b3;font-effect:shadow(0px 0px #000);
+    decorator:paint(cut-rect 0x333333 0x444444 4 2)}
+.tile:hover{color:#ffffff;decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
+.tile.selected{color:#ffffff;decorator:paint(cut-rect 0x454545 0xffffff 4 2)}
+.tile native-image{display:block;width:32dp;height:32dp;margin:2dp}
+
+/* KeyCodeBox: a plain rectangle with a two-pixel border. */
+.key{box-sizing:border-box;width:120dp;height:32dp;line-height:28dp;text-align:center;font-size:16dp;font-weight:bold;
+    color:#ffffff;background-color:#333333;border:2dp #444444;font-effect:shadow(0px 0px #000)}
+.key:hover,.key.capturing{border-color:#b3b3b3}
+.key.unset{color:#b3b3b3;font-weight:normal}
+.row.disabled .key{color:#999999;background-color:#1f1f1f;border-color:#292929}
+
+/* Switch: a ChoiceBox frame with the scroll thumb as its knob. */
+.switch{width:52dp;height:28dp;decorator:paint(cut-rect 0x333333 0x444444 4 2)}
+.switch:hover{decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
+.switch.on{decorator:paint(cut-rect 0x57ad62 0x444444 4 2)}
+.switch.on:hover{decorator:paint(cut-rect 0x57ad62 0xb3b3b3 4 2)}
+.switch .knob{width:18dp;height:18dp;margin:5dp;border-radius:4dp;background-color:#ffffff;
+    transition:margin-left 0.1s cubic-out}
+.switch:hover .knob{background-color:#ffdc85}
+.switch.on .knob{margin-left:29dp}
+
+/* ChoiceBox as a dropdown: the cut-edge frame, the scroll bar's arrow, and a tooltip-style list. */
+select.choice{box-sizing:border-box;width:160dp;height:32dp;font-size:16dp;font-weight:bold;color:#ffffff;
+    font-effect:shadow(0px 0px #000);decorator:paint(cut-rect 0x333333 0x444444 4 2)}
+select.choice:hover{decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
+select.choice selectvalue{height:32dp;line-height:30dp;padding:0 28dp 0 10dp}
+select.choice selectarrow{width:0;height:0;margin:13dp 10dp 0 0;border-left:6dp transparent;border-right:6dp transparent;
+    border-top:7dp #ffffff}
+select.choice:hover selectarrow{border-top-color:#ffdc85}
+select.choice selectbox{box-sizing:border-box;width:160dp;max-height:240dp;margin-top:2dp;margin-bottom:2dp;
+    background-color:#363636;border:1dp #9b9b9b}
+select.choice option{height:26dp;line-height:26dp;padding:0 10dp;font-weight:normal;color:#b3b3b3}
+select.choice option:hover{color:#ffffff;background-color:#545454}
+select.choice option:checked{color:#ffffff;font-weight:bold}
+
+/* Slider: the scroll bar's track and thumb laid horizontally. The input's own track is transparent so the drawn
+   track and fill show beneath the thumb. */
+.slider{position:relative;width:170dp;height:24dp}
+.slider .track{position:absolute;left:0;top:8dp;width:170dp;height:8dp;background-color:#545454}
+.slider .fill{position:absolute;left:0;top:8dp;height:8dp;background-color:#b3b3b3}
+.slider input{position:absolute;left:0;top:0;width:170dp;height:24dp}
+.slider slidertrack{height:24dp;background-color:transparent}
+.slider sliderbar{width:12dp;height:22dp;margin-top:1dp;border-radius:4dp;background-color:#ffffff}
+.slider sliderbar:hover,.slider sliderbar:active{background-color:#ffdc85}
+.slider sliderarrowdec,.slider sliderarrowinc{display:none}
+.readout{width:70dp;text-align:right;font-size:16dp;font-weight:bold;color:#ffffff;font-effect:shadow(0px 0px #000)}
+.readout.symbol{font-size:28dp;line-height:24dp}

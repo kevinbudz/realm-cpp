@@ -18,6 +18,9 @@ struct ScreenEffects {
   float blur{};      // BlurFilter box width on both axes; 0 for none
   float vignette{};  // breath overlay alpha multiplier (b * t)
   float sidebar{};   // GradientOverlay width; 0 when no player is in the map
+  // The filter also takes in the HUD overlay and the whole window (the Settings screen's
+  // backdrop), not only the map sprite.
+  bool whole{};
 
   [[nodiscard]] bool filtered() const { return blind || blur > 0; }
 };

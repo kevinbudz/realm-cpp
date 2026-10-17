@@ -746,6 +746,14 @@ std::optional<bool> Startup::take_play_sfx() {
   return std::exchange(impl_->state_.play_sfx_request_, std::nullopt);
 }
 
+void Startup::set_show_tier_tag(bool show_tier_tag) {
+  if (impl_->state_.show_tier_tag_ == show_tier_tag) {
+    return;
+  }
+  impl_->state_.show_tier_tag_ = show_tier_tag;
+  impl_->view_model_.invalidate();
+}
+
 void Startup::entered_game() {
   impl_->entered_game();
 }

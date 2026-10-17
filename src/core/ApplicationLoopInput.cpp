@@ -130,13 +130,13 @@ void drive_stress_fixture(ClientState& cs, Frame& f) {
         cs.chat.scroll_down();
       }
       if (phase == 40) {
-        cs.options_screen.open(cs.settings);
+        cs.options_menu.open(cs.settings);
       }
       if (phase == 45) {
-        cs.options_screen.set_tab(realm::OptionsTab::graphics);
+        cs.options_menu.set_category(realm::OptionsCategory::video);
       }
       if (phase == 60) {
-        cs.options_screen.close();
+        cs.options_menu.close();
       }
 
       if (phase == 70) {
@@ -419,13 +419,15 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
         cs.autofire = !cs.autofire;
       }
       if (fresh && bound("toggleCentering")) {
-        cs.settings.set_choice("centerOnPlayer", cs.settings.flag("centerOnPlayer") ? 0 : 1);
+        cs.settings.set_value("centerOnPlayer", cs.settings.flag("centerOnPlayer") ? 0 : 1);
         cs.apply_settings();
         cs.save_settings();
       }
+      // MapUserInput.togglePerformanceStats flips showStatistics; the overlay follows it.
       if (fresh && bound("togglePerformanceStats")) {
-        cs.perf_stats = !cs.perf_stats;
-        cs.reset_perf();
+        cs.settings.set_value("showStatistics", cs.settings.flag("showStatistics") ? 0 : 1);
+        cs.apply_settings();
+        cs.save_settings();
       }
       if (fresh && bound("toggleFullscreenMode") && !options.hidden) {
         const bool fullscreen = (SDL_GetWindowFlags(cs.session.window) &

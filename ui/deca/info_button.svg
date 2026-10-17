@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="38" height="35" viewBox="0 0 38 35">
   <!-- info_button: the blue help button. Redrawn from the atlas frame, same diamond as close_button. Fixed size. -->
-  <path fill="#000000" fill-opacity="0.4" d="M19 2 L36 19 L19 36 L2 19 Z"/>
-  <path fill="#152631" d="M19 0.5 L36 17.5 L19 34.5 L2 17.5 Z"/>
-  <path fill="#5d97bd" d="M19 3.5 L33 17.5 L19 31.5 L5 17.5 Z"/>
-  <path fill="#407495" d="M19 5.5 L31 17.5 L19 29.5 L7 17.5 Z"/>
-  <path fill="#28495d" d="M32.5 18 L19 31.5 L5.5 18 Z"/>
-  <path fill="#3d6e8e" d="M30.5 18 L19 29.5 L7.5 18 Z"/>
-  <path fill="none" stroke="#ffffff" stroke-width="2.4" d="M15.8 12.6 C16.3 11 17.5 10.3 19 10.3 C21 10.3 22.2 11.3 22.2 12.9 C22.2 14.3 21.2 15 20.3 15.6 C19.4 16.2 19 16.8 19 18 V19.4"/>
-  <circle fill="#ffffff" cx="19" cy="22.1" r="1.8"/>
+  <path fill="#000000" fill-opacity="0.4" d="M19 1L36 18L19 35L2 18Z"/>
+  <path fill="#152631" d="M19 0L36 17L19 34L2 17Z"/>
+  <path fill="#5d97bd" d="M5 17L19 3L33 17Z"/>
+  <path fill="#28495d" d="M5 17H33L19 31Z"/>
+  <path fill="#407495" d="M7 17L19 5L31 17Z"/>
+  <path fill="#3d6e8e" d="M7 17H31L19 29Z"/>
+  <path fill="none" stroke="#ffffff" stroke-width="2.4" d="M15.8 12.2 C16.3 10.6 17.5 9.9 19 9.9 C21 9.9 22.2 10.9 22.2 12.5 C22.2 13.9 21.2 14.6 20.3 15.2 C19.4 15.8 19 16.4 19 17.6 V19"/>
+  <circle fill="#ffffff" cx="19" cy="21.7" r="1.8"/>
 </svg>

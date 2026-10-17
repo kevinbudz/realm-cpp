@@ -1,0 +1,35 @@
+<rml>
+  <head>
+    <title>settings</title>
+    <link type="text/rcss" href="flash.rcss" />
+    <link type="text/rcss" href="text.rcss" />
+    <link type="text/rcss" href="deca.rcss" />
+    <link type="text/rcss" href="options.rcss" />
+  </head>
+  <body>
+    <div id="scrim"></div>
+    <div id="screen">
+      <div id="columns">
+        <div id="sidebar">
+          <div id="search-box">
+            <input id="search" type="text" maxlength="40" placeholder="Search" />
+            <div id="search-clear" data-action="clear-search">&#215;</div>
+          </div>
+          <div id="nav"></div>
+          <div id="actions">
+            <div class="button t16b hidden" data-action="reset">Reset to Defaults</div>
+            <div class="button t16b hidden" data-action="home">Back to Home</div>
+            <div id="done">
+              <div class="deca-main-button-decoration"></div>
+              <div id="done-button" data-action="close">Done</div>
+            </div>
+          </div>
+        </div>
+        <div id="main">
+          <div id="rows" class="deca-scroll"></div>
+          <div id="hint"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</rml>

@@ -1,374 +1,477 @@
 #include "realm/ui/options/OptionsScreen.hpp"
-#include "realm/ui/tooltip/TextToolTip.hpp"
-#include "realm/ui/GraphicsUtil.hpp"
+#include <RmlUi/Core.h>
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
+#include <RmlUi/Core/Elements/ElementFormControlSelect.h>
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 namespace realm {
 namespace {
-constexpr double box_width = 80, box_height = 32, label_x = box_width + 24;
-constexpr std::uint32_t label_color = 0xb3b3b3, box_fill = 0x333333, box_edge = 0x444444,
-                        hover_edge = 0xb3b3b3, tab_selected = 0xffc800, tab_hover = 0xffffff,
-                        button_hover = 0xffdc85;
+// The slider's drawn track and its thumb, in dp (options.rcss).
+constexpr double slider_width = 170;
+constexpr double thumb_width = 12;
+// The cursor sheet: a 4x4 grid of 32 px cursors (CursorSet).
+constexpr int cursor_size = 32;
+constexpr std::string_view default_hint = "Hover over a setting to see what it does.";
 
-// MoreColorUtil.darkCT multiplies every channel of a disabled KeyMapper by 0.6.
-constexpr std::uint32_t dark(std::uint32_t color) {
-  const auto channel = [&](int shift) {
-    return static_cast<std::uint32_t>(((color >> shift) & 255U) * 6 / 10);
-  };
-  return channel(16) << 16 | channel(8) << 8 | channel(0);
+std::string escaped(std::string_view value) {
+  std::string result;
+  result.reserve(value.size());
+  for (const char c : value) {
+    if (c == '&') {
+      result += "&amp;";
+    } else if (c == '<') {
+      result += "&lt;";
+    } else if (c == '>') {
+      result += "&gt;";
+    } else if (c == '"') {
+      result += "&quot;";
+    } else {
+      result += c;
+    }
+  }
+  return result;
 }
 
-bool inside(const HudRect& r, Vec2 p) {
-  return p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height;
+std::string dp(double value) {
+  return std::to_string(std::round(value * 100) / 100) + "dp";
 }
 
-// "Option.x/y": two columns, 44 design units apart, spacer sprites count as cells.
-Vec2 cell(std::size_t index) {
-  return {index % 2 == 0 ? 20.0 : 415.0, static_cast<double>(index / 2) * 44 + 122};
+// The element (or nearest ancestor) carrying an attribute: text and control internals can be
+// the event target.
+Rml::Element* holder(Rml::Element* element, const char* attribute) {
+  while (element && !element->HasAttribute(attribute)) {
+    element = element->GetParentNode();
+  }
+  return element;
 }
 
-std::size_t choice_index(const OptionDef& option, int value) {
+Rml::ElementFormControl* form(Rml::Element* element) {
+  return dynamic_cast<Rml::ElementFormControl*>(element);
+}
+
+int choice_index(const OptionDef& option, int value) {
   for (std::size_t i = 0; i < option.choices.size(); ++i) {
     if (option.choices[i].second == value) {
-      return i;
+      return static_cast<int>(i);
     }
   }
   return 0;
 }
-}
 
-void OptionsScreen::open(Settings& settings) {
-  settings_ = &settings;
-  tab_ = OptionsTab::controls;
-  hover_ = pressed_ = capture_ = -1;
-  changed_ = home_ = false;
-  laid_out_ = false;
-  dirty_ = true;
-  pointer_valid_ = false;
-  tooltip_ = false;
-}
-
-void OptionsScreen::close() {
-  settings_ = nullptr;
-  hover_ = pressed_ = capture_ = -1;
-  rows_.clear();
-  laid_out_ = false;
-  tooltip_ = false;
-}
-
-void OptionsScreen::set_tab(OptionsTab tab) {
-  if (!visible()) {
-    return;
+// A gallery choice: one tile per value, the image set's picture or the choice's own label.
+std::string gallery_rml(const OptionDef& option) {
+  std::string result = "<div class=\"gallery\">";
+  for (const auto& [label, choice] : option.choices) {
+    result += "<div class=\"tile\" data-action=\"choice\" data-param=\"" + escaped(option.param) +
+              "\" data-value=\"" + std::to_string(choice) + "\">" +
+              (choice >= 0 ? "<native-image data-value=\"" + std::to_string(choice) + "\"/>"
+                           : escaped(label == "System" ? std::string_view("OS") : label)) +
+              "</div>";
   }
-  cancel_capture();
-  if (tab == tab_ && laid_out_) {
-    return;
-  }
-  tab_ = tab;
-  laid_out_ = false;
-  dirty_ = true;
-  pressed_ = -1;
+  return result + "</div>";
 }
 
-void OptionsScreen::cancel_capture() {
-  if (capture_ >= 0) {
-    capture_ = -1;
-    dirty_ = true;
-  }
-}
-
-void OptionsScreen::focus_lost() {
-  pressed_ = -1;
-  pointer_valid_ = false;
-  tooltip_ = false;
-  if (hover_ != -1) {
-    hover_ = -1;
-    dirty_ = true;
-  }
-}
-
-int OptionsScreen::hit(Vec2 point) const {
-  if (!visible() || !laid_out_) {
-    return -1;
-  }
-  const auto p = local(point);
-  for (int i = 0; i < static_cast<int>(buttons_.size()); ++i) {
-    if (inside(buttons_[static_cast<std::size_t>(i)], p)) {
-      return continue_hit + i;
+std::string control_rml(const OptionDef& option, int value) {
+  const auto param = escaped(option.param);
+  switch (option.kind) {
+    case OptionDef::Kind::key:
+      return "<div class=\"key\" data-action=\"key\" data-param=\"" + param + "\"></div>";
+    case OptionDef::Kind::toggle:
+      return "<div class=\"switch\" data-action=\"toggle\" data-param=\"" + param +
+             "\"><div class=\"knob\"></div></div>";
+    case OptionDef::Kind::choice: {
+      std::string result = "<select class=\"choice\" data-param=\"" + param + "\">";
+      for (const auto& [label, choice] : option.choices) {
+        result += "<option value=\"" + std::to_string(choice) + "\"" +
+                  (choice == value ? " selected" : "") + ">" + escaped(label) + "</option>";
+      }
+      return result + "</select>";
     }
+    case OptionDef::Kind::slider:
+      return "<div class=\"slider\"><div class=\"track\"></div><div class=\"fill\"></div>"
+             "<input type=\"range\" data-param=\"" +
+             param + "\" min=\"" + std::to_string(option.min) + "\" max=\"" +
+             std::to_string(slider_end(option)) + "\" step=\"" + std::to_string(option.step) +
+             "\" value=\"" + std::to_string(slider_position(option, value)) +
+             "\"/></div><div class=\"readout\"></div>";
+    case OptionDef::Kind::hidden_key:
+    case OptionDef::Kind::hidden_value:
+      return {};
   }
-  for (int i = 0; i < static_cast<int>(tab_rects_.size()); ++i) {
-    if (inside(tab_rects_[static_cast<std::size_t>(i)], p)) {
-      return tab_hit + i;
-    }
-  }
-  for (std::size_t i = 0; i < rows_.size(); ++i) {
-    const auto& row = rows_[i];
-    if (row.def->kind == OptionDef::Kind::spacer || !settings_->enabled(*row.def)) {
-      continue;
-    }
-    if (inside(row.box, p)) {
-      return box_hit + static_cast<int>(i);
-    }
-    if (inside(row.label, p)) {
-      return label_hit + static_cast<int>(i);
-    }
-  }
-  return -1;
+  return {};
+}
 }
 
-void OptionsScreen::refresh_hover() {
-  const int over = pointer_valid_ ? hit(pointer_) : -1;
-  if (over != hover_) {
-    hover_ = over;
-    dirty_ = true;
-  }
-}
-
-void OptionsScreen::pointer_move(Vec2 point) {
-  pointer_ = point;
-  pointer_valid_ = true;
-  refresh_hover();
-  if (hover_ >= label_hit && hover_ < continue_hit) {
-    dirty_ = true;
-  }
-}
-
-void OptionsScreen::pointer_down(Vec2 point) {
-  pointer_move(point);
-  // The key box listens for any stage MOUSE_DOWN (capture phase) to leave input mode.
-  cancel_capture();
-  pressed_ = hover_;
-}
-
-void OptionsScreen::pointer_up(Vec2 point) {
-  if (!visible()) {
-    return;
-  }
-  pointer_move(point);
-  const int pressed = std::exchange(pressed_, -1);
-  if (pressed >= 0 && pressed == hover_) {
-    activate(pressed);
-  }
-}
-
-void OptionsScreen::activate(int h) {
-  if (h >= tab_hit && h < tab_hit + static_cast<int>(options_tab_count)) {
-    set_tab(static_cast<OptionsTab>(h - tab_hit));
-    refresh_hover();
-    return;
-  }
-  if (h == continue_hit) {
-    close();
-    return;
-  }
-  if (h == home_hit) {
-    close();
-    home_ = true;
-    return;
-  }
-  if (h == reset_hit) {
-    settings_->reset_tab(tab_);
-    changed_ = true;
-    dirty_ = true;
-    return;
-  }
-  if (h >= box_hit && h < label_hit) {
-    const auto& option = *rows_.at(static_cast<std::size_t>(h - box_hit)).def;
-    if (option.kind == OptionDef::Kind::key) {
-      capture_ = h - box_hit;
-      dirty_ = true;
-    } else if (option.kind == OptionDef::Kind::choice && !option.choices.empty()) {
-      // ChoiceBox.onClick: the next value, wrapping; ChoiceOption saves and runs its callback.
-      const auto next = option
-                            .choices[(choice_index(option, settings_->get(option.param)) + 1) %
-                                     option.choices.size()]
-                            .second;
-      settings_->set_choice(option.param, next);
-      changed_ = true;
-      dirty_ = true;
-    }
-  }
-}
-
-bool OptionsScreen::key_down(int code) {
-  if (!visible()) {
-    return false;
-  }
-  if (capture_ >= 0) {
-    // KeyCodeBox.onInputKeyDown takes any key. Escape cancels here instead, because the
-    // game binds it to leaving the game.
-    if (code == key_escape) {
-      cancel_capture();
-    } else if (code != 0) {
-      settings_->set_key(rows_.at(static_cast<std::size_t>(capture_)).def->param, code);
-      capture_ = -1;
-      changed_ = true;
-      dirty_ = true;
-    }
-    return true;
-  }
-  if (code == key_escape || (code != 0 && code == settings_->get("options"))) {
-    close();
-  }
-  return true;
-}
-
-void OptionsScreen::layout(const FontBook& fonts) {
-  rows_.clear();
-  std::size_t index = 0;
-  for (const auto* option : tab_options(tab_)) {
-    Row row;
-    row.def = option;
-    const auto at = cell(index++);
-    row.box = {at.x, at.y, box_width, box_height};
-    if (option->kind != OptionDef::Kind::spacer) {
-      const auto text = fonts.rasterize(option->label, 18, false, true, label_color, 0, 0, 2);
-      row.label = {at.x + label_x, at.y + box_height / 2 - text.height / 2 - 2, text.width,
-                   text.height};
-    }
-    rows_.push_back(row);
-  }
-  for (std::size_t i = 0; i < options_tab_count; ++i) {
-    const auto text = fonts.rasterize(options_tab_name(static_cast<OptionsTab>(i)), 16, true, true);
-    tab_rects_[i] = {14 + 108.0 * static_cast<double>(i), 70, text.width, text.height};
-  }
-  const auto size = [&](std::string_view text, int px) {
-    return fonts.rasterize(text, px, true, true);
+struct OptionsScreen::Impl {
+  struct Node {
+    const OptionDef* def{};
+    Rml::Element* row{};
+    Rml::Element* control{};
+    Rml::Element* fill{};
+    Rml::Element* readout{};
+    Rml::ElementList tiles;
+    std::string text;
   };
-  const auto cont = size("continue", 36), reset = size("reset to defaults", 22),
-             home = size("back to home", 22);
-  buttons_ = {{{400 - cont.width / 2, 520, cont.width, cont.height},
-               {20, 532, reset.width, reset.height},
-               {620, 532, home.width, home.height}}};
-  laid_out_ = true;
-}
 
-bool OptionsScreen::update(const FontBook& fonts, double width, double height,
-                           std::int32_t time_ms) {
-  if (!visible() || width <= 0 || height <= 0) {
-    return false;
-  }
-  const double scale = height / 600;
-  if (stage_width_ != width || stage_height_ != height ||
-      base_.pixel_scale != fonts.pixel_scale() || base_.width == 0) {
-    stage_width_ = width;
-    stage_height_ = height;
-    scale_ = scale;
-    position_ = {(width - 800 * scale) / 2, 0};
-    base_ = ui_image(width / scale, 600, scale);
-    ui_menu_backdrop(base_, width / scale);
-    pressed_ = -1;
-    laid_out_ = false;
-    dirty_ = true;
-  }
-  if (!laid_out_) {
-    layout(fonts);
-  }
-  refresh_hover();
-  const int blink = capture_ >= 0 ? (time_ms / 400) % 2 : 0;
-  if (blink != blink_) {
-    blink_ = blink;
-    dirty_ = true;
-  }
-  if (!dirty_) {
-    return false;
-  }
-  const double logical_width = width / scale, x = (logical_width - 800) / 2;
-  image_ = base_;
-  const auto bitmap = [&](const TextBitmap& b, double px, double py) {
-    ui_blit_text(image_, b, x + px + b.offset.x, py + b.offset.y, false, true);
-  };
-  const auto text = [&](std::string_view value, int size, bool bold, std::uint32_t color, double px,
-                        double py, unsigned strength = 1) {
-    bitmap(fonts.rasterize(value, size, bold, true, color, 0, 0, strength), px, py);
-  };
-  // Options.layoutChrome: a one-pixel rule under the tab strip.
-  ui_rectangle(image_, 0, 100 - .5 / scale, logical_width, 1 / scale, 0x5e5e5e, true);
-  {
-    const auto title = fonts.rasterize("Options", 36, true, true);
-    bitmap(title, 400 - title.width / 2, 8);
-  }
-  const auto button = [&](int h, std::string_view value, int size) {
-    const auto& r = button_rect(h);
-    text(value, size, true, hover_ == h ? button_hover : 0xffffff, r.x, r.y);
-  };
-  button(continue_hit, "continue", 36);
-  button(reset_hit, "reset to defaults", 22);
-  button(home_hit, "back to home", 22);
-  for (int i = 0; i < static_cast<int>(options_tab_count); ++i) {
-    const auto& r = tab_rects_[static_cast<std::size_t>(i)];
-    const bool selected = static_cast<OptionsTab>(i) == tab_;
-    text(options_tab_name(static_cast<OptionsTab>(i)), 16, true,
-         selected                ? tab_selected
-         : hover_ == tab_hit + i ? tab_hover
-                                 : label_color,
-         r.x, r.y);
-  }
-  for (std::size_t i = 0; i < rows_.size(); ++i) {
-    const auto& row = rows_[i];
-    const auto& option = *row.def;
-    if (option.kind == OptionDef::Kind::spacer) {
-      continue;
+  Impl(OptionsMenu& options, ui::RmlHost& ui_host) : menu(options), host(ui_host) {
+    document = host.load("options");
+    if (!document) {
+      throw std::runtime_error("The RmlUi options document did not load");
     }
-    const bool enabled = settings_->enabled(option), input = capture_ == static_cast<int>(i);
-    const bool over = enabled && (hover_ == box_hit + static_cast<int>(i));
-    const auto tint = [&](std::uint32_t color) { return enabled ? color : dark(color); };
-    const auto edge = tint(over || input ? hover_edge : box_edge);
-    const auto& b = row.box;
-    if (option.kind == OptionDef::Kind::key) {
-      // KeyCodeBox: a plain rectangle with a two-pixel border.
-      const std::array<Vec2, 4> path{{{x + b.x, b.y},
-                                      {x + b.x + b.width, b.y},
-                                      {x + b.x + b.width, b.y + b.height},
-                                      {x + b.x, b.y + b.height}}};
-      ui_path(image_, path, tint(box_fill), edge, 2);
-    } else {
-      ui_path(image_, cut_edge_rect(x + b.x, b.y, b.width, b.height, 4), tint(box_fill), edge, 2);
+    search = document->GetElementById("search");
+    search_clear = document->GetElementById("search-clear");
+    nav = document->GetElementById("nav");
+    rows = document->GetElementById("rows");
+    hint = document->GetElementById("hint");
+    if (!search || !search_clear || !nav || !rows || !hint) {
+      throw std::runtime_error("The RmlUi options document is missing its parts");
     }
-    std::string value;
-    if (option.kind == OptionDef::Kind::key) {
-      if (input) {
-        value = blink_ == 0 ? "" : "[Hit Key]";
+    // The key box listens for any stage MOUSE_DOWN (capture phase) to leave input mode.
+    host.listen(*document, "mousedown", [this](Rml::Event&) { menu.cancel_capture(); }, true);
+    host.listen(*document, "click", [this](Rml::Event& event) { on_click(event); }, true);
+    host.listen(*document, "change", [this](Rml::Event& event) { on_change(event); }, true);
+    host.listen(
+        *document, "mouseover",
+        [this](Rml::Event& event) { set_hint(holder(event.GetTargetElement(), "data-row")); },
+        true);
+  }
+
+  ~Impl() { host.close(document); }
+
+  void on_click(Rml::Event& event) {
+    auto* element = holder(event.GetTargetElement(), "data-action");
+    if (!element) {
+      return;
+    }
+    const auto action = element->GetAttribute<Rml::String>("data-action", "");
+    const auto param = element->GetAttribute<Rml::String>("data-param", "");
+    const auto index = element->GetAttribute<int>("data-index", 0);
+    if (action == "category" && index >= 0 && index < static_cast<int>(options_category_count)) {
+      menu.set_category(static_cast<OptionsCategory>(index));
+      search->Blur();
+    } else if (action == "section" && index >= 0 && index < static_cast<int>(sections.size())) {
+      rows->SetScrollTop(sections[static_cast<std::size_t>(index)]->GetOffsetTop());
+    } else if (action == "clear-search") {
+      menu.set_query({});
+      search->Blur();
+    } else if (action == "close") {
+      menu.request_close();
+    } else if (action == "home") {
+      menu.request_home();
+    } else if (action == "reset") {
+      menu.reset();
+    } else if (action == "key") {
+      menu.begin_capture(param);
+    } else if (action == "choice") {
+      menu.set_value(param, element->GetAttribute<int>("data-value", 0));
+    } else if (action == "toggle") {
+      menu.toggle(param);
+    }
+  }
+
+  void on_change(Rml::Event& event) {
+    if (syncing) {
+      return;
+    }
+    auto* target = event.GetTargetElement();
+    if (target == search) {
+      menu.set_query(form(search)->GetValue());
+      return;
+    }
+    const auto param = target->GetAttribute<Rml::String>("data-param", "");
+    const auto* option = find_option(param);
+    if (!option) {
+      return;
+    }
+    if (option->kind == OptionDef::Kind::slider) {
+      const auto position = static_cast<int>(std::lround(event.GetParameter<float>("value", 0)));
+      menu.set_value(param, slider_value(*option, position));
+    } else if (option->kind == OptionDef::Kind::choice) {
+      const auto value = form(target)->GetValue();
+      try {
+        menu.set_value(param, std::stoi(value));
+      } catch (const std::exception&) {
+      }
+    }
+  }
+
+  void set_hint(Rml::Element* row) {
+    const OptionDef* option =
+        row ? find_option(row->GetAttribute<Rml::String>("data-row", "")) : nullptr;
+    if (option == hovered) {
+      return;
+    }
+    hovered = option;
+    hint->SetInnerRML(escaped(option ? option->tooltip : default_hint));
+  }
+
+  void update(bool showable) {
+    if (!menu.visible() || !showable) {
+      if (shown) {
+        search->Blur();
+        host.hide(*document);
+        shown = false;
+      }
+      return;
+    }
+    if (!shown) {
+      host.show(*document, true, false);
+      shown = true;
+    }
+    if (menu.layout_revision() != layout) {
+      rebuild();
+      layout = menu.layout_revision();
+      values = ~std::uint64_t{};
+    }
+    if (menu.value_revision() != values) {
+      sync();
+      values = menu.value_revision();
+    }
+    track_section();
+  }
+
+  void rebuild() {
+    syncing = true;
+    if (auto* field = form(search); field->GetValue() != menu.query()) {
+      field->SetValue(menu.query());
+    }
+    search_clear->SetClass("shown", menu.searching());
+
+    std::string html;
+    for (std::size_t i = 0; i < options_category_count; ++i) {
+      const auto category = static_cast<OptionsCategory>(i);
+      const bool active = !menu.searching() && category == menu.category();
+      html += "<div class=\"category" + std::string(active ? " active" : "") +
+              "\" data-action=\"category\" data-index=\"" + std::to_string(i) + "\">" +
+              escaped(options_category_name(category)) + "</div>";
+      if (active) {
+        html += "<div class=\"section-links\">";
+        int index = 0;
+        for (const auto section : category_sections(category)) {
+          html += "<div class=\"section-link\" data-action=\"section\" data-index=\"" +
+                  std::to_string(index++) + "\">" + escaped(section) + "</div>";
+        }
+        html += "</div>";
+      }
+    }
+    nav->SetInnerRML(html);
+
+    html.clear();
+    const OptionDef* previous = nullptr;
+    for (const auto* option : menu.rows()) {
+      if (!previous || previous->section != option->section ||
+          previous->category != option->category) {
+        if (previous) {
+          html += "</div>";
+        }
+        std::string heading(option->section);
+        if (menu.searching()) {
+          heading = std::string(options_category_name(option->category)) + " \xC2\xB7 " + heading;
+        }
+        html +=
+            "<div class=\"section\"><div class=\"section-title\">" + escaped(heading) + "</div>";
+      }
+      previous = option;
+      if (gallery(*option)) {
+        html += "<div class=\"row gallery-row\" data-row=\"" + escaped(option->param) +
+                "\"><div class=\"label\">" + escaped(option->label) + "</div>" +
+                gallery_rml(*option) + "</div>";
       } else {
-        value = std::string(key_name(settings_->get(option.param)));
-      }
-    } else if (!option.choices.empty()) {
-      value = std::string(option.choices[choice_index(option, settings_->get(option.param))].first);
-    }
-    if (!value.empty()) {
-      const auto face = fonts.rasterize(value, 16, true, true, tint(0xffffff), 0, 0, 2);
-      bitmap(face, b.x + box_width / 2 - face.width / 2,
-             b.y + box_height / 2 - face.height / 2 - 2);
-    }
-    text(option.label, 18, false, tint(label_color), row.label.x, row.label.y, 2);
-  }
-  // Option.onMouseOver: a TextToolTip(0x272727, 0x828282, 150) follows the pointer.
-  tooltip_ = false;
-  if (hover_ >= label_hit && hover_ < continue_hit && pointer_valid_) {
-    const auto& option = *rows_.at(static_cast<std::size_t>(hover_ - label_hit)).def;
-    if (!option.tooltip.empty()) {
-      const auto tip = render_text_tooltip(fonts, {}, option.tooltip, 0x272727, 0x828282, 150);
-      const auto at =
-          text_tooltip_position(pointer_, tip.frame_width, tip.frame_height, width, height, scale);
-      ui_blit(image_, tip.image, at.x / scale - tip.margin + 0, at.y / scale - tip.margin, false,
-              true);
-      tooltip_ = true;
-    }
-  }
-  // The members screen's texture is straight alpha; so is this one.
-  for (std::size_t i = 0; i < image_.pixels.size(); i += 4) {
-    const unsigned alpha = image_.pixels[i + 3];
-    if (alpha && alpha < 255) {
-      for (unsigned c = 0; c < 3; ++c) {
-        image_.pixels[i + c] = static_cast<unsigned char>(std::min(
-            255U, (static_cast<unsigned>(image_.pixels[i + c]) * 255 + alpha / 2) / alpha));
+        html += "<div class=\"row\" data-row=\"" + escaped(option->param) +
+                "\"><div class=\"label\">" + escaped(option->label) +
+                "</div><div class=\"control\">" + control_rml(*option, menu.value(*option)) +
+                "</div></div>";
       }
     }
+    if (previous) {
+      html += "</div>";
+    } else {
+      html = "<div class=\"empty\">No settings match \"" + escaped(menu.query()) + "\".</div>";
+    }
+    rows->SetInnerRML(html);
+    rows->SetScrollTop(0);
+
+    nodes.clear();
+    Rml::ElementList found;
+    rows->GetElementsByClassName(found, "row");
+    for (auto* row : found) {
+      Node node;
+      node.def = find_option(row->GetAttribute<Rml::String>("data-row", ""));
+      node.row = row;
+      node.control = row->QuerySelector(".key, .switch, select, input, .gallery");
+      node.fill = row->QuerySelector(".fill");
+      node.readout = row->QuerySelector(".readout");
+      row->GetElementsByClassName(node.tiles, "tile");
+      Rml::ElementList images;
+      row->GetElementsByTagName(images, "native-image");
+      for (auto* image : images) {
+        const int index = image->GetAttribute<int>("data-value", 0);
+        ui::set_native_image(*image, cursors, 1);
+        ui::set_native_source(
+            *image, {index % 4 * cursor_size, index / 4 * cursor_size, cursor_size, cursor_size});
+      }
+      if (node.def && node.control) {
+        nodes.push_back(node);
+      }
+    }
+    sections.clear();
+    rows->GetElementsByClassName(sections, "section");
+    links.clear();
+    nav->GetElementsByClassName(links, "section-link");
+    current = -1;
+    hovered = nullptr;
+    hint->SetInnerRML(escaped(menu.searching() ? std::string_view{} : default_hint));
+    syncing = false;
   }
-  dirty_ = false;
-  return true;
+
+  void sync() {
+    syncing = true;
+    for (auto& node : nodes) {
+      const auto& option = *node.def;
+      const int value = menu.value(option);
+      const bool enabled = menu.enabled(option);
+      node.row->SetClass("disabled", !enabled);
+      switch (option.kind) {
+        case OptionDef::Kind::key: {
+          const bool capturing = menu.capture() == option.param;
+          const auto text = capturing ? std::string("Press a key") : value_text(option, value);
+          if (text != node.text) {
+            node.control->SetInnerRML(escaped(text));
+            node.text = text;
+          }
+          node.control->SetClass("capturing", capturing);
+          node.control->SetClass("unset", !capturing && value == key_unset);
+          break;
+        }
+        case OptionDef::Kind::toggle:
+          node.control->SetClass("on", value != 0);
+          break;
+        case OptionDef::Kind::choice:
+          for (auto* tile : node.tiles) {
+            tile->SetClass("selected", tile->GetAttribute<int>("data-value", 0) == value);
+          }
+          if (auto* select = dynamic_cast<Rml::ElementFormControlSelect*>(node.control);
+              select && select->GetSelection() != choice_index(option, value)) {
+            select->SetSelection(choice_index(option, value));
+          }
+          break;
+        case OptionDef::Kind::slider: {
+          const int position = slider_position(option, value);
+          if (auto* input = form(node.control);
+              input && input->GetValue() != std::to_string(position)) {
+            input->SetValue(std::to_string(position));
+          }
+          const int span = std::max(1, slider_end(option) - option.min);
+          const double fraction = static_cast<double>(position - option.min) / span;
+          if (node.fill) {
+            node.fill->SetProperty("width",
+                                   dp(thumb_width / 2 + fraction * (slider_width - thumb_width)));
+          }
+          if (node.readout) {
+            // The top_label stop (the infinity sign) is a symbol, drawn larger than the numbers.
+            node.readout->SetClass("symbol", !option.top_label.empty() && value == 0);
+          }
+          if (const auto text = value_text(option, value); node.readout && text != node.text) {
+            node.readout->SetInnerRML(escaped(text));
+            node.text = text;
+          }
+          break;
+        }
+        case OptionDef::Kind::hidden_key:
+        case OptionDef::Kind::hidden_value:
+          break;
+      }
+    }
+    syncing = false;
+  }
+
+  // The sidebar marks the section at the top of the scrolled rows.
+  void track_section() {
+    if (menu.searching() || sections.empty() || links.size() != sections.size()) {
+      return;
+    }
+    const float top = rows->GetScrollTop();
+    int next = 0;
+    for (std::size_t i = 0; i < sections.size(); ++i) {
+      if (sections[i]->GetOffsetTop() <= top + 12) {
+        next = static_cast<int>(i);
+      }
+    }
+    if (top > 0 && top + rows->GetClientHeight() >= rows->GetScrollHeight() - 1) {
+      next = static_cast<int>(sections.size()) - 1;
+    }
+    if (next != current) {
+      for (std::size_t i = 0; i < links.size(); ++i) {
+        links[i]->SetClass("current", static_cast<int>(i) == next);
+      }
+      current = next;
+    }
+  }
+
+  // A gallery needs its image set; without the cursor sheet the cursor stays a dropdown.
+  [[nodiscard]] bool gallery(const OptionDef& option) const {
+    return option.kind == OptionDef::Kind::choice && option.preview == "cursors" &&
+           cursors.width >= 4 * cursor_size && cursors.height >= 4 * cursor_size;
+  }
+
+  [[nodiscard]] bool wants_text() const {
+    return shown && document->GetContext() && document->GetContext()->GetFocusElement() == search;
+  }
+
+  void leave_search() {
+    if (menu.searching()) {
+      menu.set_query({});
+    } else {
+      search->Blur();
+    }
+  }
+
+  OptionsMenu& menu;
+  ui::RmlHost& host;
+  Rml::ElementDocument* document{};
+  Rml::Element* search{};
+  Rml::Element* search_clear{};
+  Rml::Element* nav{};
+  Rml::Element* rows{};
+  Rml::Element* hint{};
+  Image cursors;
+  std::vector<Node> nodes;
+  Rml::ElementList sections;
+  Rml::ElementList links;
+  const OptionDef* hovered{};
+  std::uint64_t layout{~std::uint64_t{}};
+  std::uint64_t values{~std::uint64_t{}};
+  int current{-1};
+  bool shown{};
+  bool syncing{};
+};
+
+OptionsScreen::OptionsScreen(OptionsMenu& menu, ui::RmlHost& host)
+    : impl_(std::make_unique<Impl>(menu, host)) {}
+
+OptionsScreen::~OptionsScreen() = default;
+
+void OptionsScreen::set_cursors(Image sheet) {
+  impl_->cursors = std::move(sheet);
+  impl_->layout = ~std::uint64_t{};
+}
+
+void OptionsScreen::update(bool showable) {
+  impl_->update(showable);
+}
+
+bool OptionsScreen::wants_text() const {
+  return impl_->wants_text();
+}
+
+void OptionsScreen::leave_search() {
+  impl_->leave_search();
+}
+
+Rml::ElementDocument* OptionsScreen::document() const {
+  return impl_->document;
 }
 }

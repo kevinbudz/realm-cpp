@@ -989,18 +989,32 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
     glEnable(GL_SCISSOR_TEST);
   }
   draw_batch(quads, 0, width, height, stream_buffer, measure);
-  if (measure) {
-    gpu_timers_->phase(2);
-  }
-
   const bool screen_overlays = effects.vignette > 0 || effects.sidebar > 0;
-  if (effects.filtered()) {
-    draw_calls_ += post_process_->run_post(width, height, clip_width, effects);
+  const bool overlay_filtered = effects.filtered() && effects.whole;
+  // A whole-window filter takes in everything drawn over the map too, in the usual order: the
+  // screen overlays, then the HUD overlay.
+  if (overlay_filtered && screen_overlays) {
+    draw_calls_ += post_process_->run_screen_overlays(width, height, clip_width, effects);
     glUseProgram(program_);
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, stream_buffer);
   }
-  if (screen_overlays) {
+  if (overlay_filtered && !overlay.empty()) {
+    glScissor(0, 0, width, height);
+    draw_batch(overlay, quads.size_bytes(), width, height, stream_buffer, measure);
+  }
+  if (measure) {
+    gpu_timers_->phase(2);
+  }
+
+  if (effects.filtered()) {
+    draw_calls_ +=
+        post_process_->run_post(width, height, overlay_filtered ? width : clip_width, effects);
+    glUseProgram(program_);
+    glBindVertexArray(vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, stream_buffer);
+  }
+  if (screen_overlays && !overlay_filtered) {
     draw_calls_ += post_process_->run_screen_overlays(width, height, clip_width, effects);
     glUseProgram(program_);
     glBindVertexArray(vao_);
@@ -1009,7 +1023,7 @@ void Renderer::draw(const Atlas& atlas, std::span<const Quad> quads, int width, 
   if (measure) {
     gpu_timers_->phase(3);
   }
-  if (!overlay.empty()) {
+  if (!overlay.empty() && !overlay_filtered) {
     glScissor(0, 0, width, height);
     draw_batch(overlay, quads.size_bytes(), width, height, stream_buffer, measure);
   }

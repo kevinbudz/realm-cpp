@@ -37,6 +37,9 @@ class RetainedUi {
   RetainedUi& operator=(const RetainedUi&) = delete;
 
   [[nodiscard]] RmlHost& host();
+  // Blurs every retained surface by a Gaussian of `sigma` dp (0 for none): the Settings screen's
+  // backdrop, matching the renderer's blur of the world and HUD beneath.
+  void set_blur(double sigma);
   [[nodiscard]] std::vector<Quad> compose(std::span<const Quad> quads, std::int32_t time_ms,
                                           const Viewport& viewport);
   void render(int drawable_width, int drawable_height);

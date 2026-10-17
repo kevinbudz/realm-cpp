@@ -55,18 +55,6 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
     }
   }
 
-  if (cs.options_screen.visible()) {
-    int dw{};
-    int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
-    if (dh > 0) {
-      cs.fonts.set_pixel_scale(dh / 600.0);
-      if (cs.options_screen.update(cs.fonts, dw, dh, time)) {
-        cs.options_texture.update(cs.options_screen.image());
-      }
-    }
-  }
-
   if (cs.board.visible()) {
     int dw{};
     int dh{};
@@ -155,14 +143,8 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
     overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
   }
 
-  if (cs.options_screen.visible() && !menus) {
-    if (cs.options_screen.update(cs.fonts, width, height, time)) {
-      cs.options_texture.update(cs.options_screen.image());
-    }
-    auto quad = cs.options_texture.quad({0, 0}, {static_cast<double>(width), 0},
-                                        {0, static_cast<double>(height)});
-    overlay_storage[overlay.size()] = quad;
-    overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
+  if (cs.options_screen) {
+    cs.options_screen->update(!menus);
   }
 
   if (options.world && !menus) {
@@ -173,7 +155,7 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
   }
 
   if (cs.hud && options.world && !menus && cs.hud_view.header.hover &&
-      !cs.options_screen.visible()) {
+      !cs.options_menu.visible()) {
     // IconButton: TextToolTip(0x363636, 0x9B9B9B, title, "Hotkey: KEY", 200) at the pointer.
     const bool nexus = cs.hud_view.header.button == realm::HudState::Header::Button::nexus;
     const std::string title = nexus ? "Nexus" : "Options";

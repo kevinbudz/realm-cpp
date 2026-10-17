@@ -67,5 +67,8 @@ struct MeshDraw {
                                    double zoom, bool outline);
 [[nodiscard]] Quad radial_shadow(Vec2 origin, Vec2 axis_x, Vec2 axis_y, std::array<float, 3> color,
                                  float alpha_center, float alpha_edge = 0);
+// Lowers a quad's opacity (Player Opacity). Both blends take colour from the source alpha, so only
+// the alpha terms change: the tint's, and a radial shadow's edge alpha in offset.w.
+void fade_quad(Quad& q, float opacity);
 
 }

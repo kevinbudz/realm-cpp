@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" data-stretch-x="12 13" data-stretch-y="12 13">
   <!-- popup_content_inset: a sunken content well. Stretches along x 12-13 and y 12-13. -->
-  <path fill="#202020" d="M10 0 H14 L24 10 V14 L14 24 H10 L0 14 V10 Z"/>
-  <path fill="#1c1c1c" d="M10.5 3 H13.5 L21 10.5 V13.5 L13.5 21 H10.5 L3 13.5 V10.5 Z"/>
-  <path fill="#151515" d="M10.5 4 H13.5 L20 10.5 V13.5 L13.5 20 H10.5 L4 13.5 V10.5 Z"/>
+  <path fill="#202020" d="M10 0H14L24 10V14L14 24H10L0 14V10Z"/>
+  <path fill="#151515" d="M11 3H13L21 11V13L13 21H11L3 13V11Z"/>
 </svg>

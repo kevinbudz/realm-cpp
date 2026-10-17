@@ -19,6 +19,8 @@ struct StatusBarState {
   int maximum{};
   int boost{};
   int cap{-1};
+  // The value and maximum numbers are drawn (HP/MP Text, or the pointer over the bar).
+  bool text{true};
   bool operator==(const StatusBarState&) const = default;
 };
 

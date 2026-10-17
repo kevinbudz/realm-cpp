@@ -650,8 +650,9 @@ void StartupViewModel::legends_screen(StartupScreenState& state, bool busy) {
           const auto icon = straight(art_->image("item" + std::to_string(item)));
           ui_blit(panel, icon, x + 20 - icon.width / 2.0, y + 28 - icon.height / 2.0);
           const auto* item_def = catalog_.object(static_cast<std::uint16_t>(item));
-          if (item_def && !item_def->xml.has("NoTierTag") && !item_def->xml.has("Consumable") &&
-              !item_def->xml.has("Treasure") && !item_def->xml.has("PetFood")) {
+          if (state.show_tier_tag_ && item_def && !item_def->xml.has("NoTierTag") &&
+              !item_def->xml.has("Consumable") && !item_def->xml.has("Treasure") &&
+              !item_def->xml.has("PetFood")) {
             const bool set = !item_def->xml.attribute("setType").empty();
             const auto tag = item_def->tier >= 0 ? "T" + std::to_string(item_def->tier)
                              : set               ? "ST"
@@ -964,15 +965,17 @@ void StartupViewModel::character_screen(StartupScreenState& state) {
     if (index >= 0 && static_cast<std::size_t>(index) < state.list_->characters.size()) {
       const auto& character = state.list_->characters[static_cast<std::size_t>(index)];
       if (character_tooltip_id_ != character.id ||
-          character_tooltip_density_ != fonts_.pixel_scale()) {
+          character_tooltip_density_ != fonts_.pixel_scale() ||
+          character_tooltip_tiers_ != state.show_tier_tag_) {
         const auto best = state.list_->best_fame.find(character.object_type);
         const auto level = state.list_->best_level.find(character.object_type);
         character_tooltip_ = render_saved_character_tooltip(
             fonts_, *art_, catalog_, state.list_->name, character,
             best == state.list_->best_fame.end() ? 0 : best->second,
-            level == state.list_->best_level.end() ? 0 : level->second);
+            level == state.list_->best_level.end() ? 0 : level->second, state.show_tier_tag_);
         character_tooltip_id_ = character.id;
         character_tooltip_density_ = fonts_.pixel_scale();
+        character_tooltip_tiers_ = state.show_tier_tag_;
       }
       tooltip_frame_ = {character_tooltip_.frame_width, character_tooltip_.frame_height};
       character_tooltip_element_ = elements_.size();

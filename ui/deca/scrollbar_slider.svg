@@ -1,13 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="34" viewBox="0 0 15 34" data-stretch-y="17 18">
   <!-- scrollbar_slider: the UIScrollbar thumb. Redrawn from the atlas frame. Stretches along y 17-18. -->
-  <path fill="#000000" fill-opacity="0.25" d="M0 27 L5 32 H10 L15 27 V29 L10 34 H5 L0 29 Z"/>
-  <path fill="#4f4f4f" d="M5 0 H10 L15 5 V27 L10 32 H5 L0 27 V5 Z"/>
-  <path fill="#585858" d="M0 5 L5 0 H10 L15 5 V6 H14 L10 2 H5 L1 6 H0 Z"/>
-  <path fill="none" stroke="#606060" d="M2.5 10.5 L7.5 15.5 L12.5 10.5 M7.5 15.5 V18 M2.5 22.5 L7.5 18 L12.5 22.5"/>
-  <path fill="#353535" d="M7.5 2 L12 6.5 L7.5 11 L3 6.5 Z"/>
-  <path fill="#9a9a9a" d="M7.5 3 L11 6.5 L7.5 10 L4 6.5 Z"/>
-  <path fill="#a5a5a5" d="M4 6.5 L7.5 3 L7.5 6.5 Z"/>
-  <path fill="#353535" d="M7.5 20 L12 24.5 L7.5 29 L3 24.5 Z"/>
-  <path fill="#9a9a9a" d="M7.5 21 L11 24.5 L7.5 28 L4 24.5 Z"/>
-  <path fill="#a5a5a5" d="M4 24.5 L7.5 21 L7.5 24.5 Z"/>
+  <path fill="#000000" fill-opacity="0.25" d="M0 27L5 32H10L15 27V29L10 34H5L0 29Z"/>
+  <path fill="#4f4f4f" d="M5 0H10L15 5V27L10 32H5L0 27V5Z"/>
+  <path fill="#585858" d="M5 0H10L15 5V7L10 2H5L0 7V5Z"/>
+  <path fill="#353535" d="M7.5 2L12 6.5L7.5 11L3 6.5Z M7.5 21L12 25.5L7.5 30L3 25.5Z"/>
+  <path fill="#9a9a9a" d="M7.5 3L11 6.5L7.5 10L4 6.5Z M7.5 22L11 25.5L7.5 29L4 25.5Z"/>
+  <path fill="#a5a5a5" d="M4 6.5L7.5 3L11 6.5Z M4 25.5L7.5 22L11 25.5Z"/>
 </svg>

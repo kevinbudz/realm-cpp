@@ -239,12 +239,13 @@ void update_panels(ClientState& cs, Frame& f) {
     // SoundIcon.onIconClick stores playSFX and playPewPew together; the menu then mirrors the
     // stored playSFX.
     if (const auto play = cs.startup->take_play_sfx()) {
-      cs.settings.set_choice("playSFX", *play ? 1 : 0);
-      cs.settings.set_choice("playPewPew", *play ? 1 : 0);
+      cs.settings.set_value("playSFX", *play ? 1 : 0);
+      cs.settings.set_value("playPewPew", *play ? 1 : 0);
       cs.apply_settings();
       cs.save_settings();
     }
     cs.startup->set_play_sfx(cs.settings.flag("playSFX"));
+    cs.startup->set_show_tier_tag(cs.settings.flag("showTierTag"));
   }
 
   cs.board.poll();

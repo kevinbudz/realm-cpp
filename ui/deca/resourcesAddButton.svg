@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 23 23">
   <!-- resourcesAddButton: the small green add button beside resources. Redrawn from the atlas frame. Fixed size. -->
-  <path fill="#15210e" d="M11.5 0 L23 11.5 L11.5 23 L0 11.5 Z"/>
-  <path fill="#639f44" d="M11.5 2 L21.0 11.5 L11.5 21 L2 11.5 Z"/>
-  <path fill="#8cc070" d="M11.5 3 L20 11.5 L11.5 20 L3 11.5 Z"/>
-  <path fill="#5b913f" d="M11.5 4 L19 11.5 L11.5 19 L4 11.5 Z"/>
-  <path fill="#203216" d="M2.5 12 H20.5 L11.5 21 Z"/>
-  <path fill="#487432" d="M3.5 12 H19.5 L11.5 20 Z"/>
-  <path fill="#5c943f" d="M4.5 12 H18.5 L11.5 19 Z"/>
-  <path fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="3" d="M8 11.5 H15 M11.5 8 V15"/>
-  <path fill="none" stroke="#ffffff" d="M8 11.5 H15 M11.5 8 V15"/>
+  <path fill="#15210e" d="M11.5 0L23 11.5L11.5 23L0 11.5Z"/>
+  <path fill="#639f44" d="M2 11.5L11.5 2L21 11.5L20.5 12H2.5Z"/>
+  <path fill="#203216" d="M2.5 12H20.5L11.5 21Z"/>
+  <path fill="#8cc070" d="M3 11.5L11.5 3L20 11.5L19.5 12H3.5Z"/>
+  <path fill="#487432" d="M3.5 12H19.5L11.5 20Z"/>
+  <path fill="#5b913f" d="M4 11.5L11.5 4L19 11.5L18.5 12H4.5Z"/>
+  <path fill="#5c943f" d="M4.5 12H18.5L11.5 19Z"/>
+  <path fill="#ffffff" d="M10.5 7.5H12.5V10.5H15.5V12.5H12.5V15.5H10.5V12.5H7.5V10.5H10.5Z"/>
 </svg>

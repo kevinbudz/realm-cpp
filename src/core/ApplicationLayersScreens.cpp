@@ -43,39 +43,53 @@ void configure_skins_layer(ClientState& cs, ClientLayers& layers) {
 
 void configure_options_layer(ClientState& cs, ClientLayers& layers) {
   auto& options_layer = layers.options_layer;
-  options_layer.is_active = [&] { return cs.options_screen.visible(); };
+  options_layer.is_active = [&] { return cs.options_menu.visible(); };
   options_layer.is_modal = [] { return true; };
-  options_layer.on_reset = [&](UiReset) { cs.options_screen.close(); };
+  options_layer.is_text = [&] { return cs.options_screen && cs.options_screen->wants_text(); };
+  options_layer.on_cancel = [&] {
+    if (cs.production_ui) {
+      cs.production_ui->host().layer().cancel();
+    }
+  };
+  options_layer.on_reset = [&](UiReset) { cs.options_menu.close(); };
   options_layer.on_event = [&](const UiEvent& e) -> UiResult {
-    if (e.kind == UiKind::pointer_move) {
-      cs.options_screen.pointer_move(e.point);
-    } else if (left_button(e)) {
-      if (e.kind == UiKind::pointer_down) {
-        cs.options_screen.pointer_down(e.point);
-      } else {
-        cs.options_screen.pointer_up(e.point);
+    auto* host = cs.production_ui ? &cs.production_ui->host().layer() : nullptr;
+    const bool typing = cs.options_screen && cs.options_screen->wants_text();
+    const bool capturing = cs.options_menu.capturing();
+    if (e.kind == UiKind::key_down) {
+      const int code = realm::sdl_keys::flash_code(static_cast<SDL_Keycode>(e.key));
+      // Auto-repeat would act on the key that has just been bound; the search field still
+      // repeats its editing keys.
+      if (capturing || !typing) {
+        if (!e.repeat) {
+          cs.options_menu.key_down(code);
+        }
+      } else if (code == realm::key_escape) {
+        if (!e.repeat) {
+          cs.options_screen->leave_search();
+        }
+      } else if (host) {
+        host->handle(e);
       }
-    }
-    // Auto-repeat would act on the key that has just been bound.
-    else if (e.kind == UiKind::key_down) {
-      if (!e.repeat) {
-        cs.options_screen.key_down(realm::sdl_keys::flash_code(static_cast<SDL_Keycode>(e.key)));
+    } else if (e.kind == UiKind::key_up || e.kind == UiKind::text ||
+               e.kind == UiKind::composition) {
+      if (typing && !capturing && host) {
+        host->handle(e);
       }
-    } else if (window_left(e)) {
-      cs.options_screen.focus_lost();
+    } else if (host && e.kind != UiKind::resized) {
+      host->handle(e);
     }
 
-    cs.resized_panel(e, cs.options_screen.visible(), [&](int w, int h) {
-      if (cs.options_screen.update(cs.fonts, w, h, cs.ui_time)) {
-        cs.options_texture.update(cs.options_screen.image());
-      }
-    });
-    if (cs.options_screen.take_changed()) {
+    if (cs.options_menu.take_changed()) {
       cs.apply_settings();
+      cs.options_unsaved = true;
+    }
+    if (cs.options_unsaved && (e.kind != UiKind::pointer_move || !cs.options_menu.visible())) {
       cs.save_settings();
+      cs.options_unsaved = false;
     }
 
-    if (cs.options_screen.take_home() && cs.startup && cs.game_session && !cs.leaving_game) {
+    if (cs.options_menu.take_home() && cs.startup && cs.game_session && !cs.leaving_game) {
       cs.leaving_game = true;
       cs.game_session->disconnect();
     }

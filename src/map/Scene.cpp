@@ -770,6 +770,10 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
           !(def && !def->model.empty() && model_reaches(*def, e, camera, width, height))) {
         return;
       }
+      // Player Opacity 0%: a hidden player is not built at all, shadow included.
+      if (world.player_opacity(e) <= 0) {
+        return;
+      }
       negative_ids |= e.id < 0;
       const auto ground = camera.world_to_screen(e.motion.position);
       visible_.push_back({&e, def, static_cast<int>(ground.y / zoom + camera.clip_rect().y), e.id,
@@ -1182,9 +1186,11 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     }
     if (e.projectile) {
       const double rotation = d.rotation == 0 ? 0 : time / d.rotation;
-      auto q =
-          projectile_quad(sprite, screen, e.motion.facing - angle + d.angle_correction + rotation,
-                          e.appearance.size, zoom, baked);
+      // Projectile.draw: Projectile Direction turns the sprite along its travel, not its launch.
+      const double heading =
+          world.preferences().smart_projectiles ? e.motion.travel : e.motion.facing;
+      auto q = projectile_quad(sprite, screen, heading - angle + d.angle_correction + rotation,
+                               e.appearance.size, zoom, baked);
       if (lazy) {
         const auto base = lazy->quad({}, {}, {});
         q.texture = base.texture;
@@ -1369,6 +1375,13 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   const auto draw = [&](const Entity& e, const ObjectDef& d, const Visible* visible) {
     const auto before = out.size();
     draw_impl(e, d, visible);
+    // Player Opacity: the sprite, condition icons, name, and bars that draw_impl just emitted fade
+    // together.
+    if (const float opacity = world.player_opacity(e); opacity < 1) {
+      for (auto i = before; i < out.size(); ++i) {
+        fade_quad(out[i], opacity);
+      }
+    }
     if (out.size() > before) {
       ++submitted_[static_cast<std::size_t>(e.projectile       ? 3
                                             : e.player         ? 0
@@ -1404,12 +1417,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
                                                  base_sprite_height(visible, *d) / 8.0 * zoom;
         const auto p = visible.ground;
         const auto color = d->shadow_color;
-        out.push_back(radial_shadow({p.x - 30 * scale, p.y - 15 * scale}, {60 * scale, 0},
+        auto shadow = radial_shadow({p.x - 30 * scale, p.y - 15 * scale}, {60 * scale, 0},
                                     {0, 30 * scale},
                                     {static_cast<float>((color >> 16U) & 255U) / 255,
                                      static_cast<float>((color >> 8U) & 255U) / 255,
                                      static_cast<float>(color & 255U) / 255},
-                                    .5F));
+                                    .5F);
+        fade_quad(shadow, world.player_opacity(*e));
+        out.push_back(std::move(shadow));
       }
     }
   }

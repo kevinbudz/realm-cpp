@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="38" height="43" viewBox="0 0 38 43" data-stretch-x="19 20">
   <!-- popup_footer: UIPopup footer. Stretches along x 19-20. -->
   <path fill="#353535" d="M0 0L18 18H20L38 0V43H0Z"/>
-  <path fill="#3f3f3f" d="M0 0L18 18H20L38 0V2L20 20H18L0 2Z M17 26H22V27H17Z"/>
-  <path fill="none" stroke="#2c2c2c" stroke-width="2" d="M0 7L18 25H20L38 7"/>
+  <path fill="#3f3f3f" d="M0 0L18 18H20L38 0V2L20 20H18L0 2Z M16 25H22V26H16Z"/>
+  <path fill="#2c2c2c" d="M0 6L17 23H21L38 6V8L21 25H17L0 8Z"/>
 </svg>

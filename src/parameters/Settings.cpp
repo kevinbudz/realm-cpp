@@ -10,7 +10,7 @@
 namespace realm {
 namespace {
 using K = OptionDef::Kind;
-using T = OptionsTab;
+using C = OptionsCategory;
 constexpr int a_ = 65;
 constexpr int d_ = 68;
 constexpr int e_ = 69;
@@ -18,169 +18,211 @@ constexpr int q_ = 81;
 constexpr int s_ = 83;
 constexpr int w_ = 87;
 
-OptionDef key(T tab, std::string_view param, std::string_view label, std::string_view tip, int code,
-              std::string_view enabled_by = {}) {
-  return {tab, K::key, param, label, tip, code, {}, enabled_by};
+// Rows are added one section at a time, so every helper takes the category and section.
+struct Section {
+  C category;
+  std::string_view name;
+};
+
+OptionDef row(Section at, K kind, std::string_view param, std::string_view label,
+              std::string_view tip, int value) {
+  OptionDef option;
+  option.category = at.category;
+  option.section = at.name;
+  option.kind = kind;
+  option.param = param;
+  option.label = label;
+  option.tooltip = tip;
+  option.fallback = value;
+  return option;
 }
 
-OptionDef toggle(T tab, std::string_view param, std::string_view label, std::string_view tip,
-                 bool value = true) {
-  return {tab, K::choice, param, label, tip, value ? 1 : 0, {{"On", 1}, {"Off", 0}}, {}};
+OptionDef key(Section at, std::string_view param, std::string_view label, std::string_view tip,
+              int code, std::string_view enabled_by = {}) {
+  auto option = row(at, K::key, param, label, tip, code);
+  option.enabled_by = enabled_by;
+  return option;
 }
 
-OptionDef choice(T tab, std::string_view param, std::string_view label, std::string_view tip,
-                 int value, std::vector<std::pair<std::string_view, int>> choices) {
-  return {tab, K::choice, param, label, tip, value, std::move(choices), {}};
+OptionDef toggle(Section at, std::string_view param, std::string_view label,
+                 std::string_view tip, bool value = true) {
+  return row(at, K::toggle, param, label, tip, value ? 1 : 0);
 }
 
-OptionDef spacer(T tab) {
-  return {tab, K::spacer, {}, {}, {}, 0, {}, {}};
+OptionDef choice(Section at, std::string_view param, std::string_view label,
+                 std::string_view tip, int value,
+                 std::vector<std::pair<std::string_view, int>> choices) {
+  auto option = row(at, K::choice, param, label, tip, value);
+  option.choices = std::move(choices);
+  return option;
+}
+
+OptionDef slider(Section at, std::string_view param, std::string_view label,
+                 std::string_view tip, int value, int min, int max, int step,
+                 std::string_view unit = {}, std::string_view top_label = {}) {
+  auto option = row(at, K::slider, param, label, tip, value);
+  option.min = min;
+  option.max = max;
+  option.step = step;
+  option.unit = unit;
+  option.top_label = top_label;
+  return option;
 }
 
 std::vector<OptionDef> build() {
   std::vector<OptionDef> options;
-  const auto controls = T::controls;
-  const auto gameplay = T::gameplay;
-  const auto hotkeys = T::hotkeys;
-  const auto chat = T::chat;
-  const auto graphics = T::graphics;
-  const auto sound = T::sound;
-  // Options.addControlsOptions
-  options.push_back(key(controls, "moveUp", "Move Up", "Key to will move character up", w_));
-  options.push_back(key(controls, "moveLeft", "Move Left", "Key to will move character to the left", a_));
-  options.push_back(key(controls, "moveDown", "Move Down", "Key to will move character down", s_));
-  options.push_back(key(controls, "moveRight", "Move Right", "Key to will move character to the right", d_));
-  options.push_back(choice(controls, "allowRotation", "Allow Camera Rotation",
-                     "Toggles whether to allow for camera rotation", 0, {{"On", 1}, {"Off", 0}}));
-  options.push_back(spacer(controls));
-  options.push_back(key(controls, "rotateLeft", "Rotate Left", "Key to will rotate the camera to the left", q_,
-                  "allowRotation"));
-  options.push_back(key(controls, "rotateRight", "Rotate Right", "Key to will rotate the camera to the right",
-                  e_, "allowRotation"));
-  options.push_back(key(controls, "useSpecial", "Use Special Ability",
-                  "This key will activate your special ability", 32));
-  options.push_back(key(controls, "autofireToggle", "Autofire Toggle", "This key will toggle autofire", 73));
-  options.push_back(key(controls, "resetToDefaultCameraAngle", "Reset To Default Camera Angle",
-                  "This key will reset the camera angle to the default position", 82));
-  options.push_back(key(controls, "togglePerformanceStats", "Toggle Performance Stats",
-                  "This key will toggle a display of fps and memory usage", 0));
-  options.push_back(key(controls, "toggleCentering", "Toggle Centering of Player",
-                  "This key will toggle the position between centered and offset", 0));
-  options.push_back(key(controls, "interact", "Interact/Buy",
-                  "This key will allow you to enter a portal or buy an item", 48));
-  // Options.addHotKeysOptions
-  options.push_back(key(hotkeys, "useHealthPotion", "Use Health Potion",
-                  "This key will use health potions if available", 70));
-  options.push_back(key(hotkeys, "useMagicPotion", "Use Magic Potion",
-                  "This key will use magic potions if available", 86));
+  const auto add = [&](OptionDef option) { options.push_back(std::move(option)); };
+  // Options.addControlsOptions, addHotKeysOptions and addChatOptions.
+  Section at{C::keybinds, "Movement"};
+  add(key(at, "moveUp", "Move Up", "Moves your character up.", w_));
+  add(key(at, "moveLeft", "Move Left", "Moves your character to the left.", a_));
+  add(key(at, "moveDown", "Move Down", "Moves your character down.", s_));
+  add(key(at, "moveRight", "Move Right", "Moves your character to the right.", d_));
+  at.name = "Camera";
+  add(key(at, "rotateLeft", "Rotate Left",
+          "Rotates the camera to the left. Needs Allow Camera Rotation (Gameplay).", q_,
+          "allowRotation"));
+  add(key(at, "rotateRight", "Rotate Right",
+          "Rotates the camera to the right. Needs Allow Camera Rotation (Gameplay).", e_,
+          "allowRotation"));
+  add(key(at, "resetToDefaultCameraAngle", "Reset Camera Angle",
+          "Returns the camera to its default angle.", 82));
+  add(key(at, "toggleCentering", "Toggle Centering",
+          "Switches the view between centered on your character and offset.", 0));
+  at.name = "Combat";
+  add(key(at, "useSpecial", "Use Special Ability", "Activates your special ability.", 32));
+  add(key(at, "autofireToggle", "Autofire Toggle", "Turns autofire on and off.", 73));
+  add(key(at, "interact", "Interact / Buy", "Enters a portal or buys the item you stand on.",
+          48));
+  at.name = "Items";
+  add(key(at, "useHealthPotion", "Use Health Potion", "Drinks a health potion if you have one.",
+          70));
+  add(key(at, "useMagicPotion", "Use Magic Potion", "Drinks a magic potion if you have one.", 86));
   static const std::array<std::string, 8> slot_params{
       "useEquipInvSlot1", "useEquipInvSlot2", "useEquipInvSlot3", "useEquipInvSlot4",
       "useEquipInvSlot5", "useEquipInvSlot6", "useEquipInvSlot7", "useEquipInvSlot8"};
   static const std::array<std::string, 8> slot_labels{
-      "Use/Equip Inventory Slot 1", "Use/Equip Inventory Slot 2", "Use/Equip Inventory Slot 3",
-      "Use/Equip Inventory Slot 4", "Use/Equip Inventory Slot 5", "Use/Equip Inventory Slot 6",
-      "Use/Equip Inventory Slot 7", "Use/Equip Inventory Slot 8"};
+      "Inventory Slot 1", "Inventory Slot 2", "Inventory Slot 3", "Inventory Slot 4",
+      "Inventory Slot 5", "Inventory Slot 6", "Inventory Slot 7", "Inventory Slot 8"};
   static const std::array<std::string, 8> slot_tips{
-      "Use/Equip item in inventory slot 1", "Use/Equip item in inventory slot 2",
-      "Use/Equip item in inventory slot 3", "Use/Equip item in inventory slot 4",
-      "Use/Equip item in inventory slot 5", "Use/Equip item in inventory slot 6",
-      "Use/Equip item in inventory slot 7", "Use/Equip item in inventory slot 8"};
+      "Uses or equips the item in inventory slot 1.", "Uses or equips the item in inventory slot 2.",
+      "Uses or equips the item in inventory slot 3.", "Uses or equips the item in inventory slot 4.",
+      "Uses or equips the item in inventory slot 5.", "Uses or equips the item in inventory slot 6.",
+      "Uses or equips the item in inventory slot 7.", "Uses or equips the item in inventory slot 8."};
   for (std::size_t i = 0; i < 8; ++i) {
-    options.push_back(key(hotkeys, slot_params[i], slot_labels[i], slot_tips[i], 49 + static_cast<int>(i)));
+    add(key(at, slot_params[i], slot_labels[i], slot_tips[i], 49 + static_cast<int>(i)));
   }
-  options.push_back(
-      key(hotkeys, "miniMapZoomIn", "Mini-Map Zoom In", "This key will zoom in the minimap", 187));
-  options.push_back(
-      key(hotkeys, "miniMapZoomOut", "Mini-Map Zoom Out", "This key will zoom out the minimap", 189));
-  options.push_back(key(hotkeys, "escapeToNexus", "Escape To Nexus",
-                  "This key will instantly escape you to the Nexus", 45));
-  options.push_back(key(hotkeys, "options", "Show Options", "This key will bring up the options screen", 79));
-  options.push_back(key(hotkeys, "switchTabs", "Switch Tabs", "This key will switch from available tabs", 66));
-  options.push_back(key(hotkeys, "toggleFullscreenMode", "Toggle Fullscreen",
-                  "This toggles whether to go fullscreen or not", 0));
-  // Options.addChatOptions
-  options.push_back(key(chat, "chat", "Activate Chat", "This key will bring up the chat input box", 13));
-  options.push_back(key(chat, "chatCommand", "Start Chat Command",
-                  "This key will bring up the chat with a '/' prepended to allow for commands such "
-                  "as /who, /ignore, etc.",
-                  191));
-  options.push_back(key(chat, "tell", "Begin Tell",
-                  "This key will bring up a tell (private message) in the chat input box", 9));
-  options.push_back(key(chat, "guildChat", "Begin Guild Chat",
-                  "This key will bring up a guild chat in the chat input box", 71));
-  options.push_back(key(chat, "scrollChatUp", "Scroll Chat Up",
-                  "This key will scroll up to older messages in the chat buffer", 33));
-  options.push_back(key(chat, "scrollChatDown", "Scroll Chat Down",
-                  "This key will scroll down to newer messages in the chat buffer", 34));
-  // Options.addGameplayOptions
-  options.push_back(choice(gameplay, "defaultCameraAngle", "Default Camera Angle",
-                     "This toggles the default camera angle", 1,
-                     {{"45\xC2\xB0", 1}, {"0\xC2\xB0", 0}}));
-  options.push_back(toggle(gameplay, "centerOnPlayer", "Center On Player",
-                     "This toggles whether the player is centered or offset"));
-  options.push_back(toggle(gameplay, "showQuestPortraits", "Show Quest Portraits",
-                     "This toggles whether quest portraits are displayed"));
-  options.push_back(
-      toggle(gameplay, "textBubbles", "Draw Text Bubbles", "This toggles whether to draw text bubbles"));
-  options.push_back(toggle(
-      gameplay, "showGuildInvitePopup", "Show Guild Invite Panel",
-      "This toggles whether to show guild invites in the lower-right panel or just in chat."));
-  options.push_back(
-      toggle(gameplay, "hpBars", "Health Bars", "Enabling this will render health bars below entities."));
-  options.push_back(toggle(gameplay, "showTierTag", "Show Tier Tag",
-                     "This toggles whether to show tier tags on your gear."));
-  options.push_back(
-      toggle(gameplay, "projOutline", "Projectile Outline", "Makes projectiles render with an outline."));
-  std::vector<std::pair<std::string_view, int>> cursors{{"OS", -1}};
+  at.name = "Interface";
+  add(key(at, "escapeToNexus", "Escape To Nexus", "Instantly returns you to the Nexus.", 45));
+  add(key(at, "options", "Show Settings", "Opens this screen.", 79));
+  add(key(at, "switchTabs", "Switch Tabs", "Cycles through the available inventory tabs.", 66));
+  add(key(at, "miniMapZoomIn", "Minimap Zoom In", "Zooms the minimap in.", 187));
+  add(key(at, "miniMapZoomOut", "Minimap Zoom Out", "Zooms the minimap out.", 189));
+  add(key(at, "toggleFullscreenMode", "Toggle Fullscreen", "Switches fullscreen on and off.", 0));
+  add(key(at, "togglePerformanceStats", "Toggle Performance Stats",
+          "Shows or hides the frame rate and memory display.", 0));
+  at.name = "Chat";
+  add(key(at, "chat", "Open Chat", "Opens the chat input box.", 13));
+  add(key(at, "chatCommand", "Start Chat Command",
+          "Opens chat with a '/' already typed, for commands such as /who and /ignore.", 191));
+  add(key(at, "tell", "Begin Tell", "Opens chat to send a private message.", 9));
+  add(key(at, "guildChat", "Begin Guild Chat", "Opens chat to talk to your guild.", 71));
+  add(key(at, "scrollChatUp", "Scroll Chat Up", "Scrolls to older chat messages.", 33));
+  add(key(at, "scrollChatDown", "Scroll Chat Down", "Scrolls to newer chat messages.", 34));
+  // Options.addControlsOptions (camera rotation) and addGameplayOptions.
+  at = {C::gameplay, "Camera"};
+  add(toggle(at, "allowRotation", "Allow Camera Rotation",
+             "Lets the rotate keys turn the camera.", false));
+  add(choice(at, "defaultCameraAngle", "Default Camera Angle",
+             "The angle the camera starts at and resets to.", 1,
+             {{"45\xC2\xB0", 1}, {"0\xC2\xB0", 0}}));
+  add(toggle(at, "centerOnPlayer", "Center On Player",
+             "Keeps your character in the middle of the screen instead of offset."));
+  at.name = "Interface";
+  add(toggle(at, "hpBars", "Health Bars", "Draws health bars below players and enemies."));
+  add(toggle(at, "toggleBarText", "HP/MP Text",
+             "Shows the HP and MP numbers on the bars. Off shows them only while the pointer is "
+             "over a bar."));
+  add(toggle(at, "showTierTag", "Show Tier Tags", "Shows tier tags on your gear."));
+  add(toggle(at, "inventorySwap", "Ctrl-Click Backpack Swap",
+             "Hold Ctrl and click an item to swap it between your inventory and your backpack."));
+  add(toggle(at, "showQuestPortraits", "Show Quest Portraits",
+             "Shows the portrait of your current quest target."));
+  add(toggle(at, "textBubbles", "Text Bubbles", "Draws chat speech bubbles above players."));
+  add(toggle(at, "projOutline", "Projectile Outline", "Draws an outline around projectiles."));
+  add(toggle(at, "smartProjectiles", "Projectile Direction",
+             "Turns projectiles to face the way they are moving.", false));
+  std::vector<std::pair<std::string_view, int>> cursors{{"System", -1}};
   static const std::array<std::string, 16> cursor_labels{
-      "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"};
+      "Cursor 0", "Cursor 1", "Cursor 2",  "Cursor 3",  "Cursor 4",  "Cursor 5",
+      "Cursor 6", "Cursor 7", "Cursor 8",  "Cursor 9",  "Cursor 10", "Cursor 11",
+      "Cursor 12", "Cursor 13", "Cursor 14", "Cursor 15"};
   for (int i = 0; i < 16; ++i) {
     cursors.emplace_back(cursor_labels[static_cast<std::size_t>(i)], i);
   }
-  options.push_back(choice(gameplay, "cursor", "Cursor", "Changing this will give you a new mouse cursor.", 4,
-                     std::move(cursors)));
-  // Options.addGraphicsOptions. Hardware Acceleration is shown only when the GPU path can
-  // fail over; the native renderer is always the GPU path.
-  options.push_back(toggle(graphics, "drawShadows", "Draw Shadows", "This toggles whether to draw shadows"));
-  options.push_back(toggle(graphics, "particles", "Particles",
-                     "If enabled, particles which are not necessary for gameplay are rendered "
-                     "(e.g. hit/death particles)."));
-  options.push_back(toggle(
-      graphics, "allyShots", "Ally Shots",
-      "This toggles whether to show and render ally shots. Disable this to improve performance."));
-  options.push_back(toggle(graphics, "allyDamage", "Ally Damage",
-                     "This toggles whether to show damage dealt to and by allies. Disable this to "
-                     "improve performance."));
-  options.push_back(toggle(graphics, "allyNotifs", "Ally Notifications",
-                     "This toggles whether to show notifications targeted at other players. "
-                     "Disable this to improve performance."));
-  options.push_back(choice(graphics, "quality", "Quality",
-                     "Enabling this will render UI elements at higher/lower quality.", 1,
-                     {{"High", 1}, {"Low", 0}}));
-  options.push_back(toggle(graphics, "vsync", "VSync",
-                     "Synchronizes rendering with the display refresh to prevent screen tearing."));
-  options.push_back(choice(graphics, "maxFPS", "Max FPS",
-                     "Caps the frame rate. Unlimited renders as fast as possible (up to your "
-                     "display refresh with VSync on).",
-                     60,
-                     {{"30", 30},
-                      {"60", 60},
-                      {"120", 120},
-                      {"144", 144},
-                      {"165", 165},
-                      {"240", 240},
-                      {"Unlimited", 0}}));
-  options.push_back(toggle(graphics, "fullscreenMode", "Fullscreen Mode",
-                     "This toggles whether the game is fullscreen or not", false));
-  // Options.addSoundOptions
-  options.push_back(
-      toggle(sound, "playSFX", "Play Sound Effects", "This toggles whether sound effects are played"));
-  options.push_back(spacer(sound));
-  options.push_back(toggle(sound, "playPewPew", "Play Weapon Sounds",
-                     "This toggles whether weapon sounds are played"));
+  at.name = "Social";
+  add(toggle(at, "showTradePopup", "Trade Request Panel",
+             "Shows trade requests in the lower-right panel instead of only in chat."));
+  add(toggle(at, "showGuildInvitePopup", "Guild Invite Panel",
+             "Shows guild invites in the lower-right panel instead of only in chat."));
+  at.name = "Cursor";
+  auto cursor = choice(at, "cursor", "Mouse Cursor", "The cursor shown over the game.", 4,
+                       std::move(cursors));
+  cursor.preview = "cursors";
+  add(std::move(cursor));
+  // Options.addGraphicsOptions. There is no Hardware Acceleration row: the native renderer is
+  // always the GPU path.
+  at = {C::video, "Display"};
+  add(toggle(at, "fullscreenMode", "Fullscreen", "Fills the whole screen with the game.", false));
+  add(toggle(at, "vsync", "VSync",
+             "Synchronizes rendering with the display refresh to prevent screen tearing."));
+  add(slider(at, "maxFPS", "Max FPS",
+             "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
+             "refresh with VSync on).",
+             60, 30, 1000, 1, {}, "\xE2\x88\x9E"));
+  add(toggle(at, "showStatistics", "Performance Stats",
+             "Shows the frame rate, frame times and memory in the corner.", false));
+  at.name = "Quality";
+  add(toggle(at, "drawShadows", "Shadows", "Draws shadows under players, enemies and objects."));
+  add(toggle(at, "particles", "Particles",
+             "Renders particles that are not needed for gameplay, such as hit and death "
+             "particles."));
+  // Options.addMiscOptions: Disable Ally Particles, read as a switch that is off by default.
+  add(toggle(at, "allyParticles", "Ally Particles",
+             "Shows particle effects from other players, such as their heals and abilities.",
+             false));
+  // Native addition: BetterSkillys has no screen shake option.
+  add(toggle(at, "screenShake", "Screen Shake", "Shakes the screen during some effects."));
+  at.name = "Allies";
+  add(toggle(at, "allyShots", "Ally Shots",
+             "Shows other players' projectiles. Turn off to improve performance."));
+  add(toggle(at, "allyDamage", "Ally Damage",
+             "Shows damage dealt to and by other players. Turn off to improve performance."));
+  add(toggle(at, "allyNotifs", "Ally Notifications",
+             "Shows notifications aimed at other players. Turn off to improve performance."));
+  // Native addition: BetterSkillys hides players by category ("Hide Players"). These fade them
+  // instead, each category with its own switch.
+  at.name = "Players";
+  add(slider(at, "playerAlpha", "Player Opacity",
+             "Fades the players chosen below. Lower values are more see-through; 0% hides them.",
+             100, 0, 100, 1, "%"));
+  add(toggle(at, "fadePlayers", "Fade Other Players",
+             "Fades players who are neither in your guild nor locked."));
+  add(toggle(at, "fadeGuild", "Fade Guild Members", "Fades players in your guild.", false));
+  add(toggle(at, "fadeLocked", "Fade Locked Players", "Fades players you have locked.", false));
+  // Options.addSoundOptions, plus native volume sliders.
+  at = {C::audio, "Volume"};
+  add(slider(at, "masterVolume", "Master Volume", "Scales every sound the game plays.", 100, 0,
+             100, 1, "%"));
+  add(slider(at, "sfxVolume", "Effects Volume",
+             "Volume of sound effects other than weapons.", 100, 0, 100, 1, "%"));
+  add(slider(at, "weaponVolume", "Weapon Volume", "Volume of weapon sounds.", 100, 0, 100, 1,
+             "%"));
+  at.name = "Playback";
+  add(toggle(at, "playSFX", "Sound Effects", "Plays sound effects."));
+  add(toggle(at, "playPewPew", "Weapon Sounds", "Plays weapon sounds."));
   // Parameters.setDefaults entries that have no row.
-  options.push_back({T::hotkeys, K::hidden_key, "escapeToNexus2", {}, {}, 116, {}, {}});
-  options.push_back({T::gameplay, K::hidden_value, "showTradePopup", {}, {}, 1, {}, {}});
+  add(row({C::keybinds, {}}, K::hidden_key, "escapeToNexus2", {}, {}, 116));
   return options;
 }
 
@@ -246,21 +288,32 @@ constexpr std::pair<int, std::string_view> key_names[]{{0, "[Unset]"},    {8, "B
 constexpr double default_angle = 7 * std::numbers::pi / 4;
 }
 
-std::string_view options_tab_name(OptionsTab tab) {
-  constexpr std::array<std::string_view, options_tab_count> names{
-      "Controls", "Gameplay", "Hot Keys", "Chat", "Graphics", "Sound"};
-  return names.at(static_cast<std::size_t>(tab));
+std::string_view options_category_name(OptionsCategory category) {
+  constexpr std::array<std::string_view, options_category_count> names{"Keybinds", "Gameplay",
+                                                                       "Video", "Audio"};
+  return names.at(static_cast<std::size_t>(category));
 }
 
 std::span<const OptionDef> option_defs() {
   return table();
 }
 
-std::vector<const OptionDef*> tab_options(OptionsTab tab) {
+std::vector<const OptionDef*> category_options(OptionsCategory category) {
   std::vector<const OptionDef*> result;
   for (const auto& option : table()) {
-    if (option.tab == tab && option.kind != K::hidden_key && option.kind != K::hidden_value) {
+    if (option.category == category && option.kind != K::hidden_key &&
+        option.kind != K::hidden_value) {
       result.push_back(&option);
+    }
+  }
+  return result;
+}
+
+std::vector<std::string_view> category_sections(OptionsCategory category) {
+  std::vector<std::string_view> result;
+  for (const auto* option : category_options(category)) {
+    if (std::find(result.begin(), result.end(), option->section) == result.end()) {
+      result.push_back(option->section);
     }
   }
   return result;
@@ -280,6 +333,49 @@ std::string_view key_name(int code) {
     if (value == code) {
       return name;
     }
+  }
+  return {};
+}
+
+int slider_end(const OptionDef& option) {
+  return option.top_label.empty() ? option.max : option.max + option.step;
+}
+
+int slider_position(const OptionDef& option, int value) {
+  if (!option.top_label.empty() && value == 0) {
+    return slider_end(option);
+  }
+  return std::clamp(value, option.min, option.max);
+}
+
+int slider_value(const OptionDef& option, int position) {
+  if (!option.top_label.empty() && position > option.max) {
+    return 0;
+  }
+  return std::clamp(position, option.min, option.max);
+}
+
+std::string value_text(const OptionDef& option, int value) {
+  switch (option.kind) {
+    case K::toggle:
+      return value ? "On" : "Off";
+    case K::choice:
+      for (const auto& [label, choice] : option.choices) {
+        if (choice == value) {
+          return std::string(label);
+        }
+      }
+      return {};
+    case K::slider:
+      if (!option.top_label.empty() && value == 0) {
+        return std::string(option.top_label);
+      }
+      return std::to_string(value) + std::string(option.unit);
+    case K::key:
+    case K::hidden_key:
+      return std::string(key_name(value));
+    case K::hidden_value:
+      return std::to_string(value);
   }
   return {};
 }
@@ -328,19 +424,23 @@ bool Settings::valid(const OptionDef& option, int value) {
     case K::hidden_key:
       return value >= 0 && value <= 255;
     case K::hidden_value:
+    case K::toggle:
       return value == 0 || value == 1;
     case K::choice:
       return std::any_of(option.choices.begin(), option.choices.end(),
                          [&](const auto& choice) { return choice.second == value; });
-    case K::spacer:
-      return false;
+    case K::slider:
+      return (value >= option.min && value <= option.max) ||
+             (!option.top_label.empty() && value == 0);
   }
   return false;
 }
 
-bool Settings::set_choice(std::string_view param, int value) {
+bool Settings::set_value(std::string_view param, int value) {
   const auto* option = find_option(param);
-  if (!option || option->kind != K::choice || !valid(*option, value)) {
+  if (!option ||
+      (option->kind != K::toggle && option->kind != K::choice && option->kind != K::slider) ||
+      !valid(*option, value)) {
     return false;
   }
   auto& slot = values_[std::string(param)];
@@ -359,9 +459,9 @@ double Settings::default_camera_angle() const {
   return get("defaultCameraAngle") != 0 ? default_angle : 0;
 }
 
-void Settings::reset_tab(OptionsTab tab) {
+void Settings::reset_category(OptionsCategory category) {
   for (const auto& option : table()) {
-    if (option.tab == tab && !option.param.empty() && option.kind != K::hidden_key &&
+    if (option.category == category && !option.param.empty() && option.kind != K::hidden_key &&
         option.kind != K::hidden_value) {
       values_[std::string(option.param)] = option.fallback;
     }
@@ -378,17 +478,41 @@ Preferences Settings::preferences() const {
   p.particles = flag("particles");
   p.draw_shadows = flag("drawShadows");
   p.proj_outline = flag("projOutline");
+  p.smart_projectiles = flag("smartProjectiles");
   p.text_bubbles = flag("textBubbles");
+  p.bar_text = flag("toggleBarText");
+  p.screen_shake = flag("screenShake");
   p.ally_shots = flag("allyShots");
   p.ally_damage = flag("allyDamage");
   p.ally_notifs = flag("allyNotifs");
+  p.ally_particles = flag("allyParticles");
   p.show_tier_tag = flag("showTierTag");
   p.show_quest_portraits = flag("showQuestPortraits");
   p.show_guild_invite_popup = flag("showGuildInvitePopup");
   p.show_trade_popup = flag("showTradePopup");
+  p.fade_players = flag("fadePlayers");
+  p.fade_guild = flag("fadeGuild");
+  p.fade_locked = flag("fadeLocked");
   p.play_sfx = flag("playSFX");
   p.play_pew_pew = flag("playPewPew");
+  p.master_volume = static_cast<float>(get("masterVolume")) / 100.F;
+  p.sfx_volume = static_cast<float>(get("sfxVolume")) / 100.F;
+  p.weapon_volume = static_cast<float>(get("weaponVolume")) / 100.F;
+  p.player_alpha = static_cast<float>(get("playerAlpha")) / 100.F;
   return p;
+}
+
+float player_alpha(const Preferences& prefs, bool is_local, bool locked, bool same_guild) {
+  if (is_local) {
+    return 1;
+  }
+  if (locked) {
+    return prefs.fade_locked ? prefs.player_alpha : 1;
+  }
+  if (same_guild) {
+    return prefs.fade_guild ? prefs.player_alpha : 1;
+  }
+  return prefs.fade_players ? prefs.player_alpha : 1;
 }
 
 Settings Settings::load(const std::filesystem::path& path) {

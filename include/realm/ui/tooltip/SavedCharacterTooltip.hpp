@@ -15,5 +15,5 @@ struct SavedCharacterTooltipImage {
 
 [[nodiscard]] SavedCharacterTooltipImage render_saved_character_tooltip(
     const FontBook& fonts, const HudArt& art, const Catalog& catalog, std::string_view name,
-    const SavedCharacter& character, int best_fame, int best_level);
+    const SavedCharacter& character, int best_fame, int best_level, bool show_tier_tag);
 }

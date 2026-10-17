@@ -840,6 +840,9 @@ void Hud::bar(const StatusBarState& state) {
   snapped_rectangle(12, state.y, state.maximum > 0 ? 176.0 * value / state.maximum : 176, 16,
                     state.color);
   text(state.label, 14, true, 0xffffff, 12, state.y - 2, 1, 1, 0, TextEffect::shadow);
+  if (!state.text) {
+    return;
+  }
   const auto amount =
       std::to_string(value) + (state.maximum > 0 ? "/" + std::to_string(state.maximum) : "");
   const auto boost = state.boost ? " (" + std::string(state.boost > 0 ? "+" : "") +

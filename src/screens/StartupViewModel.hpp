@@ -148,6 +148,7 @@ class StartupViewModel {
   SavedCharacterTooltipImage character_tooltip_;
   int character_tooltip_id_{-1};
   double character_tooltip_density_{};
+  bool character_tooltip_tiers_{true};
   // The saved-character and class tooltips share one element; tooltip_frame_ is the frame of
   // whichever is shown.
   Vec2 tooltip_frame_{};

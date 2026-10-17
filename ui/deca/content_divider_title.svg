@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="77" height="31" viewBox="0 0 77 31" data-stretch-x="38 39">
   <!-- content_divider_title: Deca UI frame content_divider_title. Redrawn from the atlas frame. Stretches along x 38-39. -->
-  <path fill="#474747" d="M19 5H58L62 10H73V20H62L58 25H19L15 20H4V10H15Z M35 0H42L46 4V5H31V4Z M35 30H42L46 26V25H31V26Z"/>
-  <path fill="#1c1c1c" d="M35 2H42L54 14V16L42 28H35L23 16V14Z"/>
+  <path fill="#474747" d="M35 0H42L47 5H57L62 10H73V21H62L57 26H47L42 31H35L30 26H20L15 21H4V10H15L20 5H30Z"/>
+  <path fill="#1c1c1c" d="M35 2H42L54 14V17L42 29H35L23 17V14Z"/>
 </svg>

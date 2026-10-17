@@ -26,6 +26,7 @@
 #include "realm/tutorial/Tutorial.hpp"
 #include "realm/tutorial/TutorialView.hpp"
 #include "realm/hud/KeysView.hpp"
+#include "realm/ui/options/OptionsMenu.hpp"
 #include "realm/ui/options/OptionsScreen.hpp"
 #include "realm/map/partyoverlay/PartyArrows.hpp"
 #include "realm/map/partyoverlay/QuestArrow.hpp"
@@ -208,8 +209,11 @@ struct ClientState {
   realm::ui::RetainedSurface keys_texture;
   double keys_density{};
   std::uint64_t keys_revision{~0ULL};
-  realm::OptionsScreen options_screen;
-  realm::ui::RetainedSurface options_texture;
+  realm::OptionsMenu options_menu;
+  // The Settings screen over options_menu; null without the RmlUi host.
+  std::unique_ptr<realm::OptionsScreen> options_screen;
+  // A slider drag changes values on every move; they are saved once the pointer lets go.
+  bool options_unsaved{};
   realm::platform::CursorSet cursors;
   realm::InteractionDialog interaction;
   realm::ui::RetainedSurface interaction_texture;

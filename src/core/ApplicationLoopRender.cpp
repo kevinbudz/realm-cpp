@@ -64,7 +64,10 @@ void build_scene(ClientState& cs, const Options& options, Frame& frame) {
       throw std::runtime_error("Window too narrow for game camera");
     }
 
-    const auto shake = cs.world.particles().camera_offset(time);
+    // Screen Shake gates the ShowEffect 14 jitter.
+    const auto shake = cs.world.preferences().screen_shake
+                           ? cs.world.particles().camera_offset(time)
+                           : realm::Vec2{};
     cs.camera.configure({cs.position.x + shake.x, cs.position.y + shake.y}, cs.angle, width, height,
                         cs.zoom, cs.centered);
     clip_width = static_cast<int>(cs.camera.playable_width());
@@ -153,7 +156,7 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
                                 : realm::HudState::Header::Button::options;
       state.header.hover = !cs.trade.active() && cs.tooltip_pointer_valid && !cs.hud_mouse_down &&
                            !cs.trade.request() && !cs.guild_invite.invitation() &&
-                           !cs.options_screen.visible() && !cs.dialog.visible() &&
+                           !cs.options_menu.visible() && !cs.dialog.visible() &&
                            !cs.board.visible() && !cs.members.visible() &&
                            !(cs.skins && cs.skins->visible()) && !cs.interaction.visible() &&
                            realm::HudInput::button_at(realm::header_button, cs.hud_input.pointer());
@@ -165,6 +168,15 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
       state.button.hover = hovered && state.button.id == panel_button.id;
       state.sellable.hover = hovered && state.sellable.id == panel_button.id;
       state.social.hover = hovered && state.social.id == panel_button.id;
+      // HP/MP Text off: a bar's numbers show only while the pointer is over it
+      // (StatusBar.bTextEnabled and mouseOver_).
+      for (auto& bar : state.bars) {
+        bar.text = cs.world.preferences().bar_text ||
+                   (hover_enabled &&
+                    realm::HudInput::button_at(
+                        realm::HudRect{12, static_cast<double>(bar.y), 176, 16},
+                        cs.hud_input.pointer()));
+      }
       if (cs.hud->update(state)) {
         for (const auto& area : cs.hud->changes()) {
           cs.hud_texture.update_region(cs.hud->image(), area.x, area.y, area.width, area.height);
@@ -219,7 +231,8 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
       if (cs.settings.flag("textBubbles")) {
         for (const auto& balloon : cs.balloons.balloons()) {
           const auto* speaker = cs.world.entity(balloon.object_id);
-          if (!speaker) {
+          // A balloon follows its speaker's Player Opacity; a hidden speaker says nothing.
+          if (!speaker || cs.world.player_opacity(*speaker) <= 0) {
             continue;
           }
 
@@ -236,6 +249,7 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
           const double h = balloon.image.height / balloon.image.pixel_scale * cs.zoom;
           overlay_storage[overlay.size()] =
               texture.quad(at, {w, 0}, {0, h}, 0, 0, balloon.image.width, balloon.image.height);
+          realm::fade_quad(overlay_storage[overlay.size()], cs.world.player_opacity(*speaker));
           overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
         }
       }

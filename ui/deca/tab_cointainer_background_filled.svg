@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="31" height="31" viewBox="0 0 31 31" data-stretch-x="15 16" data-stretch-y="15 16">
   <!-- tab_cointainer_background_filled: TabContentView panel. Stretches along x 15-16 and y 15-16. -->
-  <path fill="#353535" d="M12.5 0H18.5L31 12.5V18.5L18.5 31H12.5L0 18.5V12.5Z"/>
-  <path fill="#3f3f3f" d="M12.5 0H18.5L31 12.5V15L18 2H13L0 15V12.5Z"/>
+  <path fill="#353535" d="M13 0H18L31 13V18L18 31H13L0 18V13Z"/>
+  <path fill="#3f3f3f" d="M13 0H18L31 13V15L18 2H13L0 15V13Z"/>
 </svg>

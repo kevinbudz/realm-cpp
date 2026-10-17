@@ -86,7 +86,7 @@ realm_library(realm_ui src/mapeditor/EditorScreen.cpp src/tutorial/TutorialView.
     src/ui/menu/PlayerMenu.cpp src/ui/menu/PlayerGroup.cpp src/map/partyoverlay/PartyArrows.cpp src/map/partyoverlay/GameObjectArrow.cpp src/map/partyoverlay/QuestArrow.cpp
     src/ui/tooltip/QuestToolTip.cpp src/ui/tooltip/PortraitToolTip.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/ui/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
     src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/ui/SkinChooser.cpp
-    src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
+    src/ui/options/OptionsMenu.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
 target_link_libraries(realm_ui PUBLIC realm_assets)
 realm_library(realm_fixtures src/fixtures/StressTimeline.cpp)
 target_link_libraries(realm_fixtures PUBLIC realm_assets PRIVATE nlohmann_json::nlohmann_json)
@@ -124,7 +124,7 @@ if(REALM_BUILD_VIEWER)
     target_include_directories(realm_ui_rmlui SYSTEM PRIVATE "${RMLUI_BACKENDS_DIR}")
     target_compile_definitions(realm_ui_rmlui PRIVATE RMLUI_GL3_CUSTOM_LOADER=<GL/glew.h> RMLUI_SDL_VERSION_MAJOR=2)
     set_source_files_properties(${REALM_RMLUI_BACKENDS} PROPERTIES COMPILE_OPTIONS -w)
-    realm_library(realm_ui_views src/lib/ui/RetainedUi.cpp src/screens/StartupRml.cpp)
+    realm_library(realm_ui_views src/lib/ui/RetainedUi.cpp src/screens/StartupRml.cpp src/ui/options/OptionsScreen.cpp)
     target_link_libraries(realm_ui_views PUBLIC realm_ui_rmlui realm_startup realm_render PRIVATE RmlUi::Core SDL2::SDL2)
     realm_library(realm_application src/core/Application.cpp src/core/ApplicationState.cpp src/core/ApplicationLayersHud.cpp src/core/ApplicationLayersSocial.cpp src/core/ApplicationLayersScreens.cpp src/core/ApplicationLoop.cpp src/core/ApplicationLoopInput.cpp src/core/ApplicationLoopUpdate.cpp src/core/ApplicationLoopRender.cpp src/core/ApplicationLoopPanels.cpp src/core/ApplicationOptions.cpp src/core/ApplicationScript.cpp src/core/ApplicationFixtures.cpp src/core/ApplicationAudio.cpp)
     target_link_libraries(realm_application PRIVATE realm_startup realm_ui_views realm_platform_sdl realm_fixtures realm_ui_gpu)

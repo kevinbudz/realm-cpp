@@ -1,4 +1,5 @@
-#include "realm/ui/options/OptionsScreen.hpp"
+#include "realm/ui/options/OptionsMenu.hpp"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -18,26 +19,6 @@ void check(bool value, const char* text) {
 using namespace realm;
 
 namespace {
-Vec2 center(const OptionsScreen& screen, HudRect r) {
-  return {screen.position().x + (r.x + r.width / 2) * screen.scale(),
-          (r.y + r.height / 2) * screen.scale()};
-}
-
-void click(OptionsScreen& screen, Vec2 p) {
-  screen.pointer_move(p);
-  screen.pointer_down(p);
-  screen.pointer_up(p);
-}
-
-int find(const OptionsScreen& screen, std::string_view param) {
-  for (std::size_t i = 0; i < screen.option_count(); ++i) {
-    if (screen.option(static_cast<int>(i)).param == param) {
-      return static_cast<int>(i);
-    }
-  }
-  return -1;
-}
-
 void settings_rules(const std::filesystem::path& scratch) {
   Settings s;
   check(s.get("moveUp") == 87 && s.get("moveLeft") == 65 && s.get("moveDown") == 83 &&
@@ -52,9 +33,17 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(!s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
             s.flag("allyNotifs") && !s.flag("fullscreenMode"),
         "toggle defaults");
-  check(s.get("maxFPS") == 60 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("quality") &&
-            s.flag("playSFX") && s.flag("showTradePopup"),
+  check(s.flag("toggleBarText") && s.flag("inventorySwap") && s.flag("screenShake") &&
+            !s.flag("smartProjectiles") && !s.flag("showStatistics") && !s.flag("allyParticles"),
+        "new row defaults");
+  check(s.get("maxFPS") == 60 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("playSFX") &&
+            s.flag("showTradePopup"),
         "graphics defaults");
+  check(!find_option("quality") && !s.values().contains("quality"),
+        "the UI Quality row is gone");
+  check(s.get("playerAlpha") == 100 && s.flag("fadePlayers") && !s.flag("fadeGuild") &&
+            !s.flag("fadeLocked"),
+        "player opacity defaults");
   check(std::fabs(s.camera_angle() - 7 * std::numbers::pi / 4) < 1e-12 &&
             s.default_camera_angle() == s.camera_angle(),
         "45 degree default camera angle");
@@ -74,28 +63,40 @@ void settings_rules(const std::filesystem::path& scratch) {
   s.set_key("nonsense", 65);
   check(s.get("maxFPS") == 60 && s.get("moveLeft") == 65,
         "non-key parameters and invalid codes are ignored");
-  check(!s.set_choice("hpBars", 7) && s.flag("hpBars") && !s.set_choice("moveUp", 1) &&
-            !s.set_choice("hpBars", 1),
+  check(!s.set_value("hpBars", 7) && s.flag("hpBars") && !s.set_value("moveUp", 1) &&
+            !s.set_value("hpBars", 1),
         "invalid or unchanged choices report no change");
-  check(s.set_choice("hpBars", 0) && !s.flag("hpBars") && s.set_choice("cursor", -1) &&
+  check(s.set_value("hpBars", 0) && !s.flag("hpBars") && s.set_value("cursor", -1) &&
             s.get("cursor") == -1,
         "valid choices apply");
-  check(s.set_choice("defaultCameraAngle", 0) && s.camera_angle() == 0 &&
+  check(s.set_value("defaultCameraAngle", 0) && s.camera_angle() == 0 &&
             s.default_camera_angle() == 0,
         "default camera angle resets the camera angle");
-  // Only the visible tab is reset.
-  s.reset_tab(OptionsTab::gameplay);
+  // Only the open category is reset.
+  s.reset_category(OptionsCategory::gameplay);
   check(s.flag("hpBars") && s.get("cursor") == 4 && s.get("moveUp") == 83 &&
             s.get("defaultCameraAngle") == 1,
-        "reset affects one tab");
+        "reset affects one category");
   check(s.preferences().hp_bars && s.preferences().ally_notifs && s.preferences().show_trade_popup,
         "preferences follow values");
-  s.set_choice("allyNotifs", 0);
-  s.set_choice("particles", 0);
-  s.set_choice("textBubbles", 0);
+  s.set_value("allyNotifs", 0);
+  s.set_value("particles", 0);
+  s.set_value("textBubbles", 0);
   const auto prefs = s.preferences();
   check(!prefs.ally_notifs && !prefs.particles && !prefs.text_bubbles && prefs.hp_bars,
         "preferences expose gated systems");
+  s.set_value("screenShake", 0);
+  s.set_value("toggleBarText", 0);
+  s.set_value("allyParticles", 1);
+  s.set_value("smartProjectiles", 1);
+  const auto effects = s.preferences();
+  check(!effects.screen_shake && !effects.bar_text && effects.ally_particles &&
+            effects.smart_projectiles,
+        "effect preferences follow values");
+  s.set_value("screenShake", 1);
+  s.set_value("toggleBarText", 1);
+  s.set_value("allyParticles", 0);
+  s.set_value("smartProjectiles", 0);
   // Persistence.
   const auto path = scratch / "settings.json";
   s.set_camera_angle(1.25);
@@ -113,7 +114,7 @@ void settings_rules(const std::filesystem::path& scratch) {
         "corrupt file yields defaults");
   {
     std::ofstream odd(scratch / "odd.json");
-    odd << R"({"values":{"moveUp":65,"hpBars":7,"maxFPS":144,"nobody":1,"cursor":"x","chat":-5,"particles":0},"cameraAngle":"NaN"})";
+    odd << R"({"values":{"moveUp":65,"hpBars":7,"maxFPS":144,"nobody":1,"cursor":"x","chat":-5,"particles":0,"quality":0},"cameraAngle":"NaN"})";
   }
   const auto odd = Settings::load(scratch / "odd.json");
   check(odd.get("moveUp") == 65 && odd.get("maxFPS") == 144 && !odd.flag("particles"),
@@ -121,20 +122,72 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(odd.flag("hpBars") && odd.get("cursor") == 4 && odd.get("chat") == 13 &&
             !odd.values().contains("nobody"),
         "invalid stored values fall back per option");
+  // A file saved before the UI Quality row was removed still loads: the old name is dropped.
+  check(!odd.values().contains("quality") && odd.get("playerAlpha") == 100,
+        "a stored quality value from an older build is dropped");
   check(odd.camera_angle() == odd.default_camera_angle(),
         "missing camera angle falls back to the default");
   check(Settings::path_beside("/a/b/account.json") == "/a/b/account.settings.json",
         "settings sit beside an explicit account file");
   check(!s.save("/proc/forbidden/settings.json"), "unwritable location reports failure");
-  // Option table shape (Options.as add order, spacers count as grid cells).
-  check(tab_options(OptionsTab::controls).size() == 14 &&
-            tab_options(OptionsTab::gameplay).size() == 9 &&
-            tab_options(OptionsTab::hotkeys).size() == 16,
-        "tab sizes");
-  check(tab_options(OptionsTab::chat).size() == 6 &&
-            tab_options(OptionsTab::graphics).size() == 9 &&
-            tab_options(OptionsTab::sound).size() == 3,
-        "tab sizes 2");
+  // Option table shape: every row in a section, no section split across the table.
+  check(category_options(OptionsCategory::keybinds).size() == 34 &&
+            category_options(OptionsCategory::gameplay).size() == 14 &&
+            category_options(OptionsCategory::video).size() == 15 &&
+            category_options(OptionsCategory::audio).size() == 5,
+        "category sizes");
+  check(category_sections(OptionsCategory::video) ==
+            std::vector<std::string_view>{"Display", "Quality", "Allies", "Players"},
+        "video sections in order, Players last");
+  check(find_option("showTradePopup")->kind == OptionDef::Kind::toggle &&
+            find_option("showTradePopup")->category == OptionsCategory::gameplay,
+        "Trade Request Panel is a visible Gameplay row");
+  check(category_sections(OptionsCategory::keybinds) ==
+            std::vector<std::string_view>{"Movement", "Camera", "Combat", "Items", "Interface",
+                                          "Chat"},
+        "keybind sections in order");
+  for (std::size_t c = 0; c < options_category_count; ++c) {
+    const auto rows = category_options(static_cast<OptionsCategory>(c));
+    std::vector<std::string_view> order;
+    for (const auto* row : rows) {
+      check(!row->section.empty() && !row->label.empty() && !row->tooltip.empty(),
+            "rows have a section, label and description");
+      if (order.empty() || order.back() != row->section) {
+        check(std::find(order.begin(), order.end(), row->section) == order.end(),
+              "sections are contiguous");
+        order.push_back(row->section);
+      }
+    }
+  }
+  // Sliders.
+  const auto& fps = *find_option("maxFPS");
+  check(fps.kind == OptionDef::Kind::slider && slider_end(fps) == 1001 &&
+            slider_position(fps, 0) == 1001 && slider_value(fps, 1001) == 0 &&
+            slider_value(fps, 1000) == 1000 &&
+            slider_position(fps, 144) == 144 && slider_value(fps, 10) == 30,
+        "Max FPS slider reaches 1000 before its Unlimited stop");
+  check(value_text(fps, 0) == "\xE2\x88\x9E" && value_text(fps, 120) == "120" &&
+            value_text(*find_option("masterVolume"), 75) == "75%" &&
+            value_text(*find_option("playerAlpha"), 40) == "40%" &&
+            value_text(*find_option("hpBars"), 1) == "On" &&
+            value_text(*find_option("moveUp"), 87) == "W",
+        "value text");
+  {
+    Settings v;
+    check(v.get("masterVolume") == 100 && v.set_value("masterVolume", 40) &&
+              !v.set_value("masterVolume", 101) && v.set_value("maxFPS", 0) &&
+              v.set_value("maxFPS", 200) && !v.set_value("maxFPS", 29),
+          "slider values validate against their range");
+    v.set_value("sfxVolume", 50);
+    const auto p = v.preferences();
+    check(std::fabs(p.master_volume - .4F) < 1e-6 && std::fabs(p.sfx_volume - .5F) < 1e-6 &&
+              p.weapon_volume == 1,
+          "volumes reach the preferences");
+    check(v.set_value("playerAlpha", 0) && v.set_value("playerAlpha", 100) &&
+              !v.set_value("playerAlpha", 101) && v.set_value("playerAlpha", 40) &&
+              std::fabs(v.preferences().player_alpha - .4F) < 1e-6,
+          "player opacity validates against 0 to 100 and reaches the preferences");
+  }
   std::set<std::string_view> seen;
   for (const auto& option : option_defs()) {
     if (!option.param.empty()) {
@@ -147,161 +200,107 @@ void settings_rules(const std::filesystem::path& scratch) {
         "KeyCodes names");
 }
 
-void screen_behavior(const FontBook& fonts_in) {
-  FontBook& fonts = const_cast<FontBook&>(fonts_in);
+bool listed(const OptionsMenu& menu, std::string_view param) {
+  return std::any_of(menu.rows().begin(), menu.rows().end(),
+                     [&](const OptionDef* row) { return row->param == param; });
+}
+
+void menu_behavior() {
   Settings settings;
-  OptionsScreen screen;
-  check(!screen.visible() && !screen.update(fonts, 800, 600, 0), "closed screen draws nothing");
-  screen.open(settings);
-  fonts.set_pixel_scale(1);
-  check(
-      screen.visible() && screen.update(fonts, 800, 600, 0) && screen.tab() == OptionsTab::controls,
-      "opens on Controls");
-  check(screen.image().width == 800 && screen.image().height == 600 && screen.position().x == 0 &&
-            screen.scale() == 1,
-        "design-space image");
-  check(!screen.update(fonts, 800, 600, 0), "unchanged screen keeps its surface");
-  // Grid: two columns at x 20/415, rows 44 apart from y 122.
-  check(screen.box_rect(0).x == 20 && screen.box_rect(0).y == 122 && screen.box_rect(1).x == 415 &&
-            screen.box_rect(2).y == 166 && screen.box_rect(13).y == 122 + 6 * 44,
-        "option grid");
-  check(screen.box_rect(0).width == 80 && screen.box_rect(0).height == 32 &&
-            screen.label_rect(0).x == 124,
-        "box and label geometry");
-  check(screen.tab_rect(0).x == 14 && screen.tab_rect(5).x == 14 + 5 * 108 &&
-            screen.tab_rect(0).y == 70,
-        "tab strip");
-  check(screen.button_rect(OptionsScreen::continue_hit).y == 520 &&
-            screen.button_rect(OptionsScreen::reset_hit).x == 20 &&
-            screen.button_rect(OptionsScreen::reset_hit).y == 532 &&
-            screen.button_rect(OptionsScreen::home_hit).x == 620,
-        "button positions");
-  check(std::fabs(screen.button_rect(OptionsScreen::continue_hit).x +
-                  screen.button_rect(OptionsScreen::continue_hit).width / 2 - 400) < 1e-9,
-        "continue is centered");
+  OptionsMenu menu;
+  check(!menu.visible() && !menu.key_down(65), "a closed menu takes no keys");
+  menu.open(settings);
+  check(menu.visible() && menu.category() == OptionsCategory::keybinds &&
+            menu.rows().size() == 34 && listed(menu, "moveUp"),
+        "opens on Keybinds");
   // Rebinding.
-  const int up = find(screen, "moveUp");
-  click(screen, center(screen, screen.box_rect(up)));
-  check(screen.capturing(), "clicking a key box waits for a key");
-  screen.update(fonts, 800, 600, 0);
-  const auto before = screen.image().pixels;
-  check(screen.update(fonts, 800, 600, 400) && screen.image().pixels != before,
-        "[Hit Key] blinks every 400 ms");
-  check(!screen.update(fonts, 800, 600, 500) && screen.update(fonts, 800, 600, 800) &&
-            screen.image().pixels == before,
-        "and only redraws when the phase flips");
-  check(screen.key_down(88) && !screen.capturing() && settings.get("moveUp") == 88 &&
-            screen.take_changed() && !screen.take_changed(),
+  auto revision = menu.value_revision();
+  menu.begin_capture("moveUp");
+  check(menu.capturing() && menu.capture() == "moveUp" && menu.value_revision() != revision,
+        "a key box waits for a key");
+  check(menu.key_down(88) && !menu.capturing() && settings.get("moveUp") == 88 &&
+            menu.take_changed() && !menu.take_changed(),
         "the next key is bound");
-  click(screen, center(screen, screen.box_rect(up)));
-  screen.key_down(key_escape);
-  check(!screen.capturing() && settings.get("moveUp") == 88 && screen.visible() &&
-            !screen.take_changed(),
+  menu.begin_capture("moveUp");
+  menu.key_down(key_escape);
+  check(!menu.capturing() && settings.get("moveUp") == 88 && menu.visible() && !menu.take_changed(),
         "Escape cancels a capture");
-  click(screen, center(screen, screen.box_rect(up)));
-  const auto elsewhere = center(screen, screen.box_rect(find(screen, "moveLeft")));
-  screen.pointer_down(elsewhere);
-  check(!screen.capturing(), "any mouse press leaves input mode");
-  screen.pointer_up(elsewhere);
-  check(screen.capturing() && find(screen, "moveLeft") >= 0,
-        "the click that left it starts the clicked box");
-  screen.key_down(88);
+  menu.begin_capture("moveLeft");
+  menu.key_down(88);
   check(settings.get("moveLeft") == 88 && settings.get("moveUp") == 0,
         "binding a used key unsets the previous action");
-  (void)screen.take_changed();
-  click(screen, center(screen, screen.box_rect(up)));
-  screen.key_down(0);
-  check(screen.capturing() && screen.visible(), "keys without a Flash code are ignored");
-  screen.pointer_down({1, 1});
-  // Rotate keys follow Allow Camera Rotation.
-  const int rotate = find(screen, "rotateLeft"), allow = find(screen, "allowRotation");
-  click(screen, center(screen, screen.box_rect(rotate)));
-  check(!screen.capturing() && !settings.enabled(screen.option(rotate)),
+  (void)menu.take_changed();
+  menu.begin_capture("moveUp");
+  menu.key_down(0);
+  check(menu.capturing() && menu.visible(), "keys without a Flash code are ignored");
+  menu.cancel_capture();
+  // Rotate keys follow Allow Camera Rotation, which lives in another category.
+  menu.begin_capture("rotateLeft");
+  check(!menu.capturing() && !menu.enabled(*find_option("rotateLeft")),
         "rotate keys are disabled while rotation is off");
-  click(screen, center(screen, screen.box_rect(allow)));
-  check(settings.flag("allowRotation") && screen.take_changed() &&
-            settings.enabled(screen.option(rotate)),
+  menu.toggle("allowRotation");
+  check(settings.flag("allowRotation") && menu.take_changed() &&
+            menu.enabled(*find_option("rotateLeft")),
         "Allow Camera Rotation enables them");
-  click(screen, center(screen, screen.box_rect(rotate)));
-  check(screen.capturing(), "enabled rotate key rebinds");
-  screen.key_down(key_escape);
-  click(screen, center(screen, screen.box_rect(allow)));
-  check(!settings.flag("allowRotation"), "choice boxes cycle back");
-  // Tooltip on labels.
-  const auto label = center(screen, screen.label_rect(up));
-  screen.pointer_move(label);
-  screen.update(fonts, 800, 600, 1000);
-  check(screen.tooltip_visible() && screen.hover() == OptionsScreen::label_hit + up,
-        "hovering a label shows its tooltip");
-  screen.pointer_move({799, 599});
-  screen.update(fonts, 800, 600, 1000);
-  check(!screen.tooltip_visible(), "leaving hides it");
-  // Tabs, reset, navigation.
-  click(screen, center(screen, screen.tab_rect(2)));
-  screen.update(fonts, 800, 600, 1000);
-  check(screen.tab() == OptionsTab::hotkeys && screen.option_count() == 16,
-        "tab click switches pages");
-  const int potion = find(screen, "useHealthPotion");
-  click(screen, center(screen, screen.box_rect(potion)));
-  screen.key_down(75);
-  check(settings.get("useHealthPotion") == 75, "hot key rebinding");
-  (void)screen.take_changed();
-  click(screen, center(screen, screen.button_rect(OptionsScreen::reset_hit)));
-  check(settings.get("useHealthPotion") == 70 && settings.get("moveLeft") == 88 &&
-            screen.take_changed(),
-        "reset defaults only the visible tab");
-  click(screen, center(screen, screen.tab_rect(4)));
-  screen.update(fonts, 800, 600, 1000);
-  check(screen.tab() == OptionsTab::graphics && screen.option_count() == 9, "graphics tab");
-  const int fps = find(screen, "maxFPS");
-  click(screen, center(screen, screen.box_rect(fps)));
-  check(settings.get("maxFPS") == 120, "Max FPS advances through its list");
-  for (int i = 0; i < 5; ++i) {
-    click(screen, center(screen, screen.box_rect(fps)));
-  }
-  check(settings.get("maxFPS") == 30, "and wraps around");
-  // Press and release must land on the same control.
-  const auto hp = center(screen, screen.box_rect(find(screen, "particles")));
-  screen.pointer_move(hp);
-  screen.pointer_down(hp);
-  screen.pointer_move({5, 5});
-  screen.pointer_up({5, 5});
-  check(settings.flag("particles"), "dragging off a box cancels the click");
-  screen.pointer_move(hp);
-  screen.pointer_down(hp);
-  screen.focus_lost();
-  screen.pointer_up(hp);
-  check(settings.flag("particles"), "focus loss cancels a press");
-  (void)screen.take_changed();
-  // Resize.
-  fonts.set_pixel_scale(2);
-  check(screen.update(fonts, 1600, 1200, 1000) && screen.image().pixel_scale == 2 &&
-            screen.image().width == 1600 && screen.image().height == 1200 && screen.scale() == 2,
-        "drawable density");
-  check(screen.position().x == 0, "width 1600 at height 1200 fills the window");
-  screen.update(fonts, 2000, 1200, 1000);
-  check(screen.position().x == 200 && screen.image().width == 2000,
-        "wider window centers the 800 unit content");
-  const auto wide = center(screen, screen.box_rect(find(screen, "particles")));
-  click(screen, wide);
-  check(!settings.flag("particles"), "hit testing follows the centered layout");
-  // Keys.
-  check(screen.key_down(65) && screen.visible(), "unbound keys are swallowed");
-  check(screen.key_down(settings.get("options")) && !screen.visible(), "the Options key closes");
-  screen.open(settings);
-  screen.update(fonts, 2000, 1200, 0);
-  screen.key_down(key_escape);
-  check(!screen.visible(), "Escape closes");
-  screen.open(settings);
-  screen.update(fonts, 2000, 1200, 0);
-  click(screen, center(screen, screen.button_rect(OptionsScreen::continue_hit)));
-  check(!screen.visible() && !screen.take_home(), "continue closes");
-  screen.open(settings);
-  screen.update(fonts, 2000, 1200, 0);
-  click(screen, center(screen, screen.button_rect(OptionsScreen::home_hit)));
-  check(!screen.visible() && screen.take_home() && !screen.take_home(),
-        "back to home closes and signals");
-  check(!screen.key_down(65), "closed screen does not take keys");
+  menu.begin_capture("rotateLeft");
+  check(menu.capturing(), "enabled rotate key rebinds");
+  menu.toggle("allowRotation");
+  check(!menu.capturing() && !settings.flag("allowRotation"), "changing a value leaves input mode");
+  // Values.
+  menu.set_value("maxFPS", 0);
+  menu.set_value("masterVolume", 250);
+  check(settings.get("maxFPS") == 0 && settings.get("masterVolume") == 100 && menu.take_changed(),
+        "values apply and invalid ones are ignored");
+  menu.set_value("cursor", -1);
+  check(settings.get("cursor") == -1, "dropdown values apply");
+  (void)menu.take_changed();
+  // Categories and reset.
+  revision = menu.layout_revision();
+  menu.set_category(OptionsCategory::video);
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 15 &&
+            menu.layout_revision() != revision && listed(menu, "maxFPS"),
+        "category switches the rows");
+  menu.set_value("particles", 0);
+  menu.reset();
+  check(settings.flag("particles") && settings.get("maxFPS") == 60 &&
+            settings.get("moveLeft") == 88 && settings.get("cursor") == -1 && menu.take_changed(),
+        "reset defaults only the open category");
+  // Search.
+  menu.set_query("volume");
+  check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
+        "search lists matches from every category");
+  menu.set_query("  ");
+  check(menu.rows().size() == 15, "a blank query lists the open category");
+  menu.set_query("chat scroll");
+  check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
+        "every query word must match (label, section or category)");
+  menu.set_query("AUDIO");
+  check(menu.rows().size() == 5, "category names match case-insensitively");
+  menu.set_query("zzz");
+  check(menu.rows().empty(), "no matches");
+  menu.set_query("inventory slot");
+  menu.begin_capture("useEquipInvSlot1");
+  menu.key_down(75);
+  menu.reset();
+  check(settings.get("useEquipInvSlot1") == 49 && settings.get("moveLeft") == 88,
+        "reset while searching defaults only the listed rows");
+  menu.set_category(OptionsCategory::audio);
+  check(!menu.searching() && menu.rows().size() == 5, "choosing a category ends the search");
+  // Closing.
+  check(menu.key_down(65) && menu.visible(), "unbound keys are swallowed");
+  check(menu.key_down(settings.get("options")) && !menu.visible(), "the Show Settings key closes");
+  menu.open(settings);
+  check(menu.category() == OptionsCategory::keybinds && !menu.searching(),
+        "reopening starts on Keybinds");
+  menu.key_down(key_escape);
+  check(!menu.visible(), "Escape closes");
+  menu.open(settings);
+  menu.request_close();
+  check(!menu.visible() && !menu.take_home(), "Done closes");
+  menu.open(settings);
+  menu.request_home();
+  check(!menu.visible() && menu.take_home() && !menu.take_home(),
+        "Back to Home closes and signals");
 }
 }
 
@@ -312,8 +311,7 @@ int main(int argc, char** argv) {
     }
     std::filesystem::create_directories(argv[1]);
     settings_rules(argv[1]);
-    FontBook fonts;
-    screen_behavior(fonts);
+    menu_behavior();
     std::cout << "Options checks: " << checks << '\n';
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

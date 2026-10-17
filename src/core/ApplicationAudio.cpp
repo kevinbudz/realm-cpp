@@ -24,6 +24,9 @@ struct AudioBridge::Impl {
   // unaffected.
   bool enabled;
   std::vector<SoundCue> scratch;
+  // masterVolume times sfxVolume or weaponVolume.
+  float fx_gain{1};
+  float weapon_gain{1};
   audio::Counters previous{};
   std::uint64_t overflow{};
 };
@@ -59,6 +62,8 @@ void AudioBridge::set_preferences(const Preferences& preferences) {
   if (impl_->enabled) {
     impl_->player.set_preferences(preferences.play_sfx, preferences.play_pew_pew);
   }
+  impl_->fx_gain = preferences.master_volume * preferences.sfx_volume;
+  impl_->weapon_gain = preferences.master_volume * preferences.weapon_volume;
 }
 
 void AudioBridge::play(SoundCues& cues) {
@@ -74,7 +79,8 @@ void AudioBridge::play(SoundCues& cues) {
     if (cue.preload) {
       impl_->player.preload(cue.name);
     } else {
-      impl_->player.play(cue.name, cue.volume, cue.is_fx);
+      const float gain = cue.is_fx ? impl_->fx_gain : impl_->weapon_gain;
+      impl_->player.play(cue.name, cue.volume * gain, cue.is_fx);
     }
   }
 }

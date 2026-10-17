@@ -1,8 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" data-stretch-x="17 18" data-stretch-y="17 18">
   <!-- popup_background_decoration: Deca UI frame popup_background_decoration. Redrawn from the atlas frame. Stretches along x 17-18 and y 17-18. -->
-  <path fill="none" stroke="#ffffff" stroke-width="2" d="M4.5 1H29.5L33 4.5V29.5L29.5 33H4.5L1 29.5V4.5Z"/>
-  <path fill="#ffffff" d="M0 8H10V9H0Z M24 8H34V9H24Z M0 25H10V26H0Z M24 25H34V26H24Z"/>
-  <path fill="none" stroke="#ffffff" stroke-width="1.5" d="M15 2L2 15 M19 2L32 15 M15 31L2 18 M19 31L32 18"/>
-  <path fill="#ffffff" d="M8 2H9V7H8Z M25 2H26V7H25Z M8 27H9V32H8Z M25 27H26V32H25Z"/>
-  <path fill="none" stroke="#ffffff" stroke-width="1.41" d="M4.5 6.5L6.5 4.5 M29.5 6.5L27.5 4.5 M4.5 27.5L6.5 29.5 M29.5 27.5L27.5 29.5"/>
+  <path fill="#ffffff" fill-rule="evenodd" d="M4 0H30L34 4V30L30 34H4L0 30V4Z M5 2H29L32 5V29L29 32H5L2 29V5Z M14 2H16L2 16V14Z M20 2H18L32 16V14Z M14 32H16L2 18V20Z M20 32H18L32 18V20Z M8 2H9V9H2V8H8Z M26 2H25V9H32V8H26Z M8 32H9V25H2V26H8Z M26 32H25V25H32V26H26Z M7 4V7H4Z M27 4V7H30Z M7 30V27H4Z M27 30V27H30Z"/>
 </svg>

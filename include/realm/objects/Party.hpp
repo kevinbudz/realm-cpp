@@ -27,6 +27,10 @@ class Party {
     return starred_objects_.contains(object_id);
   }
 
+  [[nodiscard]] const std::unordered_set<std::int32_t>& starred_objects() const {
+    return starred_objects_;
+  }
+
   [[nodiscard]] bool ignored(std::int32_t account_id) const {
     return ignored_.contains(account_id);
   }

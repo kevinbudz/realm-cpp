@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="79" height="47" viewBox="0 0 79 47" data-stretch-x="39 40">
   <!-- main_button_decoration_dark: Deca UI frame main_button_decoration_dark. Redrawn from the atlas frame. Stretches along x 39-40. -->
-  <path fill="#3f3f3f" fill-rule="evenodd" d="M38 0H41L64 23L41 46H38L15 23Z M39 5H40L58 23L40 41H39L21 23Z"/>
-  <path fill="#000000" fill-opacity="0.6" d="M39 5H40L58 23L40 41H39L21 23Z"/>
-  <path fill="#3f3f3f" d="M10.5 13L20.5 23L10.5 33L0.5 23Z M68.5 13L78.5 23L68.5 33L58.5 23Z"/>
-  <path fill="#9f9f9f" d="M10.5 17L16.5 23L10.5 29L4.5 23Z M68.5 17L74.5 23L68.5 29L62.5 23Z"/>
+  <path fill="#000000" fill-opacity="0.6" d="M39 2H40L61 23V24L40 45H39L18 24V23Z"/>
+  <path fill="#3f3f3f" fill-rule="evenodd" d="M38 0H41L64 23V24L41 47H38L15 24V23Z M39 5H40L58 23V24L40 42H39L21 24V23Z"/>
+  <path fill="#3f3f3f" d="M10 13H11L21 23V24L11 34H10L0 24V23Z M68 13H69L79 23V24L69 34H68L58 24V23Z"/>
+  <path fill="#9f9f9f" d="M10 17H11L17 23V24L11 30H10L4 24V23Z M68 17H69L75 23V24L69 30H68L62 24V23Z"/>
 </svg>

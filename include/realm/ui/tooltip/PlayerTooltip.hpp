@@ -40,6 +40,8 @@ struct PlayerTooltipTarget {
   std::string name;
   std::string guild;
   bool fellow_guild{};
+  // Show Tier Tags: part of the target so a change of the setting rebuilds the tooltip.
+  bool show_tier_tag{true};
   std::array<StatusBarState, 2> bars;
   std::array<InventoryItem, 4> equipment;
   std::array<int, 4> slot_types{};

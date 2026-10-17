@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="17" height="33" viewBox="0 0 17 33" data-stretch-x="8 9">
   <!-- tab_button_right_idle: Deca UI frame tab_button_right_idle. Redrawn from the atlas frame. Stretches along x 8-9. -->
-  <path fill="#343434" d="M7 0H10L17 7V10H0V7Z"/>
-  <path fill="#292929" d="M8 1H9L17 9V33H4.5L0 28.5V9Z"/>
+  <path fill="#292929" d="M7 0H10L17 7V33H4L0 29V7Z"/>
+  <path fill="#343434" d="M7 0H10L17 7V8L10 1H7L0 8V7Z"/>
 </svg>

@@ -8,8 +8,8 @@ SavedCharacterTooltipImage render_saved_character_tooltip(const FontBook& fonts,
                                                           const Catalog& catalog,
                                                           std::string_view name,
                                                           const SavedCharacter& character,
-                                                          int best_fame,
-                                                          int best_level) {
+                                                          int best_fame, int best_level,
+                                                          bool show_tier_tag) {
   // MyPlayerToolTip: header, HP/MP, equipped/main inventory, then class quests.
   const auto* definition = catalog.object(static_cast<std::uint16_t>(character.object_type));
   const std::string class_name = definition ? definition->display_id : "Unknown";
@@ -96,7 +96,7 @@ SavedCharacterTooltipImage render_saved_character_tooltip(const FontBook& fonts,
       ui_blit(image, icon, 22 + x + 20 - icon.width / 2.0, 22 + y + 20 - icon.height / 2.0, true,
               true);
     }
-    if (character.equipment[i] > 0) {
+    if (show_tier_tag && character.equipment[i] > 0) {
       const auto* item_definition =
           catalog.object(static_cast<std::uint16_t>(character.equipment[i]));
       if (item_definition) {

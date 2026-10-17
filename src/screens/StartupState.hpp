@@ -133,6 +133,8 @@ struct StartupScreenState {
   // SoundIcon: the mirrored playSFX value, and the value a click asked the app to store.
   bool play_sfx_{true};
   std::optional<bool> play_sfx_request_;
+  // Show Tier Tags, mirrored each frame: saved character tooltips draw tier tags only when on.
+  bool show_tier_tag_{true};
   std::optional<std::string> open_url_;
   std::unique_ptr<SkinChooser> skins_;
   std::unique_ptr<EditorScreen> editor_;

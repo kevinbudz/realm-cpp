@@ -15,6 +15,9 @@ struct EntityMotion {
   Vec2 push{};
   double z{};
   double facing{};
+  // Projectile Direction: the heading a projectile is moving along. Facing keeps the launch angle,
+  // which animated projectile textures read.
+  double travel{};
   double move_multiplier{1};
   int speed{};
   int sink_level{};

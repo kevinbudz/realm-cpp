@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="60" height="50" viewBox="0 0 60 50">
   <!-- popup_header_button_decor: UIPopup header button socket (PopupHeader addButton). Fixed size. -->
-  <path fill="#484848" d="M24.5 0L49 24.5L24.5 49L0 24.5Z M43 24.5L60 7.5V41.5Z"/>
-  <path fill="#1e1e1e" d="M24.5 6L43 24.5L24.5 43L6 24.5Z"/>
+  <path fill="#484848" d="M25 0L46 21L60 7V43L46 29L25 50L0 25Z"/>
+  <path fill="#1e1e1e" d="M25 6L44 25L25 44L6 25Z"/>
 </svg>

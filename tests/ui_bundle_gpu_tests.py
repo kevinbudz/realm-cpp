@@ -107,7 +107,7 @@ with tempfile.TemporaryDirectory() as temporary:
         worker.join()
 
     gameplay = ['200 capture hud', '300 key O', '500 capture options', '600 resize 1280 720',
-        '800 capture options-720', '900 click 640 648', '1100 capture closed',
+        '800 capture options-720', '900 click 170 677', '1100 capture closed',
         '1200 resize 1600 1200', '1400 move 1268 648', '1600 capture tooltip-2x',
         '1700 resize 800 600', '1900 capture restored', '2000 quit']
     shots = run('realm_client', gameplay, ['--map', str(ROOT.parent / 'realm-server/Resources/Worlds/Nexus/0.jm'),

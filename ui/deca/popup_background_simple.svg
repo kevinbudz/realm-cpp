@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="22" viewBox="0 0 20 22" data-stretch-x="9 10" data-stretch-y="11 12">
   <!-- popup_background_simple: ModalPopup background (TextModal, ErrorModal, ConfirmationModal). Stretches along x 9-10 and y 11-12. -->
-  <path fill="#353535" d="M9 0 H11 L20 9 V13 L11 22 H9 L0 13 V9 Z"/>
-  <path fill="#3e3e3e" d="M9 0 H11 L20 9 V10 H0 V9 Z"/>
-  <path fill="#353535" d="M8.5 2 H11.5 L19 9.5 V12.5 L11.5 20 H8.5 L1 12.5 V9.5 Z"/>
+  <path fill="#353535" d="M9 0H11L20 9V13L11 22H9L0 13V9Z"/>
+  <path fill="#3e3e3e" d="M9 0H11L20 9V11L11 2H9L0 11V9Z"/>
 </svg>

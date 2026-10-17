@@ -2,7 +2,7 @@
 """Pixel and input checks for the Options screen through the real client.
 
 Opens the screen from the HUD button and the Options key, rebinds Move Right and drives the player with the new key,
-toggles Health Bars through the screen, persists settings to a file and reloads them, shows the performance panel and
+toggles Health Bars through the screen's switch, persists settings to a file and reloads them, shows the performance panel and
 resizes the window. Needs build/realm_client, Pillow and numpy.
 Run by hand or through CTest (options_gpu): python3 tests/options_gpu_tests.py
 """
@@ -45,26 +45,34 @@ def bbox(mask):
     ys, xs = np.nonzero(mask)
     return (xs.min(), xs.max(), ys.min(), ys.max()) if len(ys) else None
 
-# Window points at 800x600 (design units): tabs y 78, key/choice boxes (20|415 + 40, 122 + 44 row + 16), buttons.
-CONTINUE = '400 540'
-box = lambda index: f'{20 + 40 + (index % 2) * 395} {122 + index // 2 * 44 + 16}'
+# Window points at 800x600 (dp). The screen has no frame: the sidebar (search, categories, then the Deca Done button at
+# its foot; Reset to Defaults and Back to Home are hidden) and the rows, 40 apart from y 111. Key boxes are centered
+# at x 555, switches at x 521.
+DONE = '109 564'
+KEYBINDS, GAMEPLAY = '70 103', '75 295'   # Gameplay sits below the open Keybinds category's six section links
+key_row = lambda index: f'555 {111 + index * 40}'
+MOVE_RIGHT, ROTATE_LEFT = key_row(3), '555 321'
+ALLOW_ROTATION, HP_BARS = '521 111', '521 281'   # Gameplay: Camera row 0, Interface row 0
 
 def main():
     # --- The HUD's Options button (CharacterDetailsView, shown in the Nexus), its hover color, and the screen it opens.
     s, _ = run('hud', ['300 capture base', '400 move 780 210', '600 capture hover', '700 click 780 210', '900 capture open',
-                       f'1000 click {CONTINUE}', '1200 capture closed', '1300 quit'])
+                       f'1000 click {DONE}', '1200 capture closed', '1300 quit'])
     base, hover, opened, closed = s['base'], s['hover'], s['open'], s['closed']
     delta = changed(hover, base)
     check(delta[190:232, 762:800].sum() > 200, 'hovering tints the header button')
     # IconButton's TextToolTip ("Options", "Hotkey: O") opens above and left of the pointer; nothing else moves.
     tip = bbox(delta)
     check(tip and tip[0] >= 540 and tip[2] >= 110 and tip[3] <= 232 and tip[1] <= 800, f'only the button and its tooltip change {tip}')
-    check(not changed(closed, base).any(), 'continue closes the screen and the world is untouched')
-    check(np.abs(opened - base).mean() > 20, 'the Options screen covers the game')
-    title = opened[8:50, 330:470].max(2)
-    check((title > 240).sum() > 150, 'the Options title is white')
-    check(np.abs(opened[570, 300] - 0x54).max() <= 2 and np.abs(opened[570, 700] - 0x54).max() <= 2, f'the menu bar is the MenuFrame gray {opened[570, 300]}')
-    print('HUD button, hover and continue ok')
+    check(not changed(closed, base).any(), 'Done closes the screen and the world is untouched')
+    check(np.abs(opened - base).mean() > 20, 'the Settings screen covers the game')
+    category = opened[92:114, 28:112].max(2)
+    check((category > 240).sum() > 60, 'the open category is white text')
+    done = opened[550:580, 60:160]
+    check(np.abs(done[..., 0] - done[..., 1]).max() <= 3 and np.abs(done[..., 1] - done[..., 2]).max() <= 3 and done.max() > 150,
+          'Done is the greyscale Deca button')
+    check(np.abs(opened[400, 400] - base[400, 400]).max() > 20, 'the game behind the screen is tinted')
+    print('HUD button, hover and Done ok')
 
     # --- The Options key and Escape.
     s, _ = run('keys', ['300 capture base', '400 key o', '600 capture open', '700 key Escape', '900 capture closed', '1000 quit'])
@@ -81,9 +89,9 @@ def main():
     default, _ = run('walk-d', walk)
     moved = np.abs(default['moved'] - s0['base']).mean()
     check(moved > 3, f'D moves the player by default ({moved:.1f})')
-    s, saved = run('rebind', ['300 key o', f'400 click {box(3)}', '500 capture waiting', '550 key j', '600 capture bound', f'700 click {CONTINUE}',
+    s, saved = run('rebind', ['300 key o', f'400 click {MOVE_RIGHT}', '500 capture waiting', '550 key j', '600 capture bound', f'700 click {DONE}',
                               '800 capture closed', '900 hold j', '1600 capture moved', '1700 release j', '1800 quit'])
-    check(changed(s['waiting'], s['bound'])[166:200, 415:495].sum() > 20 and not changed(s['waiting'], s['bound'])[:, :400].any(), 'the clicked box shows [Hit Key], then the key')
+    check(changed(s['waiting'], s['bound'])[215:248, 495:615].sum() > 20 and not changed(s['waiting'], s['bound'])[:, :210].any(), 'the clicked box shows Press a key, then the key')
     check(saved and saved['values']['moveRight'] == 74 and saved['values']['moveLeft'] == 65 and 'cameraAngle' in saved, f'the binding is written to the settings file: {saved and saved["values"]["moveRight"]}')
     also = np.abs(s['moved'] - s['closed']).mean()
     check(also > 3, f'J now moves the player ({also:.1f})')
@@ -99,14 +107,16 @@ def main():
     check(np.abs(spin['q'] - s0['base']).mean() < 1.5, 'Q does not rotate with Allow Camera Rotation off')
     spin, _ = run('spin-on', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'], settings=dict(values=dict(allowRotation=1)))
     check(np.abs(spin['q'] - s0['base']).mean() > 3, 'Q rotates the camera with it on')
-    s, _ = run('rotate-rows', ['300 key o', '500 capture off', f'600 click {box(6)}', '700 capture still-off', f'800 click {box(4)}', '900 capture on',
-                               f'1000 click {box(6)}', '1100 capture waiting', '1200 quit'])
+    s, _ = run('rotate-rows', ['300 key o', f'400 move {ROTATE_LEFT}', '500 capture off', f'600 click {ROTATE_LEFT}', '700 capture still-off',
+                               f'800 click {GAMEPLAY}', f'900 click {ALLOW_ROTATION}', f'1000 click {KEYBINDS}', f'1100 move {ROTATE_LEFT}',
+                               '1200 capture on', f'1300 click {ROTATE_LEFT}', '1400 capture waiting', '1500 quit'])
     check(not changed(s['off'], s['still-off']).any(), 'a greyed-out Rotate key ignores clicks')
-    check(np.abs(s['on'] - s['off']).mean() > .1 and changed(s['waiting'], s['on']).any(), 'turning rotation on enables the rows')
+    check(changed(s['on'], s['off'])[305:375, 226:620].sum() > 50 and changed(s['waiting'], s['on']).any(),
+          'turning rotation on (in Gameplay) enables the Keybinds rows')
     print('camera rotation gating ok')
 
     # --- Health Bars through the Gameplay tab, saved and reloaded.
-    s, saved = run('hpbars', ['300 capture base', '400 key o', '500 click 152 78', '600 capture gameplay', f'700 click {box(5)}', f'800 click {CONTINUE}',
+    s, saved = run('hpbars', ['300 capture base', '400 key o', f'500 click {GAMEPLAY}', '600 capture gameplay', f'700 click {HP_BARS}', f'800 click {DONE}',
                               '1000 capture off', '1100 quit'])
     bar = bbox(changed(s['off'], s['base']))
     check(bar and 36 <= bar[1] - bar[0] <= 46 and bar[3] - bar[2] <= 9, f'Health Bars off removes exactly the 42x8 bar: {bar}')
@@ -119,14 +129,14 @@ def main():
     check(sh is not None, 'Draw Shadows off removes the shadows')
     print('health bars, shadows and startup settings ok')
 
-    # --- Reset to defaults only affects the visible tab; a corrupt file falls back to the defaults.
-    s, saved = run('reset', ['300 key o', f'400 click {box(3)}', '500 key j', '600 click 152 78', f'700 click {box(5)}', '800 click 20 540', '900 click 50 78',
-                             f'1000 click {CONTINUE}', '1100 quit'])
-    check(saved['values']['hpBars'] == 1 and saved['values']['moveRight'] == 74, f'reset defaults only the Gameplay tab ({saved["values"]["hpBars"]}, {saved["values"]["moveRight"]})')
+    # --- Changes in two categories persist together (Reset to Defaults is hidden for now); a corrupt file falls back to
+    # the defaults.
+    s, saved = run('two-categories', ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {GAMEPLAY}', f'700 click {HP_BARS}', f'800 click {DONE}', '1100 quit'])
+    check(saved['values']['hpBars'] == 0 and saved['values']['moveRight'] == 74, f'changes in two categories both persist ({saved["values"]["hpBars"]}, {saved["values"]["moveRight"]})')
     (OUT / 'corrupt.settings.json').write_text('{ definitely not json')
     broken, _ = run('corrupt', ['300 capture base', '400 quit'], settings=None)
     check(not changed(broken['base'], s0['base']).any(), 'defaults without a settings file')
-    print('reset and defaults ok')
+    print('two-category changes and defaults ok')
 
     # --- Performance panel on its key, in the top-left of the game view.
     s, _ = run('perf', ['300 capture base', '400 key p', '1300 capture panel', '1400 quit'], settings=dict(values=dict(togglePerformanceStats=80)))
@@ -135,9 +145,9 @@ def main():
     check(panel and panel[0] <= 12 and panel[2] <= 12 and 60 <= panel[1] <= 400 and panel[3] <= 100, f'performance stats draw top-left: {panel}')
     # --- Resizing with the screen open keeps it usable.
     plain, _ = run('resize-plain', ['300 resize 1280 720', '800 capture base', '900 quit'])
-    s, _ = run('resize', ['300 key o', '400 resize 1280 720', '800 capture open', '900 click 640 648', '1100 capture closed', '1200 quit'])
+    s, _ = run('resize', ['300 key o', '400 resize 1280 720', '800 capture open', '900 click 170 677', '1100 capture closed', '1200 quit'])
     check(s['open'].shape == (720, 1280, 3) and np.abs(s['open'] - plain['base']).mean() > 20, 'the screen fills the resized window')
-    check(not changed(s['closed'], plain['base']).any(), 'continue works after a resize')
+    check(not changed(s['closed'], plain['base']).any(), 'Done works after a resize')
     print('performance panel and resize ok')
 
 if __name__ == '__main__':

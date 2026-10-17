@@ -182,6 +182,8 @@ class Startup {
   // asked for, which it stores as playSFX and playPewPew.
   void set_play_sfx(bool play_sfx);
   [[nodiscard]] std::optional<bool> take_play_sfx();
+  // The app mirrors showTierTag here each frame for the saved character tooltips.
+  void set_show_tier_tag(bool show_tier_tag);
   [[nodiscard]] std::optional<std::string> take_open_url();
   // Keep the controller's credential and validation model synchronized with an editable RmlUi
   // input.

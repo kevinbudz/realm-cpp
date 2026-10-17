@@ -59,4 +59,9 @@ Quad radial_shadow(Vec2 origin, Vec2 x, Vec2 y, std::array<float, 3> color, floa
   q.offset[3] = edge;
   return q;
 }
+
+void fade_quad(Quad& q, float opacity) {
+  q.multiply[3] *= opacity;
+  q.offset[3] *= opacity;
+}
 }

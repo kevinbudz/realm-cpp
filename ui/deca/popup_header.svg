@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="39" height="127" viewBox="0 0 39 127" data-stretch-x="19 20">
   <!-- popup_header: UIPopup header panel (PopupHeader TYPE_FULL). Stretches along x 19-20. -->
-  <path fill="#353535" d="M0 0L19 19H20L39 0V126L20 107H19L0 126Z"/>
-  <path fill="#3f3f3f" d="M0 0L19 19H20L39 0V2L21 20H18L0 2Z M0 126L19 107H20L39 126V124L21 106H18L0 124Z M17 25H23V26H17Z"/>
-  <path fill="none" stroke="#2c2c2c" stroke-width="2" d="M0 7L17 24H22L39 7 M0 119L17 102H22L39 119"/>
+  <path fill="#353535" d="M0 0L19 19H20L39 0V127L20 108H19L0 127Z"/>
+  <path fill="#3f3f3f" d="M0 0L19 19H20L39 0V2L20 21H19L0 2Z M0 127L19 108H20L39 127V125L20 106H19L0 125Z M17 25H22V26H17Z M17 101H22V102H17Z"/>
+  <path fill="#2c2c2c" d="M0 6L17 23H22L39 6V8L22 25H17L0 8Z M0 121L17 104H22L39 121V119L22 102H17L0 119Z"/>
 </svg>

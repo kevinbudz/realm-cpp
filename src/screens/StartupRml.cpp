@@ -649,10 +649,10 @@ struct StartupRml::Impl {
       field.element->SetProperty("background-color", "#333333");
       field.element->SetProperty("color", "#b3b3b3");
       field.element->SetProperty("font-size", "20dp");
+      // The line fills the field inside its border, so the text sits centered vertically.
       field.element->SetProperty("line-height",
-                                 trimmed_number(host.fonts().layout("x", 20, false).height) + "dp");
-      field.element->SetClass("t20", true);
-      field.element->SetProperty("padding", "4dp 0 0 7dp");
+                                 trimmed_number(std::max(0.0, size.y / scale - 2)) + "dp");
+      field.element->SetProperty("padding", "0 0 0 7dp");
       field.element->SetProperty("caret-color", "#b3b3b3");
       field.element->SetProperty("overflow", "hidden");
       const auto accepted = startup.field_value(field.index);

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" data-stretch-x="9 10" data-stretch-y="9 10">
   <!-- listitem_content_background_selected: Deca UI frame listitem_content_background_selected. Redrawn from the atlas frame. Stretches along x 9-10 and y 9-10. -->
-  <path fill="#e18913" d="M6 0 H12 L18 6 V12 L12 18 H6 L0 12 V6 Z"/>
-  <path fill="none" stroke="#f0a02b" stroke-width="2" d="M1 10 V6.4 L6.4 1 H11.6 L17 6.4 V10"/>
-  <path fill="#feb642" d="M6 0 H12 L14 2 H4 Z"/>
-  <path fill="none" stroke="#955400" stroke-width="2" d="M1 10 V11.6 L6.4 17 H11.6 L17 11.6 V10"/>
+  <path fill="#f0a02b" d="M6 0H12L18 6V10H0V6Z"/>
+  <path fill="#955400" d="M0 10H18V12L12 18H6L0 12Z"/>
+  <path fill="#feb642" d="M6 0H12L14 2H4Z"/>
+  <path fill="#e18913" d="M7 2H11L16 7V11L11 16H7L2 11V7Z"/>
 </svg>

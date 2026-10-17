@@ -109,6 +109,7 @@ void Session::finish_frame(std::int32_t time) {
   }
   // Map.update refreshes the party after applying object additions/removals.
   party_.update(world_, time);
+  world_.set_starred_objects(party_.starred_objects());
   world_.expire_damage(time);
   for (const auto& packet : combat_.update(time)) {
     send_packet(packet);
@@ -302,6 +303,7 @@ void Session::edit_account_list(std::int32_t object_id, bool ignore, bool add) {
   const auto found =
       target->profile.stats.find(static_cast<std::uint8_t>(flash::StatId::ACCOUNT_ID_STAT));
   party_.edit(found == target->profile.stats.end() ? -1 : found->second, object_id, ignore, add);
+  world_.set_starred_objects(party_.starred_objects());
   send(net::outgoing::EditAccountList{ignore ? 1 : 0, add, object_id});
 }
 }

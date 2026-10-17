@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" data-stretch-x="12 13" data-stretch-y="12 13">
   <!-- popup_content_decoration: Deca UI frame popup_content_decoration. Redrawn from the atlas frame. Stretches along x 12-13 and y 12-13. -->
-  <path fill="none" stroke="#1e1e1e" stroke-width="2" d="M10 1H14L23 10V14L14 23H10L1 14V10Z"/>
-  <path fill="#282828" d="M11 4H13L20 11V13L13 20H11L4 13V11Z"/>
-  <path fill="#292929" d="M10 5H14L19 10V14L14 19H10L5 14V10Z"/>
+  <path fill="#1e1e1e" fill-rule="evenodd" d="M9 0H15L24 9V15L15 24H9L0 15V9Z M10 2H14L22 10V14L14 22H10L2 14V10Z"/>
+  <path fill="#292929" d="M10 4H14L20 10V14L14 20H10L4 14V10Z"/>
 </svg>

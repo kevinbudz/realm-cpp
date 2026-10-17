@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 35 35" data-stretch-x="17 18">
   <!-- generic_green_button: the green action button (SliceScalingButton, ClosePopupButton, ConfirmationModal). Redrawn from the atlas frame. Stretches along x 17-18. -->
-  <path fill="#000000" fill-opacity="0.35" d="M0 18.5 L16.5 2 H18.5 L35 18.5 L18.5 35 H16.5 Z"/>
-  <path fill="#183607" d="M0 17.5 L16.5 1 H18.5 L35 17.5 L18.5 34 H16.5 Z"/>
-  <path fill="#66c82a" d="M3 17.5 L16.5 4 H18.5 L32 17.5 L18.5 31 H16.5 Z"/>
-  <path fill="#3c9a33" d="M5 17.5 L16.5 6 H18.5 L30 17.5 L18.5 29 H16.5 Z"/>
-  <path fill="#285c3f" d="M3.5 18 H31.5 L18.5 31 H16.5 Z"/>
-  <path fill="#418a3d" d="M5.5 18 H29.5 L18.5 29 H16.5 Z"/>
+  <path fill="#000000" fill-opacity="0.35" d="M0 18L17 1H18L35 18L18 35H17Z"/>
+  <path fill="#183607" d="M0 17L17 0H18L35 17L18 34H17Z"/>
+  <path fill="#66c82a" d="M3 17L17 3H18L32 17Z"/>
+  <path fill="#285c3f" d="M3 17H32L18 31H17Z"/>
+  <path fill="#3c9a33" d="M5 17L17 5H18L30 17Z"/>
+  <path fill="#418a3d" d="M5 17H30L18 29H17Z"/>
 </svg>

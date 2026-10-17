@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="33" height="28" viewBox="0 0 33 28" data-stretch-x="16 17">
   <!-- bordered_field: Deca UI frame bordered_field. Redrawn from the atlas frame. Stretches along x 16-17. -->
-  <path fill="#4f4f4f" d="M14 0 H19 L33 14 L19 28 H14 L0 14 Z"/>
-  <path fill="#484848" d="M13 2 H20 L32 14 L20 26 H13 L1 14 Z"/>
-  <path fill="#323232" d="M15.5 3 H17.5 L27 12.5 V15.5 L17.5 25 H15.5 L6 15.5 V12.5 Z"/>
-  <path fill="#1e1e1e" d="M16 4 H17 L26 13 V15 L17 24 H16 L7 15 V13 Z"/>
+  <path fill="#4f4f4f" d="M14 0H19L33 14L19 28H14L0 14Z"/>
+  <path fill="#484848" d="M14 2H19L31 14L19 26H14L2 14Z"/>
+  <path fill="#1e1e1e" d="M16 4H17L26 13V15L17 24H16L7 15V13Z"/>
 </svg>

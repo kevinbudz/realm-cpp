@@ -105,10 +105,17 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     effects =
         realm::screen_effects(local, o.effect_time >= 0 ? o.effect_time : time, height / 600.0);
   }
+  // The Settings screen tints the game and blurs all of it, world and HUD.
+  if (cs.options_menu.visible() && !f.menus) {
+    effects.blur = std::max(effects.blur, static_cast<float>(12 * height / 600.0));
+    effects.whole = true;
+  }
   ui_zone->finish();
   std::vector<realm::Quad> native_ui;
   if (cs.production_ui) {
     REALM_ZONE("ui.documents.update");
+    // The renderer's box blur of width 12 dp is close to a Gaussian of sigma 12 / sqrt(12).
+    cs.production_ui->set_blur(effects.whole ? 3.5 : 0);
     native_ui = cs.production_ui->compose(overlay, time, cs.ui_viewport);
     overlay = native_ui;
   }

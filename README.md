@@ -8,7 +8,7 @@ A native C++20 client for the RotMG game served by `../realm-server`. It renders
 - **Play:** movement, shooting and abilities, inventory and potions, portals, parties and quest targets with edge arrows and tooltips, player menus, trading, guild invitations, chat and speech balloons. Davy Jones's Locker has its key HUD; idle players receive warnings and disconnect after 20 minutes.
 - **Guilds:** registrar, guild hall entry, guild board, chronicle, and account name changes.
 - **World:** JM and WMAP maps, terrain transitions, 3D models, connected walls, cave walls, stalagmites, multiline signs, death particles, status effects, Drunk and Blind filters, dyes, and skins. Tutorial maps show proximity-driven HUD highlights.
-- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and an Options screen with rebindable keys. Item tooltips retain the Astrum styling and Astrum ability, stat and specification text.
+- **UI:** the RmlUi HUD and menus, minimap, item and player tooltips, dialogs, and a searchable Settings screen (Keybinds, Gameplay, Video and Audio categories with sections, rebindable keys, switches, dropdowns, and volume and Max FPS sliders). Item tooltips retain the Astrum styling and Astrum ability, stat and specification text.
 - **Audio:** one-shot sound effects through the vendored miniaudio output.
 - **Map editor:** ground, object and region palettes with original art; draw, erase, sample, named objects, rectangles, pan/zoom, undo/redo, JM load/save, and existing-character map testing.
 
@@ -84,13 +84,13 @@ Defaults: server `127.0.0.1`, app port `7777` (account and character HTTP API), 
 
 The client starts like the Flash client: loading, title, character selection, then gameplay. The server does not accept guest logins, so the first time you play it asks you to sign in or register. The account is saved to `~/.config/realm-cpp/account.json` (under `$XDG_CONFIG_HOME` if set; `%APPDATA%\realm-cpp\account.json` on Windows), or to `--account-file`. Later launches verify it and go straight to the title screen.
 
-Controls, from `realm_client --help`. They use the Flash defaults and can be rebound on the Options screen:
+Controls, from `realm_client --help`. They use the Flash defaults and can be rebound on the Settings screen:
 
 - WASD moves. Q and E rotate the view when Allow Camera Rotation is on.
 - Drag items to swap or drop them. Double-click equips or uses, Shift-click uses, Ctrl-click moves between inventory and backpack, and keys 1 to 8 use inventory slots.
 - F or V, or Shift-click or double-click the health or magic stacks, uses a potion.
 - Click Enter, or press 0, beside a portal to use it.
-- O opens the Options screen. Escape in game returns to character selection.
+- O opens the Settings screen (type in its search box to find any setting). Escape in game returns to character selection.
 
 Options are saved to `settings.json` beside the account file. `--settings-file` overrides the path.
 
@@ -242,7 +242,7 @@ A few domain folders span paired data and GPU/view layers (`map/`, `background/`
 | `sound/` | `SoundEffectLibrary` (mixer, loader, and output in `realm_audio`) and `SoundCues` (headless sound requests). miniaudio is vendored in `third_party/miniaudio` | `assembleegameclient/sound` |
 | `game/` | `Inventory`, `IdleWatcher` (pure game rules and idle disconnect timer) | `kabam/rotmg/game`, `assembleegameclient/game` |
 | `hud/` | `Hud` and `HudState`, `HudInput`, `CreditDisplay`, `SafeAreaDisplay`, `KeysView` | `kabam/rotmg/ui/view` (`HUDView`, `KeysView`), `kabam/rotmg/game/view` |
-| `ui/` and subpackages | `Chat`, `Trade`, `Scrollbar`, `SkinChooser`, `GraphicsUtil`, `dialogs/`, `tooltip/`, `menu/`, `options/OptionsScreen`, `guild/GuildMembers`, `board/GuildBoard`, `panels/GuildInvite` | `assembleegameclient/ui`, `kabam/rotmg/classes/view` |
+| `ui/` and subpackages | `Chat`, `Trade`, `Scrollbar`, `SkinChooser`, `GraphicsUtil`, `dialogs/`, `tooltip/`, `menu/`, `options/OptionsMenu`, `options/OptionsScreen`, `guild/GuildMembers`, `board/GuildBoard`, `panels/GuildInvite` | `assembleegameclient/ui`, `kabam/rotmg/classes/view` |
 | `minimap/` | `Minimap` and its GPU composition | `kabam/rotmg/minimap` |
 | `screens/` | Startup screens. `Startup.cpp` is the public controller. `StartupUpdate`, `StartupInput`, `StartupDialogs` and `StartupFame` hold the rest of its implementation. `StartupState.hpp` holds screen and account state, `StartupHttpTasks` HTTP task ownership, `StartupViewModel` the retained view model, and `StartupRml` the RmlUi presentation | `assembleegameclient/screens`, `kabam/rotmg/account/web/view` |
 | `mapeditor/`, `tutorial/` | `MapDocument` (JM files and edit history), `EditorScreen` (headless editor UI), proximity requirements and HUD highlights | `assembleegameclient/mapeditor`, `tutorial` |
@@ -280,6 +280,7 @@ Types whose AS3 class has a different name:
 | `SavedCharacterTooltipImage` (`ui/tooltip/SavedCharacterTooltip`) | `MyPlayerToolTip` |
 | `SkinChooser` (`ui/SkinChooser`) | `CharacterSkinListView` |
 | `Trade`, `TradeView` (`ui/Trade`) | `TradePanel` |
+| `OptionsMenu` (`ui/options/OptionsMenu`) | `Options` |
 | `OptionsScreen` (`ui/options/OptionsScreen`) | `Options` |
 | `Minimap` (`minimap/Minimap`) | `MiniMap` |
 

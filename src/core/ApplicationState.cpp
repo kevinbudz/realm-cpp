@@ -99,10 +99,13 @@ realm::Atlas make_atlas(const realm::FlashImages& flash_images,
                       ClientState::dynamic_atlas_initial_pages);
 }
 
-realm::platform::CursorSet make_cursor_set(const std::filesystem::path& root) {
+realm::Image load_cursor_sheet(const std::filesystem::path& root) {
   const auto cursor_path = root / "src/kabam/rotmg/assets/EmbeddedAssets_cursorsEmbed_.png";
-  auto cursor_sheet =
-      std::filesystem::exists(cursor_path) ? realm::load_png(cursor_path) : realm::Image{};
+  return std::filesystem::exists(cursor_path) ? realm::load_png(cursor_path) : realm::Image{};
+}
+
+realm::platform::CursorSet make_cursor_set(const std::filesystem::path& root) {
+  auto cursor_sheet = load_cursor_sheet(root);
   return realm::platform::CursorSet(std::move(cursor_sheet.pixels), cursor_sheet.width,
                                     cursor_sheet.height);
 }
@@ -206,6 +209,9 @@ ClientState::ClientState(Options options)
                      ? std::make_unique<realm::TradeView>(fonts, *hud_art)
                      : nullptr),
       guild_invite_view(hud ? std::make_unique<realm::GuildInviteView>(fonts) : nullptr),
+      options_screen(production_ui ? std::make_unique<realm::OptionsScreen>(options_menu,
+                                                                            production_ui->host())
+                                   : nullptr),
       cursors(make_cursor_set(o.root)),
       members(hud_art ? *hud_art : members_art),
 
@@ -234,6 +240,9 @@ ClientState::ClientState(Options options)
   // Scene setters are in-memory only. No constructor above takes the scene, so running them after
   // the constructions (and after connect, which used to follow set_dynamic_atlas_pages) is not
   // observable.
+  if (options_screen) {
+    options_screen->set_cursors(load_cursor_sheet(o.root));
+  }
   scene.set_cached_terrain(true);
   scene.set_status_art(&status_art);
   scene.set_dynamic_atlas_pages(dynamic_atlas_initial_pages, dynamic_atlas_max_pages, 120);
@@ -270,6 +279,11 @@ std::string ClientState::own_name() {
 void ClientState::apply_settings() {
   world.set_preferences(settings.preferences());
   audio_bridge.set_preferences(settings.preferences());
+  // Performance Stats: the overlay starts from the saved showStatistics value.
+  if (const bool stats = settings.flag("showStatistics"); stats != perf_stats) {
+    perf_stats = stats;
+    reset_perf();
+  }
   if (const bool center = settings.flag("centerOnPlayer"); center != applied_centering) {
     applied_centering = center;
     centered = center;
@@ -304,10 +318,10 @@ void ClientState::open_options() {
   // Options.onAddedToStage reads the window's real mode back into fullscreenMode.
   const bool fullscreen = (SDL_GetWindowFlags(session.window) &
                            (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
-  if (settings.set_choice("fullscreenMode", fullscreen ? 1 : 0)) {
+  if (settings.set_value("fullscreenMode", fullscreen ? 1 : 0)) {
     save_settings();
   }
-  options_screen.open(settings);
+  options_menu.open(settings);
 }
 
 void ClientState::reset_perf() {

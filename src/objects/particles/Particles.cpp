@@ -286,6 +286,12 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
       !target) {
     return;
   }
+  // Ally Particles off: an effect sourced from another player is skipped. Screen shake (type 14)
+  // follows its own Screen Shake option.
+  if (target && target->player && target->id != world.player_id() && effect.type != 14 &&
+      !world.preferences().ally_particles) {
+    return;
+  }
 
   switch (effect.type) {
     case 1:

@@ -10,6 +10,17 @@ namespace realm {
 namespace {
 constexpr double tau = 2 * std::numbers::pi;
 
+EmitterKind emitter_kind(const std::string& kind) {
+  return kind == "Healing"           ? EmitterKind::healing
+         : kind == "Fountain"        ? EmitterKind::fountain
+         : kind == "Vent"            ? EmitterKind::vent
+         : kind == "Bubbles"         ? EmitterKind::bubbles
+         : kind == "XMLEffect"       ? EmitterKind::xml
+         : kind == "Gas"             ? EmitterKind::gas
+         : kind == "CustomParticles" ? EmitterKind::custom
+                                     : EmitterKind::other;
+}
+
 bool finite(Vec2 position) {
   return std::isfinite(position.x) && std::isfinite(position.y) && std::abs(position.x) <= 1048576 &&
          std::abs(position.y) <= 1048576;
@@ -75,9 +86,10 @@ bool Particles::emit(Particle particle) {
   particle.initial_size = particle.size = std::clamp(particle.size, 0.0, 640.0);
   particle.initial_z = particle.z;
   particle.order = order_++;
-  particles_.push_back(particle);
-  if (particle.target != -1) {
-    particle_targets_.add(particle.target);
+  const auto target = particle.target;
+  particles_.push_back(std::move(particle));
+  if (target != -1) {
+    particle_targets_.add(target);
   }
   ++spawns_;
   return true;
@@ -144,12 +156,14 @@ void Particles::attach(const Entity& entity, const TextureDef& texture) {
 
   if (it != emitters_.end()) {
     if (it->props != &texture.effect) {
-      *it = {entity.id, &texture.effect, static_cast<double>(now_), 0};
+      *it = {entity.id, &texture.effect, static_cast<double>(now_), 0,
+             emitter_kind(texture.effect.kind)};
     }
     return;
   }
   if (emitters_.size() < maximum_emitters) {
-    emitters_.push_back({entity.id, &texture.effect, static_cast<double>(now_), 0});
+    emitters_.push_back({entity.id, &texture.effect, static_cast<double>(now_), 0,
+                         emitter_kind(texture.effect.kind)});
     emitter_targets_.add(entity.id);
   } else {
     ++dropped_;
@@ -178,7 +192,7 @@ void Particles::healing(const Entity& entity) {
     return;
   }
   if (it == emitters_.end() && enabled_ && emitters_.size() < maximum_emitters) {
-    emitters_.push_back({entity.id, &props, static_cast<double>(now_) - 500, 0});
+    emitters_.push_back({entity.id, &props, static_cast<double>(now_) - 500, 0, EmitterKind::healing});
     emitter_targets_.add(entity.id);
   }
 }
@@ -209,25 +223,6 @@ bool Particles::targets(std::int32_t id) const {
                      [&](const auto& flash) { return flash.target == id; });
 }
 
-void Particles::rebuild_target_filters() {
-  particle_targets_.clear();
-  emitter_targets_.clear();
-  flash_targets_.clear();
-  for (const auto& particle : particles_) {
-    if (particle.target != -1) {
-      particle_targets_.add(particle.target);
-    }
-  }
-
-  for (const auto& emitter : emitters_) {
-    emitter_targets_.add(emitter.target);
-  }
-
-  for (const auto& flash : flashes_) {
-    flash_targets_.add(flash.target);
-  }
-}
-
 void Particles::path(Vec2 start, Vec2 end, std::uint32_t color, int life, double size,
                      std::int32_t time, ParticleMotion motion) {
   if (!finite(start) || !finite(end)) {
@@ -251,9 +246,11 @@ void Particles::heal(const Entity& target, std::uint32_t color, std::int32_t tim
     particle.motion = ParticleMotion::heal;
     particle.target = target.id;
     particle.angle = count == 1 ? random() * tau : tau * i / count;
+    particle.angle_cos = std::cos(particle.angle);
+    particle.angle_sin = std::sin(particle.angle);
     particle.distance = .3 + .4 * random();
-    particle.position = {target.motion.position.x + particle.distance * std::cos(particle.angle),
-                  target.motion.position.y + particle.distance * std::sin(particle.angle)};
+    particle.position = {target.motion.position.x + particle.distance * particle.angle_cos,
+                  target.motion.position.y + particle.distance * particle.angle_sin};
     particle.color = color;
     particle.size = (3 + static_cast<int>(random() * 5)) * 20;
     particle.z = random() * .3;
@@ -545,15 +542,23 @@ void Particles::update(const World& world, std::int32_t time) {
                         : std::clamp(static_cast<double>(now_ - last_update_), 0.0, 150.0) / 1000;
   last_update_ = time;
 
+  // One pass: the survivors refill the flash filter.
+  flash_targets_.clear();
   std::erase_if(flashes_, [&](const auto& flash) {
-    return !world.entity(flash.target) ||
-           now_ - flash.born > static_cast<std::int64_t>(flash.period) * flash.repeats;
+    const bool expired = !world.entity(flash.target) ||
+                         now_ - flash.born > static_cast<std::int64_t>(flash.period) * flash.repeats;
+    if (!expired) {
+      flash_targets_.add(flash.target);
+    }
+    return expired;
   });
   REALM_ZONE("particles.update");
   if (particles_.capacity() < maximum_particles) {
     particles_.reserve(maximum_particles);  // a copied pool did not keep its capacity
   }
 
+  // Refilled below from the survivors; particles emitted during the loop add their own bits.
+  particle_targets_.clear();
   const auto initial = particles_.size();
   for (std::size_t i = 0; i < initial; ++i) {
     // In place: emit() never grows the pool past the capacity reserved above, so this reference
@@ -607,8 +612,8 @@ void Particles::update(const World& world, std::int32_t time) {
           }
           break;
         case ParticleMotion::heal:
-          particle.position = {target->motion.position.x + particle.distance * std::cos(particle.angle),
-                        target->motion.position.y + particle.distance * std::sin(particle.angle)};
+          particle.position = {target->motion.position.x + particle.distance * particle.angle_cos,
+                        target->motion.position.y + particle.distance * particle.angle_sin};
           particle.z = particle.initial_z + particle.vz * seconds;
           break;
         case ParticleMotion::stream: {
@@ -662,20 +667,30 @@ void Particles::update(const World& world, std::int32_t time) {
     }
   }
 
-  std::erase_if(particles_, [](const auto& particle) { return particle.lifetime == 0; });
+  std::erase_if(particles_, [&](const auto& particle) {
+    if (particle.lifetime == 0) {
+      return true;
+    }
+    if (particle.target != -1) {
+      particle_targets_.add(particle.target);
+    }
+    return false;
+  });
 
+  emitter_targets_.clear();
   for (auto& emitter : emitters_) {
+    emitter_targets_.add(emitter.target);
     const auto* entity = world.entity(emitter.target);
     if (!entity) {
       continue;
     }
     const auto& props = *emitter.props;
-    const auto& kind = props.kind;
-    double period = kind == "Healing"                      ? 500
-                    : kind == "Fountain" || kind == "Vent" ? 50
-                    : kind == "Bubbles"   ? std::max(1.0, (1 - props.rate) * 400 + 1)
-                    : kind == "XMLEffect" ? std::max(1.0, props.cooldown * 1000)
-                                          : 0;
+    const auto kind = emitter.kind;
+    double period = kind == EmitterKind::healing                    ? 500
+                    : kind == EmitterKind::fountain || kind == EmitterKind::vent ? 50
+                    : kind == EmitterKind::bubbles ? std::max(1.0, (1 - props.rate) * 400 + 1)
+                    : kind == EmitterKind::xml     ? std::max(1.0, props.cooldown * 1000)
+                                                   : 0;
     int count{};
     if (period > 0) {
       count = bounded_count(std::max(0.0, static_cast<double>(now_) - emitter.last) / period, 3);
@@ -683,12 +698,13 @@ void Particles::update(const World& world, std::int32_t time) {
         emitter.last = static_cast<double>(now_);
       }
     } else {
-      emitter.credit += std::clamp(props.rate, 0.0, 1000.0) * dt * (kind == "Gas" ? 60 : 1);
+      emitter.credit += std::clamp(props.rate, 0.0, 1000.0) * dt *
+                        (kind == EmitterKind::gas ? 60 : 1);
       count = bounded_count(emitter.credit, 64);
       emitter.credit -= std::floor(emitter.credit);
     }
     for (int n = 0; n < count; ++n) {
-      if (kind == "Healing") {
+      if (kind == EmitterKind::healing) {
         heal(*entity, 0xffffff, time, 1);
         continue;
       }
@@ -696,7 +712,7 @@ void Particles::update(const World& world, std::int32_t time) {
       particle.position = particle.start = entity->motion.position;
       particle.born = now_;
       particle.color = props.color;
-      if (kind == "Fountain") {
+      if (kind == EmitterKind::fountain) {
         const double angle = random() * tau;
         particle.motion = ParticleMotion::fountain;
         particle.velocity = {.8 * std::cos(angle), .8 * std::sin(angle)};
@@ -706,7 +722,7 @@ void Particles::update(const World& world, std::int32_t time) {
         particle.lifetime = 1500;
         particle.color = 4285909;
         particle.size = 100;
-      } else if (kind == "Vent" || kind == "Bubbles") {
+      } else if (kind == EmitterKind::vent || kind == EmitterKind::bubbles) {
         const double angle = random() * std::numbers::pi;
         const double radius = random() * .4;
         const double roll = random();
@@ -715,7 +731,7 @@ void Particles::update(const World& world, std::int32_t time) {
                                               entity->motion.position.y + radius * std::sin(angle)};
         particle.size = 75 + random() * 50;
         particle.z = 0;
-        if (kind == "Vent") {
+        if (kind == EmitterKind::vent) {
           particle.color = 2542335;
           particle.vz = static_cast<int>(2.5 - roll * 1.5);
           particle.lifetime = 1000;
@@ -729,7 +745,7 @@ void Particles::update(const World& world, std::int32_t time) {
                           (random() * props.spread - .1) * 2.5};
           }
         }
-      } else if (kind == "Gas") {
+      } else if (kind == EmitterKind::gas) {
         const double roll = random();
         particle.motion = ParticleMotion::gas;
         particle.size = (random() + .3) * 200;
@@ -739,7 +755,7 @@ void Particles::update(const World& world, std::int32_t time) {
         particle.velocity = {plus_minus(speed), plus_minus(speed)};
         particle.lifetime = static_cast<int>(
             std::clamp(props.life * 1000 * (1 - roll * props.life_variance), 1.0, 10000.0));
-      } else if (kind == "XMLEffect") {
+      } else if (kind == EmitterKind::xml) {
         particle.definition = world.catalog().particle(props.particle);
         if (!particle.definition) {
           continue;
@@ -759,7 +775,7 @@ void Particles::update(const World& world, std::int32_t time) {
             break;
           }
         }
-      } else if (kind == "CustomParticles") {
+      } else if (kind == EmitterKind::custom) {
         particle.motion = ParticleMotion::linear;
         particle.target = entity->id;
         particle.custom_size = true;
@@ -781,6 +797,5 @@ void Particles::update(const World& world, std::int32_t time) {
   }
 
   spawns_ = 0;
-  rebuild_target_filters();
 }
 }

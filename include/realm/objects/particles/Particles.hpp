@@ -37,6 +37,9 @@ struct Particle {
   double size{100};
   double initial_size{100};
   double angle{};
+  // cos and sin of angle, cached when a heal particle is emitted.
+  double angle_cos{};
+  double angle_sin{};
   double distance{};
   double speed{};
   double noise{};
@@ -78,6 +81,9 @@ class TargetFilter {
 
   std::array<std::uint64_t, 64> bits_{};
 };
+
+// Effect kind resolved from EffectDef::kind once, when the emitter is attached.
+enum class EmitterKind : std::uint8_t { healing, fountain, vent, bubbles, xml, gas, custom, other };
 
 struct EntityFlash {
   std::int32_t target{};
@@ -139,6 +145,7 @@ class Particles {
     const EffectDef* props{};
     double last{};
     double credit{};
+    EmitterKind kind{};
   };
 
   double random();
@@ -156,12 +163,11 @@ class Particles {
   std::vector<Particle> particles_;
   std::vector<Emitter> emitters_;
   std::vector<EntityFlash> flashes_;
-  // Maintained by every insertion, rebuilt from the live containers once per update so stale bits
-  // do not accumulate.
+  // Maintained by every insertion and refilled from the live containers during each update, so
+  // stale bits do not accumulate.
   TargetFilter particle_targets_;
   TargetFilter emitter_targets_;
   TargetFilter flash_targets_;
-  void rebuild_target_filters();
   std::uint32_t rng_{0x12345678U};
   std::uint64_t order_{};
   std::int64_t now_{};

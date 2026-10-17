@@ -287,11 +287,13 @@ void Mixer::mix(float* out, std::size_t frames) noexcept {
     const float* samples = voice.clip->samples.data();
     const std::size_t total = voice.clip->frames();
     const std::size_t count = std::min(frames, total - voice.position);
+    // Local copy: writes to out may alias voice.gain, which would force a reload per sample.
+    const float gain = voice.gain;
     for (std::size_t i = 0; i < count; ++i) {
       const std::size_t source = (voice.position + i) * channels;
       const std::size_t target = i * channels;
-      out[target] += samples[source] * voice.gain;
-      out[target + 1] += samples[source + 1] * voice.gain;
+      out[target] += samples[source] * gain;
+      out[target + 1] += samples[source + 1] * gain;
     }
     voice.position += count;
     if (voice.position >= total) {

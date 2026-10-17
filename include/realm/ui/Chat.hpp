@@ -5,6 +5,7 @@
 #include "realm/map/World.hpp"
 #include "realm/map/mapoverlay/SpeechBalloons.hpp"
 #include <deque>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -135,6 +136,8 @@ class ChatView {
   };
 
   [[nodiscard]] std::vector<Row> layout(const ChatLine& line) const;
+  // Outlined piece bitmaps by text and color, holding only the pieces the last update drew.
+  std::map<std::pair<std::string, std::uint32_t>, TextBitmap> pieces_;
   const FontBook& fonts_;
   const HudArt* art_{};
   std::vector<std::size_t> shown_;

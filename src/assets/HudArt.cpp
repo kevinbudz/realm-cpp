@@ -1481,7 +1481,18 @@ bool HudArt::contains(const std::string& key) const {
 
 Image HudArt::portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const {
   if (tex1 || tex2) {
-    return sources().portrait(type, skin, tex1, tex2);
+    // Dyed portraits share the image cache, keyed by every input the composed portrait depends on.
+    const std::string id = "dyedportrait:" + std::to_string(type) + ":" + std::to_string(skin) +
+                           ":" + std::to_string(tex1) + ":" + std::to_string(tex2);
+    if (const auto found = cache_.find(id); found != cache_.end()) {
+      lru_.splice(lru_.begin(), lru_, found->second.lru);
+      return found->second.image;
+    }
+    auto made = sources().portrait(type, skin, tex1, tex2);
+    if (made.pixels.size() > cache_byte_limit) {
+      return made;
+    }
+    return store(id, std::move(made));
   }
   return image("portrait" + std::to_string(sources().catalog->portrait_type(type, skin)));
 }
@@ -1559,16 +1570,20 @@ const Image& HudArt::image(const std::string& key, double scale) const {
   if (made->pixels.size() > cache_byte_limit) {
     throw std::runtime_error("HUD artwork exceeds decoded cache budget");
   }
+  return store(id, std::move(*made));
+}
+
+const Image& HudArt::store(std::string id, Image made) const {
   while (!cache_.empty() &&
-         (cache_.size() >= cache_limit || bytes_ + made->pixels.size() > cache_byte_limit)) {
+         (cache_.size() >= cache_limit || bytes_ + made.pixels.size() > cache_byte_limit)) {
     const auto found = cache_.find(lru_.back());
     bytes_ -= found->second.image.pixels.size();
     cache_.erase(found);
     lru_.pop_back();
     ++evictions_;
   }
-  bytes_ += made->pixels.size();
+  bytes_ += made.pixels.size();
   lru_.push_front(id);
-  return cache_.emplace(id, Entry{std::move(*made), lru_.begin()}).first->second.image;
+  return cache_.emplace(id, Entry{std::move(made), lru_.begin()}).first->second.image;
 }
 }

@@ -5,7 +5,14 @@
 
 namespace realm {
 Image render_tutorial(std::span<const TutorialStroke> strokes, std::int32_t time) {
-  auto image = flash_draw::canvas(800, 600);
+  // The stroke canvas is reused across frames and cleared, since the returned image is new each
+  // time. Rendering runs on the UI thread only.
+  static Image image;
+  if (image.width != 800 || image.height != 600) {
+    image = flash_draw::canvas(800, 600);
+  } else {
+    std::fill(image.pixels.begin(), image.pixels.end(), 0);
+  }
   auto back = flash_draw::canvas(800, 600);
   for (const auto& stroke : strokes) {
     flash_draw::Path path;

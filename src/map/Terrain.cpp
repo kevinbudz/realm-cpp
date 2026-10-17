@@ -82,7 +82,8 @@ struct Terrain::Impl {
     std::uint64_t touched{};
   };
 
-  std::vector<Image> originals;
+  std::shared_ptr<const FlashImages> pngs;
+  const std::vector<Image>& originals;
   std::array<std::array<std::vector<Image>, 6>, 4> masks;
   std::map<std::uint16_t, Image> ground_images;
   std::unordered_map<std::string, Cached> cache;
@@ -99,20 +100,17 @@ struct Terrain::Impl {
   std::uint64_t frame{};
   std::uint64_t evictions{};
 
-  Impl(const World& world_ref, const std::filesystem::path& root, std::vector<Image>& image_store,
-       std::vector<std::size_t>& uploads, std::size_t first_index, int variant, bool dynamic)
-      : world(world_ref),
+  Impl(const World& world_ref, std::shared_ptr<const FlashImages> flash,
+       std::vector<Image>& image_store, std::vector<std::size_t>& uploads, std::size_t first_index,
+       int variant, bool dynamic)
+      : pngs(std::move(flash)),
+        originals(pngs->normalized),
+        world(world_ref),
         images(image_store),
         changes(uploads),
         first(first_index),
         mask_variant(variant),
         live(dynamic) {
-    originals.reserve(flash::assets.size());
-    for (const auto& asset : flash::assets) {
-      auto image = load_png(root / asset.path);
-      normalize_flash_png(image);
-      originals.push_back(std::move(image));
-    }
     constexpr const char* names[6] = {"inner_mask", "sides_mask",   "sides_mask",
                                       "outer_mask", "innerP1_mask", "innerP2_mask"};
     constexpr int turns[4] = {-1, 0, 2, 1};
@@ -391,8 +389,13 @@ struct Terrain::Impl {
 
 Terrain::Terrain(const World& world, const std::filesystem::path& root, std::size_t first,
                  int variant, bool live)
+    : Terrain(world, std::make_shared<const FlashImages>(root), first, variant, live) {}
+
+Terrain::Terrain(const World& world, std::shared_ptr<const FlashImages> pngs, std::size_t first,
+                 int variant, bool live)
     : width_(world.width()),
-      impl_(std::make_unique<Impl>(world, root, images_, changes_, first, variant, live)) {
+      impl_(std::make_unique<Impl>(world, std::move(pngs), images_, changes_, first, variant,
+                                   live)) {
   if (!live) {
     tiles_.resize(static_cast<std::size_t>(world.width()) *
                   static_cast<std::size_t>(world.height()));

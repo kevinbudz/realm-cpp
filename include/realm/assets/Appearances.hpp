@@ -38,6 +38,7 @@ class Appearances {
   static constexpr std::size_t maximum_entries = 4096;
   static constexpr std::size_t maximum_bytes = 64 * 1024 * 1024;
   Appearances(const std::filesystem::path& root, const AnimationLibrary& animations);
+  Appearances(std::shared_ptr<const FlashImages> pngs, const AnimationLibrary& animations);
   [[nodiscard]] std::shared_ptr<const Image> animated(AnimationFrame frame, int size, bool pad,
                                                       std::uint32_t tex1, std::uint32_t tex2) const;
   // The cache key `animated`/`texture` would use, and the image for a key: the source and mask
@@ -100,7 +101,7 @@ class Appearances {
   [[nodiscard]] const Image& textile(std::uint32_t operation) const;
   std::array<int, 4> textile_sheets_{};
   mutable std::unordered_map<std::uint64_t, Image> textiles_;
-  std::vector<Image> sheets_;
+  std::shared_ptr<const FlashImages> pngs_;
   const AnimationLibrary& animations_;
   mutable std::list<Key> lru_;
   mutable std::unordered_map<Key, Entry, KeyHash> cache_;

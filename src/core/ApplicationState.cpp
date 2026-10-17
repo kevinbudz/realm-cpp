@@ -76,25 +76,26 @@ std::unique_ptr<realm::quality::StressTimeline> make_offline_stress(realm::World
 
 std::unique_ptr<realm::Terrain> make_terrain(
     realm::World& world, const Options& o,
-    const std::unique_ptr<realm::quality::StressTimeline>& stress, std::size_t terrain_first) {
+    const std::unique_ptr<realm::quality::StressTimeline>& stress, std::size_t terrain_first,
+    const std::shared_ptr<const realm::FlashImages>& flash_images) {
   if (!(!o.map.empty() || o.connect || o.client || stress)) {
     return nullptr;
   }
   auto terrain = std::make_unique<realm::Terrain>(
-      world, o.root, terrain_first, -1, o.connect || o.client || static_cast<bool>(stress));
+      world, flash_images, terrain_first, -1, o.connect || o.client || static_cast<bool>(stress));
   std::cout << "Terrain variants=" << terrain->images().size() << '\n';
   return terrain;
 }
 
 // The animation images come first, then the terrain's, as the terrain used to append them before
 // the atlas was built.
-realm::Atlas make_atlas(const Options& o, const realm::AnimationLibrary& animations,
-                        const realm::Terrain* terrain) {
+realm::Atlas make_atlas(const realm::FlashImages& flash_images,
+                        const realm::AnimationLibrary& animations, const realm::Terrain* terrain) {
   auto atlas_images = animations.images();
   if (terrain) {
     atlas_images.insert(atlas_images.end(), terrain->images().begin(), terrain->images().end());
   }
-  return realm::Atlas(o.root, atlas_images, animations.images().size(),
+  return realm::Atlas(flash_images, atlas_images, animations.images().size(),
                       ClientState::dynamic_atlas_initial_pages);
 }
 
@@ -170,9 +171,10 @@ ClientState::ClientState(Options options)
                                              : realm::Settings::path_beside(o.account_file)),
       settings(persist_settings ? realm::Settings::load(settings_path) : realm::Settings{}),
       graphics(open_window(session, o, settings)),
-      animations(o.root),
+      flash_images(std::make_shared<const realm::FlashImages>(o.root)),
+      animations(*flash_images),
       catalog(o.root),
-      appearances(o.root, animations),
+      appearances(flash_images, animations),
       fonts(o.root),
 
       hud_art(make_hud_art(appearances, catalog)),
@@ -180,7 +182,7 @@ ClientState::ClientState(Options options)
                         ? std::make_unique<realm::ui::RetainedUi>(fonts, hud_art.get())
                         : nullptr),
       hud(o.world ? std::make_unique<realm::Hud>(fonts, hud_art.get(), &catalog) : nullptr),
-      minimap(hud ? std::make_unique<realm::Minimap>(catalog, animations, o.root) : nullptr),
+      minimap(hud ? std::make_unique<realm::Minimap>(catalog, animations, flash_images) : nullptr),
 
       drag_bitmap{128, 128, std::vector<unsigned char>(128 * 128 * 4)},
       tooltip(hud && hud_art ? std::make_unique<realm::ItemTooltip>(catalog, fonts, *hud_art)
@@ -219,8 +221,8 @@ ClientState::ClientState(Options options)
 
       stress(make_offline_stress(world, catalog, o)),
       terrain_first(animations.images().size()),
-      terrain(make_terrain(world, o, stress, terrain_first)),
-      atlas(make_atlas(o, animations, terrain.get())),
+      terrain(make_terrain(world, o, stress, terrain_first, flash_images)),
+      atlas(make_atlas(*flash_images, animations, terrain.get())),
       app_host(connect_session(game_session, world, o)),
       telemetry(make_telemetry(o, stress, graphics, audio_bridge)),
 

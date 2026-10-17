@@ -1191,18 +1191,42 @@ class PulseText final : public Rml::Element {
       key_ = key;
     }
 
-    Rml::Mesh mesh;
-    Rml::MeshUtilities::GenerateQuad(
-        mesh, {static_cast<float>(at.x), static_cast<float>(at.y)},
-        {static_cast<float>(w_), static_cast<float>(h_)},
-        GetComputedValues().color().ToPremultiplied(GetComputedValues().opacity()), {0, 0},
-        {static_cast<float>(w_) / static_cast<float>(capacity_w_),
-         static_cast<float>(h_) / static_cast<float>(capacity_h_)});
-    GetRenderManager()->MakeGeometry(std::move(mesh)).Render({0, 0}, texture_);
+    // The quad is rebuilt only when its inputs change (a static title keeps one geometry).
+    const auto color = GetComputedValues().color().ToPremultiplied(GetComputedValues().opacity());
+    const auto quad_x = static_cast<float>(at.x);
+    const auto quad_y = static_cast<float>(at.y);
+    if (!mesh_valid_ || quad_x != mesh_x_ || quad_y != mesh_y_ || w_ != mesh_w_ ||
+        h_ != mesh_h_ || capacity_w_ != mesh_capacity_w_ || capacity_h_ != mesh_capacity_h_ ||
+        color != mesh_color_) {
+      Rml::Mesh mesh;
+      Rml::MeshUtilities::GenerateQuad(
+          mesh, {quad_x, quad_y}, {static_cast<float>(w_), static_cast<float>(h_)}, color, {0, 0},
+          {static_cast<float>(w_) / static_cast<float>(capacity_w_),
+           static_cast<float>(h_) / static_cast<float>(capacity_h_)});
+      geometry_ = GetRenderManager()->MakeGeometry(std::move(mesh));
+      mesh_x_ = quad_x;
+      mesh_y_ = quad_y;
+      mesh_w_ = w_;
+      mesh_h_ = h_;
+      mesh_capacity_w_ = capacity_w_;
+      mesh_capacity_h_ = capacity_h_;
+      mesh_color_ = color;
+      mesh_valid_ = true;
+    }
+    geometry_.Render({0, 0}, texture_);
   }
 
  private:
   Rml::CallbackTexture texture_;
+  Rml::Geometry geometry_;
+  bool mesh_valid_{};
+  float mesh_x_{};
+  float mesh_y_{};
+  int mesh_w_{};
+  int mesh_h_{};
+  int mesh_capacity_w_{};
+  int mesh_capacity_h_{};
+  Rml::ColourbPremultiplied mesh_color_{};
   GLuint handle_{};
   int capacity_w_{};
   int capacity_h_{};

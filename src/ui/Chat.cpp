@@ -324,6 +324,9 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
   if (shown == shown_ && chat.revision() == revision_ && scale == scale_) {
     return false;
   }
+  if (scale != scale_) {
+    pieces_.clear();
+  }
   shown_ = shown;
   revision_ = chat.revision();
   scale_ = scale;
@@ -342,9 +345,12 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
   const double sprite_y = chat.typing() ? height - 8 - 18 - text_height : height - 4 - text_height;
   if (blocks.empty() && !chat.typing()) {
     surface_height_ = 0;
+    pieces_.clear();
     ++rebuilds_;
     return true;
   }
+  // Pieces drawn this update; the rest of pieces_ is dropped once the surface is built.
+  std::map<std::pair<std::string, std::uint32_t>, TextBitmap> pieces;
   top_ = std::floor(sprite_y - 4);
   surface_height_ = height - top_;
   image_ = ui_image(width, surface_height_, scale);
@@ -364,13 +370,25 @@ bool ChatView::update(const Chat& chat, std::int32_t time) {
                   y + icon_y - 8, true, true);
           continue;
         }
-        const auto bitmap = fonts_.rasterize(piece.text, 14, true, false, piece.color);
+        // Rasterized once per text and color, so a keystroke only redraws the input line.
+        const auto key = std::make_pair(piece.text, piece.color);
+        auto found = pieces.find(key);
+        if (found == pieces.end()) {
+          auto previous = pieces_.find(key);
+          found = pieces
+                      .emplace(key, previous != pieces_.end()
+                                        ? std::move(previous->second)
+                                        : fonts_.rasterize(piece.text, 14, true, false, piece.color))
+                      .first;
+        }
+        const auto& bitmap = found->second;
         ui_blit_text(image_, bitmap, left + piece.x - text_gutter + bitmap.offset.x,
                      y + text_baseline_offset + bitmap.offset.y, false, true);
       }
       y += row.height;
     }
   }
+  pieces_ = std::move(pieces);
   if (chat.typing()) {
     // The 598x18 input TextField with its one-pixel white border.
     const double field_y = height - 20 - top_;

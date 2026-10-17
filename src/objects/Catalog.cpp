@@ -167,6 +167,10 @@ Catalog::Catalog(const std::filesystem::path& root)
   objects_.reserve(3000);
   grounds_.reserve(256);
   for (const auto& file : flash::data_files) {
+    // Region definitions are read by MapDocument, never by the catalog.
+    if (file.kind == "regionFiles") {
+      continue;
+    }
     const auto path = root / file.path;
     auto* doc = xmlReadFile(path.string().c_str(), nullptr, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
     if (!doc) {

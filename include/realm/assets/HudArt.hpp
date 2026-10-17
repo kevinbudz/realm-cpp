@@ -11,15 +11,19 @@ namespace realm {
 // The original Flash UI decorations (item tiles and icons, buttons, rank badges, frames, menu
 // icons, skin art), drawn natively from the Flash source's sprite sheets, Myriad fonts and vector
 // symbols when first requested. Keys name the original widget and state, e.g. "item2594",
-// "portalenter1" or "tradeempty3t9". Images are premultiplied; at most 256 decoded images / 8 MiB
-// are retained.
+// "portallocked" or "tradeempty3t9". The HUD's text buttons are not keyed: main_button draws them
+// from the Deca UI art. Images are premultiplied; at most 256 decoded images / 8 MiB are retained.
 class HudArt {
  public:
   HudArt();
   ~HudArt();
   // Shares the caller's compositor and catalog; otherwise private copies are loaded on first use.
   void appearances(const Appearances* value, const Catalog* catalog);
-  [[nodiscard]] Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const;
+  // The GameObject.getPortrait art at `scale` device pixels per logical unit, composed at that
+  // density with sharp bilinear sampling as the potion icons are. The result carries its
+  // pixel_scale.
+  [[nodiscard]] Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,
+                               double scale = 1) const;
   // GameObject.getPortrait: the live object's texture at portrait scale, including non-player quest
   // targets, at the same size for every texture width.
   [[nodiscard]] Image game_object_portrait(int type, int skin, std::uint32_t tex1,
@@ -35,6 +39,14 @@ class HudArt {
   [[nodiscard]] Vec2 chat_star_center() const;
   // StarGraphic without filters, tinted by RGB multipliers (0xffffff keeps the star's own color).
   [[nodiscard]] Image star_graphic(std::uint32_t tint, double scale = 1) const;
+  // The Deca main button whose face is `width` units wide: ui/deca/main_button_decoration framing
+  // ui/deca/generic_green_button, which is `width` wide and centred in the frame. The face is drawn
+  // grey (GreyScale's luminance) and tinted on hover, as the Deca kit draws a disabled and a
+  // hovered SliceScalingButton.
+  [[nodiscard]] Image main_button(double width, bool hover, double scale) const;
+  // The logical size of main_button(width): the frame's natural size, widened by the face's width
+  // and by a fixed 2 units. Its centre is the centre of the button's area.
+  [[nodiscard]] Vec2 main_button_size(double width) const;
   [[nodiscard]] const Image& image(const std::string& key) const;
   // The same art at `scale` device pixels per logical unit. Vector-drawn tiles, panels and buttons
   // are rasterized at that density with their edges on device pixel boundaries; bitmap art keeps

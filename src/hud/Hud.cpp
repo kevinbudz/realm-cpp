@@ -6,6 +6,38 @@
 
 namespace realm {
 namespace {
+// The Deca main button, its label and its coin icons sit this many units above the centre of their
+// TextButton areas.
+constexpr int main_button_lift = 4;
+
+// Every centred interaction-panel title is set in the same 188-pixel field at x 6. A one-line title
+// sits at y 6 (HUD 514), as in ButtonPanel and PortalPanel. A two-line title starts at HUD 504, so
+// its ink stays centred on the one-line header and ends about 3 units above the Deca button frame
+// at HUD 549. Flash's PortalPanel uses y 0 (HUD 508) for these, which leaves about 1 unit.
+constexpr int title_field_width = 188;
+int title_top(const TextBitmap& title) { return title.height > 30 ? 504 : 514; }
+
+// A title wider than two lines is set at 14 pixels, then 12. At 12 pixels it is cut to two lines
+// ending in "..." so that it never reaches the action row.
+TextBitmap panel_title(const FontBook& fonts, std::string_view text) {
+  for (const int size : {18, 14, 12}) {
+    if (fonts.wrap(text, size, true, title_field_width).size() <= 2) {
+      return fonts.rasterize_centered(text, size, true, TextEffect::outline, 0xffffffU,
+                                      title_field_width);
+    }
+  }
+  auto lines = fonts.wrap(text, 12, true, title_field_width);
+  lines.resize(2);
+  auto& last = lines[1];
+  while (!last.empty() &&
+         (last.back() == ' ' || fonts.measure(last + "...", 12, true) > title_field_width - 4)) {
+    last.pop_back();
+  }
+  last += "...";
+  return fonts.rasterize_centered(lines[0] + "\n" + last, 12, true, TextEffect::outline, 0xffffffU,
+                                  title_field_width);
+}
+
 // The tab panel (y 300-499) and the interaction panel below it (y 500-599) redraw separately. The
 // interaction panel also repaints rows 500-503 of the tab panel's backdrop, which lie below its
 // bottom outline (the outline ends at 499).
@@ -189,10 +221,12 @@ void Hud::heading(const HudState& state) {
   if (art_ && state.inventory.enabled) {
     blit(art_->portrait(state.inventory.appearance_type ? state.inventory.appearance_type
                                                         : state.inventory.portrait,
-                        state.inventory.skin, state.inventory.tex1, state.inventory.tex2),
+                        state.inventory.skin, state.inventory.tex1, state.inventory.tex2,
+                        image_.pixel_scale),
          -2, 190);
   }
-  text(state.name, 20, true, 11776947, 36, 198);
+  // CharacterDetailsView's nameText_ uses DropShadowFilter(0,0,0), not an outline.
+  text(state.name, 20, true, 11776947, 36, 198, 1, 1, 0, TextEffect::shadow);
   if (art_ && state.header.button != HudState::Header::Button::none) {
     const std::string key =
         std::string("iconbutton-") +
@@ -353,28 +387,22 @@ void Hud::portal(const HudState::Portal& state) {
   if (!art_ || state.id < 0) {
     return;
   }
-  // The panel origin is (6,508); the name field is 188 wide at y 6, or 0
-  // once it is taller than 30 pixels.
-  auto name = fonts_.rasterize_centered(state.name, 18, true, TextEffect::outline, 0xffffffU, 188);
-  const int y = name.height > 30 ? 508 : 514;
+  // The panel origin is (6,508); the name is a shared panel title.
+  auto name = panel_title(fonts_, state.name);
+  const int y = title_top(name);
   draw(std::move(name), 6, y);
-  if (image_.pixel_scale != 1) {
-    if (!state.locked && state.active) {
-      // TextButton centers its label in the field width plus 12.
-      const double text_x =
-          portal_button.x + portal_button.width / 2 - fonts_.measure("Enter", 16, true) / 2 - 2;
-      native_button(portal_button, "Enter", state.hover, text_x);
-    } else {
-      auto full = fonts_.rasterize_centered(state.locked ? "Locked" : "Full", 18, true, TextEffect::outline,
-                                            0xff0000, 188);
-      const auto full_y = 580 - full.height;
-      draw(std::move(full), 6, full_y);
-    }
+  if (!state.locked && state.active) {
+    // TextButton centers its label in the field width plus 12.
+    const double text_x =
+        portal_button.x + portal_button.width / 2 - fonts_.measure("Enter", 16, true) / 2 - 2;
+    main_button(portal_button, "Enter", state.hover, text_x);
+  } else if (image_.pixel_scale != 1) {
+    auto full = fonts_.rasterize_centered(state.locked ? "Locked" : "Full", 18, true,
+                                          TextEffect::outline, 0xff0000, 188);
+    const auto full_y = 580 - full.height;
+    draw(std::move(full), 6, full_y);
   } else {
-    blit(art_->image(!state.locked && state.active ? "portalenter" + std::to_string(state.hover)
-                     : state.locked                ? "portallocked"
-                                                   : "portalfull"),
-         0, 500);
+    blit(art_->image(state.locked ? "portallocked" : "portalfull"), 0, 500);
   }
 }
 
@@ -383,20 +411,15 @@ void Hud::button(const HudState::Button& state) {
     return;
   }
   const auto kind = static_cast<std::size_t>(state.kind);
-  // The 188-pixel centered title is at y 6; ReskinPanel never positions its title.
-  draw(fonts_.rasterize_centered(button_panel_titles.at(kind), 18, true, TextEffect::outline, 0xffffffU, 188), 6,
-       kind == 3 ? 508 : 514);
-  if (image_.pixel_scale != 1) {
-    constexpr std::array labels{"View", "View", "Change", "Choose"};
-    const auto area = button_panel_buttons.at(kind);
-    const auto label = labels.at(kind);
-    // TextButton centers its label in the field width plus 12.
-    const double text_x = area.x + area.width / 2 - fonts_.measure(label, 16, true) / 2 - 2;
-    native_button(area, label, state.hover, text_x);
-  } else {
-    blit(art_->image("buttonpanel" + std::to_string(kind) + "h" + std::to_string(state.hover)), 0,
-         500);
-  }
+  auto title = panel_title(fonts_, button_panel_titles.at(kind));
+  const int y = title_top(title);
+  draw(std::move(title), 6, y);
+  constexpr std::array labels{"View", "View", "Change", "Choose"};
+  const auto area = button_panel_buttons.at(kind);
+  const auto label = labels.at(kind);
+  // TextButton centers its label in the field width plus 12.
+  const double text_x = area.x + area.width / 2 - fonts_.measure(label, 16, true) / 2 - 2;
+  main_button(area, label, state.hover, text_x);
 }
 
 void Hud::sellable(const HudState::Sellable& state) {
@@ -410,40 +433,15 @@ void Hud::sellable(const HudState::Sellable& state) {
   draw(std::move(name), 50, name_y);
   if (state.button) {
     const auto layout = buy_button_layout(fonts_, state);
-    // The baked 40-pixel shape provides both cut ends; inner columns are uniform.
-    // Its 41st column is covered only at a half-pixel position.
-    const bool half = layout.area.x != std::floor(layout.area.x);
-    const int x0 = static_cast<int>(std::floor(layout.area.x));
-    const auto& shape = art_->image("buybutton" +
-                                    std::to_string(!state.enabled ? 2
-                                                   : state.hover  ? 1
-                                                                  : 0) +
-                                    "p" + std::to_string(half));
-    const int columns = static_cast<int>(layout.area.width) + (half ? 1 : 0);
-    const int extent = half ? 41 : 40;
-    Image body{columns, shape.height,
-               std::vector<unsigned char>(static_cast<std::size_t>(columns) *
-                                          static_cast<std::size_t>(shape.height) * 4)};
-    for (int col = 0; col < columns; ++col) {
-      const int source = col < 8 ? col : col >= columns - 8 ? extent - (columns - col) : 20;
-      for (int row = 0; row < shape.height; ++row) {
-        std::copy_n(
-            shape.pixels.begin() + (static_cast<std::ptrdiff_t>(row) * shape.width + source) * 4, 4,
-            body.pixels.begin() + (static_cast<std::ptrdiff_t>(row) * columns + col) * 4);
-      }
-    }
-    blit(body, x0, 562);
     // The stage rounds the field origin to a quarter pixel; glyphs then
     // round to quarters within the field.
     const double text_x =
         std::floor(layout.text_x) + std::round((layout.text_x - std::floor(layout.text_x)) * 4) / 4;
-    draw_direct(fonts_.rasterize(std::to_string(state.price), 16, true, false, 3552822,
-                                 text_x - std::floor(text_x)),
-                text_x, 563, 3552822);
+    main_button(layout.area, std::to_string(state.price), state.hover, text_x, state.enabled);
     // Unsmoothed bitmaps sample the nearest source pixel.
     if (layout.icon) {
       blit(art_->image("currency" + std::to_string(state.currency)),
-           static_cast<int>(std::floor(layout.icon_x + .5)), 565);
+           static_cast<int>(std::floor(layout.icon_x + .5)), 565 - main_button_lift);
     }
   }
   if (art_->contains(state.icon)) {
@@ -476,47 +474,40 @@ void Hud::sellable(const HudState::Sellable& state) {
   }
 }
 
-void Hud::native_button(HudRect area, std::string_view label, bool hover, double text_x) {
-  // Each 1-unit row snaps its edges to device pixels, so rows stay contiguous and opaque at any
-  // density; fractional rows blended into a checker pattern.
-  for (int y = 0; y < 26; ++y) {
-    const double cut = std::max(0, 4 - std::min(y, 25 - y));
-    snapped_rectangle(area.x + cut, area.y + y, area.width - cut * 2, 1,
-                      hover ? 16768133U : 0xffffffU);
-  }
-  draw(fonts_.rasterize(label, 16, true, false, 0x363636U), text_x, area.y + 1);
+void Hud::main_button(HudRect area, std::string_view label, bool hover, double text_x,
+                      bool enabled) {
+  // The face is 6 units wider than the TextButton on each side: its slanted ends pull in about 6
+  // units at the label's top and bottom, so the label clears them. HudArt::main_button is centred
+  // on the area, whose height is 26 units; the frame is taller than the area and extends above and
+  // below.
+  const double face_width = area.width + 12;
+  const double center_x = area.x + area.width / 2;
+  const double center_y = area.y + area.height / 2 - main_button_lift;
+  const auto size = art_->main_button_size(face_width);
+  blit(art_->main_button(face_width, hover && enabled, image_.pixel_scale),
+       static_cast<int>(std::lround(center_x - size.x / 2)),
+       static_cast<int>(std::lround(center_y - size.y / 2)));
+  text(label, 16, true, 0xffffffU, text_x, center_y - fonts_.layout(label, 16, true).height / 2,
+       enabled ? 1 : .5, 1, 0, TextEffect::shadow);
 }
 
 void Hud::social(const HudState::Social& state) {
   if (state.id < 0) {
     return;
   }
-  // Keep long guild names in the title region, clear of the action row.
-  int size = 18;
-  auto lines = fonts_.wrap(state.title, size, true, 184);
-  if (lines.size() > 2) {
-    size = 14;
-    lines = fonts_.wrap(state.title, size, true, 184);
-  }
-  if (lines.size() > 3) {
-    lines.resize(3);
-    lines.back() = "...";
-  }
-  for (std::size_t i = 0; i < lines.size(); ++i) {
-    text(lines[i], size, true, 0xffffffU, 8 + (184 - fonts_.measure(lines[i], size, true)) / 2,
-         508 + static_cast<double>(i) * (size + 2));
-  }
+  auto title = panel_title(fonts_, state.title);
+  const int title_y = title_top(title);
+  draw(std::move(title), 6, title_y);
   if (!state.notice.empty()) {
     draw(fonts_.rasterize_centered(state.notice, 16, true, TextEffect::outline, 0xff4444U, 188), 6, 562);
   }
-  if (state.enabled) {
-    const double width =
-        std::ceil(fonts_.measure(state.label, 16, true)) + 18 + (state.currency >= 0 ? 24 : 0);
-    const HudRect area{100 - width / 2, 562, width, 26};
-    native_button(area, state.label, state.hover, area.x + 9);
-    if (art_ && state.currency >= 0) {
+  if (art_ && state.enabled) {
+    const auto layout = social_button_layout(fonts_, state.label, state.currency);
+    const auto& area = layout.area;
+    main_button(area, state.label, state.hover, layout.text_x);
+    if (state.currency >= 0) {
       blit(art_->image("currency" + std::to_string(state.currency)),
-           static_cast<int>(area.x + width - 26), 565);
+           static_cast<int>(area.x + area.width - 26), 565 - main_button_lift);
     }
   }
 }

@@ -267,6 +267,7 @@ Packet encode(const UseItem& m) { Writer w;
 w.i32(m.time_ms);
 slot(w, m.slot);
 position(w, m.position);
+w.u8(m.use_type);
 return {static_cast<std::uint8_t>(flash::PacketId::USEITEM), w.bytes()}; }
 Packet encode(const UsePortal& m) { Writer w;
 w.i32(m.object_id);

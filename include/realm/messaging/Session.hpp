@@ -91,6 +91,18 @@ class Session {
     return !packets.empty();
   }
 
+  // MapUserInput.useAltWeapon on key up: ends the two-phase ability that a successful use_ability
+  // started (its END_USE). Callers only release a key that latched on success.
+  void release_ability(Vec2 target, std::int32_t time_ms) {
+    if (state_ != SessionState::playing) {
+      return;
+    }
+    for (const auto& packet : combat_.release_ability(target, time_ms)) {
+      inventory_.track_ability(packet);
+      send_packet(packet);
+    }
+  }
+
   void swap_items(net::Slot first, net::Slot second, std::int32_t time) {
     if (state_ == SessionState::playing) {
       if (const auto packet = inventory_.swap(first, second, time)) {

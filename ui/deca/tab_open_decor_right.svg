@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="44" height="14" viewBox="0 0 44 14" data-stretch-x="18 19">
-  <!-- tab_open_decor_right: Deca UI frame tab_open_decor_right. Traced from the atlas frame. Stretches along x 18-19. -->
-  <path fill="#282828" fill-opacity="0.8" fill-rule="evenodd" d="M5 0 L12 0 L12 1 L13 1 L13 0 L31 0 L31 1.5 L43 13.5 L43 14 L37 14 L37 13 L36 13 L36 14 L0 14 L0 3 L4 3 L4 1 L5 1 Z M12 1 L11 1 L11 2 L12 2 Z M11 2 L10 2 L10 3 L11 3 Z M10 3 L9 3 L9 4 L10 4 Z M27 3 L26 3 L26 4 L27 4 Z M9 4 L8 4 L8 5 L9 5 Z M28 4 L27 4 L27 5 L28 5 Z M8 5 L7 5 L7 6 L8 6 Z M29 5 L28 5 L28 6 L29 6 Z M7 6 L6 6 L6 7 L7 7 Z M30 6 L29 6 L29 7 L30 7 Z M6 7 L5 7 L5 8 L6 8 Z M31 7 L30 7 L30 8 L31 8 Z M32 8 L31 8 L31 9 L32 9 Z M33 9 L32 9 L32 10 L33 10 Z M34 10 L33 10 L33 11 L34 11 Z M35 11 L34 11 L34 12 L35 12 Z M36 12 L35 12 L35 13 L36 13 Z"/>
-  <path fill="#2d2d2d" fill-opacity="0.69" fill-rule="evenodd" d="M5 0 L13 0 L13 0.5 L5.5 8 L0 8 L0 3 L4 3 L4 1 L5 1 Z M26 0 L31 0 L31 1.5 L43 13.5 L43 14 L36.5 14 L31 8.5 L31 7.5 L26 2.5 Z"/>
-  <path fill="#3e3e3e" fill-opacity="0.502" fill-rule="evenodd" d="M5.5 0 L12 0 L12 0.5 L4.5 8 L0 8 L0 3 L2.5 3 Z M26 0 L31 0 L31 2 L32.5 2 L44 13.5 L44 14 L37.5 14 L26 2.5 Z"/>
-  <path fill="#2c2c2c" fill-opacity="0.882" fill-rule="evenodd" d="M5 0 L12 0 L12 0.5 L4.5 8 L0 8 L0 3 L4 3 L4 1 L5 1 Z M26 0 L31 0 L31 1.5 L43 13.5 L43 14 L37.5 14 L31.5 8 L30.5 8 L26 3.5 Z"/>
-  <path fill="#353535" fill-rule="evenodd" d="M5 0 L12 0 L12 0.5 L4.5 8 L0 8 L0 3 L4 3 L4 1 L5 1 Z M26 0 L31 0 L31 1.5 L43 13.5 L43 14 L37.5 14 L26 2.5 Z"/>
-  <path fill="#3f3f3f" fill-rule="evenodd" d="M4 3.5 L4 5 L0 5 L0 3 L3.5 3 L6.5 0 L7 0 L7 0.5 Z M33.5 5 L32 5 L32 4 L31 4 L31 2 L31.5 2 L43 13.5 L43 14 L42.5 14 Z"/>
+  <!-- tab_open_decor_right: Deca UI frame tab_open_decor_right. Redrawn from the atlas frame. Stretches along x 18-19. -->
+  <path fill="#282828" fill-opacity="0.8" d="M14 0H22L36 14H0V8H6Z"/>
+  <path fill="#252525" fill-opacity="0.8" d="M10 0H14L6 8H2Z M22 0H26L40 14H36Z"/>
+  <path fill="#353535" d="M5 0H11L3 8H0V5Z M24 0H30L44 14H38Z"/>
+  <path fill="#3f3f3f" d="M5 0H6L0 6V5Z M28 0H30L44 14H42Z"/>
 </svg>

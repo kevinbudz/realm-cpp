@@ -160,6 +160,26 @@ int main() {
     check(combat.use_ability({5.5, 2.5}, 6001).empty(), "ability cooldown enforced");
     world.entity(99)->profile.stats[4] = ability->mp_cost - 1;
     check(combat.use_ability({5.5, 2.5}, 20000).empty(), "insufficient MP rejects ability");
+    // Two-phase ability (ninja star): key down is START_USE (1), key up is END_USE (2) with no gate.
+    const realm::ObjectDef* channel{};
+    for (const auto& object : catalog.objects()) {
+      if (object.usable && object.ability_multi_phase) {
+        channel = &object;
+        break;
+      }
+    }
+    check(channel, "two-phase ability fixture exists");
+    world.entity(99)->profile.stats[9] = channel->type;
+    world.entity(99)->profile.stats[4] = 1000;
+    outgoing = combat.use_ability({5.5, 2.5}, 30000);
+    check(outgoing.size() == 1 && outgoing[0].id == 13 && outgoing[0].body.back() == 1,
+          "two-phase key down sends START_USE");
+    outgoing = combat.release_ability({5.5, 2.5}, 30100);
+    check(outgoing.size() == 1 && outgoing[0].id == 13 && outgoing[0].body.back() == 2,
+          "two-phase key up sends END_USE inside the cooldown");
+    world.entity(99)->profile.stats[9] = ability->type;
+    check(combat.release_ability({5.5, 2.5}, 40000).empty(),
+          "key up ignores single-phase abilities");
     check(world.entity(99)->combat.hp == 200, "all local effects preserve authoritative HP");
     world.expire_damage(20000);
     check(world.damage_cues().empty(), "damage feedback expires");

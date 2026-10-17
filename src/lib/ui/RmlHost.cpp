@@ -825,7 +825,7 @@ class DecaPainter {
     if (const auto found = drawings_.find(name); found != drawings_.end()) {
       return found->second;
     }
-    const auto* source = embedded_ui_file("deca/" + name + ".svg");
+    const auto* source = vector_art::embedded_deca_svg(name + ".svg");
     if (!source) {
       throw std::invalid_argument("no Deca art named '" + name + "'");
     }

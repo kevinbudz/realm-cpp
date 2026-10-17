@@ -92,6 +92,8 @@ struct ObjectDef {
   bool ability_target{};
   bool ability_teleport{};
   bool ability_shoot{};
+  // MultiPhase: key down sends START_USE and key up sends END_USE (ninja stars).
+  bool ability_multi_phase{};
   double z{};
   double rotation{};
   double angle_correction{};

@@ -1,15 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 35 35" data-stretch-x="17 18">
-  <!-- generic_green_button: the green action button (SliceScalingButton, ClosePopupButton, ConfirmationModal). Stretches along x 17-18. -->
-  <!-- drop shadow -->
-  <path fill="#000000" fill-opacity="0.35" d="M-0.25 19 L16.75 2 L17.75 2 L34.75 19 L17.75 36 L16.75 36 Z"/>
-  <!-- outline -->
-  <path fill="#183607" d="M0 17.5 L17 0.5 L18 0.5 L35 17.5 L18 34.5 L17 34.5 Z"/>
-  <!-- upper bevel -->
-  <path fill="#66c82a" d="M3 17.5 L17 3.5 L18 3.5 L32 17.5 L18 31.5 L17 31.5 Z"/>
-  <!-- upper face -->
-  <path fill="#3c9a33" d="M5 17.5 L17 5.5 L18 5.5 L30 17.5 L18 29.5 L17 29.5 Z"/>
-  <!-- lower bevel -->
-  <path fill="#285c3f" d="M3.5 18 L31.5 18 L18 31.5 L17 31.5 Z"/>
-  <!-- lower face -->
-  <path fill="#418a3d" d="M5.5 18 L29.5 18 L18 29.5 L17 29.5 Z"/>
+  <!-- generic_green_button: the green action button (SliceScalingButton, ClosePopupButton, ConfirmationModal). Redrawn from the atlas frame. Stretches along x 17-18. -->
+  <path fill="#000000" fill-opacity="0.35" d="M0 18.5 L16.5 2 H18.5 L35 18.5 L18.5 35 H16.5 Z"/>
+  <path fill="#183607" d="M0 17.5 L16.5 1 H18.5 L35 17.5 L18.5 34 H16.5 Z"/>
+  <path fill="#66c82a" d="M3 17.5 L16.5 4 H18.5 L32 17.5 L18.5 31 H16.5 Z"/>
+  <path fill="#3c9a33" d="M5 17.5 L16.5 6 H18.5 L30 17.5 L18.5 29 H16.5 Z"/>
+  <path fill="#285c3f" d="M3.5 18 H31.5 L18.5 31 H16.5 Z"/>
+  <path fill="#418a3d" d="M5.5 18 H29.5 L18.5 29 H16.5 Z"/>
 </svg>

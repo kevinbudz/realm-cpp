@@ -2,11 +2,13 @@
 #include "realm/assets/FlashDraw.hpp"
 #include "realm/assets/FontBook.hpp"
 #include "realm/assets/InventoryLayout.hpp"
+#include "realm/assets/VectorArt.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <map>
 #include <stdexcept>
 
 namespace realm {
@@ -28,6 +30,9 @@ constexpr std::uint32_t outline_light = 0x626262;
 constexpr std::uint32_t equip_fill = 0x424242;
 constexpr double panel_width = 188;
 constexpr double panel_height = 84;
+// The HUD's Deca main button frame (HudArt::main_button) is this many units wider than the art's
+// own margin around its face.
+constexpr double main_button_frame_widening = 2;
 // GraphicsUtil cut corners of the equipment, inventory and trade grids.
 constexpr std::array<std::array<bool, 4>, 4> equipment_cuts{
     {{1, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 1, 1, 0}}};
@@ -226,6 +231,8 @@ struct HudArt::Sources {
   std::optional<fd::Shape> star;
   std::optional<fd::Shape> cross;
   std::optional<fd::Shape> box;
+  // Deca UI art (ui/deca/NAME.svg), parsed on first use.
+  std::map<std::string, vector_art::Drawing, std::less<>> deca_drawings;
   int classes{};
 
   Sources(const Appearances* shared_appearances, const Catalog* shared_catalog) {
@@ -246,6 +253,19 @@ struct HudArt::Sources {
     for (const auto& object : catalog->objects()) {
       classes += object.player;
     }
+  }
+
+  // The Deca UI art named NAME (ui/deca/NAME.svg), parsed once. The names are fixed in code, so a
+  // missing file is a build error.
+  const vector_art::Drawing& deca(std::string_view name) {
+    if (const auto found = deca_drawings.find(name); found != deca_drawings.end()) {
+      return found->second;
+    }
+    const auto* source = vector_art::embedded_deca_svg(std::string(name) + ".svg");
+    if (!source) {
+      throw std::logic_error("Missing Deca UI art: " + std::string(name));
+    }
+    return deca_drawings.emplace(std::string(name), vector_art::parse(*source)).first->second;
   }
 
   // AssetLibrary.getImageFromSet: one frame of a named image set, straight alpha.
@@ -305,16 +325,18 @@ struct HudArt::Sources {
   }
 
   // GameObject.getPortrait: TextureData.texture_ (the standing frame from imageFromAngle(0), which
-  // falls back from right to down) at four times its width.
-  Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) {
+  // falls back from right to down) at four times its width. `device_scale` and `sharp` pass through
+  // to compose, as the potion icons use them.
+  Image portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,
+                 double device_scale = 1, bool sharp = false) {
     const auto& texture = catalog->player_texture(type, skin).select(0);
     if (const auto* character =
             appearances->animations().character(texture.animated, texture.index)) {
       const auto frame = character->frame(0, 0, Action::stand, 0);
       return frame_texture(frame, 400 / appearances->animations().images().at(frame.image).width,
-                           true, tex1, tex2);
+                           true, tex1, tex2, device_scale, sharp);
     }
-    return object_texture(type, 50, true);
+    return object_texture(type, 50, true, false, device_scale, sharp);
   }
 
   // GameObject.getPortrait: 4 / width * 100 percent, so every texture width draws at the same
@@ -528,26 +550,6 @@ struct HudArt::Sources {
     bounds.right = std::max({bounds.right, sx + number.width, sx + w + 4});
     bounds.bottom = std::max({bounds.bottom, number.height, icon_y + shape.height() + 5});
     return bounds;
-  }
-
-  // TextButton(16, label) with its top-left corner at (x, y), filled in `fill`.
-  void button(Image& canvas, std::string_view label, double x, double y, std::uint32_t fill) const {
-    const auto metrics = field(label, 16, true);
-    const double w = metrics.width + 12;
-    fd::Path shape;
-    shape.cut_edge_rect(x, y, w, std::floor(metrics.text_height) + 8, 4);
-    fd::fill(canvas, shape, fill);
-    text(canvas, label, 16, true, panel_gray, x + w / 2 - metrics.text_width / 2 - 2, y + 1);
-  }
-
-  // A Panel's TextButton centered at the bottom, in an InteractPanel image whose panel origin is
-  // (6, 8).
-  void panel_button(Image& canvas, std::string_view label, bool hover) const {
-    const auto metrics = field(label, 16, true);
-    const double w = metrics.width + 12;
-    const double h = std::floor(metrics.text_height) + 8;
-    button(canvas, label, 6 + panel_width / 2 - w / 2, 8 + panel_height - h - 4,
-           hover ? 16768133 : 16777215);
   }
 
   // Slot / EquipmentTile background art: the slot-type image at 4x in the panel gray, or a hotkey
@@ -773,9 +775,10 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     if (dry) {
       return Image{};
     }
-    auto image = fd::canvas(80, 80);
-    fd::draw(image, assets.portrait(type, skin, 0, 0), 0, 0);
-    return image;
+    // Composed at the HUD density, as the potion icons are, so the HUD never resamples it.
+    auto image = raster(80, 80, density);
+    fd::draw(image.image, assets.portrait(type, skin, 0, 0, density, density != 1), 0, 0);
+    return std::move(image.image);
   }
   // Equipment and inventory tiles: backgrounds, restricted-use overlays, slot-type art and hotkey
   // numbers.
@@ -975,14 +978,6 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
   }
   // Interaction panels (InteractPanel images whose panel origin is at (6, 8)), without the object
   // name.
-  if (keyed(key, "portalenter", 0, 1, value)) {
-    if (dry) {
-      return Image{};
-    }
-    auto image = fd::canvas(200, 100);
-    assets.panel_button(image, "Enter", value == 1);
-    return image;
-  }
   if (key == "portalfull" || key == "portallocked") {
     if (dry) {
       return Image{};
@@ -992,38 +987,6 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     const double height = assets.field(label, 18, true).text_height + 4;
     assets.centered(image, label, 18, true, 16711680, static_cast<int>(panel_width), 6,
                     8 + panel_height - height - 12, 1);
-    return image;
-  }
-  if (key.starts_with("buttonpanel") && key.size() == 14 && key[12] == 'h') {
-    value = key[11] - '0';
-    extra = key[13] - '0';
-    if (value < 0 || value > 3 || extra < 0 || extra > 1) {
-      return std::nullopt;
-    }
-    if (dry) {
-      return Image{};
-    }
-    static constexpr std::array<std::string_view, 4> labels{"View", "View", "Change", "Choose"};
-    auto image = fd::canvas(200, 100);
-    assets.panel_button(image, labels[static_cast<std::size_t>(value)], extra == 1);
-    return image;
-  }
-  if (key.starts_with("buybutton") && key.size() == 12 && key[10] == 'p') {
-    value = key[9] - '0';
-    extra = key[11] - '0';
-    if (value < 0 || value > 2 || extra < 0 || extra > 1) {
-      return std::nullopt;
-    }
-    if (dry) {
-      return Image{};
-    }
-    static constexpr std::array<std::uint32_t, 3> fills{16777215, 16768133, 8355711};
-    // Sellable buttons stay at logical density: Hud::sellable slices their columns in logical
-    // units.
-    auto image = fd::canvas(41, 26);
-    fd::Path shape;
-    shape.cut_edge_rect(extra * .5, 0, 40, 26, 4);
-    fd::fill(image, shape, fills[static_cast<std::size_t>(value)]);
     return image;
   }
   if (keyed(key, "currency", 0, 2, value)) {
@@ -1479,11 +1442,18 @@ bool HudArt::contains(const std::string& key) const {
   return cache_.contains(key) || make(key, true).has_value();
 }
 
-Image HudArt::portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2) const {
-  if (tex1 || tex2) {
-    return sources().portrait(type, skin, tex1, tex2);
+Image HudArt::portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,
+                       double scale) const {
+  if (!std::isfinite(scale) || scale <= 0) {
+    throw std::invalid_argument("Invalid HUD artwork scale");
   }
-  return image("portrait" + std::to_string(sources().catalog->portrait_type(type, skin)));
+  if (tex1 || tex2) {
+    auto dyed = scale == 1 ? sources().portrait(type, skin, tex1, tex2)
+                           : sources().portrait(type, skin, tex1, tex2, scale, true);
+    dyed.pixel_scale = scale;
+    return dyed;
+  }
+  return image("portrait" + std::to_string(sources().catalog->portrait_type(type, skin)), scale);
 }
 
 Image HudArt::game_object_portrait(int type, int skin, std::uint32_t tex1,
@@ -1536,6 +1506,34 @@ Image HudArt::star_graphic(std::uint32_t tint, double scale) const {
       image, shape, -shape.left * scale, -shape.top * scale, scale,
       {static_cast<double>((tint >> 16U) & 255U) / 255,
        static_cast<double>((tint >> 8U) & 255U) / 255, static_cast<double>(tint & 255U) / 255});
+  return image;
+}
+
+Vec2 HudArt::main_button_size(double width) const {
+  auto& assets = sources();
+  const auto& frame = assets.deca("main_button_decoration");
+  const auto& face = assets.deca("generic_green_button");
+  return {width + frame.width - face.width + main_button_frame_widening, frame.height};
+}
+
+Image HudArt::main_button(double width, bool hover, double scale) const {
+  if (!std::isfinite(width) || width <= 0 || !std::isfinite(scale) || scale <= 0) {
+    throw std::invalid_argument("Invalid HUD button size");
+  }
+  auto& assets = sources();
+  const auto& frame = assets.deca("main_button_decoration");
+  const auto& face = assets.deca("generic_green_button");
+  const auto size = main_button_size(width);
+  auto image = vector_art::render(frame, size.x, size.y, scale);
+  // render applies the hover tint (Tint.add) before the grey, so a hovered face is a lighter grey.
+  vector_art::Options options;
+  options.grey = true;
+  if (hover) {
+    options.tint = std::pair{0x00ffffU, 0.1};
+  }
+  // The face is centred in the frame: the frame's extra width and height split evenly on each side.
+  const auto button = vector_art::render(face, width, face.height, scale, options);
+  ui_blit(image, button, (size.x - width) / 2, (size.y - face.height) / 2, true, true);
   return image;
 }
 

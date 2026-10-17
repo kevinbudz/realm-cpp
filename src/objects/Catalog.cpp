@@ -309,6 +309,7 @@ Catalog::Catalog(const std::filesystem::path& root)
         object.loot = node.has("Loot");
         const auto activations = node.children("Activate");
         object.ability_shoot = activations.size() == 1 && activations.front().text() == "Shoot";
+        object.ability_multi_phase = node.has("MultiPhase");
         for (const auto activation : activations) {
           const auto kind = activation.text();
           if (kind == "Teleport") {

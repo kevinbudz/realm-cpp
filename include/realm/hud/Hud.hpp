@@ -67,7 +67,10 @@ class Hud {
   void sellable(const HudState::Sellable& state);
   void party(const HudState::Party& state);
   void social(const HudState::Social& state);
-  void native_button(HudRect area, std::string_view label, bool hover, double text_x);
+  // A TextButton's Deca main button centred on its area, with the label at text_x and centred on
+  // the button. A disabled button dims its label.
+  void main_button(HudRect area, std::string_view label, bool hover, double text_x,
+                   bool enabled = true);
   void tier(const ObjectDef& item, int x, int y, int size);
   void draw(TextBitmap bitmap, double x, double y, double alpha = 1,
             const ColorTransform* transform = nullptr);

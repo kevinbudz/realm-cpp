@@ -69,6 +69,9 @@ class Combat {
   [[nodiscard]] std::vector<net::Packet> shoot(double angle, std::int32_t time_ms,
                                                bool ability = false);
   [[nodiscard]] std::vector<net::Packet> use_ability(Vec2 target, std::int32_t time_ms);
+  // Key up of a two-phase ability (betterskillys END_USE): ends the channel the key down started.
+  // Unlike use_ability it has no cooldown or MP gate, and it leaves the cooldown untouched.
+  [[nodiscard]] std::vector<net::Packet> release_ability(Vec2 target, std::int32_t time_ms);
 
   [[nodiscard]] const std::vector<FlyingProjectile>& projectiles() const { return projectiles_; }
 

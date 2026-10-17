@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="33" height="28" viewBox="0 0 33 28" data-stretch-x="16 17">
-  <!-- bordered_field: Deca UI frame bordered_field. Traced from the atlas frame. Stretches along x 16-17. -->
-  <path fill="#4f4f4f" fill-opacity="0.518" fill-rule="evenodd" d="M13.5 0 L19.5 0 L33 13.5 L33 14.5 L19.5 28 L13.5 28 L0 14.5 L0 13.5 Z"/>
-  <path fill="#1e1e1e" fill-rule="evenodd" d="M14.5 0 L18.5 0 L32 13.5 L32 14.5 L18.5 28 L14.5 28 L1 14.5 L1 13.5 Z"/>
-  <path fill="#484848" fill-rule="evenodd" d="M14.5 0 L18.5 0 L32 13.5 L32 14.5 L18.5 28 L14.5 28 L1 14.5 L1 13.5 Z M17 4 L16 4 L16 5 L15.5 5 L7 13.5 L7 14.5 L15.5 23 L16 23 L16 24 L17 24 L17 23 L17.5 23 L26 14.5 L26 13.5 L17.5 5 L17 5 Z"/>
-  <path fill="#515151" fill-rule="evenodd" d="M14.5 0 L18.5 0 L32 13.5 L32 14 L31.5 14 L19.5 2 L13.5 2 L1.5 14 L1 14 L1 13.5 Z M16 4 L16 5 L15.5 5 L7 13.5 L7 14.5 L15.5 23 L16 23 L16 24 L17 24 L17 23 L17.5 23 L26 14.5 L26 13.5 L17.5 5 L17 5 L17 4 L17.5 4 L27 13.5 L27 16.5 L17.5 26 L15.5 26 L6 16.5 L6 13.5 L15.5 4 Z"/>
-  <path fill="#323232" fill-rule="evenodd" d="M16 4 L16 5 L15.5 5 L7 13.5 L7 14.5 L15.5 23 L16 23 L16 24 L15.5 24 L6 14.5 L6 13.5 L15.5 4 Z M27 13.5 L27 14.5 L17.5 24 L17 24 L17 23 L17.5 23 L26 14.5 L26 13.5 L17.5 5 L17 5 L17 4 L17.5 4 Z"/>
+  <!-- bordered_field: Deca UI frame bordered_field. Redrawn from the atlas frame. Stretches along x 16-17. -->
+  <path fill="#4f4f4f" d="M14 0 H19 L33 14 L19 28 H14 L0 14 Z"/>
+  <path fill="#484848" d="M13 2 H20 L32 14 L20 26 H13 L1 14 Z"/>
+  <path fill="#323232" d="M15.5 3 H17.5 L27 12.5 V15.5 L17.5 25 H15.5 L6 15.5 V12.5 Z"/>
+  <path fill="#1e1e1e" d="M16 4 H17 L26 13 V15 L17 24 H16 L7 15 V13 Z"/>
 </svg>

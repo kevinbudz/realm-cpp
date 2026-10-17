@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="10" viewBox="0 0 18 10">
-  <!-- spinner_up_arrow: Deca UI frame spinner_up_arrow. Traced from the atlas frame. Fixed size. -->
-  <path fill="#ffffff" fill-opacity="0.753" fill-rule="evenodd" d="M8.5 2 L9.5 2 L16 8.5 L16 9 L15 9 L15 8 L3 8 L3 9 L2 9 L2 8.5 Z"/>
-  <path fill="#ffffff" fill-opacity="0.863" fill-rule="evenodd" d="M8.5 3 L9.5 3 L15 8.5 L15 9 L3 9 L3 8.5 Z"/>
-  <path fill="#ffffff" fill-rule="evenodd" d="M8.5 3 L9.5 3 L14 7.5 L14 8 L4 8 L4 7.5 Z"/>
+  <!-- spinner_up_arrow: Deca UI frame spinner_up_arrow. Redrawn from the atlas frame. Fixed size. -->
+  <path fill="#ffffff" d="M9 1.75 L15.25 8 H2.75 Z"/>
+  <path fill="#ffffff" fill-opacity="0.86" d="M2 8 H16 V9 H2 Z"/>
 </svg>

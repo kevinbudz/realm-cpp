@@ -525,6 +525,19 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
     const bool ability_held = down("useSpecial") || cs.script_ability_down;
     const bool ability_key = ability_held && !cs.ui_stack.wants_text();
     if (!ability_held) {
+      // The key up ends a two-phase ability that the key down started (betterskillys END_USE). It sits
+      // outside the input gate below, so a menu or the pointer over the sidebar cannot strand the channel.
+      if (cs.special_key.latched()) {
+        const auto viewport = cs.window_viewport();
+        cs.camera.configure(cs.position, cs.angle, viewport.drawable_width,
+                            viewport.drawable_height, cs.zoom, cs.centered);
+        auto aim = cs.camera.screen_to_world(viewport.drawable(mouse_x, mouse_y));
+        if (!std::isfinite(aim.x) || !std::isfinite(aim.y)) {
+          // The server rejects non-finite targets, so fall back to a point ahead of the player.
+          aim = {cs.position.x + 3 * std::cos(cs.angle), cs.position.y + 3 * std::sin(cs.angle)};
+        }
+        cs.game_session->release_ability(aim, time);
+      }
       cs.special_key.released();
     }
     if (!cs.ui_stack.modal() &&

@@ -38,10 +38,10 @@ with socket.socket() as listener:
                 assert time >= 0 and (x,y,a,slot_a,b,slot_b) == (2.5,3.5,99,4,99,0), 'Swap wire position and slots'
                 failure = frame(18, struct.pack('>i',1)); conn.sendall(failure[:3]); conn.sendall(failure[3:])
                 ident, body = receive(conn); assert ident == 13, 'Consumable USEITEM'
-                time,owner,slot,x,y = struct.unpack('>iiBff',body); assert (owner,slot,x,y) == (99,6,0,0), 'Consumable wire target'
+                time,owner,slot,x,y,use = struct.unpack('>iiBffB',body); assert (owner,slot,x,y,use) == (99,6,0,0,0), 'Consumable wire target'
                 conn.sendall(failure)
                 ident, body = receive(conn); assert ident == 13, 'Ability USEITEM'
-                time,owner,slot,x,y = struct.unpack('>iiBff',body); assert (owner,slot,x,y) == (99,1,4,4), 'Ability wire target'
+                time,owner,slot,x,y,use = struct.unpack('>iiBffB',body); assert (owner,slot,x,y,use) == (99,1,4,4,0), 'Ability wire target'
                 ident, body = receive(conn); assert ident == 3 and len(body) in (17,18) and body[16] == 1, 'Ability PLAYERSHOOT follows USEITEM'
                 conn.sendall(frame(18, struct.pack('>i',0)))
                 ident, body = receive(conn); assert ident == 17 and body == bytes([4]), 'INVDROP'

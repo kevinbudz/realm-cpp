@@ -577,8 +577,14 @@ std::vector<net::Packet> Combat::use_ability(Vec2 target, std::int32_t time) {
   const auto data = data_it == player->profile.stats.end() ? -1 : data_it->second;
   next_ability_time_ = time + static_cast<int>(ability->cooldown_ms *
                                                (1 - item_data::stat(data, item_data::cooldown)));
+  // Two-phase abilities announce the key down as START_USE (1); their key up is release_ability.
+  // Everything else keeps the legacy single message (0).
+  const std::uint8_t use_type = ability->ability_multi_phase ? 1 : 0;
   std::vector<Packet> output{outgoing::encode(outgoing::UseItem{
-      time, {player->id, 1}, {static_cast<float>(target.x), static_cast<float>(target.y)}})};
+      time,
+      {player->id, 1},
+      {static_cast<float>(target.x), static_cast<float>(target.y)},
+      use_type})};
   if (ability->ability_shoot) {
     auto shots =
         fire(*ability, data,
@@ -588,5 +594,31 @@ std::vector<net::Packet> Combat::use_ability(Vec2 target, std::int32_t time) {
                   std::make_move_iterator(shots.end()));
   }
   return output;
+}
+
+std::vector<net::Packet> Combat::release_ability(Vec2 target, std::int32_t time) {
+  using namespace net;
+  const auto* player = world_.entity(world_.player_id());
+  if (!player || !std::isfinite(target.x) || !std::isfinite(target.y)) {
+    return {};
+  }
+
+  const auto it =
+      player->profile.stats.find(static_cast<std::uint8_t>(flash::StatId::INVENTORY_1_STAT));
+  if (it == player->profile.stats.end() || it->second < 0) {
+    return {};
+  }
+
+  const auto* ability = world_.catalog().object(static_cast<std::uint16_t>(it->second));
+  if (!ability || !ability->ability_multi_phase) {
+    return {};
+  }
+  // The server ends the channel that the key down started. It gets no cooldown or MP gate, and
+  // next_ability_time_ is left alone.
+  return {outgoing::encode(outgoing::UseItem{
+      time,
+      {player->id, 1},
+      {static_cast<float>(target.x), static_cast<float>(target.y)},
+      2})};
 }
 }

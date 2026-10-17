@@ -110,8 +110,8 @@ int main() {
           "consumable packet ID");
     reader = realm::net::Reader(packet->body);
     check(reader.i32() == 100 && reader.i32() == 99 && reader.u8() == 6 && reader.f32() == 0 &&
-              reader.f32() == 0 && reader.remaining() == 0,
-          "inventory use has source zero target position");
+              reader.f32() == 0 && reader.u8() == 0 && reader.remaining() == 0,
+          "inventory use has source zero target position and legacy use type");
     check(realm::inventory_item(player, 6) == realm::InventoryItem{} && player.combat.hp == 77 &&
               player.profile.stats[4] == 88,
           "consumable predicts only inventory");
@@ -347,7 +347,8 @@ int main() {
           "health potion packet ID");
     reader = realm::net::Reader(packet->body);
     check(reader.i32() == 1001 && reader.i32() == 99 && reader.u8() == 254 &&
-              reader.f32() == 2.5F && reader.f32() == 3.5F && reader.remaining() == 0,
+              reader.f32() == 2.5F && reader.f32() == 3.5F && reader.u8() == 0 &&
+              reader.remaining() == 0,
           "health potion uses slot 254 at player position");
     check(hero.profile.stats[59] == 1 && hero.combat.hp == 40,
           "health potion predicts only its stack");
@@ -484,12 +485,13 @@ int main() {
     check(packet && packet->id == static_cast<std::uint8_t>(realm::flash::PacketId::INVDROP),
           "drop without a nearby container");
     inv.result(1);
-    check(HudInput::portal_button_at({100, 575}) && HudInput::portal_button_at({73, 566}) &&
-              HudInput::portal_button_at({126, 584}),
+    // The 89-unit minimum width spans HUD x 55.5 to 144.5.
+    check(HudInput::portal_button_at({100, 575}) && HudInput::portal_button_at({56, 566}) &&
+              HudInput::portal_button_at({144, 584}),
           "portal button body and cut edges");
-    check(!HudInput::portal_button_at({73, 562}) && !HudInput::portal_button_at({126, 562}) &&
-              !HudInput::portal_button_at({73, 587}) && !HudInput::portal_button_at({126, 587}) &&
-              !HudInput::portal_button_at({127, 575}) && !HudInput::portal_button_at({100, 588}),
+    check(!HudInput::portal_button_at({56, 562}) && !HudInput::portal_button_at({144, 562}) &&
+              !HudInput::portal_button_at({56, 587}) && !HudInput::portal_button_at({144, 587}) &&
+              !HudInput::portal_button_at({145, 575}) && !HudInput::portal_button_at({100, 588}),
           "portal button corners and bounds");
     const realm::HudState::PanelButton enter{75, realm::portal_button}, hidden{},
         other{76, realm::portal_button};
@@ -509,8 +511,8 @@ int main() {
     check(!gate.button_up({100, 575}, other), "a replaced panel's button is not clicked");
     const realm::HudState::PanelButton change{77, realm::button_panel_buttons[2]};
     check(HudInput::button_at(change.area, {66, 575}) &&
-              !HudInput::button_at(realm::portal_button, {66, 575}) &&
-              !HudInput::button_at(change.area, {65, 562}),
+              !HudInput::button_at(change.area, {56, 562}) &&
+              !HudInput::button_at(change.area, {144, 587}),
           "Change button shape");
     gate.button_down({66, 575}, change);
     check(gate.button_up({133, 570}, change), "Change button click");

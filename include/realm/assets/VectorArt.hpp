@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -74,6 +75,11 @@ struct Drawing {
 
 // Throws std::runtime_error naming the first unsupported or malformed construct.
 [[nodiscard]] Drawing parse(std::string_view svg);
+
+// The Deca UI art file ui/deca/FILE (for example "generic_green_button.svg"), embedded in the
+// library at build time, or null when no such file exists. The headless HUD and the RmlUi host both
+// draw from this copy.
+[[nodiscard]] const std::string* embedded_deca_svg(std::string_view file);
 
 struct Options {
   bool flip_x{};

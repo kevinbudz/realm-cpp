@@ -5,7 +5,8 @@
 //   columns stay pixel-identical to the natural render; flip-x mirrors; grey is neutral;
 // - parse(): unsupported constructs (text, image, use, radial gradients, filters) are rejected;
 // - every ui/deca/*.svg parses with a whole-unit natural size and a 1-unit stretch band inside it,
-//   renders non-empty at 2x and stretched, and every paint(deca NAME) in ui/deca.rcss names one.
+//   renders non-empty at 2x and stretched, is embedded unchanged, and every paint(deca NAME) in
+//   ui/deca.rcss names one; the grey generic_green_button renders neutral.
 #include "realm/assets/VectorArt.hpp"
 #include <cmath>
 #include <filesystem>
@@ -153,6 +154,8 @@ void deca_art(const std::filesystem::path& ui) {
     }
     const auto name = entry.path().stem().string();
     names.insert(name);
+    const auto* embedded = va::embedded_deca_svg(entry.path().filename().string());
+    check(embedded && *embedded == read(entry.path()), name + ": embedded copy matches ui/deca");
     va::Drawing drawing;
     try {
       drawing = va::parse(read(entry.path()));
@@ -181,6 +184,18 @@ void deca_art(const std::filesystem::path& ui) {
     }
   }
   check(names.size() >= 40, "ui/deca holds the kit");
+  check(!va::embedded_deca_svg("no_such_art.svg"), "unknown Deca art is not embedded");
+  // HudArt::main_button draws generic_green_button grey, so its greyed pixels must be neutral.
+  va::Options grey;
+  grey.grey = true;
+  const auto greyed =
+      va::render(va::parse(read(ui / "deca" / "generic_green_button.svg")), 52, 35, 2, grey);
+  bool neutral = true;
+  for (std::size_t i = 0; i < greyed.pixels.size(); i += 4) {
+    neutral = neutral && greyed.pixels[i] == greyed.pixels[i + 1] &&
+              greyed.pixels[i + 1] == greyed.pixels[i + 2];
+  }
+  check(neutral, "the grey generic_green_button is neutral");
   const auto rcss = read(ui / "deca.rcss");
   const std::regex paint(R"(paint\(deca ([a-z][A-Za-z_]*))");
   std::size_t uses = 0;

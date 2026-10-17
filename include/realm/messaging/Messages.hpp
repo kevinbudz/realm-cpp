@@ -98,7 +98,9 @@ struct SquareHit { std::int32_t time_ms{}; std::int32_t bullet_id{}; };
 [[nodiscard]] Packet encode(const SquareHit& message);
 struct Teleport { std::int32_t object_id{}; };
 [[nodiscard]] Packet encode(const Teleport& message);
-struct UseItem { std::int32_t time_ms{}; Slot slot{}; Position position{}; };
+// use_type: 0 is the legacy single message (one toggle per use), 1 is key down (START_USE) and 2 is
+// key up (END_USE) of a two-phase ability such as the ninja star, as betterskillys UseItem.
+struct UseItem { std::int32_t time_ms{}; Slot slot{}; Position position{}; std::uint8_t use_type{}; };
 [[nodiscard]] Packet encode(const UseItem& message);
 struct UsePortal { std::int32_t object_id{}; };
 [[nodiscard]] Packet encode(const UsePortal& message);

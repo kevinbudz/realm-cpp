@@ -192,8 +192,15 @@ struct HudState {
 
 // HUD slot indices at and above container_slot address the nearby container.
 inline constexpr int container_slot = 20;
+// Every TextButton in the side panel is at least as wide as the social "Renounce" button: its 16 px
+// bold label plus 18 units. A narrower Flash field stays centred on HUD x 100.
+inline constexpr double panel_button_min_width = 89;
+constexpr HudRect text_button_area(double flash_width) {
+  const double width = flash_width > panel_button_min_width ? flash_width : panel_button_min_width;
+  return {100 - width / 2, 562, width, 26};
+}
 // The TextButton "Enter" in HUD coordinates; drawCutEdgeRect cuts all four corners.
-inline constexpr HudRect portal_button{73, 562, 54, 26};
+inline constexpr HudRect portal_button = text_button_area(54);
 
 // LegacyBuyButton("",16,...) layout in HUD coordinates.
 struct BuyButtonLayout {
@@ -205,13 +212,25 @@ struct BuyButtonLayout {
 
 [[nodiscard]] BuyButtonLayout buy_button_layout(const FontBook& fonts,
                                                 const HudState::Sellable& state);
+
+struct SocialButtonLayout {
+  HudRect area;
+  double text_x{};
+};
+// The label plus 18 units, plus 24 for a currency coin on the right, never less than
+// panel_button_min_width. The label is centred in the button.
+[[nodiscard]] SocialButtonLayout social_button_layout(const FontBook& fonts,
+                                                      std::string_view label, int currency);
+
 inline constexpr std::array<std::string_view, 4> button_panel_classes{
     "GuildBoard", "GuildChronicle", "CharacterChanger", "ReskinVendor"};
 inline constexpr std::array<std::string_view, 4> button_panel_titles{
     "Guild Board", "Guild Chronicle", "Change Characters", "Change Skin"};
 // TextButton(16,"View"/"View"/"Change"/"Choose") centered at HEIGHT - height - 4.
-inline constexpr std::array<HudRect, 4> button_panel_buttons{
-    {{74.5, 562, 51, 26}, {74.5, 562, 51, 26}, {65, 562, 70, 26}, {66, 562, 68, 26}}};
+inline constexpr std::array<HudRect, 4> button_panel_buttons{{text_button_area(51),
+                                                              text_button_area(51),
+                                                              text_button_area(70),
+                                                              text_button_area(68)}};
 
 // Retain derived inventory/interaction state between packet changes. Hover and drag remain
 // frame-driven.

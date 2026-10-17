@@ -280,15 +280,23 @@ HudState::PanelButton HudState::panel_button(const FontBook& fonts) const {
     return {button.id, button_panel_buttons.at(static_cast<std::size_t>(button.kind))};
   }
   if (social.id >= 0 && social.enabled) {
-    const double width =
-        std::ceil(fonts.measure(social.label, 16, true)) + 18 + (social.currency >= 0 ? 24 : 0);
-    return {social.id, {100 - width / 2, 562, width, 26}};
+    return {social.id, social_button_layout(fonts, social.label, social.currency).area};
   }
   // A disabled LegacyBuyButton is not mouse-enabled.
   if (sellable.id >= 0 && sellable.button && sellable.enabled) {
     return {sellable.id, buy_button_layout(fonts, sellable).area};
   }
   return {};
+}
+
+SocialButtonLayout social_button_layout(const FontBook& fonts, std::string_view label,
+                                        int currency) {
+  const double text = std::ceil(fonts.measure(label, 16, true));
+  const double coin = currency >= 0 ? 24 : 0;
+  const double width = std::max(text + 18 + coin, panel_button_min_width);
+  const double x = 100 - width / 2;
+  // Without the minimum, this is x + 9: 9 units of padding on each side of the label and coin.
+  return {{x, 562, width, 26}, x + (width - text - coin) / 2};
 }
 
 BuyButtonLayout buy_button_layout(const FontBook& fonts, const HudState::Sellable& state) {

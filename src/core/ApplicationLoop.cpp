@@ -9,6 +9,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "realm/platform/Platform.hpp"
@@ -197,13 +198,15 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   realm::check_graphics_error();
   cs.sample_perf(presented);
 
-  // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap.
+  // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap. Sleep while the
+  // deadline is far away; only the final sub-millisecond stretch is a yielding spin.
   if (!o.benchmark && !o.hidden && cs.settings.get("maxFPS") > 0) {
     const double target = 1000.0 / cs.settings.get("maxFPS");
+    while (target - milliseconds(Clock::now() - start) > 1.5) {
+      SDL_Delay(1);
+    }
     while (milliseconds(Clock::now() - start) < target) {
-      if (target - milliseconds(Clock::now() - start) > 2) {
-        SDL_Delay(1);
-      }
+      std::this_thread::yield();
     }
   }
 

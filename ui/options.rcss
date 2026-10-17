@@ -8,10 +8,11 @@
      rule       #5e5e5e   the line under section titles (Options.layoutChrome)
      box        #333333   key, choice, switch and search fills; edge #444444, hover edge #b3b3b3
      on         #57ad62   a switch that is on (the Flash title green)
-     fill       #b3b3b3   the slider's filled track; track #545454 */
+     fill       #b3b3b3   the slider's filled track; track #545454
+     scrim      #15151599 the dim behind the screen: 0x151515 at 0.6, as Dialog and SkinChooser */
 
 body{z-index:100;background-color:transparent}
-#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#000000b3}
+#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#15151599}
 #screen{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;display:flex;flex-direction:row;justify-content:center}
 
 #columns{display:flex;flex-direction:row;width:100%;max-width:1000dp;height:600dp}

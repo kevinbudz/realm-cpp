@@ -13,3 +13,9 @@
   configuration (static, no font engine, third-party containers on, column-major matrices).
 - To update: replace these directories from the new tarball, re-delete `FontEngineDefault`,
   and record the new tag and hash here.
+
+## Local modifications
+
+- `Backends/RmlUi_Renderer_GL3.*` (marked `realm:`): the base layer is cleared, resolved and composited only over the region
+  drawn that frame (`frame_bounds`, `previous_bounds`), and frames with transforms, layers, filters, shaders or other
+  non-geometry writes fall back to full screen. Output is unchanged because the layer is zero outside the drawn region.

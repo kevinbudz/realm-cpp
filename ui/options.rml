@@ -8,6 +8,7 @@
   </head>
   <body>
     <div id="scrim"></div>
+    <div id="footer"><div class="deca-popup-footer"></div><div id="footer-fill"></div></div>
     <div id="screen">
       <div id="columns">
         <div id="sidebar">
@@ -17,7 +18,7 @@
           </div>
           <div id="nav"></div>
           <div id="actions">
-            <div class="button t16b hidden" data-action="reset">Reset to Defaults</div>
+            <div id="reset" data-action="reset"><div class="deca-refresh-icon"></div><div id="reset-label">Reset to Defaults</div></div>
             <div class="button t16b hidden" data-action="home">Back to Home</div>
             <div id="done">
               <div class="deca-main-button-decoration"></div>

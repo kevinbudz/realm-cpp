@@ -758,18 +758,27 @@ double number_argument(const PaintRequest& request, std::size_t index,
 }
 
 // ui_path composites over a premultiplied surface, so on a transparent image its result is
-// premultiplied.
+// premultiplied, and OPACITY scales every channel alike.
 Image paint_cut_rect(const PaintRequest& request) {
   const auto fill = color_argument(request, 0, true);
   const auto stroke = color_argument(request, 1, true);
   const double cut = number_argument(request, 2, std::nullopt);
   const double stroke_width = stroke ? number_argument(request, 3, 1.0) : 0;
+  const double opacity = number_argument(request, 4, 1.0);
+  if (opacity < 0 || opacity > 1) {
+    throw std::invalid_argument("'cut-rect' opacity must be between 0 and 1");
+  }
   const double half = stroke_width / 2;
   auto image = ui_image(request.width, request.height, request.scale);
   if (request.width > 2 * half && request.height > 2 * half) {
     ui_path(image,
             cut_edge_rect(half, half, request.width - 2 * half, request.height - 2 * half, cut),
             fill, stroke, stroke_width);
+  }
+  if (opacity < 1) {
+    for (auto& channel : image.pixels) {
+      channel = static_cast<unsigned char>(std::lround(channel * opacity));
+    }
   }
   return image;
 }

@@ -12,6 +12,8 @@ namespace {
 // The slider's drawn track and its thumb, in dp (options.rcss).
 constexpr double slider_width = 170;
 constexpr double thumb_width = 12;
+// A dropdown's padding around its text (options.rcss: 16 dp before it, 34 dp after for the arrow).
+constexpr double choice_padding = 16 + 34;
 // The cursor sheet: a 4x4 grid of 32 px cursors (CursorSet).
 constexpr int cursor_size = 32;
 constexpr std::string_view default_hint = "Hover over a setting to see what it does.";
@@ -126,7 +128,9 @@ struct OptionsScreen::Impl {
     nav = document->GetElementById("nav");
     rows = document->GetElementById("rows");
     hint = document->GetElementById("hint");
-    if (!search || !search_clear || !nav || !rows || !hint) {
+    reset = document->GetElementById("reset");
+    reset_label = document->GetElementById("reset-label");
+    if (!search || !search_clear || !nav || !rows || !hint || !reset || !reset_label) {
       throw std::runtime_error("The RmlUi options document is missing its parts");
     }
     // The key box listens for any stage MOUSE_DOWN (capture phase) to leave input mode.
@@ -137,6 +141,11 @@ struct OptionsScreen::Impl {
         *document, "mouseover",
         [this](Rml::Event& event) { set_hint(holder(event.GetTargetElement(), "data-row")); },
         true);
+    host.listen(*reset, "mouseout", [this](Rml::Event& event) {
+      if (!reset->IsPointWithinElement(event.GetUnprojectedMouseScreenPos())) {
+        arm_reset(false);
+      }
+    });
   }
 
   ~Impl() { host.close(document); }
@@ -149,11 +158,14 @@ struct OptionsScreen::Impl {
     const auto action = element->GetAttribute<Rml::String>("data-action", "");
     const auto param = element->GetAttribute<Rml::String>("data-param", "");
     const auto index = element->GetAttribute<int>("data-index", 0);
+    if (action != "reset") {
+      arm_reset(false);
+    }
     if (action == "category" && index >= 0 && index < static_cast<int>(options_category_count)) {
       menu.set_category(static_cast<OptionsCategory>(index));
       search->Blur();
     } else if (action == "section" && index >= 0 && index < static_cast<int>(sections.size())) {
-      rows->SetScrollTop(sections[static_cast<std::size_t>(index)]->GetOffsetTop());
+      rows->SetScrollTop(section_top(static_cast<std::size_t>(index)));
     } else if (action == "clear-search") {
       menu.set_query({});
       search->Blur();
@@ -162,7 +174,10 @@ struct OptionsScreen::Impl {
     } else if (action == "home") {
       menu.request_home();
     } else if (action == "reset") {
-      menu.reset();
+      if (reset_armed) {
+        menu.reset();
+      }
+      arm_reset(!reset_armed);
     } else if (action == "key") {
       menu.begin_capture(param);
     } else if (action == "choice") {
@@ -198,6 +213,16 @@ struct OptionsScreen::Impl {
     }
   }
 
+  // Reset to Defaults resets every setting, so its first click only arms it.
+  void arm_reset(bool armed) {
+    if (armed == reset_armed) {
+      return;
+    }
+    reset_armed = armed;
+    reset->SetClass("armed", armed);
+    reset_label->SetInnerRML(armed ? "Click again to reset" : "Reset to Defaults");
+  }
+
   void set_hint(Rml::Element* row) {
     const OptionDef* option =
         row ? find_option(row->GetAttribute<Rml::String>("data-row", "")) : nullptr;
@@ -211,6 +236,7 @@ struct OptionsScreen::Impl {
   void update(bool showable) {
     if (!menu.visible() || !showable) {
       if (shown) {
+        arm_reset(false);
         search->Blur();
         host.hide(*document);
         shown = false;
@@ -223,6 +249,7 @@ struct OptionsScreen::Impl {
     }
     if (menu.layout_revision() != layout) {
       rebuild();
+      fit_choices();
       layout = menu.layout_revision();
       values = ~std::uint64_t{};
     }
@@ -272,7 +299,8 @@ struct OptionsScreen::Impl {
           heading = std::string(options_category_name(option->category)) + " \xC2\xB7 " + heading;
         }
         html +=
-            "<div class=\"section\"><div class=\"section-title\">" + escaped(heading) + "</div>";
+            "<div class=\"section\"><div class=\"section-title\">" + escaped(heading) +
+            "</div><div class=\"deca-divider\"></div>";
       }
       previous = option;
       if (gallery(*option)) {
@@ -325,6 +353,25 @@ struct OptionsScreen::Impl {
     hovered = nullptr;
     hint->SetInnerRML(escaped(menu.searching() ? std::string_view{} : default_hint));
     syncing = false;
+  }
+
+  // Each dropdown is as wide as its longest choice, in the select's own (bold) font, so the
+  // list beneath it is too.
+  void fit_choices() {
+    document->UpdateDocument();
+    const auto* context = document->GetContext();
+    const double ratio = context ? context->GetDensityIndependentPixelRatio() : 1;
+    for (const auto& node : nodes) {
+      if (node.def->kind != OptionDef::Kind::choice || !node.control->IsClassSet("choice")) {
+        continue;
+      }
+      int widest = 0;
+      for (const auto& choice : node.def->choices) {
+        widest = std::max(widest, Rml::ElementUtilities::GetStringWidth(
+                                      node.control, Rml::String(choice.first)));
+      }
+      node.control->SetProperty("width", dp(std::ceil(widest / ratio) + choice_padding));
+    }
   }
 
   void sync() {
@@ -388,6 +435,12 @@ struct OptionsScreen::Impl {
     syncing = false;
   }
 
+  // A section's scroll position: its offset below the first section, so the rows' top padding (the gap above the
+  // first title, which scrolls away) is not counted.
+  float section_top(std::size_t index) const {
+    return sections[index]->GetOffsetTop() - sections.front()->GetOffsetTop();
+  }
+
   // The sidebar marks the section at the top of the scrolled rows.
   void track_section() {
     if (menu.searching() || sections.empty() || links.size() != sections.size()) {
@@ -396,7 +449,7 @@ struct OptionsScreen::Impl {
     const float top = rows->GetScrollTop();
     int next = 0;
     for (std::size_t i = 0; i < sections.size(); ++i) {
-      if (sections[i]->GetOffsetTop() <= top + 12) {
+      if (section_top(i) <= top + 12) {
         next = static_cast<int>(i);
       }
     }
@@ -437,6 +490,8 @@ struct OptionsScreen::Impl {
   Rml::Element* nav{};
   Rml::Element* rows{};
   Rml::Element* hint{};
+  Rml::Element* reset{};
+  Rml::Element* reset_label{};
   Image cursors;
   std::vector<Node> nodes;
   Rml::ElementList sections;
@@ -447,6 +502,7 @@ struct OptionsScreen::Impl {
   int current{-1};
   bool shown{};
   bool syncing{};
+  bool reset_armed{};
 };
 
 OptionsScreen::OptionsScreen(OptionsMenu& menu, ui::RmlHost& host)

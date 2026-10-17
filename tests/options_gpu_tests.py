@@ -45,14 +45,15 @@ def bbox(mask):
     ys, xs = np.nonzero(mask)
     return (xs.min(), xs.max(), ys.min(), ys.max()) if len(ys) else None
 
-# Window points at 800x600 (dp). The screen has no frame: the sidebar (search, categories, then the Deca Done button at
-# its foot; Reset to Defaults and Back to Home are hidden) and the rows, 40 apart from y 111. Key boxes are centered
-# at x 555, switches at x 521.
+# Window points at 800x600 (dp). The screen has no frame: the sidebar (search, categories, Reset to Defaults, then the
+# Deca Done button on the footer; Back to Home is hidden) and the open category's rows, 40 apart from y 111. Key boxes are centered at x 555, switches at
+# x 521.
 DONE = '109 564'
-KEYBINDS, GAMEPLAY = '70 103', '75 295'   # Gameplay sits below the open Keybinds category's six section links
+KEYBINDS, GAMEPLAY = '70 77', '75 269'   # Gameplay sits below the open Keybinds category's six section links
 key_row = lambda index: f'555 {111 + index * 40}'
 MOVE_RIGHT, ROTATE_LEFT = key_row(3), '555 321'
-ALLOW_ROTATION, HP_BARS = '521 111', '521 281'   # Gameplay: Camera row 0, Interface row 0
+ALLOW_ROTATION, HP_BARS = '521 111', '521 281'   # Gameplay, scrolled to: Camera row 0, Interface row 0
+RESET = '80 501'
 
 def main():
     # --- The HUD's Options button (CharacterDetailsView, shown in the Nexus), its hover color, and the screen it opens.
@@ -66,7 +67,7 @@ def main():
     check(tip and tip[0] >= 540 and tip[2] >= 110 and tip[3] <= 232 and tip[1] <= 800, f'only the button and its tooltip change {tip}')
     check(not changed(closed, base).any(), 'Done closes the screen and the world is untouched')
     check(np.abs(opened - base).mean() > 20, 'the Settings screen covers the game')
-    category = opened[92:114, 28:112].max(2)
+    category = opened[64:90, 28:112].max(2)
     check((category > 240).sum() > 60, 'the open category is white text')
     done = opened[550:580, 60:160]
     check(np.abs(done[..., 0] - done[..., 1]).max() <= 3 and np.abs(done[..., 1] - done[..., 2]).max() <= 3 and done.max() > 150,
@@ -129,14 +130,21 @@ def main():
     check(sh is not None, 'Draw Shadows off removes the shadows')
     print('health bars, shadows and startup settings ok')
 
-    # --- Changes in two categories persist together (Reset to Defaults is hidden for now); a corrupt file falls back to
-    # the defaults.
+    # --- Changes in two categories persist together; a corrupt file falls back to the defaults.
     s, saved = run('two-categories', ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {GAMEPLAY}', f'700 click {HP_BARS}', f'800 click {DONE}', '1100 quit'])
     check(saved['values']['hpBars'] == 0 and saved['values']['moveRight'] == 74, f'changes in two categories both persist ({saved["values"]["hpBars"]}, {saved["values"]["moveRight"]})')
     (OUT / 'corrupt.settings.json').write_text('{ definitely not json')
     broken, _ = run('corrupt', ['300 capture base', '400 quit'], settings=None)
     check(not changed(broken['base'], s0['base']).any(), 'defaults without a settings file')
     print('two-category changes and defaults ok')
+
+    # --- Reset to Defaults resets every category (not only the open one), on a second click: the first only arms it, and leaving disarms it.
+    change = ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {GAMEPLAY}', f'700 click {HP_BARS}']
+    s, saved = run('reset-armed', change + [f'800 click {RESET}', '900 move 400 300', f'1000 click {RESET}', f'1100 click {DONE}', '1300 quit'])
+    check(saved['values']['hpBars'] == 0 and saved['values']['moveRight'] == 74, 'one click (after leaving) only arms Reset')
+    s, saved = run('reset', change + [f'800 click {RESET}', f'900 click {RESET}', f'1000 click {DONE}', '1200 quit'])
+    check(saved['values']['hpBars'] == 1 and saved['values']['moveRight'] == 68, f'a second click resets every category ({saved["values"]["hpBars"]}, {saved["values"]["moveRight"]})')
+    print('reset to defaults ok')
 
     # --- Performance panel on its key, in the top-left of the game view.
     s, _ = run('perf', ['300 capture base', '400 key p', '1300 capture panel', '1400 quit'], settings=dict(values=dict(togglePerformanceStats=80)))

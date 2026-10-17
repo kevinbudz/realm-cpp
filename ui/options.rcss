@@ -1,88 +1,118 @@
 /* The Settings screen (OptionsScreen), built from parts the client already has: Flash labels (#b3b3b3 with the
-   TextField drop shadow), KeyCodeBox and ChoiceBox frames (#333333 fill, 2 dp #444444 edge, #b3b3b3 on hover), the
-   Deca scroll bar and Done button (deca.rcss), and the white scroll thumb as slider and switch knob. It fills the
+   TextField drop shadow), ChoiceBox frames (#333333 fill, 2 dp #444444 edge, #b3b3b3 on hover) for the switches,
+   the white scroll thumb as slider and switch knob, and the Deca UI kit (deca.rcss, ui/deca/*.svg):
+   black_field_background for the search box, key boxes and gallery tiles, bordered_field for dropdowns, list items
+   for the categories, content_divider under section titles, and the Deca Done button. It fills the
    window with no frame: a plain tint over the game, which the renderer blurs (world and HUD) while the screen is open.
 
    Colours beyond flash.rcss:
      label      #b3b3b3   option labels and inactive categories; disabled rows are darkened by 0.6 (#6b6b6b)
-     rule       #5e5e5e   the line under section titles (Options.layoutChrome)
-     box        #333333   key, choice, switch and search fills; edge #444444, hover edge #b3b3b3
+     box        #333333   switch fill; edge #444444, hover edge #b3b3b3
      on         #57ad62   a switch that is on (the Flash title green)
      fill       #b3b3b3   the slider's filled track; track #545454
-     scrim      #15151599 the dim behind the screen: 0x151515 at 0.6, as Dialog and SkinChooser */
+     scrim      #151515e6 the dim behind the screen: 0x151515 at 0.9 */
 
 body{z-index:100;background-color:transparent}
-#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#15151599}
+#scrim{position:absolute;left:0;top:0;width:100%;height:100%;background-color:#151515e6}
+/* popup_footer (3grid along x, 43 high) across the window, its body colour filling the rest down to the window's
+   edge. The art's flat top edge is 18 dp down (the corners slant up from it), so it starts at 511 dp to put that edge
+   at 529 dp: the bottom of the rows, 12 dp above the Done button (541 dp: the screen's 600 less the sidebar's 12 dp
+   padding and the 47 dp button). Done and the hint sit on it. The fill tucks 1 dp under the art, whose bottom row is
+   the same colour, so no seam shows where the art's edge lands between pixels. */
+#footer{position:absolute;left:0;top:511dp;bottom:0;width:100%;display:flex;flex-direction:column}
+#footer .deca-popup-footer{flex-shrink:0}
+#footer-fill{flex:1;margin-top:-1dp;background-color:#353535}
 #screen{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;display:flex;flex-direction:row;justify-content:center}
 
 #columns{display:flex;flex-direction:row;width:100%;max-width:1000dp;height:600dp}
 
 /* Sidebar: search, then the categories with the open one's sections beneath it. */
-#sidebar{display:flex;flex-direction:column;width:210dp;flex-shrink:0;padding:42dp 12dp 12dp 20dp;box-sizing:border-box}
+#sidebar{display:flex;flex-direction:column;width:210dp;flex-shrink:0;padding:16dp 12dp 12dp 20dp;box-sizing:border-box}
 #nav{flex:1}
 #actions .button{height:30dp;line-height:30dp;margin-top:8dp}
-#actions .hidden{display:none}   /* Reset to Defaults and Back to Home: kept, not shown for now */
+#actions .hidden{display:none}   /* Back to Home: kept, not shown for now */
+/* Reset to Defaults: the Deca refresh icon and a label, above the footer. It resets every setting, so the first click
+   only arms it ("Click again to reset"), in the hover yellow; a second click resets, and leaving it disarms. */
+#reset{display:flex;flex-direction:row;align-items:center;height:30dp;padding-left:10dp;font-size:16dp;font-weight:bold;
+    color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+#reset .deca-refresh-icon{flex-shrink:0;margin-right:10dp}
+#reset:hover{color:#ffffff}
+#reset:hover .deca-refresh-icon{decorator:paint(deca refresh_icon hover)}
+#reset.armed{color:#ffdc85}
 
 /* Done: a greyscale generic_green_button over main_button_decoration, sized as the HUD portal panel's button
    (HudArt::main_button): the frame is 46 dp wider than the face (79 - 35 + 2) and 47 dp tall, the 35 dp face centred
    in it both ways. The label is the panel's 16 dp bold white with the drop shadow. */
-#done{position:relative;height:47dp;margin-top:8dp}
+#done{position:relative;height:47dp;margin-top:24dp}   /* 12 dp between Reset and the footer's top edge */
 #done .deca-main-button-decoration{position:absolute;left:0;top:0;width:100%}
 #done-button{position:absolute;left:23dp;right:23dp;top:6dp;height:35dp;line-height:35dp;text-align:center;
     font-size:16dp;font-weight:bold;color:#ffffff;font-effect:shadow(0px 0px #000);
     decorator:paint(deca generic_green_button grey)}
 #done-button:hover{decorator:paint(deca generic_green_button grey hover)}
 #done-button:hover:active{decorator:paint(deca generic_green_button grey hover press)}
-#search-box{position:relative;height:30dp;margin-bottom:14dp}
-#search{box-sizing:border-box;width:100%;height:30dp;padding:0 26dp 0 8dp;font-size:16dp;line-height:26dp;color:#b3b3b3;
-    background-color:#333333;border:2dp #454545;cursor:text}
-#search:hover,#search:focus{border-color:#b3b3b3}
-#search-clear{display:none;position:absolute;right:2dp;top:2dp;width:24dp;height:26dp;font-size:20dp;line-height:26dp;
+/* Search: a black_field_background (9grid), as the key boxes, as tall as a category. The 10 dp under it keeps the
+   categories where they were with the 30 dp box. */
+#search-box{position:relative;height:34dp;margin-bottom:10dp}
+#search{box-sizing:border-box;width:100%;height:34dp;padding:0 30dp 0 12dp;font-size:16dp;line-height:34dp;color:#b3b3b3;
+    cursor:text;decorator:paint(deca black_field_background)}
+#search:hover,#search:focus{decorator:paint(deca black_field_background hover)}
+#search-clear{display:none;position:absolute;right:8dp;top:4dp;width:20dp;height:26dp;font-size:20dp;line-height:26dp;
     text-align:center;color:#b3b3b3}
 #search-clear.shown{display:block}
 #search-clear:hover{color:#ffffff}
 
-.category{box-sizing:border-box;height:34dp;line-height:34dp;padding-left:10dp;font-size:20dp;font-weight:bold;
-    color:#b3b3b3;font-effect:shadow(0px 0px #000)}
-.category:hover{color:#ffffff}
-.category.active{color:#ffffff}
+/* Categories as list items: the hovered one inactive, the open one the plain list item background. */
+.category{box-sizing:border-box;height:34dp;line-height:34dp;padding-left:10dp;margin-bottom:2dp;font-size:20dp;
+    font-weight:bold;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+.category:hover{color:#ffffff;decorator:paint(deca listitem_content_background_inactive)}
+.category.active{color:#ffffff;decorator:paint(deca listitem_content_background)}
 .section-links{padding:4dp 0 10dp 0}
-.section-link{height:24dp;line-height:24dp;padding-left:22dp;font-size:15dp;color:#8a8a8a;font-effect:shadow(0px 0px #000)}
-.section-link:hover,.section-link.current{color:#ffffff}
+/* A hovered section link sits on a faint white cut-corner rect, inset under its category, so it reads over the game. */
+.section-link{height:24dp;line-height:24dp;margin-left:12dp;padding-left:10dp;font-size:15dp;color:#8a8a8a;
+    font-effect:shadow(0px 0px #000)}
+.section-link:hover{color:#ffffff;decorator:paint(cut-rect 0xffffff none 4 0 0.12)}
+.section-link.current{color:#ffffff;font-weight:bold}
 
 /* Rows. */
-/* The rows have equal 42 dp gaps above and below (the hint fills the lower one), so the scroll bar is centred
-   vertically, and keep 16 dp from the window's right edge. */
-#main{display:flex;flex-direction:column;flex:1;min-width:0;padding:42dp 16dp 12dp 0}
-#rows{position:relative;flex:1;overflow-y:auto;padding:0 20dp 16dp 16dp}
-#hint{height:30dp;padding:12dp 24dp 0 24dp;box-sizing:border-box;font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
-.section{padding-top:14dp}
-.section-title{height:30dp;line-height:30dp;font-size:20dp;font-weight:bold;color:#ffffff;
-    font-effect:shadow(0px 0px #000);border-bottom:1dp #5e5e5e;margin-bottom:4dp}
+/* The rows run from the window's top down to the footer's top edge (529 dp) and keep 16 dp from the window's right
+   edge. Their 42 dp top padding puts the first title there when the list opens and scrolls away with it, so scrolled
+   rows reach the top of the window. The hint fills the rest of the column, on the footer, its first line centred on
+   the Done button. */
+#main{display:flex;flex-direction:column;flex:1;min-width:0;padding:0 16dp 12dp 0}
+#rows{position:relative;flex:1;overflow-y:auto;padding:42dp 20dp 16dp 16dp}
+#hint{height:59dp;padding:26dp 24dp 0 24dp;box-sizing:border-box;font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+/* A section title over a content_divider (3grid along x, 10 high), with room above and below it. The section's top,
+   title and divider add up to the 49 dp the ruled title had, so the rows keep their places. A hovered section sits
+   on a faint white cut-corner rect, so it reads over the game. */
+.section{padding-top:12dp}
+.section:hover{decorator:paint(cut-rect 0xffffff none 6 0 0.06)}
+.section-title{height:24dp;line-height:24dp;padding-left:8dp;font-size:20dp;font-weight:bold;color:#ffffff;
+    font-effect:shadow(0px 0px #000)}
+.section .deca-divider{margin:2dp 0 1dp 0}
 .empty{padding:40dp 0;text-align:center;font-size:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
 
 .row{display:flex;flex-direction:row;align-items:center;height:40dp;padding:0 8dp}
-.row:hover{background-color:#ffffff0d}
 .row .label{flex:1;font-size:18dp;line-height:22dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
 .row .control{display:flex;flex-direction:row;align-items:center;width:240dp;flex-shrink:0}
 .row.disabled .label{color:#6b6b6b}
 .row.gallery-row{display:block;height:auto;padding:9dp 8dp 10dp 8dp}
 
-/* Gallery: each choice as a ChoiceBox-framed tile, the chosen one with a white edge. */
+/* Gallery: each choice on a black_field_background, the chosen one on the selected (orange) list item. */
 .gallery{margin-top:8dp}
 .tile{display:inline-block;vertical-align:top;box-sizing:border-box;width:44dp;height:44dp;margin:0 6dp 6dp 0;padding:4dp;
     text-align:center;font-size:16dp;line-height:36dp;font-weight:bold;color:#b3b3b3;font-effect:shadow(0px 0px #000);
-    decorator:paint(cut-rect 0x333333 0x444444 4 2)}
-.tile:hover{color:#ffffff;decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
-.tile.selected{color:#ffffff;decorator:paint(cut-rect 0x454545 0xffffff 4 2)}
+    decorator:paint(deca black_field_background)}
+.tile:hover{color:#ffffff;decorator:paint(deca black_field_background hover)}
+.tile.selected{color:#ffffff;decorator:paint(deca listitem_content_background_selected)}
 .tile native-image{display:block;width:32dp;height:32dp;margin:2dp}
 
-/* KeyCodeBox: a plain rectangle with a two-pixel border. */
-.key{box-sizing:border-box;width:120dp;height:32dp;line-height:28dp;text-align:center;font-size:16dp;font-weight:bold;
-    color:#ffffff;background-color:#333333;border:2dp #444444;font-effect:shadow(0px 0px #000)}
-.key:hover,.key.capturing{border-color:#b3b3b3}
+/* KeyCodeBox on a black_field_background; the box waiting for a key is the indicator (blue) list item. */
+.key{box-sizing:border-box;width:120dp;height:32dp;line-height:32dp;text-align:center;font-size:16dp;font-weight:bold;
+    color:#ffffff;font-effect:shadow(0px 0px #000);decorator:paint(deca black_field_background)}
+.key:hover{decorator:paint(deca black_field_background hover)}
+.key.capturing{decorator:paint(deca listitem_content_background_indicator)}
 .key.unset{color:#b3b3b3;font-weight:normal}
-.row.disabled .key{color:#999999;background-color:#1f1f1f;border-color:#292929}
+.row.disabled .key{color:#999999;decorator:paint(deca black_field_background grey)}
 
 /* Switch: a ChoiceBox frame with the scroll thumb as its knob. */
 .switch{width:52dp;height:28dp;decorator:paint(cut-rect 0x333333 0x444444 4 2)}
@@ -94,18 +124,18 @@ body{z-index:100;background-color:transparent}
 .switch:hover .knob{background-color:#ffdc85}
 .switch.on .knob{margin-left:29dp}
 
-/* ChoiceBox as a dropdown: the cut-edge frame, the scroll bar's arrow, and a tooltip-style list. */
-select.choice{box-sizing:border-box;width:160dp;height:32dp;font-size:16dp;font-weight:bold;color:#ffffff;
-    font-effect:shadow(0px 0px #000);decorator:paint(cut-rect 0x333333 0x444444 4 2)}
-select.choice:hover{decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
-select.choice selectvalue{height:32dp;line-height:30dp;padding:0 28dp 0 10dp}
-select.choice selectarrow{width:0;height:0;margin:13dp 10dp 0 0;border-left:6dp transparent;border-right:6dp transparent;
-    border-top:7dp #ffffff}
-select.choice:hover selectarrow{border-top-color:#ffdc85}
-select.choice selectbox{box-sizing:border-box;width:160dp;max-height:240dp;margin-top:2dp;margin-bottom:2dp;
-    background-color:#363636;border:1dp #9b9b9b}
+/* ChoiceBox as a dropdown: a bordered_field with the spinner's down arrow, and the list on a Deca popup. */
+select.choice{box-sizing:border-box;width:160dp;   /* until OptionsScreen fits it to its longest choice */
+    height:28dp;font-size:16dp;font-weight:bold;color:#ffffff;
+    font-effect:shadow(0px 0px #000);decorator:paint(deca bordered_field)}
+select.choice:hover{decorator:paint(deca bordered_field hover)}
+select.choice selectvalue{height:28dp;line-height:28dp;padding:0 34dp 0 16dp}
+select.choice selectarrow{width:14dp;height:8dp;margin:10dp 16dp 0 0;decorator:paint(deca spinner_up_arrow flip-y)}
+select.choice:hover selectarrow{decorator:paint(deca spinner_up_arrow flip-y hover)}
+select.choice selectbox{box-sizing:border-box;width:100%;max-height:240dp;margin-top:2dp;margin-bottom:2dp;padding:5dp;
+    decorator:paint(deca popup_background_simple)}
 select.choice option{height:26dp;line-height:26dp;padding:0 10dp;font-weight:normal;color:#b3b3b3}
-select.choice option:hover{color:#ffffff;background-color:#545454}
+select.choice option:hover{color:#ffffff;decorator:paint(deca listitem_content_background_inactive)}
 select.choice option:checked{color:#ffffff;font-weight:bold}
 
 /* Slider: the scroll bar's track and thumb laid horizontally. The input's own track is transparent so the drawn

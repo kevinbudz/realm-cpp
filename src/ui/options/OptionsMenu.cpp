@@ -141,7 +141,9 @@ void OptionsMenu::reset() {
       }
     }
   } else {
-    settings_->reset_category(category_);
+    for (std::size_t i = 0; i < options_category_count; ++i) {
+      settings_->reset_category(static_cast<OptionsCategory>(i));
+    }
   }
   changed_ = true;
   touched();

@@ -57,7 +57,8 @@ class OptionsMenu {
   // Toggle, choice and slider rows; ignored for a disabled row or an invalid value.
   void set_value(std::string_view param, int value);
   void toggle(std::string_view param);
-  // Options.onResetToDefaultsClick: the open category (or, while searching, the listed rows).
+  // Reset to Defaults: every setting, in every category (while searching, only the listed
+  // rows).
   void reset();
   // "Done" and "Back to Home".
   void request_close();

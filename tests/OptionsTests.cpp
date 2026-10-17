@@ -263,8 +263,11 @@ void menu_behavior() {
   menu.set_value("particles", 0);
   menu.reset();
   check(settings.flag("particles") && settings.get("maxFPS") == 60 &&
-            settings.get("moveLeft") == 88 && settings.get("cursor") == -1 && menu.take_changed(),
-        "reset defaults only the open category");
+            settings.get("moveLeft") == find_option("moveLeft")->fallback &&
+            settings.get("cursor") == find_option("cursor")->fallback && menu.take_changed(),
+        "reset defaults every category");
+  menu.set_value("masterVolume", 50);
+  (void)menu.take_changed();
   // Search.
   menu.set_query("volume");
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
@@ -282,7 +285,7 @@ void menu_behavior() {
   menu.begin_capture("useEquipInvSlot1");
   menu.key_down(75);
   menu.reset();
-  check(settings.get("useEquipInvSlot1") == 49 && settings.get("moveLeft") == 88,
+  check(settings.get("useEquipInvSlot1") == 49 && settings.get("masterVolume") == 50,
         "reset while searching defaults only the listed rows");
   menu.set_category(OptionsCategory::audio);
   check(!menu.searching() && menu.rows().size() == 5, "choosing a category ends the search");

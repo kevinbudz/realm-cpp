@@ -480,6 +480,9 @@ const Scene::TypeEntry& Scene::type_entry(const Catalog& catalog, std::uint16_t 
     entry.def = catalog.object(type);
     entry.draw_class =
         static_cast<std::uint8_t>(entry.def ? draw_class(entry.def->class_name) : DrawClass::other);
+    if (entry.def && !entry.def->model.empty()) {
+      entry.model = model_index(entry.def->model);
+    }
     entry.known = true;
   }
   return entry;
@@ -1090,7 +1093,12 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       out.push_back(q);
       return;
     }
-    if (const auto model = d.model.empty() ? std::nullopt : model_index(d.model)) {
+    std::optional<std::uint32_t> model;
+    if (!d.model.empty()) {
+      const auto& type = type_entry(world.catalog(), e.type);
+      model = type.def == &d ? type.model : model_index(d.model);
+    }
+    if (model) {
       // GameObject.draw3d: a registered Model replaces the 2D sprite. The sprite is only
       // its texture; Solid* groups and sprite-less objects use the XML Color.
       const auto& chosen = tex->select(static_cast<std::uint32_t>(e.id));

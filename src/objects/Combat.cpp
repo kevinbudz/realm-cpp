@@ -78,6 +78,7 @@ void Combat::spawn(std::uint16_t type, int bullet_type, std::int32_t owner, std:
   shot.damage = damage;
   shot.start = start;
   shot.angle = angle;
+  shot.aim = projectile_aim(angle);
   shot.definition = projectile;
   shot.damages_players = container->enemy;
   auto& entity = world_.add(shot.entity_id, visual->type, start,
@@ -220,13 +221,11 @@ void Combat::build_target_index() {
   double max_y = max_x;
   // Enemy-definition entities only, in dense order (the same gathered_ sequence as a scan of every
   // entity).
+  // Enemy membership is decided from the same catalog definition when the entity is added (World
+  // type_sets), so the set already implies ->enemy.
   world_.each_enemy([&](const Entity& entity) {
     if (entity.projectile || !std::isfinite(entity.motion.position.x) ||
         !std::isfinite(entity.motion.position.y)) {
-      return;
-    }
-    const auto* object = world_.catalog().object(entity.type);
-    if (!object || !object->enemy) {
       return;
     }
     gathered_.push_back({entity.motion.position.x, entity.motion.position.y, entity.id});
@@ -344,7 +343,7 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
     bool alive = visual && elapsed <= definition.motion.lifetime_ms;
     Vec2 position{};
     if (alive) {
-      position = projectile_position(definition.motion, projectile.start, projectile.angle,
+      position = projectile_position(definition.motion, projectile.start, projectile.aim,
                                      projectile.bullet_id, elapsed);
       const auto* tile =
           position.x < 0 || position.y < 0 || position.x >= world_.width() ||

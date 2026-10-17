@@ -39,6 +39,8 @@ class Minimap {
  public:
   Minimap(const Catalog& catalog, const AnimationLibrary& animations,
           const std::filesystem::path& root);
+  Minimap(const Catalog& catalog, const AnimationLibrary& animations,
+          std::shared_ptr<const FlashImages> pngs);
   bool update(const World& world, const Entity& focus, double angle);
   bool render(const World& world, const MinimapView& view);
   // GPU path gathers markers and synchronizes fog memory without rasterizing the minimap_size view.
@@ -86,7 +88,7 @@ class Minimap {
   void bitmap(const Image& image, double x, double y, double sx, double sy, double multiplier = 1);
   const Catalog& catalog_;
   const AnimationLibrary& animations_;
-  std::vector<Image> assets_;
+  std::shared_ptr<const FlashImages> pngs_;
   Image arrow_;
   Image out_button_;
   Image in_button_;

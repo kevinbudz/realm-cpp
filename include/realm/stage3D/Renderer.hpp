@@ -86,6 +86,8 @@ struct QuadLayer {
   ~QuadLayer();
   std::vector<Quad> quads;
   std::uint32_t buffer{};
+  // The quads last uploaded to buffer (owners dropped); skips re-uploading an unchanged layer.
+  std::vector<Quad> uploaded;
 };
 
 class Renderer {

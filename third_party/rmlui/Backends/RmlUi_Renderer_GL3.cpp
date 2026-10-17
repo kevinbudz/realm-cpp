@@ -8,6 +8,7 @@
 #include <RmlUi/Core/Platform.h>
 #include <RmlUi/Core/SystemInterface.h>
 #include <algorithm>
+#include <cmath>
 #include <string.h>
 
 #if defined RMLUI_PLATFORM_WIN32_NATIVE
@@ -447,6 +448,8 @@ struct CompiledGeometryData {
 	GLuint vbo;
 	GLuint ibo;
 	GLsizei draw_count;
+	Rml::Vector2f bounds_min; // realm: vertex bounds, used to limit the frame's written region.
+	Rml::Vector2f bounds_max;
 };
 
 struct FramebufferData {
@@ -883,13 +886,24 @@ void RenderInterface_GL3::BeginFrame()
 
 	SetTransform(nullptr);
 
-	render_layers.BeginFrame(viewport_width, viewport_height);
+	// realm: clear only the region the previous frame could have written. New layer storage is undefined, so clear all of it.
+	if (render_layers.BeginFrame(viewport_width, viewport_height))
+		previous_bounds = Rml::Rectanglei::FromSize({viewport_width, viewport_height});
+
 	glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetTopLayer().framebuffer);
-	glClear(GL_COLOR_BUFFER_BIT);
+	if (previous_bounds.Valid())
+	{
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(previous_bounds.Left(), viewport_height - previous_bounds.Bottom(), previous_bounds.Width(), previous_bounds.Height());
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_SCISSOR_TEST);
+	}
 
 	UseProgram(ProgramId::None);
 	program_transform_dirty.set();
 	scissor_state = Rml::Rectanglei::MakeInvalid();
+	frame_bounds = Rml::Rectanglei::MakeInvalid();
+	frame_full_screen = false;
 
 	Gfx::CheckGLError("BeginFrame");
 }
@@ -899,22 +913,44 @@ void RenderInterface_GL3::EndFrame()
 	const Gfx::FramebufferData& fb_active = render_layers.GetTopLayer();
 	const Gfx::FramebufferData& fb_postprocess = render_layers.GetPostprocessPrimary();
 
-	// Resolve MSAA to postprocess framebuffer.
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_active.framebuffer);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_postprocess.framebuffer);
+	// realm: resolve and composite only the region written this frame. A scissor test left enabled would clip the resolve and composite in
+	// ways the bounds do not model, so that case keeps the full-size path.
+	const Rml::Rectanglei full_viewport = Rml::Rectanglei::FromSize({viewport_width, viewport_height});
+	const bool bounded = !frame_full_screen && !glIsEnabled(GL_SCISSOR_TEST);
+	const bool skip = bounded && !frame_bounds.Valid();
+	const Rml::Rectanglei region = bounded ? frame_bounds : full_viewport;
+	previous_bounds = frame_full_screen ? full_viewport : frame_bounds;
 
-	glBlitFramebuffer(0, 0, fb_active.width, fb_active.height, 0, 0, fb_postprocess.width, fb_postprocess.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	// Resolve MSAA to postprocess framebuffer.
+	if (!skip)
+	{
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_active.framebuffer);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_postprocess.framebuffer);
+
+		glBlitFramebuffer(region.Left(), viewport_height - region.Bottom(), region.Right(), viewport_height - region.Top(), region.Left(),
+			viewport_height - region.Bottom(), region.Right(), viewport_height - region.Top(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	}
 
 	// Draw to backbuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(viewport_offset_x, viewport_offset_y, viewport_width, viewport_height);
 
-	// Assuming we have an opaque background, we can just write to it with the premultiplied alpha blend mode and we'll get the correct result.
-	// Instead, if we had a transparent destination that didn't use premultiplied alpha, we would need to perform a manual un-premultiplication step.
-	glActiveTexture(GL_TEXTURE0);
-	Gfx::BindTexture(fb_postprocess);
-	UseProgram(ProgramId::Passthrough);
-	DrawFullscreenQuad();
+	if (!skip)
+	{
+		// realm: limit the composite to the region written this frame. Outside it the layer is zero, which leaves the backbuffer unchanged.
+		if (bounded)
+		{
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(viewport_offset_x + region.Left(), viewport_offset_y + viewport_height - region.Bottom(), region.Width(), region.Height());
+		}
+
+		// Assuming we have an opaque background, we can just write to it with the premultiplied alpha blend mode and we'll get the correct result.
+		// Instead, if we had a transparent destination that didn't use premultiplied alpha, we would need to perform a manual un-premultiplication step.
+		glActiveTexture(GL_TEXTURE0);
+		Gfx::BindTexture(fb_postprocess);
+		UseProgram(ProgramId::Passthrough);
+		DrawFullscreenQuad();
+	}
 
 	render_layers.EndFrame();
 
@@ -973,6 +1009,7 @@ void RenderInterface_GL3::EndFrame()
 
 void RenderInterface_GL3::Clear()
 {
+	frame_full_screen = true; // realm: see frame_bounds.
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
@@ -1019,12 +1056,24 @@ Rml::CompiledGeometryHandle RenderInterface_GL3::CompileGeometry(Rml::Span<const
 	geometry->ibo = ibo;
 	geometry->draw_count = (GLsizei)indices.size();
 
+	// realm: store the vertex bounds, used to limit the frame's written region.
+	geometry->bounds_min = geometry->bounds_max = vertices.empty() ? Rml::Vector2f(0.f) : vertices[0].position;
+	for (const Rml::Vertex& vertex : vertices)
+	{
+		geometry->bounds_min = {std::min(geometry->bounds_min.x, vertex.position.x), std::min(geometry->bounds_min.y, vertex.position.y)};
+		geometry->bounds_max = {std::max(geometry->bounds_max.x, vertex.position.x), std::max(geometry->bounds_max.y, vertex.position.y)};
+	}
+
 	return (Rml::CompiledGeometryHandle)geometry;
 }
 
 void RenderInterface_GL3::RenderGeometry(Rml::CompiledGeometryHandle handle, Rml::Vector2f translation, Rml::TextureHandle texture)
 {
 	Gfx::CompiledGeometryData* geometry = (Gfx::CompiledGeometryData*)handle;
+
+	// realm: post-process passes only run inside the full-screen paths, so they are not tracked here.
+	if (texture != TexturePostprocess && geometry->draw_count > 0 && !frame_full_screen)
+		ExtendFrameBounds(geometry->bounds_min, geometry->bounds_max, translation);
 
 	if (texture == TexturePostprocess)
 	{
@@ -1107,6 +1156,36 @@ void RenderInterface_GL3::EnableScissorRegion(bool enable)
 	// Assume enable is immediately followed by a SetScissorRegion() call, and ignore it here.
 	if (!enable)
 		SetScissor(Rml::Rectanglei::MakeInvalid(), false);
+}
+
+void RenderInterface_GL3::ExtendFrameBounds(Rml::Vector2f bounds_min, Rml::Vector2f bounds_max, Rml::Vector2f translation)
+{
+	// realm: the pixel bounds of the geometry, rounded outwards and padded by one pixel, clamped to the viewport.
+	const float x0 = bounds_min.x + translation.x;
+	const float y0 = bounds_min.y + translation.y;
+	const float x1 = bounds_max.x + translation.x;
+	const float y1 = bounds_max.y + translation.y;
+	constexpr float limit = 1.0e6f;
+	if (!(x0 > -limit && x0 < limit && y0 > -limit && y0 < limit && x1 > -limit && x1 < limit && y1 > -limit && y1 < limit))
+	{
+		frame_full_screen = true;
+		return;
+	}
+
+	const float width = float(viewport_width);
+	const float height = float(viewport_height);
+	const int left = int(Rml::Math::Clamp(std::floor(x0) - 1.f, 0.f, width));
+	const int top = int(Rml::Math::Clamp(std::floor(y0) - 1.f, 0.f, height));
+	const int right = int(Rml::Math::Clamp(std::ceil(x1) + 1.f, 0.f, width));
+	const int bottom = int(Rml::Math::Clamp(std::ceil(y1) + 1.f, 0.f, height));
+	if (right <= left || bottom <= top)
+		return;
+
+	if (!frame_bounds.Valid())
+		frame_bounds = Rml::Rectanglei::FromCorners(Rml::Vector2i(left, top), Rml::Vector2i(right, bottom));
+	else
+		frame_bounds = Rml::Rectanglei::FromCorners(Rml::Vector2i(std::min(frame_bounds.Left(), left), std::min(frame_bounds.Top(), top)),
+			Rml::Vector2i(std::max(frame_bounds.Right(), right), std::max(frame_bounds.Bottom(), bottom)));
 }
 
 void RenderInterface_GL3::SetScissorRegion(Rml::Rectanglei region)
@@ -1468,6 +1547,10 @@ void RenderInterface_GL3::ReleaseTexture(Rml::TextureHandle texture_handle)
 
 void RenderInterface_GL3::SetTransform(const Rml::Matrix4f* new_transform)
 {
+	// realm: a transformed geometry can land anywhere, so the frame is treated as full screen.
+	if (new_transform)
+		frame_full_screen = true;
+
 	transform = (new_transform ? (projection * (*new_transform)) : projection);
 	program_transform_dirty.set();
 }
@@ -1691,6 +1774,7 @@ Rml::CompiledShaderHandle RenderInterface_GL3::CompileShader(const Rml::String& 
 void RenderInterface_GL3::RenderShader(Rml::CompiledShaderHandle shader_handle, Rml::CompiledGeometryHandle geometry_handle,
 	Rml::Vector2f translation, Rml::TextureHandle /*texture*/)
 {
+	frame_full_screen = true; // realm: see frame_bounds.
 	RMLUI_ASSERT(shader_handle && geometry_handle);
 	const CompiledShader& shader = *reinterpret_cast<CompiledShader*>(shader_handle);
 	const CompiledShaderType type = shader.type;
@@ -1759,6 +1843,8 @@ void RenderInterface_GL3::BlitLayerToPostprocessPrimary(Rml::LayerHandle layer_h
 
 void RenderInterface_GL3::RenderFilters(Rml::Span<const Rml::CompiledFilterHandle> filter_handles)
 {
+	frame_full_screen = true; // realm: see frame_bounds.
+
 	for (const Rml::CompiledFilterHandle filter_handle : filter_handles)
 	{
 		const CompiledFilter& filter = *reinterpret_cast<const CompiledFilter*>(filter_handle);
@@ -1885,6 +1971,8 @@ void RenderInterface_GL3::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
 Rml::LayerHandle RenderInterface_GL3::PushLayer()
 {
+	frame_full_screen = true; // realm: see frame_bounds.
+
 	const Rml::LayerHandle layer_handle = render_layers.PushLayer();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetLayer(layer_handle).framebuffer);
@@ -1897,6 +1985,7 @@ void RenderInterface_GL3::CompositeLayers(Rml::LayerHandle source_handle, Rml::L
 	Rml::Span<const Rml::CompiledFilterHandle> filters)
 {
 	using Rml::BlendMode;
+	frame_full_screen = true; // realm: see frame_bounds.
 
 	// Blit source layer to postprocessing buffer. Do this regardless of whether we actually have any filters to be
 	// applied, because we need to resolve the multi-sampled framebuffer in any case.
@@ -1934,6 +2023,7 @@ void RenderInterface_GL3::PopLayer()
 
 Rml::TextureHandle RenderInterface_GL3::SaveLayerAsTexture()
 {
+	frame_full_screen = true; // realm: see frame_bounds.
 	RMLUI_ASSERT(scissor_state.Valid());
 	const Rml::Rectanglei bounds = scissor_state;
 
@@ -1977,6 +2067,7 @@ Rml::TextureHandle RenderInterface_GL3::SaveLayerAsTexture()
 
 Rml::CompiledFilterHandle RenderInterface_GL3::SaveLayerAsMaskImage()
 {
+	frame_full_screen = true; // realm: see frame_bounds.
 	BlitLayerToPostprocessPrimary(render_layers.GetTopLayerHandle());
 
 	const Gfx::FramebufferData& source = render_layers.GetPostprocessPrimary();
@@ -2086,7 +2177,7 @@ void RenderInterface_GL3::RenderLayerStack::SwapPostprocessPrimarySecondary()
 	std::swap(fb_postprocess[0], fb_postprocess[1]);
 }
 
-void RenderInterface_GL3::RenderLayerStack::BeginFrame(int new_width, int new_height)
+bool RenderInterface_GL3::RenderLayerStack::BeginFrame(int new_width, int new_height)
 {
 	RMLUI_ASSERT(layers_size == 0);
 
@@ -2098,7 +2189,10 @@ void RenderInterface_GL3::RenderLayerStack::BeginFrame(int new_width, int new_he
 		DestroyFramebuffers();
 	}
 
+	// realm: the base layer storage is new if no framebuffers survived the resize.
+	const bool base_layer_created = fb_layers.empty();
 	PushLayer();
+	return base_layer_created;
 }
 
 void RenderInterface_GL3::RenderLayerStack::EndFrame()

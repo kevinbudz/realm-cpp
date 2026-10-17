@@ -69,6 +69,8 @@ class HudArt {
   };
 
   [[nodiscard]] Sources& sources() const;
+  // Caches a decoded image under `id`, evicting least recently used images to fit the budget.
+  const Image& store(std::string id, Image made) const;
   // Draws the image a key names; with `dry_run` only reports whether the key names one.
   [[nodiscard]] std::optional<Image> make(const std::string& key, bool dry_run,
                                           double density = 1) const;

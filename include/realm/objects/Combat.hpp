@@ -1,5 +1,6 @@
 #pragma once
 #include "realm/messaging/Messages.hpp"
+#include "realm/objects/ProjectileProperties.hpp"
 #include "realm/map/World.hpp"
 #include "realm/util/Random.hpp"
 #include <algorithm>
@@ -43,6 +44,7 @@ struct FlyingProjectile {
   std::int32_t last_trail{};
   Vec2 start{};
   double angle{};
+  ProjectileAim aim{};
   const ProjectileDef* definition{};
   bool damages_players{};
   HitSet hit;

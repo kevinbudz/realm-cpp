@@ -13,6 +13,18 @@ inline long round_up(double value) noexcept {
   const auto whole = static_cast<long>(value);
   return value - static_cast<double>(whole) >= .5 ? whole + 1 : whole;
 }
+
+// v / 255.0 for every byte v, computed once (the same division the per-pixel code performs).
+const std::array<double, 256>& unit_alpha() {
+  static const std::array<double, 256> table = [] {
+    std::array<double, 256> values{};
+    for (std::size_t v = 0; v < values.size(); ++v) {
+      values[v] = static_cast<double>(v) / 255.0;
+    }
+    return values;
+  }();
+  return table;
+}
 }
 
 std::array<std::uint32_t, 2> world_dyes(const World& world, const Entity& entity) {
@@ -75,7 +87,11 @@ std::array<std::uint32_t, 2> world_dyes(const World& world, const Entity& entity
 }
 
 Appearances::Appearances(const std::filesystem::path& root, const AnimationLibrary& animations)
-    : animations_(animations) {
+    : Appearances(std::make_shared<const FlashImages>(root), animations) {}
+
+Appearances::Appearances(std::shared_ptr<const FlashImages> pngs,
+                         const AnimationLibrary& animations)
+    : pngs_(std::move(pngs)), animations_(animations) {
   textile_sheets_.fill(-1);
   for (std::size_t sheet = 0; sheet < flash::sheets.size(); ++sheet) {
     const std::string_view name = flash::sheets[sheet].name;
@@ -89,15 +105,6 @@ Appearances::Appearances(const std::filesystem::path& root, const AnimationLibra
       textile_sheets_[3] = static_cast<int>(sheet);
     }
   }
-  sheets_.resize(flash::assets.size());
-  // Only image-set assets are needed. Animation strips already have owners.
-  for (const auto& sheet : flash::sheets) {
-    if (sheet.asset >= 0 && sheets_[static_cast<std::size_t>(sheet.asset)].pixels.empty()) {
-      auto& image = sheets_[static_cast<std::size_t>(sheet.asset)];
-      image = load_png(root / flash::assets[static_cast<std::size_t>(sheet.asset)].path);
-      normalize_flash_png(image);
-    }
-  }
 }
 
 Image Appearances::sprite(int sheet, int index) const {
@@ -108,7 +115,7 @@ Image Appearances::sprite(int sheet, int index) const {
   if (data.asset < 0 || index < 0 || index >= data.count) {
     return {1, 1, std::vector<unsigned char>(4)};
   }
-  const auto& image = sheets_[static_cast<std::size_t>(data.asset)];
+  const auto& image = pngs_->normalized[static_cast<std::size_t>(data.asset)];
   const int columns = image.width / data.width;
   return crop(image, index % columns * data.width, index / columns * data.height, data.width,
               data.height);
@@ -264,15 +271,23 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
     for (int channel = 0; channel < 2; ++channel) {
       textiles[channel] = &textile(ops[channel]);
     }
-    for (int y = 0; y < dyed_source.height; ++y) {
-      for (int x = 0; x < dyed_source.width; ++x) {
-        const auto origin = static_cast<std::size_t>((y / 5 * source.width + x / 5) * 4);
-        const auto target = static_cast<std::size_t>((y * dyed_source.width + x) * 4);
-        std::copy_n(source.pixels.data() + origin, 4, dyed_source.pixels.data() + target);
-        if (x / 5 >= mask->width || y / 5 >= mask->height) {
+    // Per source texel: its 5x5 block takes the texel, and a dyed texel recolours each pixel of the
+    // block. The mask and op decisions depend only on the texel, so they are made once per texel.
+    const int block_width = dyed_source.width;
+    for (int ty = 0; ty < source.height; ++ty) {
+      for (int tx = 0; tx < source.width; ++tx) {
+        const auto texel = static_cast<std::size_t>((ty * source.width + tx) * 4);
+        for (int dy = 0; dy < 5; ++dy) {
+          for (int dx = 0; dx < 5; ++dx) {
+            const auto target =
+                static_cast<std::size_t>(((ty * 5 + dy) * block_width + tx * 5 + dx) * 4);
+            std::copy_n(source.pixels.data() + texel, 4, dyed_source.pixels.data() + target);
+          }
+        }
+        if (tx >= mask->width || ty >= mask->height) {
           continue;
         }
-        const auto index = static_cast<std::size_t>((y / 5 * mask->width + x / 5) * 4);
+        const auto index = static_cast<std::size_t>((ty * mask->width + tx) * 4);
         if (!mask->pixels[index + 3]) {
           continue;
         }
@@ -280,23 +295,30 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
         if (channel < 0 || ops[channel] == 0) {
           continue;
         }
+        // Each colour channel takes its own op's fallback colour and its own mask value.
         const auto& tile = *textiles[channel];
-        for (int channel = 0; channel < 3; ++channel) {
-          const auto color =
-              tile.pixels.empty()
-                  ? static_cast<unsigned char>((ops[channel] >> 24U) == 1
-                                                   ? (ops[channel] >> (16 - 8 * channel)) & 255U
-                                                   : 0)
-                  : tile.pixels[static_cast<std::size_t>(
-                        (y % tile.height * tile.width + x % tile.width) * 4 + channel)];
-          dyed_source.pixels[target + static_cast<std::size_t>(channel)] =
-              static_cast<unsigned char>(
-                  (static_cast<unsigned>(color) *
-                       mask->pixels[index + static_cast<std::size_t>(channel)] +
+        const bool flat = tile.pixels.empty();
+        for (int dy = 0; dy < 5; ++dy) {
+          const int y = ty * 5 + dy;
+          const int row = y % tile.height * tile.width;
+          for (int dx = 0; dx < 5; ++dx) {
+            const int x = tx * 5 + dx;
+            const int column = x % tile.width;
+            const auto target = static_cast<std::size_t>((y * block_width + x) * 4);
+            for (int k = 0; k < 3; ++k) {
+              const auto color =
+                  flat ? static_cast<unsigned char>((ops[k] >> 24U) == 1
+                                                        ? (ops[k] >> (16 - 8 * k)) & 255U
+                                                        : 0)
+                       : tile.pixels[static_cast<std::size_t>((row + column) * 4 + k)];
+              dyed_source.pixels[target + static_cast<std::size_t>(k)] = static_cast<unsigned char>(
+                  (static_cast<unsigned>(color) * mask->pixels[index + static_cast<std::size_t>(k)] +
                    127U) /
                   255U);
+            }
+            dyed_source.pixels[target + 3] = 255;
+          }
         }
-        dyed_source.pixels[target + 3] = 255;
       }
     }
     input = &dyed_source;
@@ -381,6 +403,8 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   static thread_local std::vector<double> row_weights;
   spans(w, input->width, input->width, column_spans, column_weights, sharp);
   spans(h, input->height, input->height, row_spans, row_weights, sharp);
+  const auto& unit = unit_alpha();
+  const unsigned char* const pixels = input->pixels.data();
   for (int y = 0; y < h; ++y) {
     const auto& ry = row_spans[static_cast<std::size_t>(y)];
     const int subtract =
@@ -392,15 +416,19 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
       for (int sy = ry.first; sy < ry.last; ++sy) {
         const double wy = row_weights[ry.offset + static_cast<std::size_t>(sy - ry.first)];
         for (int sx = rx.first; sx < rx.last; ++sx) {
+          const auto src = static_cast<std::size_t>((sy * input->width + sx) * 4);
+          const unsigned char a = pixels[src + 3];
+          // A transparent texel adds +0 to every channel, so it is skipped.
+          if (!a) {
+            continue;
+          }
           const double weight =
               column_weights[rx.offset + static_cast<std::size_t>(sx - rx.first)] * wy / area;
-          const auto src = static_cast<std::size_t>((sy * input->width + sx) * 4);
-          const double alpha = input->pixels[src + 3] / 255.0;
+          const double alpha = unit[a];
           for (int channel = 0; channel < 3; ++channel) {
-            channels[channel] +=
-                input->pixels[src + static_cast<std::size_t>(channel)] * alpha * weight;
+            channels[channel] += pixels[src + static_cast<std::size_t>(channel)] * alpha * weight;
           }
-          channels[3] += input->pixels[src + 3] * weight;
+          channels[3] += a * weight;
         }
       }
       const auto dst = static_cast<std::size_t>(((y + margin) * result.width + x + margin) * 4);
@@ -418,41 +446,41 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   const int rw = result.width;
   const int rh = result.height;
   const auto count = static_cast<std::size_t>(rw) * static_cast<std::size_t>(rh);
-  static thread_local std::vector<unsigned char> alpha_plane;
   static thread_local std::vector<unsigned char> row_max;
   static thread_local std::vector<unsigned char> outline_plane;
   static thread_local std::vector<double> halo;
   static thread_local std::vector<double> next;
-  alpha_plane.resize(count);
   row_max.resize(count);
   outline_plane.resize(count);
   halo.resize(count);
   next.resize(count);
+  // The original alpha stays in result until the final pass, which reads each pixel's alpha before
+  // it overwrites that alpha.
   for (std::size_t i = 0; i < count; ++i) {
-    alpha_plane[i] = result.pixels[i * 4 + 3];
-    halo[i] = alpha_plane[i];
+    halo[i] = result.pixels[i * 4 + 3];
   }
-  // Two seven-pixel box passes per axis form the separable triangular halo.
+  // Two seven-pixel box passes per axis form the separable triangular halo. Element `column` of a
+  // row sits at `along * column` from the row's first element, with rows `across` apart.
   for (int pass = 0; pass < 4; ++pass) {
     const bool vertical = pass >= 2;
     const int rows = vertical ? rw : rh;
     const int columns = vertical ? rh : rw;
-    const auto at = [&](int row, int column) {
-      return static_cast<std::size_t>(vertical ? column * rw + row : row * rw + column);
-    };
+    const auto along = static_cast<std::size_t>(vertical ? rw : 1);
+    const auto across = static_cast<std::size_t>(vertical ? 1 : rw);
     for (int row = 0; row < rows; ++row) {
+      const auto base = static_cast<std::size_t>(row) * across;
       double sum = 0;
       for (int column = 0; column < std::min(3, columns); ++column) {
-        sum += halo[at(row, column)];
+        sum += halo[base + static_cast<std::size_t>(column) * along];
       }
       for (int column = 0; column < columns; ++column) {
         if (column + 3 < columns) {
-          sum += halo[at(row, column + 3)];
+          sum += halo[base + static_cast<std::size_t>(column + 3) * along];
         }
         if (column - 4 >= 0) {
-          sum -= halo[at(row, column - 4)];
+          sum -= halo[base + static_cast<std::size_t>(column - 4) * along];
         }
-        next[at(row, column)] = sum / 7;
+        next[base + static_cast<std::size_t>(column) * along] = sum / 7;
       }
     }
     halo.swap(next);
@@ -460,14 +488,17 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
 
   // 3x3 maximum of the original alpha as two 1-D passes (exact for a rectangle clipped to the
   // image).
+  const auto alpha_at = [&](int x, int y) {
+    return result.pixels[static_cast<std::size_t>((y * rw + x) * 4 + 3)];
+  };
   for (int y = 0; y < rh; ++y) {
     for (int x = 0; x < rw; ++x) {
-      unsigned char maximum = alpha_plane[static_cast<std::size_t>(y * rw + x)];
+      unsigned char maximum = alpha_at(x, y);
       if (x > 0) {
-        maximum = std::max(maximum, alpha_plane[static_cast<std::size_t>(y * rw + x - 1)]);
+        maximum = std::max(maximum, alpha_at(x - 1, y));
       }
       if (x + 1 < rw) {
-        maximum = std::max(maximum, alpha_plane[static_cast<std::size_t>(y * rw + x + 1)]);
+        maximum = std::max(maximum, alpha_at(x + 1, y));
       }
       row_max[static_cast<std::size_t>(y * rw + x)] = maximum;
     }
@@ -486,7 +517,7 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
   }
   for (std::size_t i = 0; i < count; ++i) {
     const auto dst = i * 4;
-    const double alpha = alpha_plane[i] / 255.0;
+    const double alpha = unit[result.pixels[dst + 3]];
     const double backdrop = std::max(outline_plane[i] * .8, glow ? halo[i] * .6 : 0) / 255.0;
     const double output = alpha + backdrop * (1 - alpha);
     result.pixels[dst + 3] = static_cast<unsigned char>(std::min(round_up(output * 255), 255L));

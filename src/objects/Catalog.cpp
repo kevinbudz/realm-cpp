@@ -23,6 +23,11 @@ bool interactive_class(std::string_view name) {
          interactive_class_names.end();
 }
 
+std::uint64_t skin_key(int id, int class_type) {
+  return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(class_type)) << 32U) |
+         static_cast<std::uint32_t>(id);
+}
+
 int sheet(std::string_view name, bool animated) {
   if (animated) {
     for (std::size_t i = 0; i < flash::animated.size(); ++i) {
@@ -162,6 +167,10 @@ Catalog::Catalog(const std::filesystem::path& root)
   objects_.reserve(3000);
   grounds_.reserve(256);
   for (const auto& file : flash::data_files) {
+    // Region definitions are read by MapDocument, never by the catalog.
+    if (file.kind == "regionFiles") {
+      continue;
+    }
     const auto path = root / file.path;
     auto* doc = xmlReadFile(path.string().c_str(), nullptr, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
     if (!doc) {
@@ -394,6 +403,9 @@ Catalog::Catalog(const std::filesystem::path& root)
     skins_.push_back({static_cast<int>(realm::number(xml.attribute("type"))),
                       xml.integer("PlayerClassType"), xml.attribute("id"), texture(xml)});
   }
+  for (std::size_t i = 0; i < skins_.size(); ++i) {
+    skin_lookup_.emplace(skin_key(skins_[i].id, skins_[i].class_type), i);
+  }
 }
 
 const ParticleDef* Catalog::particle(std::string_view id) const {
@@ -406,12 +418,8 @@ const ParticleDef* Catalog::particle(std::string_view id) const {
 }
 
 const SkinDef* Catalog::skin(int id, int class_type) const {
-  for (const auto& skin : skins_) {
-    if (skin.id == id && skin.class_type == class_type) {
-      return &skin;
-    }
-  }
-  return nullptr;
+  const auto found = skin_lookup_.find(skin_key(id, class_type));
+  return found == skin_lookup_.end() ? nullptr : &skins_[found->second];
 }
 
 const TextureDef& Catalog::player_texture(int class_type, int skin_id) const {

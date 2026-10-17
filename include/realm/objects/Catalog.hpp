@@ -49,6 +49,8 @@ class Catalog {
   std::vector<ObjectDef> objects_;
   std::vector<std::uint16_t> hex_transforms_;
   std::vector<SkinDef> skins_;
+  // (class type, id) packed into a key, to the first skin with it.
+  std::unordered_map<std::uint64_t, std::size_t> skin_lookup_;
   std::vector<ParticleDef> particles_;
   std::vector<GroundDef> grounds_;
   std::vector<std::int32_t> object_lookup_;

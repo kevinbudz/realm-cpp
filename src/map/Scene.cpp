@@ -1060,8 +1060,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         const auto* neighbor =
             world.tile(static_cast<int>(x) + nx[side], static_cast<int>(y) + ny[side]);
         const auto* other = neighbor ? world.entity(neighbor->object_id) : nullptr;
-        const auto* other_def = other ? world.catalog().object(other->type) : nullptr;
-        if (other_def && other_def->class_name == "Wall") {
+        if (other && type_entry(world.catalog(), other->type).draw_class ==
+                         static_cast<std::uint8_t>(DrawClass::wall)) {
           continue;
         }
         const auto a = camera.world_to_screen(corners[side], 1);
@@ -1111,8 +1111,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
             const auto* tile = world.tile(static_cast<int>(e.motion.position.x + dx[side]),
                                           static_cast<int>(e.motion.position.y + dy[side]));
             const auto* object = tile ? world.entity(tile->object_id) : nullptr;
-            const auto* object_def = object ? world.catalog().object(object->type) : nullptr;
-            if (object_def && object_def->class_name == "Wall") {
+            if (object && type_entry(world.catalog(), object->type).draw_class ==
+                              static_cast<std::uint8_t>(DrawClass::wall)) {
               found = webs_.emplace(e.id, side ? 90.0 * side : d.rotation).first;
               break;
             }

@@ -673,6 +673,25 @@ void Renderer::release_gl_resources() noexcept {
   wall_geometry_ = wall_texture_ = 0;
 }
 
+// Whether two quad lists hold the same instance attributes (the owner and texture of a quad do not
+// reach the GPU, so they do not count).
+bool same_instances(const std::vector<Quad>& uploaded, const std::vector<Quad>& quads) {
+  if (uploaded.size() != quads.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < quads.size(); ++i) {
+    for (std::size_t field = 0; field < quad_sizes.size(); ++field) {
+      const auto bytes = static_cast<std::size_t>(quad_sizes[field]) * sizeof(float);
+      if (std::memcmp(reinterpret_cast<const unsigned char*>(&uploaded[i]) + quad_offsets[field],
+                      reinterpret_cast<const unsigned char*>(&quads[i]) + quad_offsets[field],
+                      bytes) != 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Points the quad program's instance attributes at a list starting offset bytes into the bound
 // array buffer.
 void Renderer::bind_quad_attributes(std::size_t offset) {
@@ -739,9 +758,16 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
         glGenBuffers(1, &layer->buffer);
       }
       glBindBuffer(GL_ARRAY_BUFFER, layer->buffer);
-      const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
-      glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
-      telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
+      // A layer that is unchanged since its last upload keeps the bytes already in the buffer.
+      if (!same_instances(layer->uploaded, layer->quads)) {
+        const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
+        glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
+        telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
+        layer->uploaded = layer->quads;
+        for (auto& quad : layer->uploaded) {
+          quad.owner.reset();
+        }
+      }
       // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before
       // the kind branch.
       glUniform1i(clip_location_, 1);

@@ -673,6 +673,25 @@ void Renderer::release_gl_resources() noexcept {
   wall_geometry_ = wall_texture_ = 0;
 }
 
+// Whether two quad lists hold the same instance attributes (the owner and texture of a quad do not
+// reach the GPU, so they do not count).
+bool same_instances(const std::vector<Quad>& uploaded, const std::vector<Quad>& quads) {
+  if (uploaded.size() != quads.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < quads.size(); ++i) {
+    for (std::size_t field = 0; field < quad_sizes.size(); ++field) {
+      const auto bytes = static_cast<std::size_t>(quad_sizes[field]) * sizeof(float);
+      if (std::memcmp(reinterpret_cast<const unsigned char*>(&uploaded[i]) + quad_offsets[field],
+                      reinterpret_cast<const unsigned char*>(&quads[i]) + quad_offsets[field],
+                      bytes) != 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Points the quad program's instance attributes at a list starting offset bytes into the bound
 // array buffer.
 void Renderer::bind_quad_attributes(std::size_t offset) {
@@ -699,6 +718,10 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
   const auto standalone = standalone_location_;
   // Whether the quad pointers of vao_ address this list in buffer; terrain and layers rebind them.
   bool quads_bound = false;
+  // The standalone flag and the surface on texture unit 1 as this list last left them. Unknown at
+  // entry (the caller and earlier passes may have changed them); a nested layer resets both.
+  int standalone_value = -1;
+  std::uint32_t surface_bound = ~std::uint32_t{};
   for (std::size_t first = 0; first < list.size();) {
     if (list[first].kind == 10) {
       const auto& command = list[first];
@@ -707,6 +730,7 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
         throw std::logic_error("Missing terrain buffer");
       }
       glUniform1i(standalone, 0);
+      standalone_value = 0;
       glUniform1i(ground_location_, 1);
       glUniform2fv(ground_origin_, 1, command.origin.data());
       glUniform2fv(ground_x_, 1, command.axis_x.data());
@@ -734,9 +758,16 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
         glGenBuffers(1, &layer->buffer);
       }
       glBindBuffer(GL_ARRAY_BUFFER, layer->buffer);
-      const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
-      glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
-      telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
+      // A layer that is unchanged since its last upload keeps the bytes already in the buffer.
+      if (!same_instances(layer->uploaded, layer->quads)) {
+        const auto bytes = static_cast<GLsizeiptr>(layer->quads.size() * sizeof(Quad));
+        glBufferData(GL_ARRAY_BUFFER, bytes, layer->quads.data(), GL_STREAM_DRAW);
+        telemetry::add(telemetry::Counter::quad_upload_bytes, static_cast<std::uint64_t>(bytes));
+        layer->uploaded = layer->quads;
+        for (auto& quad : layer->uploaded) {
+          quad.owner.reset();
+        }
+      }
       // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before
       // the kind branch.
       glUniform1i(clip_location_, 1);
@@ -745,6 +776,8 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       glUniform1f(clip_cut_, static_cast<float>(command.uv_offset[0]));
       draw_batch(layer->quads, 0, width, height, layer->buffer, false);
       quads_bound = false;
+      standalone_value = -1;
+      surface_bound = ~std::uint32_t{};
       glUniform1i(clip_location_, 0);
       glUniform1f(clip_cut_, 0);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -879,11 +912,15 @@ void Renderer::draw_batch(std::span<const Quad> list, std::size_t offset, int wi
       }
     }
     const auto sprites_in_run = end - first - walls;
-    glUniform1i(standalone, texture != 0);
-    if (texture) {
+    if (standalone_value != (texture != 0)) {
+      glUniform1i(standalone, texture != 0);
+      standalone_value = texture != 0;
+    }
+    if (texture && texture != surface_bound) {
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, texture);
       glActiveTexture(GL_TEXTURE0);
+      surface_bound = texture;
     }
     if (!base_instance_) {
       bind_quad_attributes(offset + first * sizeof(Quad));

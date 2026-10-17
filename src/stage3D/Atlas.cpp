@@ -158,7 +158,9 @@ void Atlas::update_additional(std::size_t index, const Image& image) {
     throw std::invalid_argument("Atlas update dimensions differ from reserved region");
   }
 
-  auto bitmap = image;
+  // Shared scratch storage: the copy reuses its capacity across uploads.
+  static thread_local Image bitmap;
+  bitmap = image;
   premultiply_flash_bitmap(bitmap);
   std::vector<unsigned char> pixels(static_cast<std::size_t>(region.width + 2) *
                                     static_cast<std::size_t>(region.height + 2) * 4);
@@ -188,7 +190,8 @@ void Atlas::upload_dynamic(int page, int x, int y, const Image& image) {
     throw std::invalid_argument("Invalid dynamic atlas upload");
   }
 
-  auto bitmap = image;
+  static thread_local Image bitmap;
+  bitmap = image;
   premultiply_flash_bitmap(bitmap);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, texture_);

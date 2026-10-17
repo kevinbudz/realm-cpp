@@ -2,12 +2,13 @@
 #include "realm/util/TextFormat.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <cstdio>
-#include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace realm::ui {
 namespace {
@@ -178,6 +179,11 @@ struct RetainedUi::Impl {
     std::string height;
     std::string background;
     std::string display;
+    // Raw values behind the cached strings: unchanged values skip formatting.
+    std::array<float, 4> box{};
+    bool boxed{};
+    std::array<float, 4> tint{};
+    bool tinted{};
   };
 
   Slot& slot(std::size_t index, SlotType type) {
@@ -206,19 +212,24 @@ struct RetainedUi::Impl {
     return result;
   }
 
-  static void property(Slot& slot, std::string& cached, const char* name, std::string value) {
+  static void property(Slot& slot, std::string& cached, const char* name, std::string_view value) {
     if (cached == value) {
       return;
     }
-    slot.element->SetProperty(name, value);
-    cached = std::move(value);
+    cached.assign(value);
+    slot.element->SetProperty(name, cached);
   }
 
   void place(Slot& slot, const Quad& quad) {
-    property(slot, slot.left, "left", px(quad.origin[0]));
-    property(slot, slot.top, "top", px(quad.origin[1]));
-    property(slot, slot.width, "width", px(quad.axis_x[0]));
-    property(slot, slot.height, "height", px(quad.axis_y[1]));
+    const std::array<float, 4> box{quad.origin[0], quad.origin[1], quad.axis_x[0], quad.axis_y[1]};
+    if (!slot.boxed || slot.box != box) {
+      property(slot, slot.left, "left", px(box[0]));
+      property(slot, slot.top, "top", px(box[1]));
+      property(slot, slot.width, "width", px(box[2]));
+      property(slot, slot.height, "height", px(box[3]));
+      slot.box = box;
+      slot.boxed = true;
+    }
     property(slot, slot.display, "display", "block");
   }
 
@@ -226,6 +237,8 @@ struct RetainedUi::Impl {
   Rml::ElementDocument* document{};
   Rml::Element* container{};
   std::vector<Slot> slots;
+  // Reused across frames; a state may repeat, which is harmless as its flag is only cleared.
+  std::vector<RetainedSurface::State*> dirty_states;
   bool visible{};
 };
 
@@ -244,7 +257,7 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
   impl.host.resize(viewport);
 
   std::vector<Quad> native;
-  std::set<RetainedSurface::State*> dirty_states;
+  impl.dirty_states.clear();
   std::size_t used{};
   bool has_retained = false;
 
@@ -277,7 +290,7 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
       }
       set_native_tint(*slot.element, quad.multiply);
       if (state->dirty_pending) {
-        dirty_states.insert(const_cast<RetainedSurface::State*>(state));
+        impl.dirty_states.push_back(const_cast<RetainedSurface::State*>(state));
       }
       ++used;
       has_retained = true;
@@ -287,7 +300,11 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
     if (kind == 2 && axis_aligned(quad)) {
       auto& slot = impl.slot(used, Impl::SlotType::solid);
       impl.place(slot, quad);
-      Impl::property(slot, slot.background, "background-color", rgba(quad.multiply));
+      if (!slot.tinted || slot.tint != quad.multiply) {
+        Impl::property(slot, slot.background, "background-color", rgba(quad.multiply));
+        slot.tint = quad.multiply;
+        slot.tinted = true;
+      }
       ++used;
       has_retained = true;
       continue;
@@ -310,7 +327,7 @@ std::vector<Quad> RetainedUi::compose(std::span<const Quad> quads, std::int32_t 
   }
 
   impl.host.update(time_ms);
-  for (auto* state : dirty_states) {
+  for (auto* state : impl.dirty_states) {
     state->dirty_pending = false;
   }
   return native;

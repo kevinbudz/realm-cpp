@@ -6,6 +6,8 @@
 #include "realm/assets/HudArt.hpp"
 #include "realm/ui/Scrollbar.hpp"
 #include <future>
+#include <map>
+#include <tuple>
 
 namespace realm {
 class GuildMembers {
@@ -103,5 +105,8 @@ class GuildMembers {
   Scrollbar scrollbar_{16, 400};
   Dialog dialog_;
   Image image_;
+  // Text bitmaps by text, size, bold and color, holding only the text the last update drew.
+  std::map<std::tuple<std::string, int, bool, std::uint32_t>, TextBitmap> texts_;
+  double texts_scale_{1};
 };
 }

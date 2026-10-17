@@ -1510,6 +1510,19 @@ Image HudArt::fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_
   return s.object_texture(type, size, true);
 }
 
+Image HudArt::player_fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,
+                                   int size) const {
+  auto& s = sources();
+  const auto& texture = s.catalog->player_texture(type, skin).select(0);
+  if (const auto* character =
+          s.appearances->animations().character(texture.animated, texture.index)) {
+    const auto frame = character->frame(0, 0, Action::stand, 0);
+    const int width = std::max(s.appearances->animations().images().at(frame.image).width, 1);
+    return s.frame_texture(frame, 4 * size / width, true, tex1, tex2);
+  }
+  return s.object_texture(type, size / 2, true);
+}
+
 Vec2 HudArt::rank_star_size(double scale) const {
   const auto& shape = sources().star_shape();
   return {shape.width() * scale, shape.height() * scale};

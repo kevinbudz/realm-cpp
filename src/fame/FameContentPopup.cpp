@@ -228,13 +228,12 @@ struct FameContentPopup::Impl {
     document->GetElementById("base-value")->SetInnerRML(std::to_string(s.base_fame));
     document->GetElementById("death-value")->SetInnerRML(std::to_string(s.total_fame));
 
-    // Player.getFamePortrait, centred in the 69 x 80 popup_content_decoration at (0, 5). This
-    // client's portrait redraw is larger per size unit than Flash's, so 150 keeps it in the frame.
+    // Player.getFamePortrait(200), centred in the 69 x 80 popup_content_decoration at (0, 5).
     auto* element = document->GetElementById("portrait");
     try {
-      portrait = art.fame_portrait(s.character.object_type, s.character.skin,
-                                   static_cast<std::uint32_t>(s.character.tex1),
-                                   static_cast<std::uint32_t>(s.character.tex2), 150);
+      portrait = art.player_fame_portrait(s.character.object_type, s.character.skin,
+                                          static_cast<std::uint32_t>(s.character.tex1),
+                                          static_cast<std::uint32_t>(s.character.tex2), 200);
     } catch (const std::exception&) {
       portrait = {};
     }

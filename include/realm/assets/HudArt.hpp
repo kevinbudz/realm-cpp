@@ -30,6 +30,10 @@ class HudArt {
                                            std::uint32_t tex2) const;
   [[nodiscard]] Image fame_portrait(int type, int skin, std::uint32_t tex1, std::uint32_t tex2,
                                     int size = 250) const;
+  // Player.getFamePortrait(size): the standing frame redrawn at int(4 / width * size), outlined
+  // and glowing, uncropped (FameContentPopup passes 200).
+  [[nodiscard]] Image player_fame_portrait(int type, int skin, std::uint32_t tex1,
+                                           std::uint32_t tex2, int size) const;
   // FameUtil.numStarsToBigImage, used by GameSprite's large safe-area RankText.
   [[nodiscard]] Vec2 rank_star_size(double scale = 1.4) const;
   // The star at `scale` logical units, rasterized at `pixel_scale` device pixels per logical unit

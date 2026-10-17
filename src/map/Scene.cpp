@@ -702,9 +702,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     status_list_.clear();
     status_surface_bytes_ = 0;
     appearance_bytes_ = 0;
-    if (appearances) {
-      appearances->clear();
-    }
+    // The shared compositions are keyed by source art, size and dyes only, so they stay valid on
+    // another map; their budget bounds them.
     generation_ = world.generation();
     appearance_world_ = &world;
   }

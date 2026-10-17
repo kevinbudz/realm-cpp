@@ -256,6 +256,8 @@ class Scene {
   std::vector<TypeEntry> types_;
   const Catalog* types_catalog_{};
   [[nodiscard]] const TypeEntry& type_entry(const Catalog& catalog, std::uint16_t type);
+  // The first flash of each target, by index into world.particles().flashes(), for this build.
+  std::unordered_map<std::int32_t, std::size_t> flash_index_;
   std::vector<Visible> visible_, visible_scratch_;
 
   struct DrawItem {

@@ -809,23 +809,28 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       });
     }
   }
+  // Each target answers with its first flash in list order, so the index keeps the first entry.
+  flash_index_.clear();
+  const auto flashes = world.particles().flashes();
+  for (std::size_t i = 0; i < flashes.size(); ++i) {
+    flash_index_.emplace(flashes[i].target, i);
+  }
   const auto flash_tint = [&](Quad& q, const Entity& e) {
-    for (const auto& flash : world.particles().flashes()) {
-      if (flash.target == e.id) {
-        const auto age = static_cast<std::int64_t>(time) - flash.born;
-        if (age < 0 || age > static_cast<std::int64_t>(flash.period) * flash.repeats) {
-          break;
-        }
-        const float intensity = static_cast<float>(
-            std::sin(static_cast<double>(age % flash.period) / flash.period * std::numbers::pi) *
-            .5);
-        for (int channel = 0; channel < 3; ++channel) {
-          q.multiply[static_cast<std::size_t>(channel)] *= 1 - intensity;
-          q.offset[static_cast<std::size_t>(channel)] =
-              intensity * static_cast<float>((flash.color >> (16 - 8 * channel)) & 255U) / 255;
-        }
-        break;
-      }
+    const auto found = flash_index_.find(e.id);
+    if (found == flash_index_.end()) {
+      return;
+    }
+    const auto& flash = flashes[found->second];
+    const auto age = static_cast<std::int64_t>(time) - flash.born;
+    if (age < 0 || age > static_cast<std::int64_t>(flash.period) * flash.repeats) {
+      return;
+    }
+    const float intensity = static_cast<float>(
+        std::sin(static_cast<double>(age % flash.period) / flash.period * std::numbers::pi) * .5);
+    for (int channel = 0; channel < 3; ++channel) {
+      q.multiply[static_cast<std::size_t>(channel)] *= 1 - intensity;
+      q.offset[static_cast<std::size_t>(channel)] =
+          intensity * static_cast<float>((flash.color >> (16 - 8 * channel)) & 255U) / 255;
     }
   };
   // Sprite-level condition cues: Stasis greys the texture (PAUSED_FILTER, uv_offset.x flags the

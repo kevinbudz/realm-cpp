@@ -127,22 +127,25 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     cs.production_ui->render(width, height);
     using C = realm::telemetry::Counter;
     const auto stats = cs.production_ui->host().stats();
-    realm::telemetry::set(C::ui_text_rasterizations,
-                          stats.text_rasterizations - cs.previous_ui_stats.text_rasterizations);
-    realm::telemetry::set(
-        C::ui_painter_rasterizations,
-        stats.painter_rasterizations - cs.previous_ui_stats.painter_rasterizations);
-    realm::telemetry::set(C::ui_texture_uploads,
-                          stats.texture_uploads - cs.previous_ui_stats.texture_uploads);
-    realm::telemetry::set(C::ui_texture_upload_bytes,
-                          stats.texture_upload_bytes - cs.previous_ui_stats.texture_upload_bytes);
-    realm::telemetry::set(C::ui_text_meshes, stats.text_meshes - cs.previous_ui_stats.text_meshes);
-    realm::telemetry::set(C::ui_native_image_meshes,
-                          stats.native_image_meshes - cs.previous_ui_stats.native_image_meshes);
-    realm::telemetry::set(C::ui_native_image_bytes, stats.native_image_bytes);
-    realm::telemetry::set(C::ui_documents, stats.documents);
-    realm::telemetry::set(C::ui_draw_calls, stats.draws);
-    realm::telemetry::add(C::draw_calls, stats.draws);
+    if (cs.telemetry) {
+      realm::telemetry::set(C::ui_text_rasterizations,
+                            stats.text_rasterizations - cs.previous_ui_stats.text_rasterizations);
+      realm::telemetry::set(
+          C::ui_painter_rasterizations,
+          stats.painter_rasterizations - cs.previous_ui_stats.painter_rasterizations);
+      realm::telemetry::set(C::ui_texture_uploads,
+                            stats.texture_uploads - cs.previous_ui_stats.texture_uploads);
+      realm::telemetry::set(C::ui_texture_upload_bytes,
+                            stats.texture_upload_bytes - cs.previous_ui_stats.texture_upload_bytes);
+      realm::telemetry::set(C::ui_text_meshes,
+                            stats.text_meshes - cs.previous_ui_stats.text_meshes);
+      realm::telemetry::set(C::ui_native_image_meshes,
+                            stats.native_image_meshes - cs.previous_ui_stats.native_image_meshes);
+      realm::telemetry::set(C::ui_native_image_bytes, stats.native_image_bytes);
+      realm::telemetry::set(C::ui_documents, stats.documents);
+      realm::telemetry::set(C::ui_draw_calls, stats.draws);
+      realm::telemetry::add(C::draw_calls, stats.draws);
+    }
     cs.previous_ui_stats = stats;
   }
 

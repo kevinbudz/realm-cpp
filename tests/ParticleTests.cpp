@@ -274,6 +274,96 @@ int main() {
     invalid.position.x = std::numeric_limits<float>::quiet_NaN();
     particles.show(world, invalid, 0);
     check(particles.particles().empty(), "nonfinite effect dropped");
+    // Pool-state golden: a deterministic scenario over the public effect calls, hashed every frame over
+    // every particle field, the emitter and flash counts, the dropped counter and the target filter's
+    // exact answers. Any change to these bytes is a behavior change in update() or emission.
+    {
+      std::uint64_t hash = 1469598103934665603ULL;
+      const auto mix = [&hash](const void* data, std::size_t bytes) {
+        const auto* b = static_cast<const unsigned char*>(data);
+        for (std::size_t i = 0; i < bytes; ++i) {
+          hash ^= b[i];
+          hash *= 1099511628211ULL;
+        }
+      };
+      const auto value = [&mix](const auto& v) { mix(&v, sizeof v); };
+      World pool(catalog);
+      pool.initialize(64, 64);
+      pool.add(99, catalog.object("Wizard")->type, {32, 32});
+      pool.set_player_id(99);
+      pool.entity(99)->combat.hp = 100000;
+      auto& live = pool.particles();
+      live.clear();
+      TextureDef pool_mist;
+      pool_mist.effect.kind = "XMLEffect";
+      pool_mist.effect.particle = "SwirlingMist";
+      pool_mist.effect.cooldown = .1;
+      std::int32_t now = 1000;
+      for (int f = 0; f < 400; ++f) {
+        live.update(pool, now);
+        value(live.particles().size());
+        for (const auto& p : live.particles()) {
+          value(p.motion);
+          for (const double d : {p.position.x, p.position.y, p.start.x, p.start.y, p.end.x, p.end.y,
+                                 p.velocity.x, p.velocity.y, p.z, p.initial_z, p.vz, p.az, p.size,
+                                 p.initial_size, p.angle, p.angle_cos, p.angle_sin, p.distance,
+                                 p.speed, p.noise, p.period}) {
+            value(d);
+          }
+          value(p.born);
+          value(p.last_emission);
+          value(p.lifetime);
+          value(p.color);
+          value(p.target);
+          value(p.animation);
+          value(p.bottom_anchor);
+          value(p.custom_size);
+          value(p.order);
+          value(p.texture != nullptr);
+          value(p.definition != nullptr);
+        }
+        value(live.emitter_count());
+        value(live.flashes().size());
+        value(live.dropped());
+        for (const std::int32_t id : {99, 55, 20}) {
+          value(live.targets(id));
+        }
+        if (f % 60 == 0) {
+          live.aoe({30.0 + f % 5, 32}, 2.0, 0xff8000, now);
+        }
+        if (f % 6 == 0) {
+          live.hit(pool, *pool.entity(99), 10, now, f * .1, 0, false, 10);
+        }
+        if (f % 120 == 0) {
+          live.explode(pool, *pool.entity(99), now);
+        }
+        if (f % 9 == 0) {
+          net::incoming::ShowEffect effect;
+          effect.type = static_cast<std::uint8_t>((f / 9) % 17);
+          effect.target_id = 99;
+          effect.color = effect.type == 16 ? catalog.object("Health Potion")->type : 0xff0088ffU + f;
+          effect.position = {static_cast<float>(30 + f % 5), 31};
+          effect.position2 = {static_cast<float>(34 + f % 3), 30};
+          effect.has_position2 = f % 2 == 0;
+          live.show(pool, effect, now);
+        }
+        if (f == 2) {
+          live.attach(*pool.entity(99), pool_mist);
+        }
+        if (f % 150 == 20) {
+          live.level_up(99, now);
+        }
+        pool.entity(99)->combat.condition = (f / 50) % 2 ? (1U << 15U) : 0U;
+        live.healing(*pool.entity(99));
+        if (live.particles().size() < 600) {
+          live.trail({32, 32}, now, 150);
+          live.hit(pool, *pool.entity(99), 10, now, f * .05, 0, false, 150);
+        }
+        now += 17;
+      }
+      constexpr std::uint64_t pool_golden = 0x66cf1f330de9307dULL;
+      check(hash == pool_golden, "pool state matches the recorded golden");
+    }
     std::cout << checks
               << " particle source/count/motion/lifetime/authority/budget/teardown checks; "
               << emitters << " actual XML emitters passed\n";

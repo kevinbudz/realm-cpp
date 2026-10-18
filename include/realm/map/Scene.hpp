@@ -276,7 +276,16 @@ class Scene {
     const Visible* visible{};
   };
 
-  std::vector<DrawItem> ordered_, particle_items_, merged_;
+  // A particle in the painter stream when ids are non-negative. `at` is the screen point the gather
+  // projected for it; draw uses it as is.
+  struct ParticleItem {
+    const Particle* particle{};
+    Vec2 at{};
+    int depth{};
+  };
+
+  std::vector<DrawItem> ordered_;
+  std::vector<ParticleItem> particle_items_, particle_scratch_;
   std::vector<std::uint32_t> depth_counts_;
   // A model can stand and spread well beyond its ground point (a wide footprint reaches back onto
   // the screen from above, a tall one from below), so offscreen model objects are re-tested against

@@ -394,8 +394,14 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
 
       if (cs.tutorial) {
         const auto strokes = cs.tutorial->update(cs.world, time);
+        // Upload the changed rectangle even when no strokes remain, so cleared highlight pixels
+        // are not left on the surface.
+        const auto changed = realm::render_tutorial_overlay(strokes, time);
+        if (changed.width > 0 && changed.height > 0) {
+          cs.tutorial_texture.update_region(realm::tutorial_overlay_image(), changed.x, changed.y,
+                                            changed.width, changed.height);
+        }
         if (!strokes.empty()) {
-          cs.tutorial_texture.update(realm::render_tutorial(strokes, time));
           overlay_storage[overlay.size()] = cs.tutorial_texture.quad(
               {width - 800 * ui_scale, 0}, {800 * ui_scale, 0}, {0, 600 * ui_scale});
           overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);

@@ -518,10 +518,8 @@ Vec2 Particles::camera_offset(std::int32_t time) const {
   return {std::sin(time * 12.9898) * amplitude, std::sin(time * 78.233) * amplitude};
 }
 
-const TextureDef* Particles::texture(const Particle& particle, std::int32_t time) const {
-  if (!particle.definition || particle.animation < 0) {
-    return particle.texture;
-  }
+// Called only for an animated particle (definition set, animation index >= 0).
+const TextureDef* Particles::animated_texture(const Particle& particle, std::int32_t time) const {
   double age = static_cast<double>(static_cast<std::int64_t>(time) - particle.born);
   for (const auto& frame : particle.definition->animations[static_cast<std::size_t>(particle.animation)].frames) {
     if (age <= frame.duration_ms) {
@@ -557,9 +555,13 @@ void Particles::update(const World& world, std::int32_t time) {
     particles_.reserve(maximum_particles);  // a copied pool did not keep its capacity
   }
 
-  // Refilled below from the survivors; particles emitted during the loop add their own bits.
+  // Refilled from the survivors; particles emitted during the loop add their own bits.
   particle_targets_.clear();
   const auto initial = particles_.size();
+  // Survivors are compacted as the loop goes: `kept` never passes the read index, so each survivor is
+  // written while it is still in cache and the pool keeps its order (survivors, then this frame's
+  // emissions, which sit past `initial`).
+  std::size_t kept = 0;
   for (std::size_t i = 0; i < initial; ++i) {
     // In place: emit() never grows the pool past the capacity reserved above, so this reference
     // stays valid while sparkers emit (copying each 224-byte particle out and back cost more than
@@ -665,17 +667,30 @@ void Particles::update(const World& world, std::int32_t time) {
     if (!alive || !finite(particle.position) || !std::isfinite(particle.z)) {
       particle.lifetime = 0;
     }
+    if (particle.lifetime != 0) {
+      if (particle.target != -1) {
+        particle_targets_.add(particle.target);
+      }
+      if (kept != i) {
+        particles_[kept] = particle;
+      }
+      ++kept;
+    }
   }
-
-  std::erase_if(particles_, [&](const auto& particle) {
+  for (std::size_t i = initial; i < particles_.size(); ++i) {
+    auto& particle = particles_[i];
     if (particle.lifetime == 0) {
-      return true;
+      continue;
     }
     if (particle.target != -1) {
       particle_targets_.add(particle.target);
     }
-    return false;
-  });
+    if (kept != i) {
+      particles_[kept] = particle;
+    }
+    ++kept;
+  }
+  particles_.erase(particles_.begin() + static_cast<std::ptrdiff_t>(kept), particles_.end());
 
   emitter_targets_.clear();
   for (auto& emitter : emitters_) {

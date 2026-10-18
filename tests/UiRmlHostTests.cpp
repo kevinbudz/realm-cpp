@@ -10,6 +10,7 @@
 // editing, modal blocking;
 // - clipping: content scrolled out of an overflow:hidden box is not drawn outside it (pixel
 // readback);
+// - title pulse: a pulse-text element rasterizes only when its 1/1000-quantized pulse changes;
 // - lifetime: caches released and rebuilt, the host destroyed with documents and listeners alive
 // and re-created on the
 //   same GL context, a second concurrent host refused; no GL errors and no RmlUi errors throughout.
@@ -20,9 +21,12 @@
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <SDL.h>
 #include <array>
+#include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 using namespace realm;
@@ -64,6 +68,12 @@ const std::string modal_document =
 <style>body{background-color:#00000080}#ok{position:absolute;left:350dp;top:400dp;width:100dp;height:30dp}</style></head>
 <body><div id="ok" class="button t16b">OK</div></body></rml>)";
 
+// The startup title: a pulse-text element with the attributes StartupRml sets.
+const std::string pulse_document =
+    R"(<rml><head><title>pulse</title><link type="text/rcss" href="flash.rcss"/><link type="text/rcss" href="text.rcss"/>
+<style>body{background-color:transparent}#play{position:absolute;left:300dp;top:400dp}</style></head>
+<body><pulse-text id="play" text="play" size="36" bold="true" pulse="1"></pulse-text></body></rml>)";
+
 struct Counts {
   std::uint64_t text{}, paint{}, uploads{}, meshes{}, native_uploads{}, native_bytes{},
       native_meshes{};
@@ -87,19 +97,65 @@ Counts operator-(Counts a, Counts b) {
 
 std::int32_t clock_ms{};
 
-void frame(RmlHost& host, int w = width, int h = height) {
-  clock_ms += 16;
-  host.update(clock_ms);
+void draw(RmlHost& host, int w, int h) {
   glViewport(0, 0, width, height);
   glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT);
   host.render(w, h);
 }
 
+void frame(RmlHost& host, int w = width, int h = height) {
+  clock_ms += 16;
+  host.update(clock_ms);
+  draw(host, w, h);
+}
+
+// The pulse RmlHost's PulseText draws at a clock time, quantized to 1/1000 steps.
+double quantized_pulse(std::int32_t time_ms) {
+  const double raw = 1.05 + .05 * std::sin(time_ms / 200.0);
+  return std::round(raw * 1000) / 1000;
+}
+
+struct PulseRun {
+  std::uint64_t rasterized{}, expected{};
+};
+
+// Draws frames while the clock advances step_ms once every frames_per_step frames. Expects one
+// rasterization per change of the quantized pulse; previous carries the last drawn pulse across
+// runs (-1 before the first frame).
+PulseRun pulse_frames(RmlHost& host, int frames, int frames_per_step, std::int32_t step_ms,
+                      double& previous) {
+  PulseRun run;
+  const auto before = counts(host).text;
+  for (int i = 0; i < frames; ++i) {
+    if (i % frames_per_step == 0) {
+      clock_ms += step_ms;
+    }
+    const double pulse = quantized_pulse(clock_ms);
+    run.expected += pulse != previous ? 1 : 0;
+    previous = pulse;
+    host.update(clock_ms);
+    draw(host, width, height);
+  }
+  run.rasterized = counts(host).text - before;
+  return run;
+}
+
 std::array<unsigned char, 4> pixel(int x, int y) {
   std::array<unsigned char, 4> rgba{};
   glReadPixels(x, height - 1 - y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
   return rgba;
+}
+
+// Pixels with red above 200 in a w x h region whose top-left is (x, y).
+int bright_pixels(int x, int y, int w, int h) {
+  std::vector<unsigned char> rgba(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4);
+  glReadPixels(x, height - y - h, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+  int count = 0;
+  for (std::size_t i = 0; i < rgba.size(); i += 4) {
+    count += rgba[i] > 200 ? 1 : 0;
+  }
+  return count;
 }
 
 Event pointer(EventKind kind, double x, double y) {
@@ -354,6 +410,31 @@ void run(const FontBook& fonts, const HudArt& art) {
   check(delta.native_uploads == 1 && delta.native_bytes == 16 &&
             host.stats().native_image_bytes == 16,
         "reopened document owns one freshly uploaded texture");
+  // The title pulse rasterizes only when its quantized pulse changes. The clock is whole
+  // milliseconds: a 7 kHz frame loop advances it once per seven frames, and 16 ms steps change it
+  // on most frames.
+  const auto text_bytes = host.stats().text_cache_bytes;
+  auto* pulse = host.load_from_memory(pulse_document, "pulse.rml");
+  check(pulse != nullptr, "a pulse-text document loads");
+  host.show(*pulse, false, false);
+  double previous = -1;
+  const auto slow = pulse_frames(host, 700, 7, 1, previous);
+  check(slow.rasterized == slow.expected && slow.rasterized > 0 && slow.rasterized * 10 < 700,
+        "700 frames at 7 kHz rasterize the title " + std::to_string(slow.rasterized) +
+            " times for " + std::to_string(slow.expected) + " pulse changes");
+  const auto fast = pulse_frames(host, 60, 1, 16, previous);
+  check(fast.rasterized == fast.expected && fast.rasterized > 0,
+        "60 frames at 16 ms rasterize the title " + std::to_string(fast.rasterized) +
+            " times for " + std::to_string(fast.expected) + " pulse changes");
+  check(bright_pixels(300, 400, 100, 60) > 50,
+        "the title draws its glyphs after the pulse changes");
+  check(host.stats().text_cache_bytes > text_bytes,
+        "the title's texture counts toward the text cache bytes");
+  host.close(pulse);
+  frame(host);
+  check(host.stats().text_cache_bytes == text_bytes,
+        "closing the title releases its texture bytes");
+  gl_clean("title pulse");
   check(host.stats().log_errors == 0 && host.stats().log_warnings == 0, "no RmlUi diagnostics");
   gl_clean("first host");
 }  // destroyed with both documents and a listener alive

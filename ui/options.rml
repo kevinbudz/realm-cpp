@@ -28,7 +28,7 @@
         </div>
         <div id="main">
           <div id="rows" class="deca-scroll"></div>
-          <div id="hint"></div>
+          <div id="hint"><div id="hint-text"></div></div>
         </div>
       </div>
     </div>

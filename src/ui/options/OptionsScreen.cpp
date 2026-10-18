@@ -127,7 +127,7 @@ struct OptionsScreen::Impl {
     search_clear = document->GetElementById("search-clear");
     nav = document->GetElementById("nav");
     rows = document->GetElementById("rows");
-    hint = document->GetElementById("hint");
+    hint = document->GetElementById("hint-text");
     reset = document->GetElementById("reset");
     reset_label = document->GetElementById("reset-label");
     if (!search || !search_clear || !nav || !rows || !hint || !reset || !reset_label) {

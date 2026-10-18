@@ -17,7 +17,7 @@ body{z-index:100;background-color:transparent}
 /* popup_footer (3grid along x, 43 high) across the window, its body colour filling the rest down to the window's
    edge. The art's flat top edge is 18 dp down (the corners slant up from it), so it starts at 511 dp to put that edge
    at 529 dp: the bottom of the rows, 12 dp above the Done button (541 dp: the screen's 600 less the sidebar's 12 dp
-   padding and the 47 dp button). Done and the hint sit on it. The fill tucks 1 dp under the art, whose bottom row is
+   padding and the 47 dp button; Done is drawn 2 dp lower). Done and the hint sit on it. The fill tucks 1 dp under the art, whose bottom row is
    the same colour, so no seam shows where the art's edge lands between pixels. */
 #footer{position:absolute;left:0;top:511dp;bottom:0;width:100%;display:flex;flex-direction:column}
 #footer .deca-popup-footer{flex-shrink:0}
@@ -44,7 +44,7 @@ body{z-index:100;background-color:transparent}
    (HudArt::main_button): the frame is 46 dp wider than the face (79 - 35 + 2) and 47 dp tall, the 35 dp face centred
    in it both ways. The label is the panel's 16 dp bold white with the drop shadow. The button is 150 dp wide and centred
    in the 178 dp sidebar column, so its end caps are not stretched. */
-#done{position:relative;width:150dp;height:47dp;margin-top:24dp;margin-left:auto;margin-right:auto}   /* 12 dp between Reset and the footer's top edge */
+#done{position:relative;top:2dp;width:150dp;height:47dp;margin-top:24dp;margin-left:auto;margin-right:auto}   /* 12 dp between Reset and the footer's top edge; nudged 2 dp down */
 #done .deca-main-button-decoration{position:absolute;left:0;top:0;width:100%}
 #done-button{position:absolute;left:23dp;right:23dp;top:6dp;height:35dp;line-height:35dp;text-align:center;
     font-size:16dp;font-weight:bold;color:#ffffff;font-effect:shadow(0px 0px #000);
@@ -77,11 +77,15 @@ body{z-index:100;background-color:transparent}
 /* Rows. */
 /* The rows run from the window's top down to the footer's top edge (529 dp) and keep 16 dp from the window's right
    edge. Their 42 dp top padding puts the first title there when the list opens and scrolls away with it, so scrolled
-   rows reach the top of the window. The hint fills the rest of the column, on the footer, its first line centred on
-   the Done button. */
+   rows reach the top of the window. The hint fills the rest of the column, on the footer, centred on the Done
+   button. */
 #main{display:flex;flex-direction:column;flex:1;min-width:0;padding:0 16dp 12dp 0}
 #rows{position:relative;flex:1;overflow-y:auto;padding:42dp 20dp 16dp 16dp}
-#hint{height:59dp;padding:26dp 24dp 0 24dp;box-sizing:border-box;font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+/* The hint's text is centred vertically on the Done button's face (566.5 dp: the button's 543 dp top, 6 dp to the face,
+   half its 35 dp), however many lines it wraps to: the box runs from the footer's top edge (529 dp) to 588 dp, and its
+   16 dp top padding puts the middle of what is left there. */
+#hint{display:flex;flex-direction:column;justify-content:center;height:59dp;padding:16dp 24dp 0 24dp;box-sizing:border-box}
+#hint-text{font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
 /* A section title over a content_divider (3grid along x, 10 high), with room above and below it. The section's top,
    title and divider add up to the 49 dp the ruled title had, so the rows keep their places. A hovered section sits
    on a faint white cut-corner rect, so it reads over the game; the rect reaches 6 dp past the rows on either side

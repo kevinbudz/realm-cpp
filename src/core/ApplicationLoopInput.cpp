@@ -527,6 +527,29 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
     return key != SDLK_UNKNOWN && cs.script_keys.contains(SDL_GetScancodeFromKey(key));
   };
 
+  // Escape is polled, not dispatched, so a layer that takes the key (Settings, a popup) cannot
+  // stop a held press from leaving the game. "Returning to home..." shows once the press is
+  // longer than a tap; letting go before the hold completes stays in the game.
+  constexpr std::int32_t hold_notice_ms = 200, hold_to_leave_ms = 1000;
+  cs.returning_home = false;
+  if (realm::sdl_keys::held(keys, realm::key_escape) ||
+      cs.script_keys.contains(SDL_SCANCODE_ESCAPE)) {
+    if (!cs.escape_held_since) {
+      cs.escape_held_since = time;
+    }
+    const auto held = time - *cs.escape_held_since;
+    if (cs.startup && cs.game_session && !cs.leaving_game) {
+      cs.returning_home = held >= hold_notice_ms;
+      if (held >= hold_to_leave_ms) {
+        cs.leaving_game = true;
+        cs.game_session->disconnect();
+      }
+    }
+  } else {
+    cs.escape_held_since.reset();
+  }
+  cs.returning_home = cs.returning_home || (cs.leaving_game && cs.game_session);
+
   if (options.world && !options.benchmark && !cs.ui_stack.modal()) {
     // Typed characters never move or turn the player. The rotate keys act only with Allow Camera
     // Rotation.

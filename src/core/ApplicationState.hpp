@@ -277,6 +277,14 @@ struct ClientState {
   bool centered;
   bool running = true;
   bool leaving_game{};
+  // Holding Escape returns to character selection from any screen, Settings included; a tap
+  // still reaches whatever has focus. returning_home shows "Returning to home..." this frame.
+  std::optional<std::int32_t> escape_held_since;
+  bool returning_home{};
+  realm::SurfaceTexture returning_texture;
+  double returning_height{};
+  realm::Vec2 returning_size{};
+  realm::Vec2 returning_offset{};
   bool applied_centering;
   // The Resolution value apply_settings last evaluated in a window (-1 before the first).
   int applied_resolution{-1};

@@ -147,41 +147,67 @@ void composite(Image& image, int x, int y, std::uint32_t color, double alpha) {
   pixel[3] = byte(255 * alpha + pixel[3] * (1 - alpha));
 }
 
-// One BlurFilter pass along rows (horizontal) or columns of a plane of 0-255 values, truncating
-// each result.
+// One BlurFilter pass along rows (horizontal) or columns (vertical) of a plane of 0-255 values,
+// truncating each result. Each output sums its weighted samples in increasing offset order and
+// leaves out samples past the edge. That order and those skipped terms fix the rounding, so the
+// loops below keep both and only drop the per-sample branches and index arithmetic.
 void box(std::vector<double>& plane, int width, int height, double size, bool horizontal) {
   const double radius = size / 2;
   if (radius <= .5) {
     return;
   }
   const int reach = static_cast<int>(std::ceil(radius - .5));
-  std::vector<double> weights;
+  // Scratch buffers are reused between passes.
+  thread_local std::vector<double> weights;
+  thread_local std::vector<double> sums;
+  thread_local std::vector<double> output;
+  weights.clear();
   for (int k = -reach; k <= reach; ++k) {
     weights.push_back(std::max(0.0, std::min(k + .5, radius) - std::max(k - .5, -radius)) / size);
   }
-  const int lines = horizontal ? height : width, length = horizontal ? width : height;
-  std::vector<double> source(static_cast<std::size_t>(length));
-  for (int line = 0; line < lines; ++line) {
-    const auto index = [&](int i) {
-      return horizontal ? static_cast<std::size_t>(line) * static_cast<std::size_t>(width) +
-                              static_cast<std::size_t>(i)
-                        : static_cast<std::size_t>(i) * static_cast<std::size_t>(width) +
-                              static_cast<std::size_t>(line);
-    };
-    for (int i = 0; i < length; ++i) {
-      source[static_cast<std::size_t>(i)] = plane[index(i)];
-    }
-    for (int i = 0; i < length; ++i) {
-      double sum{};
+  sums.resize(static_cast<std::size_t>(width));
+  double* sum = sums.data();
+  if (horizontal) {
+    for (int line = 0; line < height; ++line) {
+      double* row = plane.data() + static_cast<std::size_t>(line) * static_cast<std::size_t>(width);
+      std::fill(sums.begin(), sums.end(), 0.0);
       for (int k = -reach; k <= reach; ++k) {
-        if (i + k >= 0 && i + k < length) {
-          sum += weights[static_cast<std::size_t>(k + reach)] *
-                 source[static_cast<std::size_t>(i + k)];
+        const double weight = weights[static_cast<std::size_t>(k + reach)];
+        // Outputs whose sample would fall past an edge skip this term.
+        for (int i = std::max(0, -k); i < std::min(width, width - k); ++i) {
+          sum[i] += weight * row[i + k];
         }
       }
-      plane[index(i)] = std::floor(sum + 1e-9);
+      for (int i = 0; i < width; ++i) {
+        row[i] = std::floor(sum[i] + 1e-9);
+      }
+    }
+    return;
+  }
+  // Vertical: each output row accumulates whole source rows, which keeps every output's terms in
+  // the same order while the inner loop runs along contiguous memory. Sources are read from the
+  // unchanged input, so the results go to a second plane.
+  output.resize(plane.size());
+  for (int y = 0; y < height; ++y) {
+    std::fill(sums.begin(), sums.end(), 0.0);
+    for (int k = -reach; k <= reach; ++k) {
+      const int source_y = y + k;
+      if (source_y < 0 || source_y >= height) {
+        continue;
+      }
+      const double weight = weights[static_cast<std::size_t>(k + reach)];
+      const double* source =
+          plane.data() + static_cast<std::size_t>(source_y) * static_cast<std::size_t>(width);
+      for (int x = 0; x < width; ++x) {
+        sum[x] += weight * source[x];
+      }
+    }
+    double* result = output.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+    for (int x = 0; x < width; ++x) {
+      result[x] = std::floor(sum[x] + 1e-9);
     }
   }
+  plane.swap(output);
 }
 
 std::vector<double> blurred_alpha(const Image& image, double blur_x, double blur_y, int quality) {
@@ -678,7 +704,8 @@ void color_matrix(Image& image, const std::array<double, 20>& matrix) {
 
 void blur(Image& image, double blur_x, double blur_y, int quality) {
   const auto count = static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height);
-  std::vector<double> plane(count);
+  thread_local std::vector<double> plane;
+  plane.resize(count);
   for (unsigned c = 0; c < 4; ++c) {
     for (std::size_t i = 0; i < count; ++i) {
       plane[i] = image.pixels[i * 4 + c];

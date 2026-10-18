@@ -24,18 +24,33 @@ enum class ParticleMotion : std::uint8_t {
   thrown_sprite
 };
 
+// Field order is the memory layout of the pool. The first 64 bytes hold the fields the Scene gather
+// and draw read (plus the lifetime and target checks of update); the next 64 hold what the moving
+// motions read; the rest is read only by the motions that use it. Members keep their meaning and
+// types.
 struct Particle {
   ParticleMotion motion{ParticleMotion::linear};
+  bool bottom_anchor{};
+  bool custom_size{};
+  std::int32_t target{-1};
+  int animation{-1};
+  int lifetime{1000};
+  std::uint32_t color{0xffffff};
+  std::uint64_t order{};
   Vec2 position{};
-  Vec2 start{};
-  Vec2 end{};
-  Vec2 velocity{};
   double z{};
+  double size{100};
+  std::int64_t born{};
   double initial_z{};
   double vz{};
   double az{};
-  double size{100};
+  Vec2 start{};
+  Vec2 velocity{};
   double initial_size{100};
+  const TextureDef* texture{};
+  const ParticleDef* definition{};
+  std::int64_t last_emission{};
+  Vec2 end{};
   double angle{};
   // cos and sin of angle, cached when a heal particle is emitted.
   double angle_cos{};
@@ -44,17 +59,6 @@ struct Particle {
   double speed{};
   double noise{};
   double period{1};
-  std::int64_t born{};
-  std::int64_t last_emission{};
-  int lifetime{1000};
-  std::uint32_t color{0xffffff};
-  std::int32_t target{-1};
-  const TextureDef* texture{};
-  const ParticleDef* definition{};
-  int animation{-1};
-  bool bottom_anchor{};
-  bool custom_size{};
-  std::uint64_t order{};
 };
 
 // Conservative membership of entity ids (4096 bits, one hash bit per id). A clear bit proves no
@@ -137,9 +141,17 @@ class Particles {
 
   [[nodiscard]] std::int64_t time() const { return now_; }
 
-  [[nodiscard]] const TextureDef* texture(const Particle& particle, std::int32_t time) const;
+  // Non-animated particles (every spark and linear burst) answer without a call.
+  [[nodiscard]] const TextureDef* texture(const Particle& particle, std::int32_t time) const {
+    if (!particle.definition || particle.animation < 0) {
+      return particle.texture;
+    }
+    return animated_texture(particle, time);
+  }
 
  private:
+  [[nodiscard]] const TextureDef* animated_texture(const Particle& particle, std::int32_t time) const;
+
   struct Emitter {
     std::int32_t target{};
     const EffectDef* props{};

@@ -1125,10 +1125,11 @@ RMLUI_RTTI_Define(NativeImageElement)
   void ReleaseElement(Rml::Element* element) override { delete element; }
 };
 
-// The pulsing title as a custom element: native's method inside RmlUi. Every frame it rasterizes
-// through FontBook at density*pulse with the exact sub-pixel phase, uploads into one fixed-capacity
-// texture and draws one texel-exact quad. Attributes: text; size (baked logical size, default 36);
-// bold (default true); pulse ("0" = static, default "1").
+// The pulsing title as a custom element: native's method inside RmlUi. The pulse is quantized to
+// 1/1000 steps. It rasterizes through FontBook at density*pulse with the exact sub-pixel phase
+// only when the quantized pulse changes (a static title only when its inputs change), uploads into
+// one fixed-capacity texture and draws one texel-exact quad every frame. Attributes: text; size
+// (baked logical size, default 36); bold (default true); pulse ("0" = static, default "1").
 class PulseText final : public Rml::Element {
  public:
   explicit PulseText(const Rml::String& name) : Rml::Element(name) {}
@@ -1148,7 +1149,10 @@ class PulseText final : public Rml::Element {
     const bool bold = bold_attribute != "false" && bold_attribute != "0";
     const bool pulsing = GetAttribute<Rml::String>("pulse", "1") != "0";
     const double dp = rt.dp;
-    const double pulse = pulsing ? 1.05 + .05 * std::sin(rt.clock_ms / 200.0) : 1.0;
+    // Quantized to 1/1000 so density, phase and bitmap all describe one pulse exactly. The sine
+    // moves at most 0.00025 per ms, so a 7 kHz frame loop re-rasterizes about once per 28 frames.
+    const double pulse_raw = 1.05 + .05 * std::sin(rt.clock_ms / 200.0);
+    const double pulse = pulsing ? std::round(pulse_raw * 1000) / 1000 : 1.0;
 
     const auto box = rt.fonts->layout(text, size, bold);
     const auto corner = GetAbsoluteOffset(Rml::BoxArea::Border);
@@ -1167,7 +1171,7 @@ class PulseText final : public Rml::Element {
                   density, phase.x, phase.y);
     const std::string key = text + '\0' + fingerprint;
 
-    if (!texture_ || key != key_ || pulsing) {
+    if (!texture_ || key != key_) {
       const auto bitmap =
           rt.fonts->rasterize_at_scale(text, size, density, bold, true, white, phase);
       ++rt.stats.text_rasterizations;

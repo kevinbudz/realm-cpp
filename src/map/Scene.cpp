@@ -1509,8 +1509,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   // Painter stream: entities by (depth, id) interleaved with particles by (depth,
   // 0x80000000+order). visible_ is already in entity order, and with non-negative ids every entity
   // precedes every particle at equal depth, so only the (few) particles need sorting and the two
-  // sorted runs merge. A negative id would compare above particles as unsigned, so that rare case
-  // keeps the original single sort.
+  // sorted runs are walked together. A negative id would compare above particles as unsigned, so
+  // that rare case keeps the original single sort.
   const auto before = [](const DrawItem& a, const DrawItem& b) {
     return a.depth == b.depth ? a.order < b.order : a.depth < b.depth;
   };
@@ -1533,11 +1533,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
                     at.y > height + 100 * zoom)) {
         continue;
       }
-      (negative_ids ? ordered_ : particle_items_)
-          .push_back({nullptr, &particle,
-                      static_cast<int>(camera.world_to_screen(particle.position).y / zoom +
-                                       camera.clip_rect().y),
-                      0x80000000ULL + particle.order, nullptr, nullptr});
+      const auto depth = static_cast<int>(camera.world_to_screen(particle.position).y / zoom +
+                                          camera.clip_rect().y);
+      if (negative_ids) {
+        ordered_.push_back(
+            {nullptr, &particle, depth, 0x80000000ULL + particle.order, nullptr, nullptr});
+      } else {
+        particle_items_.push_back({&particle, at, depth});
+      }
     }
   }
   {
@@ -1549,24 +1552,20 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       // bucketing by depth yields exactly the (depth, order) sequence. AOE-heavy fights keep
       // thousands of particles live, where a comparison sort was the largest single cost of the
       // scene.
-      if (!bucket_by_depth(particle_items_, merged_, depth_counts_, depth_bucket_minimum_)) {
-        std::sort(particle_items_.begin(), particle_items_.end(), before);
+      if (!bucket_by_depth(particle_items_, particle_scratch_, depth_counts_,
+                           depth_bucket_minimum_)) {
+        std::sort(particle_items_.begin(), particle_items_.end(),
+                  [](const ParticleItem& a, const ParticleItem& b) {
+                    return a.depth == b.depth ? a.particle->order < b.particle->order
+                                              : a.depth < b.depth;
+                  });
       }
-      merged_.resize(ordered_.size() + particle_items_.size());
-      std::merge(ordered_.begin(), ordered_.end(), particle_items_.begin(), particle_items_.end(),
-                 merged_.begin(), before);
-      ordered_.swap(merged_);
     }
   }
   {
     REALM_ZONE("scene.draw_stream");
-    for (const auto& item : ordered_) {
-      if (item.entity) {
-        draw(*item.entity, *item.def, item.visible);
-        continue;
-      }
-      const auto& particle = *item.particle;
-      const auto at = camera.world_to_screen(particle.position, particle.z);
+    // One particle's quads. `at` is the projection the gather made for it.
+    const auto draw_particle = [&](const Particle& particle, Vec2 at) {
       if (const auto* tex = world.particles().texture(particle, time)) {
         auto sprite = texture(*tex, static_cast<std::uint32_t>(particle.order), nullptr, angle,
                               time, atlas, animations);
@@ -1612,24 +1611,51 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
                          static_cast<float>(std::sin(rotation))};
         }
         out.push_back(std::move(q));
-      } else {
-        const double size =
-            particle.custom_size ? particle.size : std::floor(particle.size / 100 * 5);
-        if (size <= 0) {
-          continue;
+        return;
+      }
+      const double size =
+          particle.custom_size ? particle.size : std::floor(particle.size / 100 * 5);
+      if (size <= 0) {
+        return;
+      }
+      // Built in place in the output: no temporary Quad copied into the stream.
+      const double square_extent = (size + 8) * zoom;
+      Quad& q = out.emplace_back();
+      q.kind = 7;
+      q.origin = {static_cast<float>(at.x - square_extent / 2),
+                  static_cast<float>(at.y - square_extent / 2)};
+      q.axis_x = {static_cast<float>(square_extent), 0};
+      q.axis_y = {0, static_cast<float>(square_extent)};
+      q.multiply = {static_cast<float>((particle.color >> 16U) & 255U) / 255,
+                    static_cast<float>((particle.color >> 8U) & 255U) / 255,
+                    static_cast<float>(particle.color & 255U) / 255, 1};
+      q.uv_offset = {static_cast<float>(size), static_cast<float>(size)};
+    };
+    if (negative_ids) {
+      for (const auto& item : ordered_) {
+        if (item.entity) {
+          draw(*item.entity, *item.def, item.visible);
+        } else {
+          const auto& particle = *item.particle;
+          draw_particle(particle, camera.world_to_screen(particle.position, particle.z));
         }
-        const double square_extent = (size + 8) * zoom;
-        Quad q;
-        q.kind = 7;
-        q.origin = {static_cast<float>(at.x - square_extent / 2),
-                    static_cast<float>(at.y - square_extent / 2)};
-        q.axis_x = {static_cast<float>(square_extent), 0};
-        q.axis_y = {0, static_cast<float>(square_extent)};
-        q.multiply = {static_cast<float>((particle.color >> 16U) & 255U) / 255,
-                      static_cast<float>((particle.color >> 8U) & 255U) / 255,
-                      static_cast<float>(particle.color & 255U) / 255, 1};
-        q.uv_offset = {static_cast<float>(size), static_cast<float>(size)};
-        out.push_back(q);
+      }
+    } else {
+      // The two sorted runs are walked together. An entity is drawn before the next particle unless
+      // that particle precedes it in (depth, 0x80000000+order), which is the order std::merge gave.
+      std::size_t next = 0;
+      for (const auto& item : particle_items_) {
+        while (next < ordered_.size() &&
+               !(item.depth == ordered_[next].depth
+                     ? 0x80000000ULL + item.particle->order < ordered_[next].order
+                     : item.depth < ordered_[next].depth)) {
+          draw(*ordered_[next].entity, *ordered_[next].def, ordered_[next].visible);
+          ++next;
+        }
+        draw_particle(*item.particle, item.at);
+      }
+      for (; next < ordered_.size(); ++next) {
+        draw(*ordered_[next].entity, *ordered_[next].def, ordered_[next].visible);
       }
     }
   }

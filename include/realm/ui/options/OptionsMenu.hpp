@@ -46,6 +46,14 @@ class OptionsMenu {
 
   [[nodiscard]] bool enabled(const OptionDef& option) const { return settings_->enabled(option); }
 
+  // The full size of the window's display, in window points (0 when unknown). Resolution sizes are
+  // offered only within it.
+  void set_display_size(int width, int height);
+
+  // The choices a row lists now. A Resolution row lists Custom, the sizes its Aspect Ratio offers
+  // within the display and the stored size; every other row lists all of its choices.
+  [[nodiscard]] ChoiceList choices(const OptionDef& option) const;
+
   // KeyCodeBox: the next key binds this row ("Press a key").
   void begin_capture(std::string_view param);
   void cancel_capture();
@@ -92,6 +100,8 @@ class OptionsMenu {
   std::string capture_;
   std::uint64_t layout_revision_{};
   std::uint64_t value_revision_{};
+  int display_width_{};
+  int display_height_{};
   bool changed_{};
   bool home_{};
 };

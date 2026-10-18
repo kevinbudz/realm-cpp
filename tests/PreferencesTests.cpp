@@ -200,7 +200,8 @@ void ally_effects() {
   effect.position = {4.5, 2.5};
   effect.color = 0xff0000;
   effect.target_id = 2;
-  check(f.world.preferences().ally_particles, "Ally Particles is on by default");
+  check(f.world.preferences().ally_particles == AllyParticles::all,
+        "Ally Particles is All by default");
   f.apply([](Settings& s) { s.set_value("allyParticles", 0); });
   p.show(f.world, effect, 0);
   check(p.particles().empty(), "Ally Particles off skips effects from other players");
@@ -212,6 +213,38 @@ void ally_effects() {
   effect.target_id = 2;
   p.show(f.world, effect, 0);
   check(!p.particles().empty(), "Ally Particles on shows other players' effects");
+  // Minimal keeps another player's heals (1), ability areas (5) and flashes (15) only.
+  f.apply([](Settings& s) { s.set_value("allyParticles", 2); });
+  check(f.world.preferences().ally_particles == AllyParticles::minimal,
+        "Minimal reaches the preferences");
+  p.clear();
+  p.show(f.world, effect, 0);
+  check(p.particles().empty(), "Minimal skips another player's type 2 effect");
+  effect.type = 1;
+  p.show(f.world, effect, 0);
+  check(!p.particles().empty(), "Minimal keeps another player's heal");
+  p.clear();
+  effect.type = 5;
+  effect.position = {4.5, 2.5};
+  p.show(f.world, effect, 0);
+  check(!p.particles().empty(), "Minimal keeps another player's ability area");
+  p.clear();
+  effect.type = 15;
+  p.show(f.world, effect, 0);
+  check(p.particles().empty() && p.flashes().size() == 1, "Minimal keeps another player's flash");
+  p.clear();
+  // The player's own effects play whatever the setting.
+  effect.type = 2;
+  effect.target_id = 1;
+  p.show(f.world, effect, 0);
+  check(!p.particles().empty(), "Minimal leaves the player's own effects alone");
+  p.clear();
+  // Off skips every type from another player, including the minimal ones.
+  f.apply([](Settings& s) { s.set_value("allyParticles", 0); });
+  effect.type = 1;
+  effect.target_id = 2;
+  p.show(f.world, effect, 0);
+  check(p.particles().empty(), "Off skips another player's heal");
 }
 
 // Projectile.getDirectionAngle: with Projectile Direction on, a wavy shot's heading is the chord

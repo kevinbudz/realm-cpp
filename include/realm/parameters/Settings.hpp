@@ -20,6 +20,9 @@ enum class OptionsCategory { keybinds, gameplay, video, audio };
 inline constexpr std::size_t options_category_count = 4;
 [[nodiscard]] std::string_view options_category_name(OptionsCategory category);
 
+// A choice's labels and values, in display order.
+using ChoiceList = std::vector<std::pair<std::string_view, int>>;
+
 struct OptionDef {
   enum class Kind { key, toggle, choice, slider, hidden_key, hidden_value };
   OptionsCategory category{};
@@ -29,10 +32,13 @@ struct OptionDef {
   std::string_view label;
   std::string_view tooltip;
   int fallback{};
-  // Choice labels and values in source order.
-  std::vector<std::pair<std::string_view, int>> choices;
+  // Choice labels and values in source order. The Resolution row lists fewer
+  // (OptionsMenu::choices).
+  ChoiceList choices;
   // KeyMapper disabled state: the rotate keys follow allowRotation.
   std::string_view enabled_by;
+  // The row is disabled while this flag is on: Resolution while fullscreen.
+  std::string_view disabled_by;
   // Sliders: the inclusive range, the drag step and the unit shown after the number.
   // With top_label set, one step past max stores 0 and reads as top_label ("Unlimited").
   int min{};
@@ -61,11 +67,40 @@ struct OptionDef {
 // What a choice or slider row shows for a value ("On", "60", "75%", "Unlimited").
 [[nodiscard]] std::string value_text(const OptionDef& option, int value);
 
+// Aspect Ratio choice values; Any offers every size. The table's entries use the same values.
+inline constexpr int aspect_any = 0;
+inline constexpr int aspect_16_9 = 1;
+inline constexpr int aspect_16_10 = 2;
+inline constexpr int aspect_21_9 = 3;
+inline constexpr int aspect_4_3 = 4;
+
+// A common window size in points, and its aspect ratio (an aspect_ value other than aspect_any).
+struct ResolutionDef {
+  int width{};
+  int height{};
+  int aspect{};
+};
+
+// The Resolution choice's sizes in table order: value n is the entry at index n - 1. Value 0 is
+// Custom, which leaves the window size the user gave it.
+[[nodiscard]] std::span<const ResolutionDef> resolutions();
+// The entry a Resolution value stands for, or nullptr for Custom and an out-of-range value.
+[[nodiscard]] const ResolutionDef* find_resolution(int value);
+// Whether a Resolution value is offered for an aspect ratio in a display's full size. Custom is
+// always offered, and a max of 0 leaves that dimension unlimited.
+[[nodiscard]] bool resolution_offered(int value, int aspect, int max_width, int max_height);
+// The Resolution value of the largest size offered, or Custom (0) when none is.
+[[nodiscard]] int largest_resolution(int aspect, int max_width, int max_height);
+
 // KeyCodes.CharCodeStrings; empty for a code without a name.
 [[nodiscard]] std::string_view key_name(int code);
 inline constexpr int key_unset = 0;
 inline constexpr int key_escape = 27;
 inline constexpr int key_enter = 13;
+
+// Ally Particles: which effects from other players play. Minimal keeps their heals, ability areas
+// and flashes.
+enum class AllyParticles : std::uint8_t { off, minimal, all };
 
 // Settings the game systems read each frame.
 struct Preferences {
@@ -80,7 +115,7 @@ struct Preferences {
   bool ally_shots{true};
   bool ally_damage{true};
   bool ally_notifs{true};
-  bool ally_particles{true};
+  AllyParticles ally_particles{AllyParticles::all};
   bool show_tier_tag{true};
   bool show_quest_portraits{true};
   bool show_guild_invite_popup{true};
@@ -129,7 +164,8 @@ class Settings {
 
   // KeyMapper.setDisabled: whether the row currently accepts clicks.
   [[nodiscard]] bool enabled(const OptionDef& option) const {
-    return option.enabled_by.empty() || flag(option.enabled_by);
+    return (option.enabled_by.empty() || flag(option.enabled_by)) &&
+           (option.disabled_by.empty() || !flag(option.disabled_by));
   }
 
   // Parameters.cameraAngle: persisted with the settings.

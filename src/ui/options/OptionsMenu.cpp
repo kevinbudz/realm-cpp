@@ -109,6 +109,28 @@ void OptionsMenu::cancel_capture() {
   }
 }
 
+void OptionsMenu::set_display_size(int width, int height) {
+  display_width_ = width;
+  display_height_ = height;
+}
+
+ChoiceList OptionsMenu::choices(const OptionDef& option) const {
+  if (!visible() || option.param != "resolution") {
+    return option.choices;
+  }
+  // The stored size stays listed even when the display cannot fit it, so the dropdown shows it.
+  const int aspect = settings_->get("aspectRatio");
+  const int stored = settings_->get(option.param);
+  ChoiceList result;
+  for (const auto& choice : option.choices) {
+    if (choice.second == stored ||
+        resolution_offered(choice.second, aspect, display_width_, display_height_)) {
+      result.push_back(choice);
+    }
+  }
+  return result;
+}
+
 void OptionsMenu::set_value(std::string_view param, int value) {
   const auto* option = find_option(param);
   if (!visible() || !option || !enabled(*option)) {
@@ -116,6 +138,12 @@ void OptionsMenu::set_value(std::string_view param, int value) {
   }
   cancel_capture();
   if (settings_->set_value(param, value)) {
+    // Aspect Ratio narrows Resolution: a stored size the new ratio does not offer moves to the
+    // largest one that fits the display.
+    if (param == "aspectRatio" && !resolution_offered(settings_->get("resolution"), value, 0, 0)) {
+      settings_->set_value("resolution",
+                           largest_resolution(value, display_width_, display_height_));
+    }
     changed_ = true;
     touched();
   }

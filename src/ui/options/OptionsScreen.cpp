@@ -54,9 +54,9 @@ Rml::ElementFormControl* form(Rml::Element* element) {
   return dynamic_cast<Rml::ElementFormControl*>(element);
 }
 
-int choice_index(const OptionDef& option, int value) {
-  for (std::size_t i = 0; i < option.choices.size(); ++i) {
-    if (option.choices[i].second == value) {
+int choice_index(const ChoiceList& choices, int value) {
+  for (std::size_t i = 0; i < choices.size(); ++i) {
+    if (choices[i].second == value) {
       return static_cast<int>(i);
     }
   }
@@ -76,7 +76,7 @@ std::string gallery_rml(const OptionDef& option) {
   return result + "</div>";
 }
 
-std::string control_rml(const OptionDef& option, int value) {
+std::string control_rml(const OptionDef& option, int value, const ChoiceList& choices) {
   const auto param = escaped(option.param);
   switch (option.kind) {
     case OptionDef::Kind::key:
@@ -86,7 +86,7 @@ std::string control_rml(const OptionDef& option, int value) {
              "\"><div class=\"knob\"></div></div>";
     case OptionDef::Kind::choice: {
       std::string result = "<select class=\"choice\" data-param=\"" + param + "\">";
-      for (const auto& [label, choice] : option.choices) {
+      for (const auto& [label, choice] : choices) {
         result += "<option value=\"" + std::to_string(choice) + "\"" +
                   (choice == value ? " selected" : "") + ">" + escaped(label) + "</option>";
       }
@@ -115,6 +115,8 @@ struct OptionsScreen::Impl {
     Rml::Element* fill{};
     Rml::Element* readout{};
     Rml::ElementList tiles;
+    // The choices a dropdown lists, as its options were last built.
+    ChoiceList offered;
     std::string text;
   };
 
@@ -310,8 +312,8 @@ struct OptionsScreen::Impl {
       } else {
         html += "<div class=\"row\" data-row=\"" + escaped(option->param) +
                 "\"><div class=\"label\">" + escaped(option->label) +
-                "</div><div class=\"control\">" + control_rml(*option, menu.value(*option)) +
-                "</div></div>";
+                "</div><div class=\"control\">" +
+                control_rml(*option, menu.value(*option), menu.choices(*option)) + "</div></div>";
       }
     }
     if (previous) {
@@ -332,6 +334,9 @@ struct OptionsScreen::Impl {
       node.control = row->QuerySelector(".key, .switch, select, input, .gallery");
       node.fill = row->QuerySelector(".fill");
       node.readout = row->QuerySelector(".readout");
+      if (node.def && node.def->kind == OptionDef::Kind::choice) {
+        node.offered = menu.choices(*node.def);
+      }
       row->GetElementsByClassName(node.tiles, "tile");
       Rml::ElementList images;
       row->GetElementsByTagName(images, "native-image");
@@ -396,15 +401,28 @@ struct OptionsScreen::Impl {
         case OptionDef::Kind::toggle:
           node.control->SetClass("on", value != 0);
           break;
-        case OptionDef::Kind::choice:
+        case OptionDef::Kind::choice: {
+          // A Resolution list narrows with its Aspect Ratio, so the options are rebuilt when the
+          // list changes (the row itself stays, with its scroll position).
+          auto offered = menu.choices(option);
+          auto* select = dynamic_cast<Rml::ElementFormControlSelect*>(node.control);
+          if (offered != node.offered) {
+            node.offered = std::move(offered);
+            if (select) {
+              select->RemoveAll();
+              for (const auto& [label, choice] : node.offered) {
+                select->Add(escaped(label), std::to_string(choice));
+              }
+            }
+          }
           for (auto* tile : node.tiles) {
             tile->SetClass("selected", tile->GetAttribute<int>("data-value", 0) == value);
           }
-          if (auto* select = dynamic_cast<Rml::ElementFormControlSelect*>(node.control);
-              select && select->GetSelection() != choice_index(option, value)) {
-            select->SetSelection(choice_index(option, value));
+          if (select && select->GetSelection() != choice_index(node.offered, value)) {
+            select->SetSelection(choice_index(node.offered, value));
           }
           break;
+        }
         case OptionDef::Kind::slider: {
           const int position = slider_position(option, value);
           if (auto* input = form(node.control);

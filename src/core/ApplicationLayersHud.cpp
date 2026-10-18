@@ -222,8 +222,9 @@ void configure_hud_layer(ClientState& cs, ClientLayers& layers) {
         case realm::InventoryActionKind::transfer:
         case realm::InventoryActionKind::store: {
           const bool transfer = action->kind == realm::InventoryActionKind::transfer;
-          // ItemGridMediator.onCtrlClick: ctrl-click does nothing while the swap is off.
-          if (transfer && (!state.backpack || !cs.settings.flag("inventorySwap"))) {
+          // ItemGridMediator.onCtrlClick: Ctrl-click swaps between the inventory and the backpack,
+          // so only a backpack slot can start one.
+          if (transfer && !state.backpack) {
             break;
           }
           const int begin = transfer && cs.hud_input.selected() != 2 ? 12 : 4;

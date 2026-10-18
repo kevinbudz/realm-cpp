@@ -10,6 +10,20 @@ namespace realm {
 namespace {
 constexpr double tau = 2 * std::numbers::pi;
 
+// Ally Particles: Off shows none of another player's effects, All shows all of them and Minimal
+// keeps only their heals (1), ability areas (5) and flashes (15).
+bool ally_effect_shown(AllyParticles setting, int type) {
+  switch (setting) {
+    case AllyParticles::off:
+      return false;
+    case AllyParticles::minimal:
+      return type == 1 || type == 5 || type == 15;
+    case AllyParticles::all:
+      return true;
+  }
+  return false;
+}
+
 EmitterKind emitter_kind(const std::string& kind) {
   return kind == "Healing"           ? EmitterKind::healing
          : kind == "Fountain"        ? EmitterKind::fountain
@@ -286,10 +300,10 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
       !target) {
     return;
   }
-  // Ally Particles off: an effect sourced from another player is skipped. Screen shake (type 14)
-  // follows its own Screen Shake option.
+  // Ally Particles: an effect sourced from another player is skipped unless the setting keeps it.
+  // Screen shake (type 14) follows its own Screen Shake option.
   if (target && target->player && target->id != world.player_id() && effect.type != 14 &&
-      !world.preferences().ally_particles) {
+      !ally_effect_shown(world.preferences().ally_particles, effect.type)) {
     return;
   }
 

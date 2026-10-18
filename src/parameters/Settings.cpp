@@ -121,6 +121,8 @@ std::vector<OptionDef> build() {
   add(key(at, "toggleFullscreenMode", "Toggle Fullscreen", "Switches fullscreen on and off.", 122));
   add(key(at, "togglePerformanceStats", "Toggle Performance Stats",
           "Shows or hides the frame rate and memory display.", 80));
+  add(key(at, "toggleHpBars", "Toggle Health Bars",
+          "Shows or hides health bars below players and enemies.", 72));
   at.name = "Chat";
   add(key(at, "chat", "Open Chat", "Opens the chat input box.", 13));
   add(key(at, "chatCommand", "Start Chat Command",
@@ -131,27 +133,21 @@ std::vector<OptionDef> build() {
   add(key(at, "scrollChatDown", "Scroll Chat Down", "Scrolls to newer chat messages.", 34));
   // Options.addControlsOptions (camera rotation) and addGameplayOptions.
   at = {C::gameplay, "Camera"};
-  add(toggle(at, "allowRotation", "Allow Camera Rotation",
-             "Lets the rotate keys turn the camera."));
   add(choice(at, "defaultCameraAngle", "Default Camera Angle",
              "The angle the camera starts at and resets to.", 1,
              {{"45\xC2\xB0", 1}, {"0\xC2\xB0", 0}}));
+  add(toggle(at, "allowRotation", "Allow Camera Rotation",
+             "Lets the rotate keys turn the camera."));
   add(toggle(at, "centerOnPlayer", "Center On Player",
              "Keeps your character in the middle of the screen instead of offset."));
   at.name = "Interface";
-  add(toggle(at, "hpBars", "Health Bars", "Draws health bars below players and enemies."));
   add(toggle(at, "toggleBarText", "HP/MP Text",
              "Shows the HP and MP numbers on the bars. Off shows them only while the pointer is "
              "over a bar."));
+  add(toggle(at, "textBubbles", "Text Bubbles", "Draws chat speech bubbles above players."));
   add(toggle(at, "showTierTag", "Show Tier Tags", "Shows tier tags on your gear."));
-  add(toggle(at, "inventorySwap", "Ctrl-Click Backpack Swap",
-             "Hold Ctrl and click an item to swap it between your inventory and your backpack."));
   add(toggle(at, "showQuestPortraits", "Show Quest Portraits",
              "Shows the portrait of your current quest target."));
-  add(toggle(at, "textBubbles", "Text Bubbles", "Draws chat speech bubbles above players."));
-  add(toggle(at, "projOutline", "Projectile Outline", "Draws an outline around projectiles."));
-  add(toggle(at, "smartProjectiles", "Projectile Direction",
-             "Turns projectiles to face the way they are moving.", false));
   std::vector<std::pair<std::string_view, int>> cursors{{"System", -1}};
   static const std::array<std::string, 16> cursor_labels{
       "Cursor 0", "Cursor 1", "Cursor 2",  "Cursor 3",  "Cursor 4",  "Cursor 5",
@@ -173,6 +169,47 @@ std::vector<OptionDef> build() {
   // Options.addGraphicsOptions. There is no Hardware Acceleration row: the native renderer is
   // always the GPU path.
   at = {C::video, "Display"};
+  add(choice(at, "aspectRatio", "Aspect Ratio",
+             "Limits the Resolution list to window sizes of one aspect ratio.", aspect_any,
+             {{"Any", aspect_any},
+              {"16:9", aspect_16_9},
+              {"16:10", aspect_16_10},
+              {"21:9", aspect_21_9},
+              {"4:3", aspect_4_3}}));
+  // One label per size, built once so the choice's string_views stay valid.
+  static const std::vector<std::string> size_labels = [] {
+    std::vector<std::string> labels;
+    for (const auto& size : resolutions()) {
+      labels.push_back(std::to_string(size.width) + " \xC3\x97 " + std::to_string(size.height));
+    }
+    return labels;
+  }();
+  // The dropdown lists sizes grouped by aspect ratio (4:3, 16:10, 16:9, 21:9), each by ascending
+  // width. Values stay in table order, so the list order is not the value order.
+  constexpr std::array<int, 4> aspect_order{aspect_4_3, aspect_16_10, aspect_16_9, aspect_21_9};
+  const auto table = resolutions();
+  std::vector<std::size_t> order(table.size());
+  for (std::size_t i = 0; i < order.size(); ++i) {
+    order[i] = i;
+  }
+  const auto group = [&](std::size_t index) {
+    return std::find(aspect_order.begin(), aspect_order.end(), table[index].aspect) -
+           aspect_order.begin();
+  };
+  std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+    return group(a) != group(b) ? group(a) < group(b) : table[a].width < table[b].width;
+  });
+  ChoiceList sizes{{"Custom", 0}};
+  for (const auto index : order) {
+    sizes.emplace_back(size_labels[index], static_cast<int>(index) + 1);
+  }
+  // Fullscreen sets the screen size, so this row is disabled then.
+  auto resolution =
+      choice(at, "resolution", "Resolution",
+             "Window size in windowed mode. Choose an aspect ratio to narrow the list.", 0,
+             std::move(sizes));
+  resolution.disabled_by = "fullscreenMode";
+  add(std::move(resolution));
   add(toggle(at, "fullscreenMode", "Fullscreen", "Fills the whole screen with the game.", false));
   add(toggle(at, "vsync", "VSync",
              "Synchronizes rendering with the display refresh to prevent screen tearing."));
@@ -182,17 +219,24 @@ std::vector<OptionDef> build() {
              0, 30, 1000, 1, {}, "\xE2\x88\x9E"));
   add(toggle(at, "showStatistics", "Performance Stats",
              "Shows the frame rate, frame times and memory in the corner.", false));
-  at.name = "Quality";
+  at.name = "Appearance";
   add(toggle(at, "drawShadows", "Shadows", "Draws shadows under players, enemies and objects."));
   add(toggle(at, "particles", "Particles",
              "Renders particles that are not needed for gameplay, such as hit and death "
              "particles."));
-  // Options.addMiscOptions: Disable Ally Particles, shown as a switch that is on by default.
-  add(toggle(at, "allyParticles", "Ally Particles",
-             "Shows particle effects from other players, such as their heals and abilities."));
   // Native addition: BetterSkillys has no screen shake option.
   add(toggle(at, "screenShake", "Screen Shake", "Shakes the screen during some effects."));
+  add(toggle(at, "hpBars", "Health Bars", "Draws health bars below players and enemies."));
+  add(toggle(at, "projOutline", "Projectile Outline", "Draws an outline around projectiles."));
+  add(toggle(at, "smartProjectiles", "Projectile Direction",
+             "Turns projectiles to face the way they are moving.", false));
   at.name = "Allies";
+  // Options.addMiscOptions: Disable Ally Particles, now a choice. Its saved 0 and 1 still mean Off
+  // and All.
+  add(choice(at, "allyParticles", "Ally Particles",
+             "Particle effects from other players. Minimal keeps heals, ability areas and flashes; "
+             "Off hides them all.",
+             1, {{"Off", 0}, {"Minimal", 2}, {"All", 1}}));
   add(toggle(at, "allyShots", "Ally Shots",
              "Shows other players' projectiles. Turn off to improve performance."));
   add(toggle(at, "allyDamage", "Ally Damage",
@@ -285,6 +329,16 @@ constexpr std::pair<int, std::string_view> key_names[]{{0, "[Unset]"},    {8, "B
                                                        {220, "\\"},       {221, "]"},
                                                        {222, "'"}};
 constexpr double default_angle = 7 * std::numbers::pi / 4;
+// The Resolution choice's sizes. Values are 1-based indices into this table, so new sizes are only
+// appended. build() sets the order the dropdown lists them in.
+constexpr std::array<ResolutionDef, 20> resolution_table{
+    {{800, 600, aspect_4_3},     {1024, 768, aspect_4_3},    {1280, 960, aspect_4_3},
+     {1600, 1200, aspect_4_3},   {1280, 800, aspect_16_10},  {1440, 900, aspect_16_10},
+     {1680, 1050, aspect_16_10}, {1920, 1200, aspect_16_10}, {2560, 1600, aspect_16_10},
+     {1280, 720, aspect_16_9},   {1366, 768, aspect_16_9},   {1600, 900, aspect_16_9},
+     {1920, 1080, aspect_16_9},  {2560, 1440, aspect_16_9},  {3840, 2160, aspect_16_9},
+     {2560, 1080, aspect_21_9},  {3440, 1440, aspect_21_9},  {1440, 1080, aspect_4_3},
+     {1720, 720, aspect_21_9},   {1920, 810, aspect_21_9}}};
 }
 
 std::string_view options_category_name(OptionsCategory category) {
@@ -377,6 +431,42 @@ std::string value_text(const OptionDef& option, int value) {
       return std::to_string(value);
   }
   return {};
+}
+
+std::span<const ResolutionDef> resolutions() {
+  return resolution_table;
+}
+
+const ResolutionDef* find_resolution(int value) {
+  if (value < 1 || value > static_cast<int>(resolution_table.size())) {
+    return nullptr;
+  }
+  return &resolution_table[static_cast<std::size_t>(value - 1)];
+}
+
+bool resolution_offered(int value, int aspect, int max_width, int max_height) {
+  if (value == 0) {
+    return true;
+  }
+  const auto* size = find_resolution(value);
+  return size && (aspect == aspect_any || size->aspect == aspect) &&
+         (max_width <= 0 || size->width <= max_width) &&
+         (max_height <= 0 || size->height <= max_height);
+}
+
+int largest_resolution(int aspect, int max_width, int max_height) {
+  int best = 0;
+  int best_area = 0;
+  for (std::size_t i = 0; i < resolution_table.size(); ++i) {
+    const int value = static_cast<int>(i) + 1;
+    const auto& size = resolution_table[i];
+    if (resolution_offered(value, aspect, max_width, max_height) &&
+        size.width * size.height > best_area) {
+      best = value;
+      best_area = size.width * size.height;
+    }
+  }
+  return best;
 }
 
 Settings::Settings() : camera_angle_(default_angle), camera_zoom_(1) {
@@ -487,7 +577,11 @@ Preferences Settings::preferences() const {
   p.ally_shots = flag("allyShots");
   p.ally_damage = flag("allyDamage");
   p.ally_notifs = flag("allyNotifs");
-  p.ally_particles = flag("allyParticles");
+  // Allies: 0 is Off, 1 All and 2 Minimal, so a saved Off or All keeps its meaning.
+  const int ally_particles = get("allyParticles");
+  p.ally_particles = ally_particles == 0   ? AllyParticles::off
+                     : ally_particles == 2 ? AllyParticles::minimal
+                                           : AllyParticles::all;
   p.show_tier_tag = flag("showTierTag");
   p.show_quest_portraits = flag("showQuestPortraits");
   p.show_guild_invite_popup = flag("showGuildInvitePopup");

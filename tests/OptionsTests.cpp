@@ -1,5 +1,6 @@
 #include "realm/ui/options/OptionsMenu.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -33,12 +34,15 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
             s.flag("allyNotifs") && !s.flag("fullscreenMode"),
         "toggle defaults");
-  check(s.flag("toggleBarText") && s.flag("inventorySwap") && s.flag("screenShake") &&
-            !s.flag("smartProjectiles") && !s.flag("showStatistics") && s.flag("allyParticles"),
+  check(s.flag("toggleBarText") && s.flag("screenShake") && !s.flag("smartProjectiles") &&
+            !s.flag("showStatistics") && s.flag("allyParticles"),
         "new row defaults");
   check(s.get("maxFPS") == 0 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("playSFX") &&
             s.flag("showTradePopup"),
         "graphics defaults");
+  check(s.get("aspectRatio") == aspect_any && s.get("resolution") == 0 &&
+            s.preferences().ally_particles == AllyParticles::all,
+        "window size defaults to Any and Custom, and Ally Particles to All");
   check(!find_option("quality") && !s.values().contains("quality"),
         "the UI Quality row is gone");
   check(s.get("playerAlpha") == 100 && s.flag("fadePlayers") && !s.flag("fadeGuild") &&
@@ -74,9 +78,12 @@ void settings_rules(const std::filesystem::path& scratch) {
         "default camera angle resets the camera angle");
   // Only the open category is reset.
   s.reset_category(OptionsCategory::gameplay);
-  check(s.flag("hpBars") && s.get("cursor") == 4 && s.get("moveUp") == 83 &&
+  check(!s.flag("hpBars") && s.get("cursor") == 4 && s.get("moveUp") == 83 &&
             s.get("defaultCameraAngle") == 1,
         "reset affects one category");
+  // Health Bars is a Video row, so only Video resets it.
+  s.reset_category(OptionsCategory::video);
+  check(s.flag("hpBars"), "Health Bars resets with Video");
   check(s.preferences().hp_bars && s.preferences().ally_notifs && s.preferences().show_trade_popup,
         "preferences follow values");
   s.set_value("allyNotifs", 0);
@@ -90,8 +97,8 @@ void settings_rules(const std::filesystem::path& scratch) {
   s.set_value("allyParticles", 1);
   s.set_value("smartProjectiles", 1);
   const auto effects = s.preferences();
-  check(!effects.screen_shake && !effects.bar_text && effects.ally_particles &&
-            effects.smart_projectiles,
+  check(!effects.screen_shake && !effects.bar_text &&
+            effects.ally_particles == AllyParticles::all && effects.smart_projectiles,
         "effect preferences follow values");
   s.set_value("screenShake", 1);
   s.set_value("toggleBarText", 1);
@@ -175,13 +182,13 @@ void settings_rules(const std::filesystem::path& scratch) {
         "settings sit beside an explicit account file");
   check(!s.save("/proc/forbidden/settings.json"), "unwritable location reports failure");
   // Option table shape: every row in a section, no section split across the table.
-  check(category_options(OptionsCategory::keybinds).size() == 34 &&
-            category_options(OptionsCategory::gameplay).size() == 14 &&
-            category_options(OptionsCategory::video).size() == 15 &&
+  check(category_options(OptionsCategory::keybinds).size() == 35 &&
+            category_options(OptionsCategory::gameplay).size() == 10 &&
+            category_options(OptionsCategory::video).size() == 20 &&
             category_options(OptionsCategory::audio).size() == 5,
         "category sizes");
   check(category_sections(OptionsCategory::video) ==
-            std::vector<std::string_view>{"Display", "Quality", "Allies", "Players"},
+            std::vector<std::string_view>{"Display", "Appearance", "Allies", "Players"},
         "video sections in order, Players last");
   check(find_option("showTradePopup")->kind == OptionDef::Kind::toggle &&
             find_option("showTradePopup")->category == OptionsCategory::gameplay,
@@ -244,6 +251,295 @@ void settings_rules(const std::filesystem::path& scratch) {
         "KeyCodes names");
 }
 
+// Ally Particles is the first Allies row and maps its saved values: 0 Off, 1 All, 2 Minimal.
+void ally_particles_rules(const std::filesystem::path& scratch) {
+  const auto* ally = find_option("allyParticles");
+  check(ally && ally->kind == OptionDef::Kind::choice && ally->section == "Allies" &&
+            ally->category == OptionsCategory::video && ally->fallback == 1,
+        "Ally Particles is a video choice in Allies, defaulting to All");
+  check(ally->choices == ChoiceList{{"Off", 0}, {"Minimal", 2}, {"All", 1}},
+        "Ally Particles lists Off, Minimal and All in that order");
+  const auto video = category_options(OptionsCategory::video);
+  const auto allies = std::find_if(video.begin(), video.end(),
+                                   [](const OptionDef* row) { return row->section == "Allies"; });
+  check(allies != video.end() && (*allies)->param == "allyParticles",
+        "Ally Particles is the first Allies row");
+  Settings s;
+  check(s.preferences().ally_particles == AllyParticles::all, "Ally Particles defaults to All");
+  check(s.set_value("allyParticles", 0) && s.preferences().ally_particles == AllyParticles::off &&
+            s.set_value("allyParticles", 2) &&
+            s.preferences().ally_particles == AllyParticles::minimal &&
+            s.set_value("allyParticles", 1) && s.preferences().ally_particles == AllyParticles::all,
+        "each Ally Particles value reaches the preferences");
+  check(!s.set_value("allyParticles", 3) && !s.set_value("allyParticles", -1) &&
+            s.get("allyParticles") == 1,
+        "Ally Particles rejects values outside its choices");
+  {
+    std::ofstream file(scratch / "allies.json");
+    file << R"({"values":{"allyParticles":2}})";
+  }
+  check(Settings::load(scratch / "allies.json").preferences().ally_particles ==
+            AllyParticles::minimal,
+        "a saved Minimal loads");
+  {
+    std::ofstream file(scratch / "allies.json");
+    file << R"({"values":{"allyParticles":7}})";
+  }
+  check(Settings::load(scratch / "allies.json").preferences().ally_particles == AllyParticles::all,
+        "an invalid saved Ally Particles falls back to All");
+}
+
+// Aspect Ratio and Resolution: the size table, its labels and value validation, the offer and
+// reconcile rules, and the list a menu shows for a display.
+void window_size_rules(const std::filesystem::path& scratch) {
+  const auto sizes = resolutions();
+  check(sizes.size() == 20 && find_resolution(0) == nullptr && find_resolution(-1) == nullptr &&
+            find_resolution(21) == nullptr,
+        "the size table has 20 entries and no entry for Custom or out of range");
+  check(find_resolution(18)->width == 1440 && find_resolution(18)->height == 1080 &&
+            find_resolution(18)->aspect == aspect_4_3 && find_resolution(19)->width == 1720 &&
+            find_resolution(19)->height == 720 && find_resolution(19)->aspect == aspect_21_9 &&
+            find_resolution(20)->width == 1920 && find_resolution(20)->height == 810 &&
+            find_resolution(20)->aspect == aspect_21_9,
+        "the appended sizes keep their values: 1440 x 1080, 1720 x 720 and 1920 x 810");
+  check(find_resolution(1)->width == 800 && find_resolution(1)->height == 600 &&
+            find_resolution(17)->width == 3440 && find_resolution(17)->height == 1440 &&
+            find_resolution(11)->width == 1366 && find_resolution(11)->aspect == aspect_16_9,
+        "table entries keep their order and 1366 x 768 is 16:9");
+  // Each entry's aspect is the nearest of the four ratios, and its real ratio is within 3% of it.
+  constexpr std::array<std::pair<int, double>, 4> ratios{{{aspect_4_3, 4.0 / 3},
+                                                          {aspect_16_10, 1.6},
+                                                          {aspect_16_9, 16.0 / 9},
+                                                          {aspect_21_9, 21.0 / 9}}};
+  for (const auto& size : sizes) {
+    const double ratio = static_cast<double>(size.width) / size.height;
+    int nearest = aspect_any;
+    double gap = 1e9;
+    for (const auto& [aspect, nominal] : ratios) {
+      if (std::fabs(ratio - nominal) < gap) {
+        gap = std::fabs(ratio - nominal);
+        nearest = aspect;
+      }
+    }
+    check(size.aspect == nearest && gap / ratio < 0.03,
+          "every size is classified as the aspect ratio it is nearest to");
+  }
+  const auto* resolution = find_option("resolution");
+  check(resolution && resolution->choices.size() == 21 &&
+            resolution->choices[0] == std::pair<std::string_view, int>{"Custom", 0} &&
+            resolution->choices[1].first == "800 \xC3\x97 600" &&
+            resolution->choices[4].first == "1440 \xC3\x97 1080" &&
+            resolution->choices.back().first == "3440 \xC3\x97 1440" &&
+            value_text(*resolution, 0) == "Custom" &&
+            value_text(*resolution, 13) == "1920 \xC3\x97 1080",
+        "Resolution lists Custom and every table size");
+  check(resolution->disabled_by == "fullscreenMode" && resolution->enabled_by.empty(),
+        "Resolution is disabled by fullscreen");
+  const auto* aspect = find_option("aspectRatio");
+  check(aspect && aspect->section == "Display" && aspect->fallback == aspect_any &&
+            aspect->choices ==
+                ChoiceList{{"Any", 0}, {"16:9", 1}, {"16:10", 2}, {"21:9", 3}, {"4:3", 4}} &&
+            value_text(*aspect, 4) == "4:3",
+        "Aspect Ratio lists Any, 16:9, 16:10, 21:9 and 4:3");
+  const auto video = category_options(OptionsCategory::video);
+  check(video.size() >= 4 && video[0]->param == "aspectRatio" && video[1]->param == "resolution" &&
+            video[2]->param == "fullscreenMode" && video[3]->param == "vsync",
+        "Aspect Ratio and Resolution come above Fullscreen in Display");
+  // The dropdown lists the sizes grouped by aspect ratio (4:3, 16:10, 16:9, 21:9), ascending width
+  // in each.
+  int last_group = -1;
+  int last_width = 0;
+  for (const auto& [label, value] : resolution->choices) {
+    if (value == 0) {
+      continue;
+    }
+    const auto* size = find_resolution(value);
+    const int group = size->aspect == aspect_4_3     ? 0
+                      : size->aspect == aspect_16_10 ? 1
+                      : size->aspect == aspect_16_9  ? 2
+                                                     : 3;
+    check(group > last_group || (group == last_group && size->width > last_width),
+          "the Resolution list is grouped by aspect ratio, ascending width in each");
+    last_group = group;
+    last_width = size->width;
+  }
+  const auto gameplay = category_options(OptionsCategory::gameplay);
+  check(gameplay.size() >= 3 && gameplay[0]->param == "defaultCameraAngle" &&
+            gameplay[1]->param == "allowRotation" && gameplay[2]->param == "centerOnPlayer",
+        "Default Camera Angle comes above Allow Camera Rotation");
+
+  Settings s;
+  check(s.get("aspectRatio") == 0 && s.get("resolution") == 0, "window size defaults");
+  check(s.set_value("aspectRatio", aspect_4_3) && !s.set_value("aspectRatio", 5) &&
+            !s.set_value("aspectRatio", -1) && s.get("aspectRatio") == 4,
+        "Aspect Ratio accepts its five values only");
+  check(s.set_value("resolution", 20) && !s.set_value("resolution", 21) &&
+            !s.set_value("resolution", -1) && s.get("resolution") == 20,
+        "Resolution accepts Custom and the table only");
+  s.set_value("fullscreenMode", 1);
+  check(!s.enabled(*resolution) && s.enabled(*aspect), "Resolution is disabled while fullscreen");
+  s.set_value("fullscreenMode", 0);
+  check(s.enabled(*resolution), "Resolution is enabled in a window");
+  s.reset_category(OptionsCategory::video);
+  check(s.get("aspectRatio") == 0 && s.get("resolution") == 0,
+        "reset of Video restores Any and Custom");
+  s.set_value("aspectRatio", aspect_16_9);
+  s.set_value("resolution", 13);
+  {
+    check(s.save(scratch / "window.json") &&
+              Settings::load(scratch / "window.json").get("resolution") == 13 &&
+              Settings::load(scratch / "window.json").get("aspectRatio") == aspect_16_9,
+          "window size settings round trip");
+    std::ofstream file(scratch / "window.json");
+    file << R"({"values":{"resolution":21,"aspectRatio":9}})";
+  }
+  check(Settings::load(scratch / "window.json").get("resolution") == 0 &&
+            Settings::load(scratch / "window.json").get("aspectRatio") == 0,
+        "invalid stored window sizes fall back to Any and Custom");
+
+  // The offer rules: Custom always; a size needs its aspect (Any takes all) and a fit (0 is no
+  // limit).
+  check(resolution_offered(0, aspect_16_9, 1, 1) && resolution_offered(15, aspect_any, 0, 0) &&
+            resolution_offered(13, aspect_16_9, 1920, 1080) &&
+            !resolution_offered(13, aspect_16_9, 1919, 1080) &&
+            !resolution_offered(15, aspect_any, 1920, 1080) &&
+            !resolution_offered(15, aspect_4_3, 0, 0) &&
+            !resolution_offered(21, aspect_any, 0, 0) &&
+            resolution_offered(20, aspect_21_9, 1920, 1080) &&
+            largest_resolution(aspect_4_3, 1920, 1080) == 18,
+        "resolution offers follow aspect ratio and display size");
+  check(largest_resolution(aspect_16_9, 0, 0) == 15 &&
+            largest_resolution(aspect_16_9, 1920, 1080) == 13 &&
+            largest_resolution(aspect_16_9, 1000, 700) == 0 &&
+            largest_resolution(aspect_4_3, 0, 0) == 4 &&
+            largest_resolution(aspect_16_10, 1920, 1080) == 7 &&
+            largest_resolution(aspect_21_9, 1920, 1080) == 20 &&
+            largest_resolution(aspect_21_9, 0, 0) == 17 &&
+            largest_resolution(aspect_any, 1920, 1080) == 13,
+        "the largest offered size is chosen, or Custom when none fits");
+
+  // The menu's list for a display, and the reconcile when Aspect Ratio changes.
+  Settings settings;
+  OptionsMenu menu;
+  menu.open(settings);
+  menu.set_category(OptionsCategory::video);
+  menu.set_display_size(1920, 1080);
+  const auto values = [](const ChoiceList& list) {
+    std::vector<int> result;
+    for (const auto& choice : list) {
+      result.push_back(choice.second);
+    }
+    return result;
+  };
+  check(values(menu.choices(*resolution)) ==
+            std::vector<int>{0, 1, 2, 3, 18, 5, 6, 7, 10, 11, 12, 13, 19, 20},
+        "Any lists Custom and the sizes that fit 1920 x 1080, grouped by aspect ratio");
+  menu.set_value("aspectRatio", aspect_16_10);
+  check(values(menu.choices(*resolution)) == std::vector<int>{0, 5, 6, 7},
+        "the Aspect Ratio narrows the Resolution list");
+  menu.set_display_size(0, 0);
+  menu.set_value("aspectRatio", aspect_any);
+  check(menu.choices(*resolution).size() == 21, "an unknown display size does not limit the list");
+  menu.set_display_size(1920, 1080);
+  menu.set_value("resolution", 14);
+  menu.set_value("aspectRatio", aspect_16_10);
+  check(settings.get("resolution") == 7,
+        "a size the new ratio does not offer moves to the largest that fits");
+  menu.set_value("aspectRatio", aspect_21_9);
+  check(settings.get("resolution") == 20,
+        "the largest 21:9 size that fits 1920 x 1080 is 1920 x 810");
+  menu.set_display_size(1000, 700);
+  menu.set_value("aspectRatio", aspect_16_10);
+  check(settings.get("resolution") == 0, "Custom when no size of the new ratio fits");
+  menu.set_display_size(1920, 1080);
+  menu.set_value("aspectRatio", aspect_16_9);
+  menu.set_value("resolution", 14);
+  menu.set_value("aspectRatio", aspect_any);
+  menu.set_value("aspectRatio", aspect_16_9);
+  check(settings.get("resolution") == 14, "a size the ratio still offers is kept");
+  // A stored size the display cannot fit stays listed, so the dropdown shows the saved value.
+  menu.set_display_size(1366, 768);
+  check(values(menu.choices(*resolution)) == std::vector<int>{0, 10, 11, 14},
+        "a stored size the display cannot fit stays listed");
+  settings.set_value("fullscreenMode", 1);
+  menu.set_value("resolution", 3);
+  check(settings.get("resolution") == 14, "a fullscreen Resolution ignores the menu");
+  menu.close();
+}
+
+// Toggle Health Bars is an Interface keybind right after Toggle Performance Stats. Its default is H
+// (72), the only key default that uses 72.
+void hp_bar_key_rules() {
+  const auto* hp_key = find_option("toggleHpBars");
+  check(hp_key && hp_key->kind == OptionDef::Kind::key &&
+            hp_key->category == OptionsCategory::keybinds && hp_key->section == "Interface" &&
+            hp_key->label == "Toggle Health Bars" &&
+            hp_key->tooltip == "Shows or hides health bars below players and enemies." &&
+            hp_key->fallback == 72 && Settings().get("toggleHpBars") == 72 &&
+            value_text(*hp_key, 72) == "H",
+        "Toggle Health Bars is an Interface keybind with default H (72)");
+  const auto rows = category_options(OptionsCategory::keybinds);
+  const auto at = std::find(rows.begin(), rows.end(), hp_key);
+  check(at != rows.end() && at != rows.begin() && (*(at - 1))->param == "togglePerformanceStats",
+        "Toggle Health Bars follows Toggle Performance Stats");
+  int defaults = 0;
+  for (const auto& option : option_defs()) {
+    if ((option.kind == OptionDef::Kind::key || option.kind == OptionDef::Kind::hidden_key) &&
+        option.fallback == 72) {
+      ++defaults;
+    }
+  }
+  check(defaults == 1, "no other key row defaults to H (72)");
+  Settings s;
+  s.set_key("toggleHpBars", 75);
+  check(s.get("toggleHpBars") == 75 && s.get("togglePerformanceStats") == 80,
+        "Toggle Health Bars rebinds like any other key");
+  s.set_key("moveUp", 75);
+  check(s.get("moveUp") == 75 && s.get("toggleHpBars") == 0,
+        "binding a key taken by Toggle Health Bars unsets it");
+}
+
+// Health Bars, Projectile Outline and Projectile Direction are Appearance rows after Screen Shake,
+// and Text Bubbles sits under HP/MP Text in Gameplay's Interface. Ctrl-Click Backpack Swap is gone,
+// and a saved file that still names it loads without it.
+void row_layout_rules(const std::filesystem::path& scratch) {
+  const auto video = category_options(OptionsCategory::video);
+  const auto gameplay = category_options(OptionsCategory::gameplay);
+  const auto section_params = [](const std::vector<const OptionDef*>& rows, std::string_view name) {
+    std::vector<std::string_view> params;
+    for (const auto* row : rows) {
+      if (row->section == name) {
+        params.push_back(row->param);
+      }
+    }
+    return params;
+  };
+  check(section_params(video, "Appearance") ==
+            std::vector<std::string_view>{"drawShadows", "particles", "screenShake", "hpBars",
+                                          "projOutline", "smartProjectiles"},
+        "Appearance lists Shadows, Particles, Screen Shake, Health Bars, Projectile Outline and "
+        "Projectile Direction in that order");
+  check(
+      section_params(gameplay, "Interface") ==
+          std::vector<std::string_view>{"toggleBarText", "textBubbles", "showTierTag",
+                                        "showQuestPortraits"},
+      "Gameplay Interface lists HP/MP Text, Text Bubbles, Show Tier Tags and Show Quest Portraits");
+  check(find_option("hpBars")->category == OptionsCategory::video &&
+            find_option("projOutline")->category == OptionsCategory::video &&
+            find_option("smartProjectiles")->category == OptionsCategory::video,
+        "the moved switches are Video rows");
+  check(find_option("inventorySwap") == nullptr && !Settings().values().contains("inventorySwap"),
+        "Ctrl-Click Backpack Swap is gone");
+  {
+    std::ofstream file(scratch / "retired.json");
+    file << R"({"values":{"inventorySwap":0,"hpBars":0}})";
+  }
+  const auto retired = Settings::load(scratch / "retired.json");
+  check(!retired.values().contains("inventorySwap") && retired.get("hpBars") == 0 &&
+            retired.flag("toggleBarText"),
+        "a saved file that names the retired inventorySwap loads and keeps its other values");
+}
+
 bool listed(const OptionsMenu& menu, std::string_view param) {
   return std::any_of(menu.rows().begin(), menu.rows().end(),
                      [&](const OptionDef* row) { return row->param == param; });
@@ -255,7 +551,7 @@ void menu_behavior() {
   check(!menu.visible() && !menu.key_down(65), "a closed menu takes no keys");
   menu.open(settings);
   check(menu.visible() && menu.category() == OptionsCategory::keybinds &&
-            menu.rows().size() == 34 && listed(menu, "moveUp"),
+            menu.rows().size() == 35 && listed(menu, "moveUp"),
         "opens on Keybinds");
   // Rebinding.
   auto revision = menu.value_revision();
@@ -304,7 +600,7 @@ void menu_behavior() {
   // Categories and reset.
   revision = menu.layout_revision();
   menu.set_category(OptionsCategory::video);
-  check(menu.category() == OptionsCategory::video && menu.rows().size() == 15 &&
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 20 &&
             menu.layout_revision() != revision && listed(menu, "maxFPS"),
         "category switches the rows");
   menu.set_value("particles", 0);
@@ -320,7 +616,7 @@ void menu_behavior() {
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
         "search lists matches from every category");
   menu.set_query("  ");
-  check(menu.rows().size() == 15, "a blank query lists the open category");
+  check(menu.rows().size() == 20, "a blank query lists the open category");
   menu.set_query("chat scroll");
   check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
         "every query word must match (label, section or category)");
@@ -361,6 +657,10 @@ int main(int argc, char** argv) {
     }
     std::filesystem::create_directories(argv[1]);
     settings_rules(argv[1]);
+    ally_particles_rules(argv[1]);
+    window_size_rules(argv[1]);
+    hp_bar_key_rules();
+    row_layout_rules(argv[1]);
     menu_behavior();
     std::cout << "Options checks: " << checks << '\n';
   } catch (const std::exception& e) {

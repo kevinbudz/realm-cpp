@@ -460,6 +460,12 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
         cs.apply_settings();
         cs.save_settings();
       }
+      // Toggle Health Bars flips hpBars, the same value as the Options switch.
+      if (fresh && bound("toggleHpBars")) {
+        cs.settings.set_value("hpBars", cs.settings.flag("hpBars") ? 0 : 1);
+        cs.apply_settings();
+        cs.save_settings();
+      }
       if (fresh && bound("toggleFullscreenMode") && !options.hidden) {
         const bool fullscreen = (SDL_GetWindowFlags(cs.session.window) &
                                  (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;

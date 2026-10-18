@@ -42,8 +42,9 @@ body{z-index:100;background-color:transparent}
 
 /* Done: a greyscale generic_green_button over main_button_decoration, sized as the HUD portal panel's button
    (HudArt::main_button): the frame is 46 dp wider than the face (79 - 35 + 2) and 47 dp tall, the 35 dp face centred
-   in it both ways. The label is the panel's 16 dp bold white with the drop shadow. */
-#done{position:relative;height:47dp;margin-top:24dp}   /* 12 dp between Reset and the footer's top edge */
+   in it both ways. The label is the panel's 16 dp bold white with the drop shadow. The button is 150 dp wide and centred
+   in the 178 dp sidebar column, so its end caps are not stretched. */
+#done{position:relative;width:150dp;height:47dp;margin-top:24dp;margin-left:auto;margin-right:auto}   /* 12 dp between Reset and the footer's top edge */
 #done .deca-main-button-decoration{position:absolute;left:0;top:0;width:100%}
 #done-button{position:absolute;left:23dp;right:23dp;top:6dp;height:35dp;line-height:35dp;text-align:center;
     font-size:16dp;font-weight:bold;color:#ffffff;font-effect:shadow(0px 0px #000);
@@ -130,7 +131,7 @@ select.choice{box-sizing:border-box;width:160dp;   /* until OptionsScreen fits i
     height:28dp;font-size:16dp;font-weight:bold;color:#ffffff;
     font-effect:shadow(0px 0px #000);decorator:paint(deca bordered_field)}
 select.choice:hover{decorator:paint(deca bordered_field hover)}
-select.choice selectvalue{height:28dp;line-height:28dp;padding:0 34dp 0 16dp}
+select.choice selectvalue{height:28dp;line-height:28dp;padding:0 34dp 0 16dp;white-space:nowrap}
 select.choice selectarrow{width:14dp;height:8dp;margin:10dp 16dp 0 0;decorator:paint(deca spinner_up_arrow flip-y)}
 select.choice:hover selectarrow{decorator:paint(deca spinner_up_arrow flip-y hover)}
 select.choice selectbox{box-sizing:border-box;width:100%;max-height:240dp;margin-top:2dp;margin-bottom:2dp;padding:5dp;

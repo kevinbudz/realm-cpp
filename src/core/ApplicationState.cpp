@@ -308,6 +308,26 @@ void ClientState::apply_settings() {
     SDL_SetWindowFullscreen(session.window,
                             settings.flag("fullscreenMode") ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
   }
+  // Resolution is a windowed size. Custom (0) leaves the window alone. The size is set when the
+  // choice changed since it was last applied, or when leaving fullscreen (SDL may not report the
+  // restored size yet). Other settings, such as the hotkeys that call this, leave a dragged window
+  // alone.
+  if (!o.hidden && !settings.flag("fullscreenMode")) {
+    const int resolution = settings.get("resolution");
+    const bool changed = resolution != applied_resolution;
+    applied_resolution = resolution;
+    if (const auto* size = find_resolution(resolution); size && (changed || fullscreen)) {
+      int width = 0;
+      int height = 0;
+      SDL_GetWindowSize(session.window, &width, &height);
+      if (fullscreen || width != size->width || height != size->height) {
+        SDL_SetWindowSize(session.window, size->width, size->height);
+        const int display = std::max(SDL_GetWindowDisplayIndex(session.window), 0);
+        SDL_SetWindowPosition(session.window, SDL_WINDOWPOS_CENTERED_DISPLAY(display),
+                              SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+      }
+    }
+  }
   if (!o.hidden && persist_settings) {
     cursors.select(settings.get("cursor"));
   }
@@ -328,8 +348,31 @@ void ClientState::open_options() {
   // Options.onAddedToStage reads the window's real mode back into fullscreenMode.
   const bool fullscreen = (SDL_GetWindowFlags(session.window) &
                            (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
-  if (settings.set_value("fullscreenMode", fullscreen ? 1 : 0)) {
+  bool saved = settings.set_value("fullscreenMode", fullscreen ? 1 : 0);
+  // A windowed size the user dragged away from the chosen Resolution reads back as Custom. A hidden
+  // window never took the size, so it is not compared.
+  if (!o.hidden && !fullscreen) {
+    if (const auto* size = find_resolution(settings.get("resolution"))) {
+      int width = 0;
+      int height = 0;
+      SDL_GetWindowSize(session.window, &width, &height);
+      if (width != size->width || height != size->height) {
+        if (settings.set_value("resolution", 0)) {
+          saved = true;
+        }
+      }
+    }
+  }
+  if (saved) {
     save_settings();
+  }
+  // The Resolution list fits the full size of the window's display; without one it is not limited.
+  SDL_Rect bounds{};
+  if (const int display = SDL_GetWindowDisplayIndex(session.window);
+      display >= 0 && SDL_GetDisplayBounds(display, &bounds) == 0) {
+    options_menu.set_display_size(bounds.w, bounds.h);
+  } else {
+    options_menu.set_display_size(0, 0);
   }
   options_menu.open(settings);
 }

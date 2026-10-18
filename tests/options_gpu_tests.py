@@ -49,10 +49,11 @@ def bbox(mask):
 # Deca Done button on the footer; Back to Home is hidden) and the open category's rows, 40 apart from y 111. Key boxes are centered at x 555, switches at
 # x 521.
 DONE = '109 564'
-KEYBINDS, GAMEPLAY = '70 77', '75 269'   # Gameplay sits below the open Keybinds category's six section links
+KEYBINDS, GAMEPLAY, VIDEO = '70 77', '75 269', '56 307'   # Gameplay and Video sit below the open Keybinds category's six section links
 key_row = lambda index: f'555 {111 + index * 40}'
 MOVE_RIGHT, ROTATE_LEFT = key_row(3), '555 321'
-ALLOW_ROTATION, HP_BARS = '521 111', '521 281'   # Gameplay, scrolled to: Camera row 0, Interface row 0
+ALLOW_ROTATION = '521 151'   # Gameplay, scrolled to: Camera row 1
+APPEARANCE, HEALTH_BARS = '82 207', '521 231'   # Video: the Appearance section link, then its Health Bars switch
 RESET = '80 501'
 
 def main():
@@ -116,9 +117,9 @@ def main():
           'turning rotation on (in Gameplay) enables the Keybinds rows')
     print('camera rotation gating ok')
 
-    # --- Health Bars through the Gameplay tab, saved and reloaded.
-    s, saved = run('hpbars', ['300 capture base', '400 key o', f'500 click {GAMEPLAY}', '600 capture gameplay', f'700 click {HP_BARS}', f'800 click {DONE}',
-                              '1000 capture off', '1100 quit'])
+    # --- Health Bars through the Video tab's Appearance section, saved and reloaded.
+    s, saved = run('hpbars', ['300 capture base', '400 key o', f'500 click {VIDEO}', f'550 click {APPEARANCE}', '600 capture appearance',
+                              f'700 click {HEALTH_BARS}', f'800 click {DONE}', '1000 capture off', '1100 quit'])
     bar = bbox(changed(s['off'], s['base']))
     check(bar and 36 <= bar[1] - bar[0] <= 46 and bar[3] - bar[2] <= 9, f'Health Bars off removes exactly the 42x8 bar: {bar}')
     check(saved and saved['values']['hpBars'] == 0 and saved['values']['particles'] == 1, 'only that setting changed')
@@ -131,7 +132,8 @@ def main():
     print('health bars, shadows and startup settings ok')
 
     # --- Changes in two categories persist together; a corrupt file falls back to the defaults.
-    s, saved = run('two-categories', ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {GAMEPLAY}', f'700 click {HP_BARS}', f'800 click {DONE}', '1100 quit'])
+    s, saved = run('two-categories', ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {VIDEO}', f'650 click {APPEARANCE}',
+                                      f'700 click {HEALTH_BARS}', f'800 click {DONE}', '1100 quit'])
     check(saved['values']['hpBars'] == 0 and saved['values']['moveRight'] == 74, f'changes in two categories both persist ({saved["values"]["hpBars"]}, {saved["values"]["moveRight"]})')
     (OUT / 'corrupt.settings.json').write_text('{ definitely not json')
     broken, _ = run('corrupt', ['300 capture base', '400 quit'], settings=None)
@@ -139,7 +141,7 @@ def main():
     print('two-category changes and defaults ok')
 
     # --- Reset to Defaults resets every category (not only the open one), on a second click: the first only arms it, and leaving disarms it.
-    change = ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {GAMEPLAY}', f'700 click {HP_BARS}']
+    change = ['300 key o', f'400 click {MOVE_RIGHT}', '500 key j', f'600 click {VIDEO}', f'650 click {APPEARANCE}', f'700 click {HEALTH_BARS}']
     s, saved = run('reset-armed', change + [f'800 click {RESET}', '900 move 400 300', f'1000 click {RESET}', f'1100 click {DONE}', '1300 quit'])
     check(saved['values']['hpBars'] == 0 and saved['values']['moveRight'] == 74, 'one click (after leaving) only arms Reset')
     s, saved = run('reset', change + [f'800 click {RESET}', f'900 click {RESET}', f'1000 click {DONE}', '1200 quit'])

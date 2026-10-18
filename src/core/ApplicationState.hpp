@@ -278,6 +278,8 @@ struct ClientState {
   bool running = true;
   bool leaving_game{};
   bool applied_centering;
+  // The Resolution value apply_settings last evaluated in a window (-1 before the first).
+  int applied_resolution{-1};
   bool autofire{};
   bool perf_stats{};
   int perf_frames{};

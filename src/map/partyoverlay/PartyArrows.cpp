@@ -33,7 +33,7 @@ bool PartyArrows::contains(const PartyArrow& arrow, Vec2 p) const {
   }
   return GameObjectArrow::contains(
       arrow.position, arrow.rotation,
-      arrow.hover ? GameObjectArrow::big_size : GameObjectArrow::small_size, p, scale_);
+      arrow.hover ? GameObjectArrow::big_size : GameObjectArrow::small_size, p, 1.0);
 }
 
 const PartyArrow* PartyArrows::hit(Vec2 p) const {
@@ -91,7 +91,8 @@ void PartyArrows::update(const World& world, const Party& party, const Camera& c
       }
       const double dx = arrow.position.x - previous.position.x;
       const double dy = arrow.position.y - previous.position.y;
-      if (dx * dx + dy * dy < 64 * scale_ * scale_) {
+      // Eight screen pixels at every zoom, as the arrows are drawn at zoom 1.
+      if (dx * dx + dy * dy < 64) {
         if (!previous.hover) {
           previous.players.push_back(member->id);
         }

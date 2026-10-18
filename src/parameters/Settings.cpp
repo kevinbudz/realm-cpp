@@ -86,9 +86,9 @@ std::vector<OptionDef> build() {
           "Rotates the camera to the right. Needs Allow Camera Rotation (Gameplay).", e_,
           "allowRotation"));
   add(key(at, "resetToDefaultCameraAngle", "Reset Camera Angle",
-          "Returns the camera to its default angle.", 82));
+          "Returns the camera to its default angle.", 90));
   add(key(at, "toggleCentering", "Toggle Centering",
-          "Switches the view between centered on your character and offset.", 0));
+          "Switches the view between centered on your character and offset.", 88));
   at.name = "Combat";
   add(key(at, "useSpecial", "Use Special Ability", "Activates your special ability.", 32));
   add(key(at, "autofireToggle", "Autofire Toggle", "Turns autofire on and off.", 73));
@@ -113,14 +113,14 @@ std::vector<OptionDef> build() {
     add(key(at, slot_params[i], slot_labels[i], slot_tips[i], 49 + static_cast<int>(i)));
   }
   at.name = "Interface";
-  add(key(at, "escapeToNexus", "Escape To Nexus", "Instantly returns you to the Nexus.", 45));
+  add(key(at, "escapeToNexus", "Escape To Nexus", "Instantly returns you to the Nexus.", 82));
   add(key(at, "options", "Show Settings", "Opens this screen.", 79));
   add(key(at, "switchTabs", "Switch Tabs", "Cycles through the available inventory tabs.", 66));
   add(key(at, "miniMapZoomIn", "Minimap Zoom In", "Zooms the minimap in.", 187));
   add(key(at, "miniMapZoomOut", "Minimap Zoom Out", "Zooms the minimap out.", 189));
-  add(key(at, "toggleFullscreenMode", "Toggle Fullscreen", "Switches fullscreen on and off.", 0));
+  add(key(at, "toggleFullscreenMode", "Toggle Fullscreen", "Switches fullscreen on and off.", 122));
   add(key(at, "togglePerformanceStats", "Toggle Performance Stats",
-          "Shows or hides the frame rate and memory display.", 0));
+          "Shows or hides the frame rate and memory display.", 80));
   at.name = "Chat";
   add(key(at, "chat", "Open Chat", "Opens the chat input box.", 13));
   add(key(at, "chatCommand", "Start Chat Command",
@@ -132,7 +132,7 @@ std::vector<OptionDef> build() {
   // Options.addControlsOptions (camera rotation) and addGameplayOptions.
   at = {C::gameplay, "Camera"};
   add(toggle(at, "allowRotation", "Allow Camera Rotation",
-             "Lets the rotate keys turn the camera.", false));
+             "Lets the rotate keys turn the camera."));
   add(choice(at, "defaultCameraAngle", "Default Camera Angle",
              "The angle the camera starts at and resets to.", 1,
              {{"45\xC2\xB0", 1}, {"0\xC2\xB0", 0}}));
@@ -179,7 +179,7 @@ std::vector<OptionDef> build() {
   add(slider(at, "maxFPS", "Max FPS",
              "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
              "refresh with VSync on).",
-             60, 30, 1000, 1, {}, "\xE2\x88\x9E"));
+             0, 30, 1000, 1, {}, "\xE2\x88\x9E"));
   add(toggle(at, "showStatistics", "Performance Stats",
              "Shows the frame rate, frame times and memory in the corner.", false));
   at.name = "Quality";
@@ -187,10 +187,9 @@ std::vector<OptionDef> build() {
   add(toggle(at, "particles", "Particles",
              "Renders particles that are not needed for gameplay, such as hit and death "
              "particles."));
-  // Options.addMiscOptions: Disable Ally Particles, read as a switch that is off by default.
+  // Options.addMiscOptions: Disable Ally Particles, shown as a switch that is on by default.
   add(toggle(at, "allyParticles", "Ally Particles",
-             "Shows particle effects from other players, such as their heals and abilities.",
-             false));
+             "Shows particle effects from other players, such as their heals and abilities."));
   // Native addition: BetterSkillys has no screen shake option.
   add(toggle(at, "screenShake", "Screen Shake", "Shakes the screen during some effects."));
   at.name = "Allies";
@@ -380,7 +379,7 @@ std::string value_text(const OptionDef& option, int value) {
   return {};
 }
 
-Settings::Settings() : camera_angle_(default_angle) {
+Settings::Settings() : camera_angle_(default_angle), camera_zoom_(1) {
   for (const auto& option : table()) {
     if (!option.param.empty()) {
       values_.emplace(std::string(option.param), option.fallback);
@@ -469,7 +468,10 @@ void Settings::reset_category(OptionsCategory category) {
 }
 
 void Settings::reset_all() {
+  // Parameters.cameraZoom is not an option row, so a reset keeps it.
+  const auto zoom = camera_zoom_;
   *this = Settings();
+  camera_zoom_ = zoom;
 }
 
 Preferences Settings::preferences() const {
@@ -515,6 +517,14 @@ float player_alpha(const Preferences& prefs, bool is_local, bool locked, bool sa
   return prefs.fade_players ? prefs.player_alpha : 1;
 }
 
+double step_camera_zoom(double zoom, double steps) {
+  const double current = std::isfinite(zoom) ? zoom : 1;
+  const double notches = std::isfinite(steps) ? steps : 0;
+  // Tenths keep repeated notches on exact values such as 1.1 and 2.
+  const double tenths = std::round(current * 10 + notches);
+  return std::clamp(tenths, min_camera_zoom * 10, max_camera_zoom * 10) / 10;
+}
+
 Settings Settings::load(const std::filesystem::path& path) {
   Settings settings;
   std::ifstream file(path);
@@ -549,6 +559,13 @@ Settings Settings::load(const std::filesystem::path& path) {
     } else {
       settings.camera_angle_ = settings.default_camera_angle();
     }
+    // A missing, non-numeric or out-of-range zoom keeps the default of 1.
+    if (const auto zoom = json.find("cameraZoom"); zoom != json.end() && zoom->is_number()) {
+      const auto value = zoom->get<double>();
+      if (std::isfinite(value) && value >= min_camera_zoom && value <= max_camera_zoom) {
+        settings.camera_zoom_ = step_camera_zoom(value, 0);
+      }
+    }
   } catch (const std::exception&) {
     return Settings();
   }
@@ -556,8 +573,10 @@ Settings Settings::load(const std::filesystem::path& path) {
 }
 
 bool Settings::save(const std::filesystem::path& path) const {
-  nlohmann::json json{
-      {"version", 1}, {"values", nlohmann::json::object()}, {"cameraAngle", camera_angle_}};
+  nlohmann::json json{{"version", 1},
+                      {"values", nlohmann::json::object()},
+                      {"cameraAngle", camera_angle_},
+                      {"cameraZoom", camera_zoom_}};
   for (const auto& [name, value] : values_) {
     json["values"][name] = value;
   }

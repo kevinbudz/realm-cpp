@@ -200,7 +200,8 @@ void ally_effects() {
   effect.position = {4.5, 2.5};
   effect.color = 0xff0000;
   effect.target_id = 2;
-  check(!f.world.preferences().ally_particles, "Ally Particles is off by default");
+  check(f.world.preferences().ally_particles, "Ally Particles is on by default");
+  f.apply([](Settings& s) { s.set_value("allyParticles", 0); });
   p.show(f.world, effect, 0);
   check(p.particles().empty(), "Ally Particles off skips effects from other players");
   effect.target_id = 1;

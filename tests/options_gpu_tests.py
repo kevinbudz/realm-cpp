@@ -104,7 +104,7 @@ def main():
     print('rebinding, persistence and reload ok')
 
     # --- Allow Camera Rotation gates Q/E (off by default), and the Rotate keys are greyed out until it is on.
-    spin, _ = run('spin-off', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'])
+    spin, _ = run('spin-off', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'], settings=dict(values=dict(allowRotation=0)))
     check(np.abs(spin['q'] - s0['base']).mean() < 1.5, 'Q does not rotate with Allow Camera Rotation off')
     spin, _ = run('spin-on', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'], settings=dict(values=dict(allowRotation=1)))
     check(np.abs(spin['q'] - s0['base']).mean() > 3, 'Q rotates the camera with it on')

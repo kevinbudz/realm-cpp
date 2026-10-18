@@ -30,9 +30,6 @@ constexpr std::uint32_t outline_light = 0x626262;
 constexpr std::uint32_t equip_fill = 0x424242;
 constexpr double panel_width = 188;
 constexpr double panel_height = 84;
-// The HUD's Deca main button frame (HudArt::main_button) is this many units wider than the art's
-// own margin around its face.
-constexpr double main_button_frame_widening = 2;
 // GraphicsUtil cut corners of the equipment, inventory and trade grids.
 constexpr std::array<std::array<bool, 4>, 4> equipment_cuts{
     {{1, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 1, 1, 0}}};
@@ -1563,7 +1560,7 @@ Vec2 HudArt::main_button_size(double width) const {
   auto& assets = sources();
   const auto& frame = assets.deca("main_button_decoration");
   const auto& face = assets.deca("generic_green_button");
-  return {width + frame.width - face.width + main_button_frame_widening, frame.height};
+  return {width + frame.width - face.width, frame.height};
 }
 
 Image HudArt::main_button(double width, bool hover, double scale) const {
@@ -1581,9 +1578,16 @@ Image HudArt::main_button(double width, bool hover, double scale) const {
   if (hover) {
     options.tint = std::pair{0x00ffffU, 0.1};
   }
-  // The face is centred in the frame: the frame's extra width and height split evenly on each side.
+  // The face body is centred in the frame's hole. Its 1-unit drop shadow hangs below the body and
+  // is left out of the vertical centring. The row is picked in device pixels, since ui_blit rounds
+  // its offset with std::round. A half-pixel tie rounds to the smaller row, toward the
+  // shadow-inclusive centre. The face then drops main_button_face_drop units below that centre.
+  constexpr double face_shadow = 1;
+  const double face_y =
+      std::ceil(((size.y - (face.height - face_shadow)) / 2) * scale - 0.5) / scale +
+      main_button_face_drop;
   const auto button = vector_art::render(face, width, face.height, scale, options);
-  ui_blit(image, button, (size.x - width) / 2, (size.y - face.height) / 2, true, true);
+  ui_blit(image, button, (size.x - width) / 2, face_y, true, true);
   return image;
 }
 

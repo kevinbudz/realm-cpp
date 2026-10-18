@@ -44,13 +44,18 @@ class HudArt {
   // StarGraphic without filters, tinted by RGB multipliers (0xffffff keeps the star's own color).
   [[nodiscard]] Image star_graphic(std::uint32_t tint, double scale = 1) const;
   // The Deca main button whose face is `width` units wide: ui/deca/main_button_decoration framing
-  // ui/deca/generic_green_button, which is `width` wide and centred in the frame. The face is drawn
-  // grey (GreyScale's luminance) and tinted on hover, as the Deca kit draws a disabled and a
-  // hovered SliceScalingButton.
+  // ui/deca/generic_green_button, which is `width` wide and whose body is centred in the frame's
+  // hole; the face's 1-unit drop shadow hangs below the body. The face is drawn grey (GreyScale's
+  // luminance) and tinted on hover, as the Deca kit draws a disabled and a hovered
+  // SliceScalingButton.
   [[nodiscard]] Image main_button(double width, bool hover, double scale) const;
-  // The logical size of main_button(width): the frame's natural size, widened by the face's width
-  // and by a fixed 2 units. Its centre is the centre of the button's area.
+  // The logical size of main_button(width): the frame's natural size, widened by `width` less the
+  // face's natural width, so the face sits inside the frame's hole with an even gap on each side.
+  // Its centre is the centre of the button's area.
   [[nodiscard]] Vec2 main_button_size(double width) const;
+  // main_button draws its face, and the HUD its label and coins, this many units below the
+  // frame-centred position.
+  static constexpr int main_button_face_drop = 1;
   [[nodiscard]] const Image& image(const std::string& key) const;
   // The same art at `scale` device pixels per logical unit. Vector-drawn tiles, panels and buttons
   // are rasterized at that density with their edges on device pixel boundaries; bitmap art keeps

@@ -238,6 +238,7 @@ ClientState::ClientState(Options options)
       renderer(base_capacity, true),
       position(o.map.empty() && !stress ? realm::Vec2{} : world.spawn_position()),
       angle(settings.camera_angle()),
+      zoom(stress ? 1.0 : settings.camera_zoom()),
       centered(settings.flag("centerOnPlayer")),
       applied_centering(settings.flag("centerOnPlayer")) {
   // Scene setters are in-memory only. No constructor above takes the scene, so running them after
@@ -249,6 +250,12 @@ ClientState::ClientState(Options options)
   scene.set_cached_terrain(true);
   scene.set_status_art(&status_art);
   scene.set_dynamic_atlas_pages(dynamic_atlas_initial_pages, dynamic_atlas_max_pages, 120);
+  // Arrows are rasterized at 2x and turned by their quads, so the 2:1 minified sample needs linear
+  // filtering. Only the arrow textures opt in; every other surface keeps nearest sampling.
+  for (auto& arrow : arrow_textures) {
+    arrow.set_linear_filter(true);
+  }
+  quest_arrow_texture.set_linear_filter(true);
 
   if (telemetry) {
     telemetry->metadata("quad_stream",

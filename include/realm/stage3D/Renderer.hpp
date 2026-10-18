@@ -48,6 +48,9 @@ class SurfaceTexture {
   [[nodiscard]] Quad quad(Vec2 origin, Vec2 axis_x, Vec2 axis_y, int x = 0, int y = 0,
                           int width = 0, int height = 0) const;
 
+  // Nearest sampling unless set. Applies to the texture at once when it exists, else at creation.
+  void set_linear_filter(bool linear);
+
  private:
   std::uint32_t texture_{};
   int width_{};
@@ -57,6 +60,7 @@ class SurfaceTexture {
   int reserved_width_{};
   int reserved_height_{};
   bool retain_capacity_{};
+  bool linear_filter_{};
   int texture_limit_{};
 };
 

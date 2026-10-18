@@ -43,7 +43,7 @@ bool QuestArrow::hit(Vec2 pointer) const {
   if (!visible_) {
     return false;
   }
-  if (GameObjectArrow::contains(position_, rotation_, size, pointer, scale_)) {
+  if (GameObjectArrow::contains(position_, rotation_, size, pointer, 1.0)) {
     return true;
   }
   // QuestToolTip and PortraitToolTip are children of the arrow in QuestArrow.as, so their frame

@@ -293,10 +293,10 @@ SocialButtonLayout social_button_layout(const FontBook& fonts, std::string_view 
                                         int currency) {
   const double text = std::ceil(fonts.measure(label, 16, true));
   const double coin = currency >= 0 ? 24 : 0;
-  const double width = std::max(text + 18 + coin, panel_button_min_width);
+  const double width = text + 18 + coin;
   const double x = 100 - width / 2;
-  // Without the minimum, this is x + 9: 9 units of padding on each side of the label and coin.
-  return {{x, 562, width, 26}, x + (width - text - coin) / 2};
+  // 9 units of padding on each side of the label and coin.
+  return {{x, 562, width, 26}, x + 9};
 }
 
 BuyButtonLayout buy_button_layout(const FontBook& fonts, const HudState::Sellable& state) {

@@ -6,16 +6,16 @@
 
 namespace realm {
 namespace {
-// The Deca main button, its label and its coin icons sit this many units above the centre of their
-// TextButton areas.
+// The Deca main button frame sits this many units above the centre of its TextButton area. The
+// face, label and coin icons sit HudArt::main_button_face_drop units lower.
 constexpr int main_button_lift = 4;
 
 // Every centred interaction-panel title is set in the same 188-pixel field at x 6. A one-line title
-// sits at y 6 (HUD 514), as in ButtonPanel and PortalPanel. A two-line title starts at HUD 504, so
-// its ink stays centred on the one-line header and ends about 3 units above the Deca button frame
+// sits at y 6 (HUD 512), as in ButtonPanel and PortalPanel. A two-line title starts at HUD 502, so
+// its ink stays centred on the one-line header and ends about 5 units above the Deca button frame
 // at HUD 549. Flash's PortalPanel uses y 0 (HUD 508) for these, which leaves about 1 unit.
 constexpr int title_field_width = 188;
-int title_top(const TextBitmap& title) { return title.height > 30 ? 504 : 514; }
+int title_top(const TextBitmap& title) { return title.height > 30 ? 502 : 512; }
 
 // A title wider than two lines is set at 14 pixels, then 12. At 12 pixels it is cut to two lines
 // ending in "..." so that it never reaches the action row.
@@ -429,7 +429,7 @@ void Hud::sellable(const HudState::Sellable& state) {
   // Children in order: nameText (144 wide at x 44; y 12, or 0 once taller
   // than 30), buyButton, the icon bitmap at (-4,-8), then notices.
   auto name = fonts_.rasterize_centered(state.name, 16, true, TextEffect::outline, 0xffffffU, 144);
-  const int name_y = name.height > 30 ? 508 : 520;
+  const int name_y = name.height > 30 ? 506 : 518;
   draw(std::move(name), 50, name_y);
   if (state.button) {
     const auto layout = buy_button_layout(fonts_, state);
@@ -441,11 +441,12 @@ void Hud::sellable(const HudState::Sellable& state) {
     // Unsmoothed bitmaps sample the nearest source pixel.
     if (layout.icon) {
       blit(art_->image("currency" + std::to_string(state.currency)),
-           static_cast<int>(std::floor(layout.icon_x + .5)), 565 - main_button_lift);
+           static_cast<int>(std::floor(layout.icon_x + .5)),
+           565 - main_button_lift + HudArt::main_button_face_drop);
     }
   }
   if (art_->contains(state.icon)) {
-    blit(art_->image(state.icon), 2, 500);
+    blit(art_->image(state.icon), 2, 498);
   }
   if (image_.pixel_scale != 1) {
     if (state.rank > 0) {
@@ -476,18 +477,19 @@ void Hud::sellable(const HudState::Sellable& state) {
 
 void Hud::main_button(HudRect area, std::string_view label, bool hover, double text_x,
                       bool enabled) {
-  // The face is 6 units wider than the TextButton on each side: its slanted ends pull in about 6
+  // The face is 10 units wider than the TextButton on each side: its slanted ends pull in about 6
   // units at the label's top and bottom, so the label clears them. HudArt::main_button is centred
   // on the area, whose height is 26 units; the frame is taller than the area and extends above and
   // below.
-  const double face_width = area.width + 12;
+  const double face_width = area.width + 20;
   const double center_x = area.x + area.width / 2;
   const double center_y = area.y + area.height / 2 - main_button_lift;
   const auto size = art_->main_button_size(face_width);
   blit(art_->main_button(face_width, hover && enabled, image_.pixel_scale),
        static_cast<int>(std::lround(center_x - size.x / 2)),
        static_cast<int>(std::lround(center_y - size.y / 2)));
-  text(label, 16, true, 0xffffffU, text_x, center_y - fonts_.layout(label, 16, true).height / 2,
+  const double face_y = center_y + HudArt::main_button_face_drop;
+  text(label, 16, true, 0xffffffU, text_x, face_y - fonts_.layout(label, 16, true).height / 2,
        enabled ? 1 : .5, 1, 0, TextEffect::shadow);
 }
 
@@ -507,7 +509,8 @@ void Hud::social(const HudState::Social& state) {
     main_button(area, state.label, state.hover, layout.text_x);
     if (state.currency >= 0) {
       blit(art_->image("currency" + std::to_string(state.currency)),
-           static_cast<int>(area.x + area.width - 26), 565 - main_button_lift);
+           static_cast<int>(area.x + area.width - 26),
+           565 - main_button_lift + HudArt::main_button_face_drop);
     }
   }
 }

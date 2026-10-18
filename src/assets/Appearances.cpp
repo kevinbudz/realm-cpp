@@ -4,6 +4,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 namespace realm {
 namespace {
@@ -24,6 +25,37 @@ const std::array<double, 256>& unit_alpha() {
     return values;
   }();
   return table;
+}
+
+// out[i * out_stride] = the largest of in[(i - radius) .. (i + radius)] (samples spaced in_stride
+// apart) for each of the `length` samples of a line. Samples past the line count as zero, which
+// clips the window (alpha is never negative). Van Herk / Gil-Werman: prefix and suffix maxima over
+// blocks of 2 * radius + 1 samples, so each sample costs a fixed few comparisons whatever the
+// radius. `prefix` and `suffix` each hold length + 2 * radius samples.
+void window_maximum(const unsigned char* in, std::ptrdiff_t in_stride, unsigned char* out,
+                    std::ptrdiff_t out_stride, int length, int radius, unsigned char* prefix,
+                    unsigned char* suffix) {
+  const int width = 2 * radius + 1;
+  const int padded = length + 2 * radius;
+  const auto sample = [&](int j) -> unsigned char {
+    const int k = j - radius;
+    return k < 0 || k >= length ? 0 : in[k * in_stride];
+  };
+  int phase = 0;  // position of j inside its block
+  for (int j = 0; j < padded; ++j) {
+    const unsigned char v = sample(j);
+    prefix[j] = phase == 0 ? v : std::max(prefix[j - 1], v);
+    phase = phase + 1 == width ? 0 : phase + 1;
+  }
+  phase = (padded - 1) % width;
+  for (int j = padded - 1; j >= 0; --j) {
+    const unsigned char v = sample(j);
+    suffix[j] = phase == width - 1 || j == padded - 1 ? v : std::max(suffix[j + 1], v);
+    phase = phase == 0 ? width - 1 : phase - 1;
+  }
+  for (int i = 0; i < length; ++i) {
+    out[i * out_stride] = std::max(suffix[i], prefix[i + width - 1]);
+  }
 }
 }
 
@@ -253,10 +285,152 @@ const Image& Appearances::textile(std::uint32_t op) const {
   return found->second;
 }
 
-Image Appearances::compose(const Image& source, const Image* mask, int size, bool pad,
-                           std::uint32_t tex1, std::uint32_t tex2, bool glow, double device_scale,
-                           bool sharp) const {
-  REALM_ZONE("appearance.compose");
+namespace {
+// The Chebyshev maximum of the alpha of `image` over (2k+1)x(2k+1) windows clipped to the image:
+// the outline plane of radius k. k = 1 is the 3x3 maximum written out (the hot path of every
+// default bake); larger k are two van Herk passes. `row_max` holds the row maxima in between.
+void chebyshev_maximum(const Image& image, int k, std::vector<unsigned char>& out,
+                       std::vector<unsigned char>& row_max, std::vector<unsigned char>& prefix,
+                       std::vector<unsigned char>& suffix) {
+  const int rw = image.width;
+  const int rh = image.height;
+  const auto count = static_cast<std::size_t>(rw) * static_cast<std::size_t>(rh);
+  out.resize(count);
+  row_max.resize(count);
+  if (k == 1) {
+    const auto alpha_at = [&](int x, int y) {
+      return image.pixels[static_cast<std::size_t>((y * rw + x) * 4 + 3)];
+    };
+    for (int y = 0; y < rh; ++y) {
+      for (int x = 0; x < rw; ++x) {
+        unsigned char maximum = alpha_at(x, y);
+        if (x > 0) {
+          maximum = std::max(maximum, alpha_at(x - 1, y));
+        }
+        if (x + 1 < rw) {
+          maximum = std::max(maximum, alpha_at(x + 1, y));
+        }
+        row_max[static_cast<std::size_t>(y * rw + x)] = maximum;
+      }
+    }
+    for (int y = 0; y < rh; ++y) {
+      for (int x = 0; x < rw; ++x) {
+        unsigned char maximum = row_max[static_cast<std::size_t>(y * rw + x)];
+        if (y > 0) {
+          maximum = std::max(maximum, row_max[static_cast<std::size_t>((y - 1) * rw + x)]);
+        }
+        if (y + 1 < rh) {
+          maximum = std::max(maximum, row_max[static_cast<std::size_t>((y + 1) * rw + x)]);
+        }
+        out[static_cast<std::size_t>(y * rw + x)] = maximum;
+      }
+    }
+    return;
+  }
+  const auto line = static_cast<std::size_t>(std::max(rw, rh) + 2 * k);
+  prefix.resize(line);
+  suffix.resize(line);
+  for (int y = 0; y < rh; ++y) {
+    window_maximum(image.pixels.data() + static_cast<std::size_t>(y * rw * 4 + 3), 4,
+                   row_max.data() + static_cast<std::size_t>(y * rw), 1, rw, k, prefix.data(),
+                   suffix.data());
+  }
+  for (int x = 0; x < rw; ++x) {
+    window_maximum(row_max.data() + x, rw, out.data() + x, rw, rh, k, prefix.data(), suffix.data());
+  }
+}
+
+// The black silhouette outline behind the art, and the soft halo, from the final alpha of `result`.
+// The outline is the Chebyshev maximum of radius floor(radius), raised to fraction * (the next
+// ring's maximum) where fraction = radius - floor(radius): its width is continuous in the radius,
+// and radius 1 and 2 are exactly the 3x3 and 5x5 outlines. Each backdrop is .8 of its outline, and
+// the halo (box half-width `half`, four passes) is .6 of its value when glowing.
+void outline_pass(Image& result, bool glow, double radius, int half) {
+  static thread_local std::vector<unsigned char> row_max;
+  static thread_local std::vector<unsigned char> plane;
+  static thread_local std::vector<unsigned char> next_plane;
+  static thread_local std::vector<unsigned char> prefix;
+  static thread_local std::vector<unsigned char> suffix;
+  static thread_local std::vector<double> halo;
+  static thread_local std::vector<double> next;
+  const int rw = result.width;
+  const int rh = result.height;
+  const auto count = static_cast<std::size_t>(rw) * static_cast<std::size_t>(rh);
+  halo.resize(count);
+  next.resize(count);
+  // The halo is read only when glowing, so it is computed only then.
+  if (glow) {
+    // The original alpha stays in result until the final pass, which reads each pixel's alpha
+    // before it overwrites that alpha.
+    for (std::size_t i = 0; i < count; ++i) {
+      halo[i] = result.pixels[i * 4 + 3];
+    }
+    // Box passes per axis form the separable triangular halo, 2 * half + 1 pixels wide. Element
+    // `column` of a row sits at `along * column` from the row's first element, with rows `across`
+    // apart.
+    const int box = 2 * half + 1;
+    for (int pass = 0; pass < 4; ++pass) {
+      const bool vertical = pass >= 2;
+      const int rows = vertical ? rw : rh;
+      const int columns = vertical ? rh : rw;
+      const auto along = static_cast<std::size_t>(vertical ? rw : 1);
+      const auto across = static_cast<std::size_t>(vertical ? 1 : rw);
+      for (int row = 0; row < rows; ++row) {
+        const auto base = static_cast<std::size_t>(row) * across;
+        double sum = 0;
+        for (int column = 0; column < std::min(half, columns); ++column) {
+          sum += halo[base + static_cast<std::size_t>(column) * along];
+        }
+        for (int column = 0; column < columns; ++column) {
+          if (column + half < columns) {
+            sum += halo[base + static_cast<std::size_t>(column + half) * along];
+          }
+          if (column - half - 1 >= 0) {
+            sum -= halo[base + static_cast<std::size_t>(column - half - 1) * along];
+          }
+          next[base + static_cast<std::size_t>(column) * along] = sum / static_cast<double>(box);
+        }
+      }
+      halo.swap(next);
+    }
+  }
+
+  const int k = static_cast<int>(radius);
+  const double fraction = radius - k;
+  chebyshev_maximum(result, k, plane, row_max, prefix, suffix);
+  if (fraction > 0) {
+    chebyshev_maximum(result, k + 1, next_plane, row_max, prefix, suffix);
+  }
+  const auto& unit = unit_alpha();
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto dst = i * 4;
+    const double alpha = unit[result.pixels[dst + 3]];
+    double outline = static_cast<double>(plane[i]);
+    if (fraction > 0) {
+      outline = std::max(outline, fraction * static_cast<double>(next_plane[i]));
+    }
+    const double backdrop = std::max(outline * .8, glow ? halo[i] * .6 : 0) / 255.0;
+    const double output = alpha + backdrop * (1 - alpha);
+    result.pixels[dst + 3] = static_cast<unsigned char>(std::min(round_up(output * 255), 255L));
+    if (output > 0) {
+      // A transparent texel's colour is zero (round_up(c * 0 / output) is zero), so only art needs
+      // the three divisions: most outline pixels are transparent.
+      for (int channel = 0; channel < 3; ++channel) {
+        result.pixels[dst + static_cast<std::size_t>(channel)] =
+            alpha > 0
+                ? static_cast<unsigned char>(round_up(
+                      result.pixels[dst + static_cast<std::size_t>(channel)] * alpha / output))
+                : 0;
+      }
+    }
+  }
+}
+}  // namespace
+
+Image Appearances::art(const Image& source, const Image* mask, int size, bool pad,
+                       std::uint32_t tex1, std::uint32_t tex2, double device_scale,
+                       bool sharp) const {
+  REALM_ZONE("appearance.art");
   // Texturing is done on a 5x bitmap before size scaling. Textile origin is
   // the frame origin, including transparent extended-attack padding.
   const bool dyed = mask && (tex1 || tex2);
@@ -442,92 +616,81 @@ Image Appearances::compose(const Image& source, const Image* mask, int size, boo
     }
   }
 
-  // Black silhouette outline and a soft halo; original pixels stay crisp.
-  const int rw = result.width;
-  const int rh = result.height;
-  const auto count = static_cast<std::size_t>(rw) * static_cast<std::size_t>(rh);
-  static thread_local std::vector<unsigned char> row_max;
-  static thread_local std::vector<unsigned char> outline_plane;
-  static thread_local std::vector<double> halo;
-  static thread_local std::vector<double> next;
-  row_max.resize(count);
-  outline_plane.resize(count);
-  halo.resize(count);
-  next.resize(count);
-  // The original alpha stays in result until the final pass, which reads each pixel's alpha before
-  // it overwrites that alpha.
-  for (std::size_t i = 0; i < count; ++i) {
-    halo[i] = result.pixels[i * 4 + 3];
-  }
-  // Two seven-pixel box passes per axis form the separable triangular halo. Element `column` of a
-  // row sits at `along * column` from the row's first element, with rows `across` apart.
-  for (int pass = 0; pass < 4; ++pass) {
-    const bool vertical = pass >= 2;
-    const int rows = vertical ? rw : rh;
-    const int columns = vertical ? rh : rw;
-    const auto along = static_cast<std::size_t>(vertical ? rw : 1);
-    const auto across = static_cast<std::size_t>(vertical ? 1 : rw);
-    for (int row = 0; row < rows; ++row) {
-      const auto base = static_cast<std::size_t>(row) * across;
-      double sum = 0;
-      for (int column = 0; column < std::min(3, columns); ++column) {
-        sum += halo[base + static_cast<std::size_t>(column) * along];
-      }
-      for (int column = 0; column < columns; ++column) {
-        if (column + 3 < columns) {
-          sum += halo[base + static_cast<std::size_t>(column + 3) * along];
-        }
-        if (column - 4 >= 0) {
-          sum -= halo[base + static_cast<std::size_t>(column - 4) * along];
-        }
-        next[base + static_cast<std::size_t>(column) * along] = sum / 7;
-      }
-    }
-    halo.swap(next);
-  }
+  return result;
+}
 
-  // 3x3 maximum of the original alpha as two 1-D passes (exact for a rectangle clipped to the
-  // image).
-  const auto alpha_at = [&](int x, int y) {
-    return result.pixels[static_cast<std::size_t>((y * rw + x) * 4 + 3)];
-  };
-  for (int y = 0; y < rh; ++y) {
-    for (int x = 0; x < rw; ++x) {
-      unsigned char maximum = alpha_at(x, y);
-      if (x > 0) {
-        maximum = std::max(maximum, alpha_at(x - 1, y));
-      }
-      if (x + 1 < rw) {
-        maximum = std::max(maximum, alpha_at(x + 1, y));
-      }
-      row_max[static_cast<std::size_t>(y * rw + x)] = maximum;
+Image Appearances::compose(const Image& source, const Image* mask, int size, bool pad,
+                           std::uint32_t tex1, std::uint32_t tex2, bool glow, double device_scale,
+                           bool sharp) const {
+  REALM_ZONE("appearance.compose");
+  Image result = art(source, mask, size, pad, tex1, tex2, device_scale, sharp);
+  // The default outline: 3x3 and a seven-pixel halo.
+  outline_pass(result, glow, 1, 3);
+  return result;
+}
+
+Image Appearances::compose_zoomed(const Image& source, const Image* mask, int size, bool pad,
+                                  std::uint32_t tex1, std::uint32_t tex2, double zoom,
+                                  bool glow) const {
+  REALM_ZONE("appearance.compose_zoomed");
+  // The scale-10 art stage, margins included, then the whole canvas resampled nearest-neighbour to
+  // the zoom: device pixel i shows texel floor((i + .5) * n / N) of an n-texel side drawn at N, the
+  // sampling GL_NEAREST gave the scale-10 bitmap. The art is therefore unchanged by the zoom.
+  const Image base = art(source, mask, size, pad, tex1, tex2, 1, false);
+  const int source_w = base.width;
+  const int source_h = base.height;
+  int width = std::max(1, static_cast<int>(std::lround(source_w * zoom)));
+  int height = std::max(1, static_cast<int>(std::lround(source_h * zoom)));
+  double scale = zoom;  // device pixels per scale-10 texel
+  const int longest = std::max(width, height);
+  if (longest > maximum_zoomed_side) {
+    // A zoomed bitmap must fit one atlas page: beyond it the canvas is shrunk, and the density
+    // carries the shrink as it does for an oversized scale-10 bitmap.
+    const double cap = maximum_zoomed_side / static_cast<double>(longest);
+    width = std::max(1, static_cast<int>(std::lround(width * cap)));
+    height = std::max(1, static_cast<int>(std::lround(height * cap)));
+    scale *= cap;
+  }
+  static thread_local std::vector<std::size_t> columns;
+  static thread_local std::vector<std::size_t> rows;
+  columns.resize(static_cast<std::size_t>(width));
+  rows.resize(static_cast<std::size_t>(height));
+  for (int x = 0; x < width; ++x) {
+    const double at = std::floor((x + .5) * source_w / width);
+    columns[static_cast<std::size_t>(x)] =
+        static_cast<std::size_t>(std::min(source_w - 1, static_cast<int>(at)));
+  }
+  for (int y = 0; y < height; ++y) {
+    const double at = std::floor((y + .5) * source_h / height);
+    rows[static_cast<std::size_t>(y)] =
+        static_cast<std::size_t>(std::min(source_h - 1, static_cast<int>(at)));
+  }
+  // The outline needs ceil(zoom) device rows under the sprite. The scale-10 canvas has one (or 12)
+  // texels there, which may map to fewer device rows, so transparent rows are added below: the art
+  // keeps its place in the canvas, which is the sprite's ground line.
+  const int bottom_texels = pad ? 12 : 1;
+  int bottom_rows = 0;
+  for (const auto row : rows) {
+    bottom_rows += static_cast<int>(row) >= source_h - bottom_texels ? 1 : 0;
+  }
+  const int needed = static_cast<int>(std::ceil(std::max(1.0, zoom)));
+  const int extra = std::max(0, needed - bottom_rows);
+  Image result{width, height + extra,
+               std::vector<unsigned char>(static_cast<std::size_t>(width) *
+                                          static_cast<std::size_t>(height + extra) * 4)};
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const auto from = (rows[static_cast<std::size_t>(y)] * static_cast<std::size_t>(source_w) +
+                         columns[static_cast<std::size_t>(x)]) *
+                        4;
+      const auto to = static_cast<std::size_t>((y * width + x) * 4);
+      std::copy_n(base.pixels.data() + from, 4, result.pixels.data() + to);
     }
   }
-  for (int y = 0; y < rh; ++y) {
-    for (int x = 0; x < rw; ++x) {
-      unsigned char maximum = row_max[static_cast<std::size_t>(y * rw + x)];
-      if (y > 0) {
-        maximum = std::max(maximum, row_max[static_cast<std::size_t>((y - 1) * rw + x)]);
-      }
-      if (y + 1 < rh) {
-        maximum = std::max(maximum, row_max[static_cast<std::size_t>((y + 1) * rw + x)]);
-      }
-      outline_plane[static_cast<std::size_t>(y * rw + x)] = maximum;
-    }
-  }
-  for (std::size_t i = 0; i < count; ++i) {
-    const auto dst = i * 4;
-    const double alpha = unit[result.pixels[dst + 3]];
-    const double backdrop = std::max(outline_plane[i] * .8, glow ? halo[i] * .6 : 0) / 255.0;
-    const double output = alpha + backdrop * (1 - alpha);
-    result.pixels[dst + 3] = static_cast<unsigned char>(std::min(round_up(output * 255), 255L));
-    if (output > 0) {
-      for (int channel = 0; channel < 3; ++channel) {
-        result.pixels[dst + static_cast<std::size_t>(channel)] = static_cast<unsigned char>(
-            round_up(result.pixels[dst + static_cast<std::size_t>(channel)] * alpha / output));
-      }
-    }
-  }
+  // The density of the scale-10 canvas, times the device pixels per texel: a bitmap texel is then
+  // one device pixel at the zoom, and Scene draws it at zoom / pixel_scale.
+  result.pixel_scale = base.pixel_scale * scale;
+  outline_pass(result, glow, std::max(1.0, zoom), static_cast<int>(std::lround(3 * zoom)));
   return result;
 }
 
@@ -718,7 +881,8 @@ std::size_t Appearances::KeyHash::operator()(const Key& key) const noexcept {
   mix(static_cast<std::uint32_t>(key.size));
   mix(key.tex1);
   mix(key.tex2);
-  mix(static_cast<std::uint64_t>(key.kind) << 8U | key.pad);
+  mix(static_cast<std::uint64_t>(key.kind) << 16U | static_cast<std::uint64_t>(key.scale) << 8U |
+      key.pad);
   return static_cast<std::size_t>(h * 0x2545F4914F6CDD1DULL);
 }
 
@@ -751,8 +915,10 @@ std::shared_ptr<const Image> Appearances::get(const Key& key, Make&& make) const
     }
   }
   telemetry::add(telemetry::Counter::appearance_misses);
-  auto image =
-      std::make_shared<const Image>(compose(*input, mask, key.size, key.pad, key.tex1, key.tex2));
+  Image composed = key.scale == 10 ? compose(*input, mask, key.size, key.pad, key.tex1, key.tex2)
+                                   : compose_zoomed(*input, mask, key.size, key.pad, key.tex1,
+                                                    key.tex2, key.scale / 10.0);
+  auto image = std::make_shared<const Image>(std::move(composed));
   while (!cache_.empty() &&
          (cache_.size() >= budget_entries_ || bytes_ + image->pixels.size() > budget_bytes_)) {
     const auto it = cache_.find(lru_.back());
@@ -791,7 +957,8 @@ Appearances::Key Appearances::animated_key(AnimationFrame frame, int size, bool 
           tex1,
           tex2,
           1,
-          static_cast<std::uint8_t>(pad)};
+          static_cast<std::uint8_t>(pad),
+          10};
 }
 
 Appearances::Key Appearances::texture_key(const TextureDef& definition, std::uint32_t id, int size,
@@ -808,7 +975,8 @@ Appearances::Key Appearances::texture_key(const TextureDef& definition, std::uin
           tex1,
           tex2,
           0,
-          static_cast<std::uint8_t>(pad)};
+          static_cast<std::uint8_t>(pad),
+          10};
 }
 
 std::shared_ptr<const Image> Appearances::image(const Key& key) const {
@@ -827,6 +995,11 @@ std::shared_ptr<const Image> Appearances::image(const Key& key) const {
       mask_ref = &mask;
     }
   });
+}
+
+std::shared_ptr<const Image> Appearances::find(const Key& key) const {
+  const auto it = cache_.find(key);
+  return it == cache_.end() ? nullptr : it->second.image;
 }
 
 std::shared_ptr<const Image> Appearances::animated(AnimationFrame frame, int size, bool pad,
@@ -854,5 +1027,20 @@ void Appearances::clear() const {
   cache_.clear();
   lru_.clear();
   bytes_ = 0;
+}
+
+std::size_t Appearances::purge_zoom(std::uint8_t level) const {
+  std::size_t removed = 0;
+  for (auto it = cache_.begin(); it != cache_.end();) {
+    if (!it->first.stale_zoom(level)) {
+      ++it;
+      continue;
+    }
+    bytes_ -= it->second.image->pixels.size();
+    lru_.erase(it->second.lru);
+    it = cache_.erase(it);
+    ++removed;
+  }
+  return removed;
 }
 }

@@ -297,6 +297,30 @@ void run_script_steps(ClientState& cs, Frame& f) {
   }
 }
 
+namespace {
+// Shift+wheel over the play area steps the camera zoom. The same world test as the mouse-down
+// path decides the pointer; a horizontal scroll has no steps and changes nothing.
+void zoom_by_wheel(ClientState& cs, const Options& options, const UiEvent& wheel) {
+  if ((wheel.modifiers & KMOD_SHIFT) == 0 || wheel.wheel == 0 || !options.world || cs.stress ||
+      !cs.game_session || cs.ui_stack.modal()) {
+    return;
+  }
+  int mouse_x{};
+  int mouse_y{};
+  SDL_GetMouseState(&mouse_x, &mouse_y);
+  const auto viewport = cs.window_viewport();
+  const auto at = viewport.drawable(mouse_x, mouse_y);
+  if (!viewport.valid() || viewport.drawable_width <= viewport.drawable_height / 3 ||
+      mouse_x < 0 || mouse_y < 0 || mouse_y >= viewport.window_height ||
+      !cs.ui_stack.pointer_free(at) || at.x >= viewport.world_right()) {
+    return;
+  }
+  cs.settings.set_camera_zoom(realm::step_camera_zoom(cs.settings.camera_zoom(), wheel.wheel));
+  cs.zoom = cs.settings.camera_zoom();
+  cs.zoom_changed = true;
+}
+}
+
 void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
   auto& start = f.start;
   auto& input_age = f.input_age;
@@ -341,6 +365,13 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
       }
       realm::ui::Dispatch dispatched;
       dispatched = cs.ui_stack.dispatch(*converted);
+      if (event.type == SDL_MOUSEWHEEL) {
+        // A wheel a panel or the minimap took does not zoom the camera.
+        if (!dispatched.consumed) {
+          zoom_by_wheel(cs, options, *converted);
+        }
+        continue;
+      }
       if (dispatched.consumed || event.type != SDL_KEYDOWN) {
         continue;
       }

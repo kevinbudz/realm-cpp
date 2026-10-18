@@ -83,8 +83,9 @@ body{z-index:100;background-color:transparent}
 #hint{height:59dp;padding:26dp 24dp 0 24dp;box-sizing:border-box;font-size:15dp;line-height:18dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
 /* A section title over a content_divider (3grid along x, 10 high), with room above and below it. The section's top,
    title and divider add up to the 49 dp the ruled title had, so the rows keep their places. A hovered section sits
-   on a faint white cut-corner rect, so it reads over the game. */
-.section{padding-top:12dp}
+   on a faint white cut-corner rect, so it reads over the game; the rect reaches 6 dp past the rows on either side
+   (padding out, margin back in), into #rows' side padding, so the rows stay where they were. */
+.section{padding:12dp 6dp 0 6dp;margin:0 -6dp}
 .section:hover{decorator:paint(cut-rect 0xffffff none 6 0 0.06)}
 .section-title{height:24dp;line-height:24dp;padding-left:8dp;font-size:20dp;font-weight:bold;color:#ffffff;
     font-effect:shadow(0px 0px #000)}

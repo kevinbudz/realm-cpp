@@ -282,8 +282,8 @@ void shutdown_report(ClientState& cs, const Options& o) {
   if (cs.stress) {
     cs.stress->write_summary(o.stress_summary);
   }
-  // Parameters.cameraAngle persists across sessions.
-  if (cs.persist_settings && cs.settings.camera_angle() != cs.angle) {
+  // Parameters.cameraAngle and cameraZoom persist across sessions.
+  if (cs.persist_settings && (cs.settings.camera_angle() != cs.angle || cs.zoom_changed)) {
     cs.save_settings();
   }
   std::cout << "Appearance CPU=" << cs.appearances.entries() << "/" << cs.appearances.bytes()

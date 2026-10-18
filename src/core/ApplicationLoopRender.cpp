@@ -28,6 +28,24 @@
 #include "ApplicationState.hpp"
 
 namespace realm::application {
+namespace {
+// Arrows rasterize unrotated at 2x, then the 2:1 minified texture is sampled linearly by its quad.
+constexpr double arrow_density = 2.0;
+
+// Draws an unrotated arrow canvas turned by `rotation` about `pivot`, the canvas point at
+// (origin, origin). GameObjectArrow::image rotates its shape by this same matrix in y-down screen
+// space, so the quad covers what the rotated image covered.
+realm::Quad rotated_arrow_quad(const realm::SurfaceTexture& texture, realm::Vec2 pivot,
+                               double rotation) {
+  const double c = std::cos(rotation);
+  const double s = std::sin(rotation);
+  const double n = realm::GameObjectArrow::canvas_size;
+  const double o = realm::GameObjectArrow::origin;
+  return texture.quad({pivot.x - o * c + o * s, pivot.y - o * s - o * c}, {n * c, n * s},
+                      {-n * s, n * c});
+}
+}  // namespace
+
 void build_scene(ClientState& cs, const Options& options, Frame& frame) {
   auto& dt = frame.dt;
   auto& time = frame.time;
@@ -563,23 +581,16 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
           continue;
         }
 
-        const double density = std::max(1.0, cs.camera.scale());
-        if (cs.arrow_densities[i] != density || cs.arrow_rotations[i] != arrow.rotation ||
-            cs.arrow_hovers[i] != arrow.hover) {
-          cs.arrow_textures[i].update(
-              realm::PartyArrows::image(arrow.rotation, arrow.hover, density));
-          cs.arrow_densities[i] = density;
-          cs.arrow_rotations[i] = arrow.rotation;
+        // Arrows draw at zoom 1 at every camera zoom, so their texture density and size stay fixed.
+        // The texture is rasterized unrotated, so only density and hover re-upload it.
+        if (cs.arrow_densities[i] != arrow_density || cs.arrow_hovers[i] != arrow.hover) {
+          cs.arrow_textures[i].update(realm::PartyArrows::image(0, arrow.hover, arrow_density));
+          cs.arrow_densities[i] = arrow_density;
           cs.arrow_hovers[i] = arrow.hover;
         }
 
-        const double arrow_scale = cs.camera.scale();
-        const auto quad =
-            cs.arrow_textures[i].quad({arrow.position.x - realm::PartyArrows::origin * arrow_scale,
-                                       arrow.position.y - realm::PartyArrows::origin * arrow_scale},
-                                      {realm::PartyArrows::canvas_size * arrow_scale, 0},
-                                      {0, realm::PartyArrows::canvas_size * arrow_scale});
-        overlay_storage[overlay.size()] = quad;
+        overlay_storage[overlay.size()] =
+            rotated_arrow_quad(cs.arrow_textures[i], arrow.position, arrow.rotation);
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
       // PartyOverlay draws its QuestArrow after the party arrows, so the quest arrow and tooltip
@@ -587,29 +598,20 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
       cs.quest_arrow.update(cs.world, cs.game_session->quest(), cs.camera, screen_pointer,
                             cs.tooltip_pointer_valid, width, height, time);
       if (cs.quest_arrow.visible()) {
-        const double density = std::max(1.0, cs.camera.scale());
-        const double rotation = cs.quest_arrow.rotation();
-        if (cs.quest_arrow_density != density || cs.quest_arrow_rotation != rotation) {
-          cs.quest_arrow_texture.update(realm::QuestArrow::image(rotation, density));
-          cs.quest_arrow_density = density;
-          cs.quest_arrow_rotation = rotation;
+        if (cs.quest_arrow_density != arrow_density) {
+          cs.quest_arrow_texture.update(realm::QuestArrow::image(0, arrow_density));
+          cs.quest_arrow_density = arrow_density;
         }
 
-        const double arrow_scale = cs.camera.scale();
-        const auto arrow = cs.quest_arrow.position();
-        const auto quad =
-            cs.quest_arrow_texture.quad({arrow.x - realm::GameObjectArrow::origin * arrow_scale,
-                                         arrow.y - realm::GameObjectArrow::origin * arrow_scale},
-                                        {realm::GameObjectArrow::canvas_size * arrow_scale, 0},
-                                        {0, realm::GameObjectArrow::canvas_size * arrow_scale});
-        overlay_storage[overlay.size()] = quad;
+        overlay_storage[overlay.size()] = rotated_arrow_quad(
+            cs.quest_arrow_texture, cs.quest_arrow.position(), cs.quest_arrow.rotation());
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
       if (cs.quest_arrow.visible() &&
           cs.quest_arrow.tooltip() != realm::QuestArrow::Tooltip::none) {
         if (const auto target = realm::quest_target(cs.world, cs.quest_arrow.target())) {
-          // The tooltip draws in its own scale, as the party arrow's group tooltip does.
-          const double tip_scale = scale * cs.camera.scale();
+          // The tooltip draws at the HUD scale, not the camera zoom, as the group tooltip does.
+          const double tip_scale = scale;
           const auto kind = cs.quest_arrow.tooltip();
 
           const auto show = [&](auto& tip) {
@@ -623,8 +625,7 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
 
             const auto content = realm::GameObjectArrow::tooltip_position(
                 cs.quest_arrow.position(), cs.quest_arrow.rotation(),
-                tip.content_width() * tip_scale, tip.content_height() * tip_scale,
-                cs.camera.scale());
+                tip.content_width() * tip_scale, tip.content_height() * tip_scale, 1.0);
             // The frame is the content plus six logical pixels on every side (ToolTip.draw). The
             // next frame's hover and presses use it, as the tooltip is a child of the arrow.
             constexpr double frame_inset = 6;
@@ -659,10 +660,9 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
     } else if (enabled && cs.party_arrows.hovered() &&
                !(cs.player_menu && cs.player_menu->visible())) {
       const auto& arrow = *cs.party_arrows.hovered();
-      cs.fonts.set_pixel_scale(scale * cs.camera.scale());
+      cs.fonts.set_pixel_scale(scale);
       if (cs.player_group->arrow_tooltip(realm::player_group_targets(cs.world, arrow.players),
-                                         arrow.position, arrow.rotation, cs.camera.scale(),
-                                         scale * cs.camera.scale())) {
+                                         arrow.position, arrow.rotation, 1.0, scale)) {
         cs.group_texture.update(cs.player_group->image());
       }
       cs.fonts.set_pixel_scale(scale);

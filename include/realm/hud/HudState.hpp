@@ -194,12 +194,9 @@ struct HudState {
 
 // HUD slot indices at and above container_slot address the nearby container.
 inline constexpr int container_slot = 20;
-// Every TextButton in the side panel is at least as wide as the social "Renounce" button: its 16 px
-// bold label plus 18 units. A narrower Flash field stays centred on HUD x 100.
-inline constexpr double panel_button_min_width = 89;
+// A Flash TextButton field centred on HUD x 100.
 constexpr HudRect text_button_area(double flash_width) {
-  const double width = flash_width > panel_button_min_width ? flash_width : panel_button_min_width;
-  return {100 - width / 2, 562, width, 26};
+  return {100 - flash_width / 2, 562, flash_width, 26};
 }
 // The TextButton "Enter" in HUD coordinates; drawCutEdgeRect cuts all four corners.
 inline constexpr HudRect portal_button = text_button_area(54);
@@ -219,8 +216,8 @@ struct SocialButtonLayout {
   HudRect area;
   double text_x{};
 };
-// The label plus 18 units, plus 24 for a currency coin on the right, never less than
-// panel_button_min_width. The label is centred in the button.
+// The label plus 18 units, plus 24 for a currency coin on the right. The label is centred in the
+// button.
 [[nodiscard]] SocialButtonLayout social_button_layout(const FontBook& fonts,
                                                       std::string_view label, int currency);
 

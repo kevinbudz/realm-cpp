@@ -80,7 +80,7 @@ struct Preferences {
   bool ally_shots{true};
   bool ally_damage{true};
   bool ally_notifs{true};
-  bool ally_particles{false};
+  bool ally_particles{true};
   bool show_tier_tag{true};
   bool show_quest_portraits{true};
   bool show_guild_invite_popup{true};
@@ -103,6 +103,13 @@ struct Preferences {
 // precedence over Guild, and the rest are Regular.
 [[nodiscard]] float player_alpha(const Preferences& prefs, bool is_local, bool locked,
                                  bool same_guild);
+
+// Parameters.cameraZoom bounds. Zoom 1 is the default and a larger zoom draws objects bigger.
+inline constexpr double min_camera_zoom = 0.8;
+inline constexpr double max_camera_zoom = 2.0;
+// One wheel notch is 0.1 (positive zooms in). The result is rounded to the nearest 0.1 and clamped
+// to the range. A non-finite zoom reads as 1 and non-finite steps as none.
+[[nodiscard]] double step_camera_zoom(double zoom, double steps);
 
 class Settings {
  public:
@@ -130,6 +137,11 @@ class Settings {
 
   void set_camera_angle(double angle) { camera_angle_ = angle; }
 
+  // Parameters.cameraZoom: persisted with the settings and kept by reset_category and reset_all.
+  [[nodiscard]] double camera_zoom() const { return camera_zoom_; }
+
+  void set_camera_zoom(double zoom) { camera_zoom_ = step_camera_zoom(zoom, 0); }
+
   [[nodiscard]] double default_camera_angle() const;
   [[nodiscard]] Preferences preferences() const;
 
@@ -150,5 +162,6 @@ class Settings {
   [[nodiscard]] static bool valid(const OptionDef& option, int value);
   std::map<std::string, int, std::less<>> values_;
   double camera_angle_;
+  double camera_zoom_;
 };
 }

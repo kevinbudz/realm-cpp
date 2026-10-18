@@ -55,7 +55,7 @@ class QuestArrow {
   std::int32_t target_{-1};
   Vec2 position_{};
   double rotation_{};
-  double scale_{1};
+  double scale_{1};  // Camera zoom the placement was made at; a change re-projects it.
   int width_{};
   int height_{};
   bool visible_{};

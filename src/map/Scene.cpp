@@ -14,6 +14,19 @@ namespace {
 std::array<float, 2> floats(Vec2 v) {
   return {static_cast<float>(v.x), static_cast<float>(v.y)};
 }
+
+// The zoom in tenths when it is an exact tenth in [0.8, 2.0] other than 1.0; 10 otherwise. A
+// continuous zoom draws every sprite at scale 10, as it always has.
+std::uint8_t zoom_tenths(double zoom) {
+  if (!(zoom >= .8 && zoom <= 2.0)) {
+    return 10;
+  }
+  const long rounded = std::lround(zoom * 10);
+  if (std::abs(zoom * 10 - static_cast<double>(rounded)) >= 1e-9 || rounded == 10) {
+    return 10;
+  }
+  return static_cast<std::uint8_t>(rounded);
+}
 }
 
 namespace {
@@ -368,6 +381,47 @@ std::optional<SpriteRegion> Scene::resident_label(const std::shared_ptr<const Im
   return make(*slot);
 }
 
+bool Scene::zoomed_ready(const Appearances::Key& key, const Appearances& appearances,
+                         Atlas& atlas) {
+  if (dynamic_ready(atlas)) {
+    const auto found = resident_appearances_.find(key);
+    if (found != resident_appearances_.end() && residency_.find(found->second.id)) {
+      return true;
+    }
+  }
+  return appearances.find(key) != nullptr;
+}
+
+bool Scene::zoom_bake(const Appearances::Key& key, const Appearances& appearances) {
+  // A zero budget bakes nothing. Otherwise the first bake of a build always runs, and later ones
+  // run while this build's bake time stays under the budget.
+  if (zoom_bake_budget_.count() <= 0 || (zoom_bakes_ && zoom_bake_spent_ >= zoom_bake_budget_)) {
+    return false;
+  }
+  REALM_ZONE("appearance.zoom_bake");
+  const auto start = std::chrono::steady_clock::now();
+  (void)appearances.image(key);
+  zoom_bake_spent_ += std::chrono::steady_clock::now() - start;
+  ++zoom_bakes_;
+  return true;
+}
+
+void Scene::purge_zoom(std::uint8_t level, const Appearances* appearances) {
+  memo_valid_ = false;
+  for (auto it = resident_appearances_.begin(); it != resident_appearances_.end();) {
+    if (!it->first.stale_zoom(level)) {
+      ++it;
+      continue;
+    }
+    residency_.erase(it->second.id);
+    resident_owners_.erase(it->second.id);
+    it = resident_appearances_.erase(it);
+  }
+  if (appearances) {
+    appearances->purge_zoom(level);
+  }
+}
+
 std::vector<Scene::ResidentImage> Scene::resident_images(const Appearances* appearances,
                                                          const Atlas& atlas) const {
   std::vector<ResidentImage> result;
@@ -696,6 +750,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     // another map; their budget bounds them.
     generation_ = world.generation();
     appearance_world_ = &world;
+  }
+  // One zoom level at a time: a change drops the other zoomed variants from both caches, so a zoom
+  // sweep cannot grow the atlas. A zoom that is not an exact tenth keeps no zoomed variant.
+  zoom_bakes_ = 0;
+  zoom_bake_spent_ = {};
+  if (const auto level = zoom_tenths(zoom); level != zoom_level_) {
+    purge_zoom(level, appearances);
+    zoom_level_ = level;
   }
   const int distance = static_cast<int>(std::ceil(camera.max_distance())) + 3;
   const int cx = static_cast<int>(std::floor(position.x));
@@ -1149,6 +1211,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     std::shared_ptr<SurfaceTexture> lazy;
     bool resident = false;
     double density = 1;
+    // The zoom tenths the drawn bitmap was composed for (10 when it is the scale-10 bitmap).
+    std::uint8_t drawn_scale = 10;
     if (baked) {
       const auto& chosen = tex->select(static_cast<std::uint32_t>(e.id));
       const auto* character = animations.character(chosen.animated, chosen.index);
@@ -1166,10 +1230,21 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       if (use_processed) {
         sprite = atlas.additional(processed->find(processed_key));
       } else if (appearances) {
-        const auto key =
+        auto key =
             character ? appearances->animated_key(frame, shown_size, e.projectile, dyes[0], dyes[1])
                       : appearances->texture_key(chosen, static_cast<std::uint32_t>(e.id),
                                                  shown_size, e.projectile, dyes[0], dyes[1]);
+        // A non-projectile at a tenth zoom draws its zoomed bitmap (1:1 in device pixels) once that
+        // is ready or this build's budget bakes it. Otherwise it draws the scale-10 bitmap as
+        // before.
+        if (zoom_level_ != 10 && !e.projectile) {
+          auto zoomed = key;
+          zoomed.scale = zoom_level_;
+          if (zoomed_ready(zoomed, *appearances, atlas) || zoom_bake(zoomed, *appearances)) {
+            key = zoomed;
+          }
+        }
+        drawn_scale = key.scale;
         if (const auto found = resident_appearance(key, *appearances, atlas)) {
           sprite = found->region;
           density = found->density;
@@ -1234,7 +1309,10 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     }
     const double clipped = std::clamp(sink * zoom, 0.0, h);
     if (baked) {
-      sprite.height -= std::min(sink, sprite.height);
+      // A zoomed bitmap has one texel per device pixel, so the sink is sink * zoom texels of it.
+      const int sink_texels =
+          drawn_scale == 10 ? sink : static_cast<int>(std::lround(sink * drawn_scale / 10.0));
+      sprite.height -= std::min(sink_texels, sprite.height);
     }
     if (sprite.height > 0) {
       auto q =

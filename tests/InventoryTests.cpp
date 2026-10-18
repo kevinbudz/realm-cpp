@@ -485,13 +485,13 @@ int main() {
     check(packet && packet->id == static_cast<std::uint8_t>(realm::flash::PacketId::INVDROP),
           "drop without a nearby container");
     inv.result(1);
-    // The 89-unit minimum width spans HUD x 55.5 to 144.5.
-    check(HudInput::portal_button_at({100, 575}) && HudInput::portal_button_at({56, 566}) &&
-              HudInput::portal_button_at({144, 584}),
+    // The 54-unit Enter field spans HUD x 73 to 127.
+    check(HudInput::portal_button_at({100, 575}) && HudInput::portal_button_at({74, 566}) &&
+              HudInput::portal_button_at({126, 584}),
           "portal button body and cut edges");
-    check(!HudInput::portal_button_at({56, 562}) && !HudInput::portal_button_at({144, 562}) &&
-              !HudInput::portal_button_at({56, 587}) && !HudInput::portal_button_at({144, 587}) &&
-              !HudInput::portal_button_at({145, 575}) && !HudInput::portal_button_at({100, 588}),
+    check(!HudInput::portal_button_at({74, 562}) && !HudInput::portal_button_at({126, 562}) &&
+              !HudInput::portal_button_at({74, 587}) && !HudInput::portal_button_at({126, 587}) &&
+              !HudInput::portal_button_at({127, 575}) && !HudInput::portal_button_at({100, 588}),
           "portal button corners and bounds");
     const realm::HudState::PanelButton enter{75, realm::portal_button}, hidden{},
         other{76, realm::portal_button};

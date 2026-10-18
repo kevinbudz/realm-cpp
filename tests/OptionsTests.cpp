@@ -24,19 +24,19 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("moveUp") == 87 && s.get("moveLeft") == 65 && s.get("moveDown") == 83 &&
             s.get("moveRight") == 68,
         "Flash movement defaults");
-  check(s.get("escapeToNexus") == 45 && s.get("escapeToNexus2") == 116 && s.get("options") == 79 &&
+  check(s.get("escapeToNexus") == 82 && s.get("escapeToNexus2") == 116 && s.get("options") == 79 &&
             s.get("interact") == 48 && s.get("chat") == 13,
         "Flash hot key defaults");
-  check(s.get("togglePerformanceStats") == 0 && s.get("toggleCentering") == 0 &&
-            s.get("toggleFullscreenMode") == 0,
-        "unset by default");
-  check(!s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
+  check(s.get("resetToDefaultCameraAngle") == 90 && s.get("toggleCentering") == 88 &&
+            s.get("togglePerformanceStats") == 80 && s.get("toggleFullscreenMode") == 122,
+        "camera, stats and fullscreen hot key defaults");
+  check(s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
             s.flag("allyNotifs") && !s.flag("fullscreenMode"),
         "toggle defaults");
   check(s.flag("toggleBarText") && s.flag("inventorySwap") && s.flag("screenShake") &&
-            !s.flag("smartProjectiles") && !s.flag("showStatistics") && !s.flag("allyParticles"),
+            !s.flag("smartProjectiles") && !s.flag("showStatistics") && s.flag("allyParticles"),
         "new row defaults");
-  check(s.get("maxFPS") == 60 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("playSFX") &&
+  check(s.get("maxFPS") == 0 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("playSFX") &&
             s.flag("showTradePopup"),
         "graphics defaults");
   check(!find_option("quality") && !s.values().contains("quality"),
@@ -56,12 +56,12 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("useSpecial") == 116 && s.get("escapeToNexus2") == 0,
         "hidden bindings take part in conflicts");
   s.set_key("togglePerformanceStats", 0);
-  check(s.get("toggleCentering") == 0 && s.get("moveUp") == 83,
+  check(s.get("toggleCentering") == 88 && s.get("moveUp") == 83,
         "unsetting a key clears nothing else");
   s.set_key("maxFPS", 60);
   s.set_key("moveLeft", 999);
   s.set_key("nonsense", 65);
-  check(s.get("maxFPS") == 60 && s.get("moveLeft") == 65,
+  check(s.get("maxFPS") == 0 && s.get("moveLeft") == 65,
         "non-key parameters and invalid codes are ignored");
   check(!s.set_value("hpBars", 7) && s.flag("hpBars") && !s.set_value("moveUp", 1) &&
             !s.set_value("hpBars", 1),
@@ -127,6 +127,50 @@ void settings_rules(const std::filesystem::path& scratch) {
         "a stored quality value from an older build is dropped");
   check(odd.camera_angle() == odd.default_camera_angle(),
         "missing camera angle falls back to the default");
+  // Shift+wheel zoom: a notch is 0.1, rounded to the nearest 0.1 and held to 0.8 to 2.
+  check(step_camera_zoom(1.0, 1) == 1.1 && step_camera_zoom(1.0, -1) == 0.9 &&
+            step_camera_zoom(1.26, 0) == 1.3 && step_camera_zoom(1.04, 0) == 1.0 &&
+            step_camera_zoom(2.0, 1) == 2.0 && step_camera_zoom(0.8, -1) == 0.8 &&
+            step_camera_zoom(1.9, 5) == 2.0 && step_camera_zoom(1.0, 0) == 1.0,
+        "camera zoom notches are 0.1 and clamp to 0.8 to 2");
+  check(step_camera_zoom(std::nan(""), 1) == 1.1 && step_camera_zoom(1.0, std::nan("")) == 1.0,
+        "non-finite camera zoom and steps fall back");
+  double zoom = 1.0;
+  for (int i = 0; i < 12; ++i) {
+    zoom = step_camera_zoom(zoom, 1);
+  }
+  check(zoom == 2.0, "repeated notches stop at 2 without drift");
+  for (int i = 0; i < 20; ++i) {
+    zoom = step_camera_zoom(zoom, -1);
+  }
+  check(zoom == 0.8, "repeated notches stop at 0.8 without drift");
+  {
+    Settings z;
+    z.set_camera_zoom(3.0);
+    check(z.camera_zoom() == 2.0, "camera zoom set above the range clamps to 2");
+    z.set_camera_zoom(0.1);
+    check(z.camera_zoom() == 0.8, "camera zoom set below the range clamps to 0.8");
+    z.set_camera_zoom(1.7);
+    check(z.save(scratch / "zoom.json") &&
+              Settings::load(scratch / "zoom.json").camera_zoom() == 1.7,
+          "camera zoom round trip");
+    z.reset_category(OptionsCategory::video);
+    check(z.camera_zoom() == 1.7, "reset of a category keeps the camera zoom");
+    z.reset_all();
+    check(z.camera_zoom() == 1.7 && z.get("moveUp") == 87,
+          "reset of every row keeps the camera zoom");
+  }
+  // A stored cameraZoom that is not a number, is non-finite or is out of range falls back to 1,
+  // and an in-range one rounds to the nearest 0.1.
+  for (const auto& [text, expected] : std::initializer_list<std::pair<const char*, double>>{
+           {"\"NaN\"", 1.0}, {"5", 1.0}, {"0.5", 1.0}, {"1.23", 1.2}, {"1.6", 1.6}}) {
+    {
+      std::ofstream zoom_file(scratch / "zoom.json");
+      zoom_file << R"({"values":{},"cameraZoom":)" << text << "}";
+    }
+    check(Settings::load(scratch / "zoom.json").camera_zoom() == expected,
+          "stored camera zoom is validated");
+  }
   check(Settings::path_beside("/a/b/account.json") == "/a/b/account.settings.json",
         "settings sit beside an explicit account file");
   check(!s.save("/proc/forbidden/settings.json"), "unwritable location reports failure");
@@ -175,7 +219,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   {
     Settings v;
     check(v.get("masterVolume") == 100 && v.set_value("masterVolume", 40) &&
-              !v.set_value("masterVolume", 101) && v.set_value("maxFPS", 0) &&
+              !v.set_value("masterVolume", 101) && v.set_value("maxFPS", 30) &&
               v.set_value("maxFPS", 200) && !v.set_value("maxFPS", 29),
           "slider values validate against their range");
     v.set_value("sfxVolume", 50);
@@ -235,6 +279,9 @@ void menu_behavior() {
   check(menu.capturing() && menu.visible(), "keys without a Flash code are ignored");
   menu.cancel_capture();
   // Rotate keys follow Allow Camera Rotation, which lives in another category.
+  // Allow Camera Rotation starts on, so turn it off to check the disabled state.
+  menu.toggle("allowRotation");
+  (void)menu.take_changed();
   menu.begin_capture("rotateLeft");
   check(!menu.capturing() && !menu.enabled(*find_option("rotateLeft")),
         "rotate keys are disabled while rotation is off");
@@ -262,7 +309,7 @@ void menu_behavior() {
         "category switches the rows");
   menu.set_value("particles", 0);
   menu.reset();
-  check(settings.flag("particles") && settings.get("maxFPS") == 60 &&
+  check(settings.flag("particles") && settings.get("maxFPS") == 0 &&
             settings.get("moveLeft") == find_option("moveLeft")->fallback &&
             settings.get("cursor") == find_option("cursor")->fallback && menu.take_changed(),
         "reset defaults every category");

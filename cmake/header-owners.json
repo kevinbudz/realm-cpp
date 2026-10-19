@@ -97,6 +97,7 @@
   "include/realm/lib/ui/Stack.hpp": "realm_ui",
   "include/realm/fixtures/StressTimeline.hpp": "realm_fixtures",
   "include/realm/stage3D/Renderer.hpp": "realm_render",
+  "include/realm/stage3D/vk/VkUi.hpp": "realm_render",
   "src/stage3D/gl/RendererPostProcess.hpp": "realm_render",
   "src/stage3D/gl/RendererGpuTimers.hpp": "realm_render",
   "src/stage3D/gl/RendererShader.hpp": "realm_render",

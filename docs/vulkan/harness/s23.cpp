@@ -99,12 +99,13 @@ int main(int argc, char** argv) {
     SDL_PumpEvents();
   }
   session.drawable_size(width, height);
-  renderer.clear_color({0.9f, 0.1f, 0.1f, 1.0f});
+  // Channels that are whole multiples of 1/255 (0.9 and 0.1 sit on .5 and round either way).
+  renderer.clear_color({0.8f, 0.2f, 0.2f, 1.0f});
   renderer.draw(atlas, {}, width, height, width);
   const auto resized = renderer.capture(width, height);
   wrong = 0;
   for (std::size_t p = 0; p + 3 < resized.pixels.size(); p += 4) {
-    wrong += resized.pixels[p] != expect(0.9f) || resized.pixels[p + 1] != expect(0.1f);
+    wrong += resized.pixels[p] != expect(0.8f) || resized.pixels[p + 1] != expect(0.2f);
   }
   check(resized.width == width && resized.height == height && wrong == 0,
         "resized swapchain renders at " + std::to_string(width) + "x" + std::to_string(height));

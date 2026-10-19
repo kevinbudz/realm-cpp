@@ -311,7 +311,7 @@ counters and backdrop). Now, 800×600, GL vs VK on the same driver:
 | Check | NVIDIA (GL vs VK) | RADV (GL vs VK) |
 |---|---|---|
 | Options screen, px / max Δ | 14663 (3.05%) / 2 | 14800 (3.08%) / 2 |
-| Pixels with Δ = 1 / Δ = 2 | 14651 / 12 | same order |
+| Pixels with Δ = 1 / Δ = 2 | 14651 / 12 | 14787 / 13 |
 | S1-mixed-dense, full UI, after M2 and M3 (md5) | byte-identical to GL | not rerun |
 
 The residual is ±1 level across the screen: rounding in the blur passes, not a region difference.

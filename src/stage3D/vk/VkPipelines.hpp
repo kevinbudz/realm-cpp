@@ -85,6 +85,9 @@ class Pipelines {
   [[nodiscard]] VkDescriptorSet scene_set(VkImageView view);
   // Drops the cached scene sets (offscreen targets were rebuilt; the old views go away).
   void release_scene() noexcept;
+  // Drops the set-0 sets that name a released atlas handle or a wall buffer about to be destroyed.
+  // Handles and buffer handles are reused, so a cached set must not outlive what it points at.
+  void forget_atlas_sets(std::uint32_t atlas, VkBuffer walls) noexcept;
 
   // The surface handle that stands in for handle 0 (sampled by no draw that needs a real surface).
   [[nodiscard]] std::uint32_t dummy_surface() const { return dummy_surface_; }

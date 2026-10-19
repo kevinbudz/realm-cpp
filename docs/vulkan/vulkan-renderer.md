@@ -1,7 +1,8 @@
 # Vulkan renderer
 
-The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, at commit
-`831d1b2` (phase 1, S0 and S1-S4 committed; S5-S8 unfinished, see [Status](#status)).
+The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, after the S5-S8
+work was committed on `vulkan-s5-s8` (phase 1 and S0-S7 committed, S8 measured, see
+[Remaining work](#remaining-work)).
 
 ## Goal
 
@@ -20,7 +21,7 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 | Phase | Content | State |
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
-| 2 | Vulkan world renderer (S0-S8) | S0-S4 committed; S5-S7 code in `s5-s8-wip.patch`, unverified; S8 not done |
+| 2 | Vulkan world renderer (S0-S8) | S0-S7 committed; S8 partly done (see below); still behind `REALM_VULKAN_WIP` |
 | 3 | RmlUi Vulkan backend, then remove the WIP gate | Not started |
 | 4 | Final verification and perf matrix across stacks | Not started |
 
@@ -57,10 +58,10 @@ The seam sits at the existing high-level boundaries, not at a low-level RHI.
 | S2 | Swapchain, frame slots, present modes, resize | Committed |
 | S3 | Handles, memory, staging, atlas, surfaces, buffers, readback | Committed |
 | S4 | Quad pipeline: sprites, surfaces, clip, terrain, layers, overlay | Committed |
-| S5 | Walls (SSBO), prepared meshes, model instances | WIP patch |
-| S6 | Post effects, draw_overlay, back and presented capture | WIP patch |
-| S7 | GPU timers, telemetry, perf | WIP patch; first perf run below |
-| S8 | Validation sweep (RADV + lavapipe), ctest, final patch | Not done |
+| S5 | Walls (SSBO), prepared meshes, model instances | Committed (e760fbe); `model_instances_vulkan` passes on 3 drivers |
+| S6 | Post effects, draw_overlay, back and presented capture | Committed (e760fbe) |
+| S7 | GPU timers, telemetry, perf | Committed (e760fbe); perf measured below |
+| S8 | Validation sweep, ctest, GL identity, parity, memory, perf | Partly done: ctest, GL identity, parity, memory and perf measured. **Validation sweep not run**: the Khronos layer is not installed on the laptop. Presented-capture decision open |
 
 ### Verified facts the design rests on
 
@@ -91,13 +92,16 @@ passed). The vsync setting reaches the present mode through `realm::set_present_
 image-available semaphore, timestamp query pool, host ring chunks, retire list. Render-finished
 semaphore per swapchain image. Lifecycle: Idle → Recording (first GPU call acquires) → Submitted (at
 capture() or finish_frame()) → Idle. `finish_frame()` submits and presents.
+`Frames`, `Pipelines` and `Resources` are process singletons (`frames()`, `pipelines()`,
+`resources()`), so a renderer's recorded commands can outlive it. Its destructor finishes the frame
+first (see the crash fix below).
 
 **Memory and lifetime.**
 - Per-frame data (instances, mesh vertices, overlay) is bump-allocated from the slot's host-visible
-  ring. WIP: 8 MB chunks, 16 MB retained per slot, idle chunks freed after 3 frames, oversize chunks
+  ring. 8 MB chunks, 16 MB retained per slot, idle chunks freed after 3 frames, oversize chunks
   after 1. `REALM_VK_RING_MEMORY=host` forces plain host memory; the default prefers
   DEVICE_LOCAL|HOST_VISIBLE (ReBAR) when available.
-- Device buffers (layers, terrain, model geometry) come from `VkArena` (WIP): 16 MB blocks, first-fit
+- Device buffers (layers, terrain, model geometry) come from `VkArena`: 16 MB blocks, first-fit
   with coalescing, dedicated allocations for oversize requests. No per-change vkAllocateMemory.
 - Walls: per-slot host-visible SSBO copies (GL's generation/tail logic per slot), so there is no
   write-after-read hazard.
@@ -105,8 +109,11 @@ capture() or finish_frame()) → Idle. `finish_frame()` submits and presents.
   reallocation keeps its handle and retires the old image.
 
 **Descriptors.** Never update a set in flight. set0 = atlas sampler + wall SSBO (cached per atlas
-handle and wall version); set1 = surface sampler per (handle, filter), handle 0 uses a 1×1 dummy;
-set2 = post source per target. Pools use FREE_DESCRIPTOR_SET; released surfaces free their sets.
+handle and wall buffer); set1 = surface sampler per (handle, filter), handle 0 uses a 1×1 dummy;
+set2 = post source per target (scene sets). Pools use FREE_DESCRIPTOR_SET; released surfaces free their
+sets. A cached set must not outlive what it names: a released atlas or surface handle, a destroyed wall
+buffer or a destroyed post target. Handles are reused, so `Pipelines::forget_atlas_sets` and
+`release_scene` drop them.
 
 **Push constants (72 B).** viewport, ground origin/X/Y, ground time, clip rect, clip cut, int flags
 (standalone, triangle list, ground space, clipped).
@@ -144,15 +151,16 @@ swizzle BGRA. Synchronous, capture frames only.
 `capture(presented)`, the death-screen background, is **an open decision**:
 - The design review first rejected a per-frame full-frame copy (an 8 MB copy every ~89 µs frame).
 - The first WIP defaulted to a black snapshot. Rejected: a visible regression.
-- Current WIP direction: `Renderer::set_presented_capture(bool)`. While a game session is playing
+- Current WIP (committed): `Renderer::set_presented_capture(bool)`. While a game session is playing
   (the only time death can happen), each frame's final image is copied on the GPU into one persistent
   device-local image before present, and `capture(presented)` reads that image back. Menus pay
-  nothing. GL ignores the toggle.
-- Measured cost (800×600 nexus-pan, see perf): about +13 µs per frame at ~11k FPS, about 12% at that
-  extreme. On S3 it is within noise.
-- Alternative if that cost is too high: defer the death snapshot one frame. The caller requests it,
-  the next finish_frame fills it from the world image before any death UI draws. This needs the death
-  flow in `ApplicationLoopUpdate.cpp` restructured, and the snapshot is one frame later than GL's.
+  nothing. GL ignores the toggle. `REALM_VK_PRESENTED_COPY=1` forces it.
+- Measured cost (1920×1024, world only, see [Perf](#perf-measured)): Renoir nexus-pan GPU 0.84 → 0.85
+  ms median, FPS 1035 → 711 (about 31%); NVIDIA S3 about 4%.
+- **Recommendation: implement the deferred snapshot.** The caller requests it, the next finish_frame
+  fills it from the world image before any death UI draws. This needs the death flow in
+  `ApplicationLoopUpdate.cpp` restructured, and the snapshot is one frame later than GL's. Not
+  implemented.
 
 **Timers.** Per-slot query pool, 69 timestamps (5 + 2×32), reset at command-buffer begin, polled
 WITH_AVAILABILITY. Ticks × timestampPeriod, masked to timestampValidBits (0 disables timers). Vulkan
@@ -164,76 +172,140 @@ uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's.
 |---|---|
 | `REALM_VULKAN_WIP=1` | Allow Vulkan to start. Without it Vulkan fails with "Vulkan UI not implemented yet" and the client falls back to OpenGL. Removed in phase 3. |
 | `REALM_VK_VALIDATION=1` | Khronos validation layer, debug messenger, synchronization validation when available; counts at shutdown. Off costs nothing. |
-| `REALM_VK_DEVICE=index\|substring` | Pick a device, e.g. `llvmpipe` for lavapipe. No match throws. |
+| `REALM_VK_DEVICE=index\|substring` | Pick a device, e.g. `NVIDIA`, `RENOIR` or `llvmpipe` (lavapipe). No match throws. |
 | `REALM_VK_PRESENT=immediate\|mailbox\|fifo` | Override the present mode. |
-| `REALM_VK_STATS=1` | (WIP) ring, arena and descriptor-set summary at shutdown. |
-| `REALM_VK_RING_MEMORY=host` | (WIP) force the ring into plain host memory. |
-| `REALM_VK_PRESENTED_COPY=1` | (WIP) force the per-frame presented copy. |
+| `REALM_VK_STATS=1` | Ring, arena and descriptor-set summary at shutdown. |
+| `REALM_VK_RING_MEMORY=host` | Force the ring into plain host memory. |
+| `REALM_VK_PRESENTED_COPY=1` | Force the per-frame presented copy. |
 | `REALM_TEST_WORLD_ONLY=1` | Draw the world only (no HUD, RmlUi, overlay text or death fade), above the renderer, so both APIs draw the same quads. |
 
 ### Parity
 
-The bar on RADV, per world-only fixture: at least 99.9% identical pixels, with any outliers isolated
-to triangle edges and no region-wide differences. The stricter "max channel delta ≤ 1" bar was
-dropped: a few edge pixels flip coverage between the two shader compilers. Three bounded experiments,
-including `precise` on gl_Position and matching GL's expression order, left them unchanged; the root
-cause was not found. Lavapipe is report-only; its bar is "no structural differences".
+The bar per world-only fixture: at least 99.9% identical pixels, with any outliers isolated to
+triangle edges and no region-wide differences. The stricter "max channel delta ≤ 1" bar was dropped: a
+few edge pixels flip coverage between the two shader compilers. Three bounded experiments, including
+`precise` on gl_Position and matching GL's expression order, left them unchanged; the root cause was not
+found.
 
-World-only, 800×600, 120 frames, GL vs Vulkan, RADV (S4):
+**Measured 2026-10-19, this laptop** (world only, 800×600, 120 frames, 12 fixtures: S1-enemies-dense,
+S3-enemies-dense, S3-players-dense, S3-enemies-spread, S2-enemies-dense, S1-players-dense,
+S3-combat-cluster, S1-projectiles-dense, S3-projectiles-dense, S3-models-dense, nexus-pan, churn):
 
-| Fixture | Differing px | Max delta |
-|---|---|---|
-| S1-enemies-dense, S1-players-dense, S2-enemies-dense, S3-enemies-dense, S3-players-dense, S3-enemies-spread | 0 | 0 |
-| S1-projectiles-dense | 82 (0.017%) | 4 |
-| S3-projectiles-dense | 73 (0.015%) | 20 |
-| S3-combat-cluster | 181 (0.038%) | 255 (edge pixels, plus a short column at x=267) |
-| S3-models-dense (WIP, S5) | 28 | 213 (edges) |
-| nexus-pan (WIP, S5) | 0 | 0 |
+| Comparison | Differing pixels, max over fixtures |
+|---|---|
+| Same driver, GL vs VK: NVIDIA | 0.023% (S1-enemies-dense) |
+| Same driver, GL vs VK: RADV Renoir | 0.039% (churn) |
+| Same driver, GL vs VK: lavapipe | 0.020% (S3-enemies-dense) |
+| Same API across drivers (GL or VK) | 0.08%-4.5% (e.g. GL-lavapipe vs GL-RADV S3-models-dense 4.54%, nexus-pan 3.66%) |
 
-Lavapipe vs GL on llvmpipe differs by 0.10%-3.04% per fixture. An earlier, unlabelled reading said
-this is llvmpipe rasterization and not our Vulkan code. That is **not verified**: redo it as a
-labelled four-way comparison (GL-llvmpipe vs GL-RADV, VK-lavapipe vs VK-RADV, GL-llvmpipe vs
-VK-lavapipe, GL-RADV vs VK-RADV) with `tools/parity4.py`.
+Many fixtures are 0 on the same driver. The region check (16×16 tiles with >25% differing pixels)
+finds only gl-radv/vk-radv churn: 2 tiles, one sprite's left edge flipping coverage (edge class).
 
-Walls and prepared meshes: no stress fixture draws them (mesh_upload_bytes = 0). The only Vulkan
-evidence so far is the synthetic harness `harness/s5.cpp` (within 1 LSB of GL). The GL GPU test
-`model_instances` covers them for GL.
+Conclusion (measured): all three drivers meet the 99.9% bar. The four-way comparison (GL-lavapipe,
+GL-RADV, VK-lavapipe, VK-RADV, `tools/parity4.py`) shows lavapipe-vs-RADV differences come from the two
+rasterizers, not from our Vulkan code. This resolves the earlier unlabelled reading.
 
-### First perf run (WIP build, unverified)
+Walls and prepared meshes: no stress fixture draws them (mesh_upload_bytes = 0). They are covered by
+`model_instances_vulkan` (below), which renders walls, wall overflow and model meshes through both
+the instance path and a reference mesh path under Vulkan.
 
-`tools/perf_run.sh`: 3 interleaved reps, 300 frames, `--benchmark` (vsync off), hidden, world only,
-**800×600** (the runner did not pass `--width/--height`; rerun at 1920×1024). Medians of the per-rep
-means:
+### model_instances_vulkan (measured 2026-10-19, 800×600)
 
-| Row | S3-combat-cluster FPS | S3 GPU median ms | nexus-pan FPS |
+`realm_model_instance_tests vulkan` runs the GPU section on Vulkan (ctest `model_instances_vulkan`);
+the default run is OpenGL (`model_instances`, passes). Printed numbers, per device:
+
+| Device | Walls: covered / differing / max Δ | Wall overflow: covered / differing / max Δ | Instance vs mesh, 688 frames: covered / differing (>16) |
 |---|---|---|---|
-| GL | ~101 | ~5.5 | ~8,400 |
-| VK, 2 frames in flight | ~101 | ~5.4 | ~11,200 |
-| VK, ring in plain host memory | ~102 | ~5.6 | ~11,600 |
-| VK, presented copy on | ~101 | ~5.4 | ~9,900 |
-| VK, 3 frames in flight | ~101 | ~5.4 | ~11,100 |
+| NVIDIA RTX 3050 Ti | 930,562 / 0 / 0 | 366,351 / 0 / 0 | 55,604,482 / 84 (56) |
+| RADV Renoir | 930,542 / 0 / 0 | 366,217 / 4 / 7 | 55,604,464 / 92 (60) |
+| lavapipe | 930,522 / 0 / 0 | 366,216 / 0 / 0 | 55,604,484 / 98 (50) |
 
-Readings: S3 is CPU-bound and both APIs tie, so the earlier "Vulkan GPU is slower on S3" (9.3 vs
-6.2 ms) was a vsync/downclock artifact. On a light scene Vulkan is ~30% faster. Frames in flight 2
-vs 3 and the ring memory type make no measurable difference, so keep 2 frames and the default ring.
-The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fix).
+All three pass (exit 0). The per-frame bar is at most 4 + covered/20000 pixels above Δ16, and at most
+0.1% differing for walls. No tolerance was loosened. The GL run prints 55,604,466 / 72 (52). Both draw
+paths (base-instance and per-run pointer) render identical pixels on every device.
+
+### Bugs fixed in this work
+
+**model_instances_vulkan crash (fixed).** The second pass of the GPU section (the per-run draw path)
+crashed in the driver, reported as a segfault in `Resources::resize_layers`. Root cause: `Frames` is a
+process singleton. The first pass's last `draw()` had recorded into the frame's command buffer, and the
+renderer was destroyed without finishing that frame. The next renderer's first GPU call then recorded
+into and submitted a command buffer that still bound the destroyed pipelines and render passes. RADV
+crashed in the next `vkCmdClearColorImage`. NVIDIA and lavapipe lost the device (`vkWaitForFences`
+returned VK_ERROR_DEVICE_LOST).
+
+Fix (`VkRenderer::~VkRenderer`):
+- `frames().finish()` before `vkDeviceWaitIdle`. This is the root cause. Ablation confirmed it alone
+  fixes the test on all three drivers.
+- `pipelines().release_scene()`: the cached scene sets name this renderer's post targets. Not exercised
+  by the test; a latent handle-reuse hazard, fixed by reasoning from the cache keys.
+- `Pipelines::forget_atlas_sets(atlas, walls)`: set-0 sets name a released atlas handle (the release hook)
+  or the wall buffer being destroyed (renderer destructor and `upload_walls`). Handles are reused, so a
+  stale set would be found by key. Also not exercised by the test; reasoned.
+
+### Perf (measured)
+
+1920×1024, world only, `--benchmark` (vsync off), 300 frames, 3 interleaved reps, medians of the
+per-rep means. Columns: FPS / CPU median ms / GPU median ms. Measured 2026-10-19 on this laptop.
+
+| Device | Scene | Row | FPS | CPU med ms | GPU med ms |
+|---|---|---|---|---|---|
+| NVIDIA RTX 3050 Ti | S3-combat-cluster | GL | 65.6 | 11.8 | 5.52 |
+| NVIDIA RTX 3050 Ti | S3-combat-cluster | VK | 61.2 | 12.9 | 4.17 |
+| NVIDIA RTX 3050 Ti | S3-combat-cluster | VK + presented copy | 58.8 | 13.2 | 4.18 |
+| NVIDIA RTX 3050 Ti | nexus-pan | GL | 751 | 0.15 | 0.11 |
+| NVIDIA RTX 3050 Ti | nexus-pan | VK | 846 | 0.14 | 0.09 |
+| NVIDIA RTX 3050 Ti | nexus-pan | VK + presented copy | 846 | not recorded | not recorded |
+| RADV Renoir | S3-combat-cluster | GL | 35.0 | 17.9 | 22.8 |
+| RADV Renoir | S3-combat-cluster | VK | 44.7 | 16.3 | 16.2 |
+| RADV Renoir | S3-combat-cluster | VK + presented copy | 47.3 | not recorded | not recorded |
+| RADV Renoir | nexus-pan | GL | 1335 | 0.13 | 0.70 |
+| RADV Renoir | nexus-pan | VK | 1035 | 0.84 | 0.84 |
+| RADV Renoir | nexus-pan | VK + presented copy | 711 | 1.24 | 0.85 |
+
+Readings:
+- VK wins S3 on Renoir by about 28% (GPU-bound: 16.2 vs 22.8 ms) and nexus on NVIDIA by about 13%.
+- VK loses nexus on Renoir by about 22% (the CPU waits on a higher VK GPU time) and S3 on NVIDIA by about
+  7% (CPU-bound: VK CPU 12.9 vs 11.8 ms).
+- The presented copy costs about 31% on Renoir nexus and about 4% on NVIDIA S3. Recommend the
+  deferred-snapshot alternative (see Capture).
+
+Earlier WIP numbers (800×600, unverified, superseded) are dropped: S3 looked CPU-bound with both APIs
+tied, and the "Vulkan GPU is slower" reading was a vsync/downclock artifact. The current table is the
+reference.
+
+### Memory (measured)
+
+`REALM_VK_STATS=1`, 300 frames, full UI, this laptop:
+
+| Item | Result |
+|---|---|
+| Steady ring | 8 MB per slot (16 MB total) |
+| Arena | 1 block, 16 MB |
+| Surface descriptor sets | peak 6 → 1 |
+| Descriptor pools | 1 |
+| Ring peak at startup | 80-128 MB per slot, one-frame burst from atlas staging (`Resources::stage_image`), freed within 1-3 frames |
+
+The steady-state bar is met. `create_ring_buffer` already falls back to host memory if the BAR heap is
+full. The startup burst may matter on small-BAR systems; the fix would route large staging through plain
+host memory. Not done.
 
 ## Remaining work
 
-### Phase 2 (apply `s5-s8-wip.patch` first; it applies to `831d1b2`)
+### Phase 2 (S8)
 
-1. Build it and rerun GL identity: PNG captures of S3-combat-cluster, S1-mixed-dense and churn
-   byte-identical to the base build, and the 300-frame checksums below.
-2. Decide the presented-capture approach (see Capture) from the measured cost.
-3. Rerun the perf matrix at 1920×1024 (`tools/perf_run.sh` with `--width 1920 --height 1024`).
-4. Memory bounds: run S3-combat-cluster and churn with `REALM_VK_STATS=1`. Steady-state ring ≤ 16 MB
-   per slot, bounded arena blocks, bounded surface descriptor sets under churn.
-5. Validation sweep with `REALM_VK_VALIDATION=1` (confirm sync validation is active) on RADV and
-   lavapipe: S3-combat-cluster, S1-enemies-dense, S3-models-dense, nexus-pan, churn, plus the s5 and
-   s23 harnesses. Bar: 0 errors, no SYNC- messages.
-6. Labelled four-way lavapipe comparison.
-7. Wall/mesh parity on a real scene: a fixture with walls, or `model_instances` under Vulkan.
-8. Full ctest. Known failures: appearance_compose, options_gpu.
+1. **Validation sweep: not run.** The Khronos validation layer (`vulkan-validation-layers`) is not
+   installed and installing it needs sudo. Bar when run: 0 errors, no SYNC- messages, on RADV and
+   lavapipe: S3-combat-cluster, S1-enemies-dense, S3-models-dense, nexus-pan, churn, plus the s5 and s23
+   harnesses.
+2. **Presented-capture decision:** implement the deferred snapshot (see Capture). Open.
+3. **Renoir nexus GPU gap:** VK GPU 0.84 ms vs GL 0.70 ms, and with the presented copy 1035 → 711 FPS.
+   Open, part of item 2. Measured, not yet explained.
+4. **NVIDIA S3 CPU gap:** VK CPU 12.9 ms vs GL 11.8 ms (CPU-bound). Open.
+5. Done this session (measured above): GL identity, world-only parity on 3 drivers with a labelled
+   four-way comparison, memory bounds, perf matrix at 1920×1024, wall/mesh parity under Vulkan. Full
+   ctest (`ctest --test-dir build-vk -j4`, 2026-10-19): 89 of 91 pass. The 2 failures are
+   `appearance_compose` and `options_gpu`, both failing before this work; not investigated here.
 
 ### Phase 3: RmlUi Vulkan backend
 
@@ -250,15 +322,16 @@ The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fi
 
 ### Phase 4: final verification
 
-- Full-UI parity against GL, perf matrix (Nexus and S3, GL vs Vulkan) on RADV, and correctness on
-  lavapipe.
+- Full-UI parity against GL, perf matrix (Nexus and S3, GL vs Vulkan), on RADV and correctness on
+  lavapipe. The world-only parity and perf matrix above are a start.
 - Check the fallback on a machine without Vulkan.
 - Ideally test a Windows AMD/Intel stack, the case that motivated the work.
 
 ## How to test
 
 Checksum oracle (GL identity), from `realm-cpp`, **300 frames** (tests/README.md says 120, which gives
-different values):
+different values). Measured 2026-10-19 after applying the S5-S7 work: PNG captures are byte-identical to
+the base build, and the checksums below match.
 
 ```
 REALM_QUAD_CHECKSUM=1 build/realm_client --hidden --stress tests/fixtures/S1-mixed-dense.json --stress-summary s1.json --frames 300
@@ -268,6 +341,9 @@ REALM_QUAD_CHECKSUM=1 build/realm_client --hidden --stress tests/fixtures/S1-mix
 |---|---|---|---|
 | S1-mixed-dense | 5956456988386327452 | 12694967582451890774 | 4156475164162667594 |
 | S3-combat-cluster | 1151069304813412503 | 10048529582793468071 | 17530971269395398748 |
+
+Capture md5s (`glid.sh`, GL, 120 frames): churn `6c19e46498095a5add38c50366b55872`, S1-mixed-dense
+`424955535ce96ab5e30d57725b417b6d`, S3-combat-cluster `7a76f9e61d6addbdde1e5eadd6153628`.
 
 World-only parity capture (Vulkan: add `REALM_VULKAN_WIP=1 REALM_VK_VALIDATION=1` and
 `--renderer vulkan`; lavapipe: `REALM_VK_DEVICE=llvmpipe`; GL on llvmpipe: `LIBGL_ALWAYS_SOFTWARE=1`):
@@ -279,6 +355,9 @@ REALM_TEST_WORLD_ONLY=1 build/realm_client --hidden --renderer gl --stress tests
 Compare: `python3 docs/vulkan/tools/compare.py gl.png vk.png diff.png` (differing %, max delta,
 histogram, bbox). `tools/clusters.py` groups differing pixels; `tools/perf_stats.py` summarises
 telemetry JSONL files.
+
+GPU model tests: `REALM_VULKAN_WIP=1 REALM_VK_DEVICE=NVIDIA|RENOIR|llvmpipe build/tests/realm_model_instance_tests vulkan`
+(ctest `model_instances_vulkan`); `build/tests/realm_model_instance_tests` runs the GL section.
 
 Harnesses (`harness/`): `s23.cpp` checks frames, present, resize, capture, and atlas/surface/layer
 readback; `s5.cpp` draws walls and meshes in either API. Build with

@@ -159,8 +159,14 @@ VkRenderer::~VkRenderer() {
   if (!device.ready()) {
     return;
   }
+  // A frame may still be recording with this renderer's pipelines, framebuffers and sets in its
+  // command buffer (draw() without finish_frame()). It is submitted now: recording into it later, or
+  // submitting it, after those objects are gone is undefined (RADV crashes in the next
+  // vkCmdClearColorImage, which saves and restores the bound pipeline).
+  frames().finish();
   // Frames in flight may still use the pipelines, framebuffers and images.
   device.fn.vkDeviceWaitIdle(device.device);
+  pipelines().release_scene();
   for (auto& [view, framebuffer] : framebuffers_) {
     device.fn.vkDestroyFramebuffer(device.device, framebuffer, nullptr);
   }
@@ -179,6 +185,7 @@ VkRenderer::~VkRenderer() {
     }
   }
   for (auto& buffer : walls_) {
+    pipelines().forget_atlas_sets(0, buffer.buffer);
     gfx::vk::destroy_buffer(buffer);
   }
   resources().release(model_geometry_);
@@ -306,6 +313,7 @@ VkBuffer VkRenderer::upload_walls(const WallGeometryStore& store) {
     // Only this slot's frames used the old buffer, and they are finished: it goes now, from the
     // retire list.
     if (buffer.buffer != VK_NULL_HANDLE) {
+      pipelines().forget_atlas_sets(0, buffer.buffer);
       gfx::vk::Buffer old = buffer;
       frames().retire([old]() mutable { gfx::vk::destroy_buffer(old); });
     }

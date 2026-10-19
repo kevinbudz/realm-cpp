@@ -132,6 +132,7 @@ void Pipelines::create() {
     if (handle - 1 < surfaces_.size()) {
       retire(surfaces_[handle - 1]);
     }
+    forget_atlas_sets(handle, VK_NULL_HANDLE);
   });
 }
 
@@ -306,6 +307,14 @@ VkDescriptorSet Pipelines::scene_set(VkImageView view) {
   Cached cached{0, set, pool, view, image.sampler, VK_NULL_HANDLE};
   scenes_.push_back(cached);
   return set;
+}
+
+void Pipelines::forget_atlas_sets(std::uint32_t atlas, VkBuffer walls) noexcept {
+  for (auto& cached : atlas_) {
+    if ((atlas != 0 && cached.key == atlas) || (walls != VK_NULL_HANDLE && cached.extra == walls)) {
+      retire(cached);
+    }
+  }
 }
 
 void Pipelines::release_scene() noexcept {

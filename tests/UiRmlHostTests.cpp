@@ -86,13 +86,14 @@ const std::string pulse_document =
 
 struct Counts {
   std::uint64_t text{}, paint{}, uploads{}, meshes{}, native_uploads{}, native_bytes{},
-      native_meshes{};
+      native_meshes{}, reused{};
 };
 
 Counts counts(const RmlHost& host) {
   const auto s = host.stats();
-  return {s.text_rasterizations,  s.painter_rasterizations,    s.texture_uploads,    s.text_meshes,
-          s.native_image_uploads, s.native_image_upload_bytes, s.native_image_meshes};
+  return {s.text_rasterizations, s.painter_rasterizations, s.texture_uploads,
+          s.text_meshes,         s.native_image_uploads,   s.native_image_upload_bytes,
+          s.native_image_meshes, s.frames_reused};
 }
 
 Counts operator-(Counts a, Counts b) {
@@ -102,7 +103,8 @@ Counts operator-(Counts a, Counts b) {
           a.meshes - b.meshes,
           a.native_uploads - b.native_uploads,
           a.native_bytes - b.native_bytes,
-          a.native_meshes - b.native_meshes};
+          a.native_meshes - b.native_meshes,
+          a.reused - b.reused};
 }
 
 std::int32_t clock_ms{};
@@ -231,6 +233,8 @@ void run(const FontBook& fonts, const HudArt& art) {
         "static frames are free: text " + std::to_string(delta.text) + " paint " +
             std::to_string(delta.paint) + " uploads " + std::to_string(delta.uploads) + " meshes " +
             std::to_string(delta.meshes));
+  check(delta.reused == 30,
+        "static frames composite the cached layer: " + std::to_string(delta.reused));
   // Hover over a non-interactive panel changes nothing drawn.
   stack.dispatch(pointer(EventKind::pointer_move, 100, 60));
   before = counts(host);
@@ -248,12 +252,14 @@ void run(const FontBook& fonts, const HudArt& art) {
   check(delta.text == 1 && delta.paint == 0 && delta.uploads == 1,
         "one changed label costs one rasterization: text " + std::to_string(delta.text) +
             " paint " + std::to_string(delta.paint) + " uploads " + std::to_string(delta.uploads));
+  check(delta.reused == 0, "a changed label is drawn, not composited from the cache");
   before = counts(host);
   for (int i = 0; i < 10; ++i) {
     frame(host);
   }
   delta = counts(host) - before;
   check(delta.text == 0 && delta.uploads == 0, "static again after the change");
+  check(delta.reused == 10, "static again after the change composites the cached layer");
 
   // Painted panel and clipping, read back from the framebuffer.
   frame(host);

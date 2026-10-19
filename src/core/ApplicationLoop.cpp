@@ -158,7 +158,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
 
   // A held Escape (and leaving the game) says so in small text in the window's top-left corner,
   // over everything, the Settings screen included.
-  if (cs.returning_home) {
+  if (cs.returning_text > 0) {
     if (cs.returning_height != height) {
       cs.fonts.set_pixel_scale(height / 600.0);
       const auto text = cs.fonts.rasterize("Returning to home...", 13, true, true, 0xffffff);
@@ -168,12 +168,13 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
       cs.returning_offset = text.offset;
       cs.returning_height = height;
     }
-    // The text field sits 6 dp in from the left edge and flush with the top: its own gutter keeps
-    // the glyphs off the edge, clear of the Settings search box.
+    // The text field sits 6 dp in from the left edge and 3 dp down from the top: its own gutter
+    // keeps the glyphs off the edge, clear of the Settings search box.
     const double scale = height / 600.0;
-    const auto quad = cs.returning_texture.quad(
-        {std::round((6 + cs.returning_offset.x) * scale), std::round(cs.returning_offset.y * scale)},
-        {cs.returning_size.x, 0}, {0, cs.returning_size.y});
+    auto quad = cs.returning_texture.quad({std::round((6 + cs.returning_offset.x) * scale),
+                                           std::round((3 + cs.returning_offset.y) * scale)},
+                                          {cs.returning_size.x, 0}, {0, cs.returning_size.y});
+    quad.multiply = {1, 1, 1, cs.returning_text};
     cs.renderer.draw_overlay(cs.atlas, std::span<const realm::Quad>(&quad, 1), width, height);
   }
   if (cs.death_background && cs.startup) {

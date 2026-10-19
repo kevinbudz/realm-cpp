@@ -402,6 +402,23 @@ int main(int argc, char** argv) {
     check(contains(realm::item_tooltip_content(catalog, fixture).restrictions,
                    "Press [A] in world to use"),
           "ability tooltip uses current key binding");
+    {
+      // The frame layer is cached per height, colors and density. Cloak, staff, then cloak again
+      // is served from that cache, and must match both its first render and a fresh tooltip.
+      realm::FontBook fonts;
+      realm::HudArt art;
+      realm::ItemTooltip cached(catalog, fonts, art);
+      realm::ItemTooltip fresh(catalog, fonts, art);
+      check(cached.update(fixture), "frame cache: first cloak renders");
+      const auto first = cached.image().pixels;
+      auto staff = fixture;
+      staff.item = {type("Staff of the Cosmic Whole"), -1};
+      check(cached.update(staff), "frame cache: staff renders");
+      check(cached.update(fixture), "frame cache: cloak renders again");
+      check(cached.image().pixels == first, "frame cache: cached cloak matches its first render");
+      check(fresh.update(fixture) && fresh.image().pixels == first,
+            "frame cache: fresh cloak matches the cached render");
+    }
     for (const auto& dimensions :
          std::array<realm::Vec2, 3>{{{800, 600}, {1280, 720}, {320, 240}}}) {
       for (const auto pointer : std::array<realm::Vec2, 4>{

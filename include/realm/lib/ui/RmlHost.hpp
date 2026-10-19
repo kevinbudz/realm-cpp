@@ -44,6 +44,7 @@ struct RmlStats {
   std::uint64_t texture_upload_bytes{};
   std::uint64_t text_meshes{};  // GenerateString calls (text geometry regenerations)
   std::uint64_t native_image_uploads{};
+  std::uint64_t frames_reused{};  // render() calls that composited the last drawn frame's layer
   std::uint64_t native_image_upload_bytes{};
   std::uint64_t native_image_meshes{};
   std::uint64_t document_loads{};

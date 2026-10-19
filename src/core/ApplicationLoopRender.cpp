@@ -120,6 +120,8 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
   auto& overlay_storage = frame.overlay_storage;
   auto& overlay = frame.overlay;
   ui_zone.emplace("ui.build");
+  // Holding Escape fades the chat, CreditDisplay and rank/guild display; 1 leaves them as they are.
+  const float returning_opacity = 1 - cs.returning_fade;
 
   if (cs.startup) {
     // Session transitions may change the controller after its simulation update in this frame.
@@ -329,6 +331,7 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
               {0, cs.chat_view->top() * ui_scale}, {realm::ChatView::width * ui_scale, 0},
               {0, cs.chat_view->surface_height() * ui_scale}, 0, 0, image.width, image.height);
           overlay_storage[overlay.size()] = chat_quad;
+          realm::fade_quad(overlay_storage[overlay.size()], returning_opacity);
           overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
         }
       }
@@ -387,6 +390,7 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
              cs.credit_image.origin_offset.y * ui_scale},
             {static_cast<double>(cs.credit_image.image.width), 0},
             {0, static_cast<double>(cs.credit_image.image.height)});
+        realm::fade_quad(overlay_storage[overlay.size()], returning_opacity);
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
       // The rank/guild display yields to the Performance Stats panel while it is visible.
@@ -412,6 +416,7 @@ void build_hud_overlays(ClientState& cs, const Options& options, Frame& frame) {
                                        cs.safe_area_image.origin_offset.y * ui_scale},
                                       {static_cast<double>(cs.safe_area_image.image.width), 0},
                                       {0, static_cast<double>(cs.safe_area_image.image.height)});
+        realm::fade_quad(overlay_storage[overlay.size()], returning_opacity);
         overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
       }
 
@@ -566,6 +571,8 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
   auto& height = frame.height;
   auto& overlay_storage = frame.overlay_storage;
   auto& overlay = frame.overlay;
+  // Holding Escape fades the quest portrait tooltip; 1 leaves it as it is.
+  const float returning_opacity = 1 - cs.returning_fade;
   if (cs.player_group && cs.hud && cs.minimap && options.world && !menus) {
     const auto pointer = cs.hud_input.pointer();
     const double scale = height / 600.0;
@@ -645,6 +652,9 @@ void build_group_overlays(ClientState& cs, const Options& options, Frame& frame)
                 {tip.canvas_width() * tip_scale, 0}, {0, tip.canvas_height() * tip_scale}, 0, 0,
                 tip.image().width, tip.image().height);
             overlay_storage[overlay.size()] = quad;
+            if (kind == realm::QuestArrow::Tooltip::portrait) {
+              realm::fade_quad(overlay_storage[overlay.size()], returning_opacity);
+            }
             overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
           };
           if (kind == realm::QuestArrow::Tooltip::portrait) {

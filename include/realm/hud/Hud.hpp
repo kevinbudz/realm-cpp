@@ -38,6 +38,10 @@ inline constexpr int container_y = 508;
 // The IconButton's 40x40 bitmap, 12 units up and left of the button, in HUD coordinates.
 inline constexpr HudRect header_button{160, 190, 40, 40};
 [[nodiscard]] std::optional<TextBitmap> tier_bitmap(const FontBook& fonts, const ObjectDef& item);
+// Decodes into `art`'s cache the HUD art that an empty player's first HUD build draws at the
+// fonts' current density. The drawings are discarded. Keys that depend on the player (item tiles,
+// potions, portraits) are still decoded when first drawn.
+void warm_hud_art(const HudArt& art, const Catalog& catalog, const FontBook& fonts);
 [[nodiscard]] Image rank_star_bitmap(const FontBook& fonts, const HudArt& art, int stars);
 
 // Persistent CPU panel. It is rebuilt only when visible character stats change.

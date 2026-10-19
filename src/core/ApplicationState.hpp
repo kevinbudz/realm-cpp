@@ -278,9 +278,12 @@ struct ClientState {
   bool running = true;
   bool leaving_game{};
   // Holding Escape returns to character selection from any screen, Settings included; a tap
-  // still reaches whatever has focus. returning_home shows "Returning to home..." this frame.
+  // still reaches whatever has focus. Over the hold, returning_fade ramps 0 to 1 as the chat,
+  // CreditDisplay, rank/guild display and quest portrait fade out; returning_text then ramps 0 to
+  // 1 as "Returning to home..." fades in. Both stay 1 once the game is leaving.
   std::optional<std::int32_t> escape_held_since;
-  bool returning_home{};
+  float returning_fade{};
+  float returning_text{};
   realm::SurfaceTexture returning_texture;
   double returning_height{};
   realm::Vec2 returning_size{};

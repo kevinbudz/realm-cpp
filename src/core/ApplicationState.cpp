@@ -276,6 +276,16 @@ ClientState::ClientState(Options options)
 
   script = o.script.empty() ? std::vector<ScriptStep>{} : load_script(o.script);
 
+  // The HUD's first build decodes its art at the window's density (the loop uses drawable height
+  // / 600). Decoding it now keeps that work out of the first gameplay frame. The keys include the
+  // density, so a density that differs from the drawable size only wastes this work.
+  if (hud && hud_art && o.height > 0 && o.height <= 9600) {
+    const double previous_scale = fonts.pixel_scale();
+    fonts.set_pixel_scale(o.height / 600.0);
+    realm::warm_hud_art(*hud_art, catalog, fonts);
+    fonts.set_pixel_scale(previous_scale);
+  }
+
   previous = Clock::now();
   epoch = previous;
 }

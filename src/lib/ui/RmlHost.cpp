@@ -80,6 +80,8 @@ struct Runtime {
   class HostRender* render{};
   class PainterCache* painters{};
   RmlStats stats;
+  // Queried once at construction: a query per native image update would wait for the driver.
+  GLint max_texture_size{};
   double clock_ms{};
   double dp{1};
   std::size_t pulse_bytes{};
@@ -857,37 +859,30 @@ bool valid_native_image(const Image& image) {
   return image.pixels.size() == width * height * 4;
 }
 
+// The GL state of a native image upload, set rather than saved: reading state back would wait for
+// the driver. The UI pass runs on unit 0 with no pixel buffer bound. The renderer's own uploads set
+// their unpack alignment before each use (Renderer.cpp and Atlas.cpp leave it at 1), so 1 is left
+// in place here, and row length is set to the packed rows this file copies. Unit 0's binding is
+// cleared.
 struct NativeGlState {
-  GLint active{};
-  GLint texture{};
-  GLint unpack_alignment{};
-  GLint unpack_row_length{};
-  GLint unpack_buffer{};
-
   NativeGlState() {
-    glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack_alignment);
-    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &unpack_row_length);
-    glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &unpack_buffer);
+    glActiveTexture(GL_TEXTURE0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
   }
 
-  ~NativeGlState() {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, unpack_alignment);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, unpack_row_length);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(unpack_buffer));
-    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture));
-    glActiveTexture(static_cast<GLenum>(active));
-  }
+  ~NativeGlState() { glBindTexture(GL_TEXTURE_2D, 0); }
 };
 
 struct NativeTexture {
   ~NativeTexture() {
     if (handle && !transferred) {
-      glDeleteTextures(1, &handle);
+      if (runtime && runtime->render) {
+        runtime->render->ReleaseTexture(handle);  // deferred while the frame is recorded
+      } else {
+        glDeleteTextures(1, &handle);
+      }
     }
     if (runtime) {
       runtime->native_image_bytes -= bytes;
@@ -951,6 +946,8 @@ struct NativeTexture {
   }
 
   void upload(const Image& image, std::span<const HudRegion> regions) {
+    // The frame cache must not reuse this texture's old pixels.
+    runtime->render->TextureContentChanged();
     NativeGlState state;
     glBindTexture(GL_TEXTURE_2D, handle);
     for (const auto& region : regions) {
@@ -1195,6 +1192,8 @@ class PulseText final : public Rml::Element {
       }
 
       const auto pixels = premultiplied(bitmap.image);
+      // The frame cache must not reuse this texture's old pixels.
+      rt.render->TextureContentChanged();
       glBindTexture(GL_TEXTURE_2D, handle_);
       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w_, h_, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
       glBindTexture(GL_TEXTURE_2D, 0);
@@ -1208,8 +1207,8 @@ class PulseText final : public Rml::Element {
     const auto color = GetComputedValues().color().ToPremultiplied(GetComputedValues().opacity());
     const auto quad_x = static_cast<float>(at.x);
     const auto quad_y = static_cast<float>(at.y);
-    if (!mesh_valid_ || quad_x != mesh_x_ || quad_y != mesh_y_ || w_ != mesh_w_ ||
-        h_ != mesh_h_ || capacity_w_ != mesh_capacity_w_ || capacity_h_ != mesh_capacity_h_ ||
+    if (!mesh_valid_ || quad_x != mesh_x_ || quad_y != mesh_y_ || w_ != mesh_w_ || h_ != mesh_h_ ||
+        capacity_w_ != mesh_capacity_w_ || capacity_h_ != mesh_capacity_h_ ||
         color != mesh_color_) {
       Rml::Mesh mesh;
       Rml::MeshUtilities::GenerateQuad(
@@ -1384,6 +1383,7 @@ struct RmlHost::Impl {
     rt.art = art;
     rt.render = &render;
     rt.painters = &painters;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &rt.max_texture_size);
     runtime = &rt;
     try {
       probe_fonts();
@@ -1840,6 +1840,9 @@ void RmlHost::render(int drawable_width, int drawable_height) {
     query->order = ++impl.query_order;
   }
   impl.rt.stats.draws = impl.render.draws;
+  if (impl.render.frame_reused()) {
+    ++impl.rt.stats.frames_reused;
+  }
 }
 
 void RmlHost::release_caches() {
@@ -1877,6 +1880,7 @@ void RmlHost::reset_stats() {
   stats.native_image_meshes = 0;
   stats.native_image_upload_bytes = 0;
   stats.native_image_uploads = 0;
+  stats.frames_reused = 0;
 
   stats.document_load_bytes = 0;
   stats.document_load_us = 0;
@@ -1909,9 +1913,7 @@ void set_native_image(Rml::Element& element, const Image& image, std::uint64_t r
   if (!native || !manager || !valid_native_image(image)) {
     return;
   }
-  GLint max_texture_size{};
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
-  if (image.width > max_texture_size || image.height > max_texture_size) {
+  if (image.width > runtime->max_texture_size || image.height > runtime->max_texture_size) {
     return;
   }
   auto found = runtime->native_images.find(&image);

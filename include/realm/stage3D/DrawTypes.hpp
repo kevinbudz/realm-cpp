@@ -1,6 +1,7 @@
 #pragma once
 #include "realm/map/Camera.hpp"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -37,6 +38,12 @@ struct Quad {
   std::uint32_t texture{};  // zero: shared sprite atlas (static sprites or dynamic-page bitmaps,
                             // kinds 5/6/8 clamp to uv); otherwise a retained UI surface
 };
+
+// A quad's GPU instance is its first quad_instance_bytes: every shader input in declaration order,
+// with no padding. owner and texture are CPU-only; the renderer keeps them in its per-quad run data
+// and they never reach the GPU.
+inline constexpr std::size_t quad_instance_bytes = 88;
+static_assert(offsetof(Quad, owner) == quad_instance_bytes, "owner starts the CPU-only tail");
 
 // A model already projected to screen pixels, with back faces removed. Triangles
 // are grouped by material; vertices are expanded three per triangle.

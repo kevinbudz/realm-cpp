@@ -13,7 +13,8 @@ namespace realm {
 // Raster art for world-space status cues: CharacterStatusText (24 pt bold, black
 // outline), object names (16 pt bold white, black outline) and condition icons. All of
 // it is drawn in map pixels and scales with the world zoom, like speech balloons.
-// Labels are rasterized at the font book's current density and kept in a bounded LRU.
+// Labels are rasterized at the font book's current density and kept in a bounded LRU, except names,
+// which are always rasterized at density 1 (the scene scales their quads by the camera zoom).
 class StatusArt {
  public:
   static constexpr std::size_t maximum_labels = 4096;
@@ -28,7 +29,7 @@ class StatusArt {
   };
 
   // Without text, labels are empty and only icons are drawn.
-  StatusArt(const FontBook& fonts, const Appearances* appearances, bool text = true)
+  StatusArt(FontBook& fonts, const Appearances* appearances, bool text = true)
       : fonts_(fonts), appearances_(appearances), text_(text) {}
 
   [[nodiscard]] Label status_text(std::string_view text, std::uint32_t color);
@@ -54,10 +55,10 @@ class StatusArt {
   };
 
   // A glow label, or with `outline` a crisp black outline in place of the glow (strength and blur
-  // are then unused).
+  // are then unused). density 0 rasterizes at the font book's current density.
   Label label(std::string key, std::string_view text, int size, std::uint32_t color,
-              unsigned strength, double blur, bool outline = false);
-  const FontBook& fonts_;
+              unsigned strength, double blur, bool outline = false, double density = 0);
+  FontBook& fonts_;
   const Appearances* appearances_;
   bool text_{true};
   std::list<std::string> lru_;

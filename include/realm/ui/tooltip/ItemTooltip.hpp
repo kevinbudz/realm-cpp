@@ -74,6 +74,20 @@ class ItemTooltip {
   void text(std::span<const RichLine> lines, int size, bool bold, int field_width,
             double field_height, double x, double y);
   void shadow();
+  // The cut-edge frame depends only on the height, the frame's colors and the density, so each
+  // distinct combination is drawn once and kept for the next tooltip of that size.
+  [[nodiscard]] const Image& frame_layer(bool usable);
+
+  struct Frame {
+    int height{};
+    bool usable{};
+    double scale{};
+    Image image;
+    std::uint64_t used{};
+  };
+
+  std::vector<Frame> frames_;
+  std::uint64_t frame_clock_{};
   const Catalog& catalog_;
   const FontBook& fonts_;
   const HudArt& art_;

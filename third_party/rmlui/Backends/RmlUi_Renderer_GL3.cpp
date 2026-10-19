@@ -465,7 +465,7 @@ enum class FramebufferAttachment { None, DepthStencil };
 
 static void CheckGLError(const char* operation_name)
 {
-#ifdef RMLUI_DEBUG
+#ifndef NDEBUG // realm: glGetError synchronises with the driver, so release builds never call it.
 	GLenum error_code = glGetError();
 	if (error_code != GL_NO_ERROR)
 	{
@@ -806,8 +806,13 @@ RenderInterface_GL3::~RenderInterface_GL3()
 
 void RenderInterface_GL3::SetViewport(int width, int height, int offset_x, int offset_y)
 {
-	viewport_width = Rml::Math::Max(width, 1);
-	viewport_height = Rml::Math::Max(height, 1);
+	EndRecording(); // realm: queued commands use the projection they were recorded with.
+	const int new_width = Rml::Math::Max(width, 1);
+	const int new_height = Rml::Math::Max(height, 1);
+	if (new_width != viewport_width || new_height != viewport_height || offset_x != viewport_offset_x || offset_y != viewport_offset_y)
+		++generation; // realm: projection changes; a cached layer is no longer valid.
+	viewport_width = new_width;
+	viewport_height = new_height;
 	viewport_offset_x = offset_x;
 	viewport_offset_y = offset_y;
 	projection = Rml::Matrix4f::ProjectOrtho(0, (float)viewport_width, (float)viewport_height, 0, -10000, 10000);
@@ -817,93 +822,30 @@ void RenderInterface_GL3::BeginFrame()
 {
 	RMLUI_ASSERT(viewport_width >= 1 && viewport_height >= 1);
 
-	// Backup GL state.
-	glstate_backup.enable_cull_face = glIsEnabled(GL_CULL_FACE);
-	glstate_backup.enable_blend = glIsEnabled(GL_BLEND);
-	glstate_backup.enable_stencil_test = glIsEnabled(GL_STENCIL_TEST);
-	glstate_backup.enable_scissor_test = glIsEnabled(GL_SCISSOR_TEST);
-	glstate_backup.enable_depth_test = glIsEnabled(GL_DEPTH_TEST);
-
-	glGetIntegerv(GL_VIEWPORT, glstate_backup.viewport);
-	glGetIntegerv(GL_SCISSOR_BOX, glstate_backup.scissor);
-
-	glGetIntegerv(GL_ACTIVE_TEXTURE, &glstate_backup.active_texture);
-
-	glGetIntegerv(GL_STENCIL_CLEAR_VALUE, &glstate_backup.stencil_clear_value);
-	glGetFloatv(GL_COLOR_CLEAR_VALUE, glstate_backup.color_clear_value);
-	glGetBooleanv(GL_COLOR_WRITEMASK, glstate_backup.color_writemask);
-
-	glGetIntegerv(GL_BLEND_EQUATION_RGB, &glstate_backup.blend_equation_rgb);
-	glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &glstate_backup.blend_equation_alpha);
-	glGetIntegerv(GL_BLEND_SRC_RGB, &glstate_backup.blend_src_rgb);
-	glGetIntegerv(GL_BLEND_DST_RGB, &glstate_backup.blend_dst_rgb);
-	glGetIntegerv(GL_BLEND_SRC_ALPHA, &glstate_backup.blend_src_alpha);
-	glGetIntegerv(GL_BLEND_DST_ALPHA, &glstate_backup.blend_dst_alpha);
-
-	glGetIntegerv(GL_STENCIL_FUNC, &glstate_backup.stencil_front.func);
-	glGetIntegerv(GL_STENCIL_REF, &glstate_backup.stencil_front.ref);
-	glGetIntegerv(GL_STENCIL_VALUE_MASK, &glstate_backup.stencil_front.value_mask);
-	glGetIntegerv(GL_STENCIL_WRITEMASK, &glstate_backup.stencil_front.writemask);
-	glGetIntegerv(GL_STENCIL_FAIL, &glstate_backup.stencil_front.fail);
-	glGetIntegerv(GL_STENCIL_PASS_DEPTH_FAIL, &glstate_backup.stencil_front.pass_depth_fail);
-	glGetIntegerv(GL_STENCIL_PASS_DEPTH_PASS, &glstate_backup.stencil_front.pass_depth_pass);
-
-	glGetIntegerv(GL_STENCIL_BACK_FUNC, &glstate_backup.stencil_back.func);
-	glGetIntegerv(GL_STENCIL_BACK_REF, &glstate_backup.stencil_back.ref);
-	glGetIntegerv(GL_STENCIL_BACK_VALUE_MASK, &glstate_backup.stencil_back.value_mask);
-	glGetIntegerv(GL_STENCIL_BACK_WRITEMASK, &glstate_backup.stencil_back.writemask);
-	glGetIntegerv(GL_STENCIL_BACK_FAIL, &glstate_backup.stencil_back.fail);
-	glGetIntegerv(GL_STENCIL_BACK_PASS_DEPTH_FAIL, &glstate_backup.stencil_back.pass_depth_fail);
-	glGetIntegerv(GL_STENCIL_BACK_PASS_DEPTH_PASS, &glstate_backup.stencil_back.pass_depth_pass);
-
-	// Setup expected GL state.
-	glViewport(0, 0, viewport_width, viewport_height);
-
-	glClearStencil(0);
-	glClearColor(0, 0, 0, 0);
-
-	glActiveTexture(GL_TEXTURE0);
-
-	glDisable(GL_SCISSOR_TEST);
-	glDisable(GL_CULL_FACE);
-
-	// Set blending function for premultiplied alpha.
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-
-#if !defined(RMLUI_PLATFORM_EMSCRIPTEN) && !defined(__ANDROID__)
-	// We do blending in nonlinear sRGB space because that is the common practice and gives results that we are used to.
-	glDisable(GL_FRAMEBUFFER_SRGB);
-#endif
-
-	glEnable(GL_STENCIL_TEST);
-	glStencilFunc(GL_ALWAYS, 1, GLuint(-1));
-	glStencilMask(GLuint(-1));
-	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-	glDisable(GL_DEPTH_TEST);
-
+	SetFrameState();
 	SetTransform(nullptr);
 
 	// realm: clear only the region the previous frame could have written. New layer storage is undefined, so clear all of it.
 	if (render_layers.BeginFrame(viewport_width, viewport_height))
+	{
 		previous_bounds = Rml::Rectanglei::FromSize({viewport_width, viewport_height});
+		cache_valid = false;
+	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetTopLayer().framebuffer);
-	if (previous_bounds.Valid())
-	{
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(previous_bounds.Left(), viewport_height - previous_bounds.Bottom(), previous_bounds.Width(), previous_bounds.Height());
-		glClear(GL_COLOR_BUFFER_BIT);
-		glDisable(GL_SCISSOR_TEST);
-	}
 
 	UseProgram(ProgramId::None);
 	program_transform_dirty.set();
 	scissor_state = Rml::Rectanglei::MakeInvalid();
 	frame_bounds = Rml::Rectanglei::MakeInvalid();
 	frame_full_screen = false;
+
+	// realm: draw, scissor and transform calls from here on are queued (see frame_commands). The clear of previous_bounds and the
+	// queue run in EndFrame, or earlier if a call cannot be queued. A frame reusing the cached layer runs neither.
+	frame_commands.clear();
+	frame_flushed = false;
+	reused_frame = false;
+	recording = true;
 
 	Gfx::CheckGLError("BeginFrame");
 }
@@ -913,16 +855,48 @@ void RenderInterface_GL3::EndFrame()
 	const Gfx::FramebufferData& fb_active = render_layers.GetTopLayer();
 	const Gfx::FramebufferData& fb_postprocess = render_layers.GetPostprocessPrimary();
 
+	// realm: a frame whose queue and generation equal the last replayed frame's reuses that frame's resolved layer.
+	// Otherwise the queue is replayed now. Frames flushed early (see EndRecording) are never reused.
+	const bool eligible = recording && !frame_flushed;
+	recording = false;
+	reused_frame = false;
+	if (eligible)
+	{
+		reused_frame = cache_valid && cached_generation == generation && frame_commands == previous_commands;
+		if (reused_frame)
+		{
+			frame_bounds = cached_frame_bounds;
+			frame_full_screen = cached_frame_full_screen;
+		}
+		else
+		{
+			ReplayFrameCommands();
+		}
+	}
+
 	// realm: resolve and composite only the region written this frame. A scissor test left enabled would clip the resolve and composite in
 	// ways the bounds do not model, so that case keeps the full-size path.
 	const Rml::Rectanglei full_viewport = Rml::Rectanglei::FromSize({viewport_width, viewport_height});
-	const bool bounded = !frame_full_screen && !glIsEnabled(GL_SCISSOR_TEST);
+	// The scissor test and box are tracked (see SetGlScissorTest), not read back. A reused frame applies the state its replayed frame left.
+	bool scissor_enabled = gl_scissor_on;
+	int scissor_box[4] = {gl_scissor_box[0], gl_scissor_box[1], gl_scissor_box[2], gl_scissor_box[3]};
+	if (reused_frame)
+	{
+		scissor_enabled = cached_scissor_enabled;
+		for (int i = 0; i < 4; ++i)
+			scissor_box[i] = cached_scissor_box[i];
+		SetGlScissorTest(scissor_enabled);
+		if (scissor_enabled)
+			SetGlScissorBox(scissor_box[0], scissor_box[1], scissor_box[2], scissor_box[3]);
+	}
+	const bool bounded = !frame_full_screen && !scissor_enabled;
 	const bool skip = bounded && !frame_bounds.Valid();
 	const Rml::Rectanglei region = bounded ? frame_bounds : full_viewport;
-	previous_bounds = frame_full_screen ? full_viewport : frame_bounds;
+	if (!reused_frame)
+		previous_bounds = frame_full_screen ? full_viewport : frame_bounds;
 
-	// Resolve MSAA to postprocess framebuffer.
-	if (!skip)
+	// Resolve MSAA to postprocess framebuffer. A reused frame keeps the resolved layer from the frame that drew it.
+	if (!skip && !reused_frame)
 	{
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_active.framebuffer);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_postprocess.framebuffer);
@@ -940,8 +914,8 @@ void RenderInterface_GL3::EndFrame()
 		// realm: limit the composite to the region written this frame. Outside it the layer is zero, which leaves the backbuffer unchanged.
 		if (bounded)
 		{
-			glEnable(GL_SCISSOR_TEST);
-			glScissor(viewport_offset_x + region.Left(), viewport_offset_y + viewport_height - region.Bottom(), region.Width(), region.Height());
+			SetGlScissorTest(true);
+			SetGlScissorBox(viewport_offset_x + region.Left(), viewport_offset_y + viewport_height - region.Bottom(), region.Width(), region.Height());
 		}
 
 		// Assuming we have an opaque background, we can just write to it with the premultiplied alpha blend mode and we'll get the correct result.
@@ -954,61 +928,170 @@ void RenderInterface_GL3::EndFrame()
 
 	render_layers.EndFrame();
 
-	// Restore GL state.
-	if (glstate_backup.enable_cull_face)
-		glEnable(GL_CULL_FACE);
-	else
-		glDisable(GL_CULL_FACE);
+	// realm: remember a replayed frame so the next one can reuse it. A reused frame keeps the record of the frame it reuses.
+	if (eligible && !reused_frame)
+	{
+		cache_valid = true;
+		cached_generation = generation;
+		cached_frame_bounds = frame_bounds;
+		cached_frame_full_screen = frame_full_screen;
+		cached_scissor_enabled = scissor_enabled;
+		for (int i = 0; i < 4; ++i)
+			cached_scissor_box[i] = scissor_box[i];
+		previous_commands.swap(frame_commands);
+	}
+	else if (!eligible)
+	{
+		cache_valid = false;
+	}
+	frame_commands.clear();
 
-	if (glstate_backup.enable_blend)
-		glEnable(GL_BLEND);
-	else
-		glDisable(GL_BLEND);
+	SetBaseState();
 
-	if (glstate_backup.enable_stencil_test)
-		glEnable(GL_STENCIL_TEST);
-	else
-		glDisable(GL_STENCIL_TEST);
+	Gfx::CheckGLError("EndFrame");
 
-	if (glstate_backup.enable_scissor_test)
+	// realm: resources released during the frame are freed only now, after the queue that may name them has run.
+	for (const Rml::CompiledGeometryHandle handle : deferred_geometry)
+		ReleaseGeometryNow(handle);
+	deferred_geometry.clear();
+	for (const Rml::TextureHandle texture : deferred_textures)
+		ReleaseTextureNow(texture);
+	deferred_textures.clear();
+}
+
+void RenderInterface_GL3::EndRecording()
+{
+	if (!recording)
+		return;
+	// Replays what is queued, so the caller's GL call lands after it, and records that the frame may not be reused.
+	recording = false;
+	frame_flushed = true;
+	ReplayFrameCommands();
+	frame_commands.clear();
+}
+
+void RenderInterface_GL3::ClearPreviousBounds()
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetTopLayer().framebuffer);
+	if (previous_bounds.Valid())
+	{
+		SetGlScissorBox(previous_bounds.Left(), viewport_height - previous_bounds.Bottom(), previous_bounds.Width(), previous_bounds.Height());
+		SetGlScissorTest(true);
+		glClear(GL_COLOR_BUFFER_BIT);
+		SetGlScissorTest(false);
+	}
+}
+
+void RenderInterface_GL3::ReplayFrameCommands()
+{
+	// Runs with recording off, so each base call below executes immediately.
+	ClearPreviousBounds();
+	for (const FrameCommand& command : frame_commands)
+	{
+		switch (command.kind)
+		{
+		case FrameCommand::Kind::Geometry: RenderInterface_GL3::RenderGeometry(command.geometry, command.translation, command.texture); break;
+		case FrameCommand::Kind::Scissor: RenderInterface_GL3::SetScissorRegion(command.region); break;
+		case FrameCommand::Kind::EnableScissor: RenderInterface_GL3::EnableScissorRegion(command.flag); break;
+		case FrameCommand::Kind::Transform: RenderInterface_GL3::SetTransform(command.flag ? &command.matrix : nullptr); break;
+		}
+	}
+}
+
+void RenderInterface_GL3::TextureContentChanged()
+{
+	EndRecording();
+	++generation;
+}
+
+void RenderInterface_GL3::SetFrameState()
+{
+	// Entry state of the UI pass. The UI sets every state it depends on, so nothing is read back from the driver. The colour mask is
+	// set because the renderer leaves it all-true, and glClear and the draws depend on it.
+	glViewport(0, 0, viewport_width, viewport_height);
+
+	glClearStencil(0);
+	glClearColor(0, 0, 0, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+
+	SetGlScissorTest(false);
+	glDisable(GL_CULL_FACE);
+
+	// Set blending function for premultiplied alpha.
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+#if !defined(RMLUI_PLATFORM_EMSCRIPTEN) && !defined(__ANDROID__)
+	// We do blending in nonlinear sRGB space because that is the common practice and gives results that we are used to.
+	glDisable(GL_FRAMEBUFFER_SRGB);
+#endif
+
+	glEnable(GL_STENCIL_TEST);
+	SetStencilFunc(GL_ALWAYS, 1);
+	glStencilMask(GLuint(-1));
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	glDisable(GL_DEPTH_TEST);
+
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+}
+
+void RenderInterface_GL3::SetBaseState()
+{
+	// Exit state: the renderer's own baseline (Renderer.cpp draw path and overlay pass), so the next frame starts from what it expects.
+	// Blend on with the renderer's functions, depth, cull, stencil and scissor off, the full drawable viewport, colour mask all, texture
+	// unit 0, and the default stencil function. Texture bindings and the clear colour are not part of it: the renderer binds its own
+	// textures and sets the clear colour before each clear.
+	glViewport(0, 0, viewport_width, viewport_height);
+
+	SetGlScissorTest(false);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_STENCIL_TEST);
+	SetStencilFunc(GL_ALWAYS, 0);
+	glStencilMask(GLuint(-1));
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glActiveTexture(GL_TEXTURE0);
+}
+
+void RenderInterface_GL3::SetGlScissorTest(bool enable)
+{
+	// The test is only toggled by this backend within a frame, so the tracked value is exact once SetFrameState has disabled it.
+	if (enable == gl_scissor_on)
+		return;
+	gl_scissor_on = enable;
+	if (enable)
 		glEnable(GL_SCISSOR_TEST);
 	else
 		glDisable(GL_SCISSOR_TEST);
+}
 
-	if (glstate_backup.enable_depth_test)
-		glEnable(GL_DEPTH_TEST);
-	else
-		glDisable(GL_DEPTH_TEST);
+void RenderInterface_GL3::SetGlScissorBox(int x, int y, int width, int height)
+{
+	// Always issued: the driver's box is not known until this frame sets it.
+	gl_scissor_box[0] = x;
+	gl_scissor_box[1] = y;
+	gl_scissor_box[2] = width;
+	gl_scissor_box[3] = height;
+	glScissor(x, y, width, height);
+}
 
-	glViewport(glstate_backup.viewport[0], glstate_backup.viewport[1], glstate_backup.viewport[2], glstate_backup.viewport[3]);
-	glScissor(glstate_backup.scissor[0], glstate_backup.scissor[1], glstate_backup.scissor[2], glstate_backup.scissor[3]);
-
-	glActiveTexture(glstate_backup.active_texture);
-
-	glClearStencil(glstate_backup.stencil_clear_value);
-	glClearColor(glstate_backup.color_clear_value[0], glstate_backup.color_clear_value[1], glstate_backup.color_clear_value[2],
-		glstate_backup.color_clear_value[3]);
-	glColorMask(glstate_backup.color_writemask[0], glstate_backup.color_writemask[1], glstate_backup.color_writemask[2],
-		glstate_backup.color_writemask[3]);
-
-	glBlendEquationSeparate(glstate_backup.blend_equation_rgb, glstate_backup.blend_equation_alpha);
-	glBlendFuncSeparate(glstate_backup.blend_src_rgb, glstate_backup.blend_dst_rgb, glstate_backup.blend_src_alpha, glstate_backup.blend_dst_alpha);
-
-	glStencilFuncSeparate(GL_FRONT, glstate_backup.stencil_front.func, glstate_backup.stencil_front.ref, glstate_backup.stencil_front.value_mask);
-	glStencilMaskSeparate(GL_FRONT, glstate_backup.stencil_front.writemask);
-	glStencilOpSeparate(GL_FRONT, glstate_backup.stencil_front.fail, glstate_backup.stencil_front.pass_depth_fail,
-		glstate_backup.stencil_front.pass_depth_pass);
-
-	glStencilFuncSeparate(GL_BACK, glstate_backup.stencil_back.func, glstate_backup.stencil_back.ref, glstate_backup.stencil_back.value_mask);
-	glStencilMaskSeparate(GL_BACK, glstate_backup.stencil_back.writemask);
-	glStencilOpSeparate(GL_BACK, glstate_backup.stencil_back.fail, glstate_backup.stencil_back.pass_depth_fail,
-		glstate_backup.stencil_back.pass_depth_pass);
-
-	Gfx::CheckGLError("EndFrame");
+void RenderInterface_GL3::SetStencilFunc(unsigned int func, int ref)
+{
+	stencil_ref = ref;
+	glStencilFunc(func, ref, GLuint(-1));
 }
 
 void RenderInterface_GL3::Clear()
 {
+	EndRecording(); // realm: not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -1016,6 +1099,7 @@ void RenderInterface_GL3::Clear()
 
 Rml::CompiledGeometryHandle RenderInterface_GL3::CompileGeometry(Rml::Span<const Rml::Vertex> vertices, Rml::Span<const int> indices)
 {
+	++generation; // realm: see generation.
 	constexpr GLenum draw_usage = GL_STATIC_DRAW;
 
 	GLuint vao = 0;
@@ -1071,6 +1155,22 @@ void RenderInterface_GL3::RenderGeometry(Rml::CompiledGeometryHandle handle, Rml
 {
 	Gfx::CompiledGeometryData* geometry = (Gfx::CompiledGeometryData*)handle;
 
+	// realm: queued for EndFrame. The post-process pass is not queued: it runs only inside the layer and filter paths, which end recording.
+	if (recording)
+	{
+		if (texture != TexturePostprocess)
+		{
+			FrameCommand command;
+			command.kind = FrameCommand::Kind::Geometry;
+			command.geometry = handle;
+			command.texture = texture;
+			command.translation = translation;
+			frame_commands.push_back(command);
+			return;
+		}
+		EndRecording();
+	}
+
 	// realm: post-process passes only run inside the full-screen paths, so they are not tracked here.
 	if (texture != TexturePostprocess && geometry->draw_count > 0 && !frame_full_screen)
 		ExtendFrameBounds(geometry->bounds_min, geometry->bounds_max, translation);
@@ -1104,6 +1204,17 @@ void RenderInterface_GL3::RenderGeometry(Rml::CompiledGeometryHandle handle, Rml
 
 void RenderInterface_GL3::ReleaseGeometry(Rml::CompiledGeometryHandle handle)
 {
+	++generation; // realm: see generation.
+	if (recording)
+	{
+		deferred_geometry.push_back(handle); // realm: a queued command may still name it; freed in EndFrame.
+		return;
+	}
+	ReleaseGeometryNow(handle);
+}
+
+void RenderInterface_GL3::ReleaseGeometryNow(Rml::CompiledGeometryHandle handle)
+{
 	Gfx::CompiledGeometryData* geometry = (Gfx::CompiledGeometryData*)handle;
 
 	glDeleteVertexArrays(1, &geometry->vao);
@@ -1127,13 +1238,7 @@ static Rml::Rectanglei VerticallyFlipped(Rml::Rectanglei rect, int viewport_heig
 
 void RenderInterface_GL3::SetScissor(Rml::Rectanglei region, bool vertically_flip)
 {
-	if (region.Valid() != scissor_state.Valid())
-	{
-		if (region.Valid())
-			glEnable(GL_SCISSOR_TEST);
-		else
-			glDisable(GL_SCISSOR_TEST);
-	}
+	SetGlScissorTest(region.Valid());
 
 	if (region.Valid() && vertically_flip)
 		region = VerticallyFlipped(region, viewport_height);
@@ -1144,7 +1249,7 @@ void RenderInterface_GL3::SetScissor(Rml::Rectanglei region, bool vertically_fli
 		const int x = Rml::Math::Clamp(region.Left(), 0, viewport_width);
 		const int y = Rml::Math::Clamp(viewport_height - region.Bottom(), 0, viewport_height);
 
-		glScissor(x, y, region.Width(), region.Height());
+		SetGlScissorBox(x, y, region.Width(), region.Height());
 	}
 
 	Gfx::CheckGLError("SetScissorRegion");
@@ -1153,6 +1258,14 @@ void RenderInterface_GL3::SetScissor(Rml::Rectanglei region, bool vertically_fli
 
 void RenderInterface_GL3::EnableScissorRegion(bool enable)
 {
+	if (recording) // realm: queued, see RenderGeometry.
+	{
+		FrameCommand command;
+		command.kind = FrameCommand::Kind::EnableScissor;
+		command.flag = enable;
+		frame_commands.push_back(command);
+		return;
+	}
 	// Assume enable is immediately followed by a SetScissorRegion() call, and ignore it here.
 	if (!enable)
 		SetScissor(Rml::Rectanglei::MakeInvalid(), false);
@@ -1190,11 +1303,20 @@ void RenderInterface_GL3::ExtendFrameBounds(Rml::Vector2f bounds_min, Rml::Vecto
 
 void RenderInterface_GL3::SetScissorRegion(Rml::Rectanglei region)
 {
+	if (recording) // realm: queued, see RenderGeometry.
+	{
+		FrameCommand command;
+		command.kind = FrameCommand::Kind::Scissor;
+		command.region = region;
+		frame_commands.push_back(command);
+		return;
+	}
 	SetScissor(region);
 }
 
 void RenderInterface_GL3::EnableClipMask(bool enable)
 {
+	EndRecording(); // realm: stencil state is not part of the cache key.
 	if (enable)
 		glEnable(GL_STENCIL_TEST);
 	else
@@ -1203,6 +1325,7 @@ void RenderInterface_GL3::EnableClipMask(bool enable)
 
 void RenderInterface_GL3::RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation)
 {
+	EndRecording(); // realm: writes the stencil buffer, which is not part of the cache key.
 	RMLUI_ASSERT(glIsEnabled(GL_STENCIL_TEST));
 	using Rml::ClipMaskOperation;
 
@@ -1229,14 +1352,14 @@ void RenderInterface_GL3::RenderToClipMask(Rml::ClipMaskOperation operation, Rml
 	case ClipMaskOperation::Intersect:
 	{
 		glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
-		glGetIntegerv(GL_STENCIL_REF, &stencil_test_value);
+		stencil_test_value = stencil_ref; // realm: tracked, not glGetIntegerv (a driver sync).
 		stencil_test_value += 1;
 	}
 	break;
 	}
 
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-	glStencilFunc(GL_ALWAYS, stencil_write_value, GLuint(-1));
+	SetStencilFunc(GL_ALWAYS, stencil_write_value);
 
 	RenderGeometry(geometry, translation, {});
 
@@ -1244,7 +1367,7 @@ void RenderInterface_GL3::RenderToClipMask(Rml::ClipMaskOperation operation, Rml
 	// @performance Cache state so we don't toggle it unnecessarily.
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-	glStencilFunc(GL_EQUAL, stencil_test_value, GLuint(-1));
+	SetStencilFunc(GL_EQUAL, stencil_test_value);
 }
 
 // Set to byte packing, or the compiler will expand our struct, which means it won't read correctly from file
@@ -1268,6 +1391,7 @@ struct TGAHeader {
 
 Rml::TextureHandle RenderInterface_GL3::LoadTexture(Rml::Vector2i& texture_dimensions, const Rml::String& source)
 {
+	++generation; // realm: see generation.
 	Rml::FileInterface* file_interface = Rml::GetFileInterface();
 	Rml::FileHandle file_handle = file_interface->Open(source);
 	if (!file_handle)
@@ -1348,6 +1472,7 @@ Rml::TextureHandle RenderInterface_GL3::LoadTexture(Rml::Vector2i& texture_dimen
 
 Rml::TextureHandle RenderInterface_GL3::GenerateTexture(Rml::Span<const Rml::byte> source_data, Rml::Vector2i source_dimensions)
 {
+	++generation; // realm: see generation.
 	RMLUI_ASSERT(source_data.data() && source_data.size() == size_t(source_dimensions.x * source_dimensions.y * 4));
 
 	GLuint texture_id = Gfx::CreateTexture(source_data, source_dimensions);
@@ -1542,11 +1667,32 @@ void RenderInterface_GL3::RenderBlur(float sigma, const Gfx::FramebufferData& so
 
 void RenderInterface_GL3::ReleaseTexture(Rml::TextureHandle texture_handle)
 {
+	++generation; // realm: see generation.
+	if (recording)
+	{
+		deferred_textures.push_back(texture_handle); // realm: a queued command may still name it; freed in EndFrame.
+		return;
+	}
+	ReleaseTextureNow(texture_handle);
+}
+
+void RenderInterface_GL3::ReleaseTextureNow(Rml::TextureHandle texture_handle)
+{
 	glDeleteTextures(1, (GLuint*)&texture_handle);
 }
 
 void RenderInterface_GL3::SetTransform(const Rml::Matrix4f* new_transform)
 {
+	if (recording) // realm: queued, see RenderGeometry. The matrix is copied because RmlUi may reuse the pointer.
+	{
+		FrameCommand command;
+		command.kind = FrameCommand::Kind::Transform;
+		command.flag = new_transform != nullptr;
+		if (new_transform)
+			command.matrix = *new_transform;
+		frame_commands.push_back(command);
+		return;
+	}
 	// realm: a transformed geometry can land anywhere, so the frame is treated as full screen.
 	if (new_transform)
 		frame_full_screen = true;
@@ -1774,6 +1920,7 @@ Rml::CompiledShaderHandle RenderInterface_GL3::CompileShader(const Rml::String& 
 void RenderInterface_GL3::RenderShader(Rml::CompiledShaderHandle shader_handle, Rml::CompiledGeometryHandle geometry_handle,
 	Rml::Vector2f translation, Rml::TextureHandle /*texture*/)
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 	RMLUI_ASSERT(shader_handle && geometry_handle);
 	const CompiledShader& shader = *reinterpret_cast<CompiledShader*>(shader_handle);
@@ -1971,6 +2118,7 @@ void RenderInterface_GL3::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
 Rml::LayerHandle RenderInterface_GL3::PushLayer()
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 
 	const Rml::LayerHandle layer_handle = render_layers.PushLayer();
@@ -1985,6 +2133,7 @@ void RenderInterface_GL3::CompositeLayers(Rml::LayerHandle source_handle, Rml::L
 	Rml::Span<const Rml::CompiledFilterHandle> filters)
 {
 	using Rml::BlendMode;
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 
 	// Blit source layer to postprocessing buffer. Do this regardless of whether we actually have any filters to be
@@ -2017,12 +2166,14 @@ void RenderInterface_GL3::CompositeLayers(Rml::LayerHandle source_handle, Rml::L
 
 void RenderInterface_GL3::PopLayer()
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	render_layers.PopLayer();
 	glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetTopLayer().framebuffer);
 }
 
 Rml::TextureHandle RenderInterface_GL3::SaveLayerAsTexture()
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 	RMLUI_ASSERT(scissor_state.Valid());
 	const Rml::Rectanglei bounds = scissor_state;
@@ -2067,6 +2218,7 @@ Rml::TextureHandle RenderInterface_GL3::SaveLayerAsTexture()
 
 Rml::CompiledFilterHandle RenderInterface_GL3::SaveLayerAsMaskImage()
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	frame_full_screen = true; // realm: see frame_bounds.
 	BlitLayerToPostprocessPrimary(render_layers.GetTopLayerHandle());
 
@@ -2230,6 +2382,7 @@ const Rml::Matrix4f& RenderInterface_GL3::GetTransform() const
 
 void RenderInterface_GL3::ResetProgram()
 {
+	EndRecording(); // realm: layer, filter and shader paths are not queued.
 	UseProgram(ProgramId::None);
 }
 

@@ -383,15 +383,9 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
         return code != 0 && code == cs.settings.get(param);
       };
       const bool fresh = !event.key.repeat;
-      if (key == SDLK_ESCAPE) {
-        if (cs.startup && cs.game_session) {
-          if (!event.key.repeat) {
-            cs.leaving_game = true;
-            cs.game_session->disconnect();
-          }
-        } else {
-          cs.running = false;
-        }
+      // In a game, Escape leaves only through the hold polled below; a tap does nothing here.
+      if (key == SDLK_ESCAPE && !(cs.startup && cs.game_session)) {
+        cs.running = false;
       }
       if (cs.game_session && fresh && (bound("escapeToNexus") || bound("escapeToNexus2"))) {
         cs.game_session->escape();
@@ -528,10 +522,15 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
   };
 
   // Escape is polled, not dispatched, so a layer that takes the key (Settings, a popup) cannot
-  // stop a held press from leaving the game. "Returning to home..." shows once the press is
-  // longer than a tap; letting go before the hold completes stays in the game.
-  constexpr std::int32_t hold_notice_ms = 200, hold_to_leave_ms = 1000;
-  cs.returning_home = false;
+  // stop a held press from leaving the game. Past a tap, the UI fades out, then "Returning to
+  // home..." fades in; letting go before the hold completes stays in the game.
+  constexpr std::int32_t hold_notice_ms = 200, faded_ms = 600, text_shown_ms = 900,
+                         hold_to_leave_ms = 2000;
+  const auto ramp = [](std::int32_t held, std::int32_t from, std::int32_t to) {
+    return std::clamp(static_cast<float>(held - from) / static_cast<float>(to - from), 0.F, 1.F);
+  };
+  cs.returning_fade = 0;
+  cs.returning_text = 0;
   if (realm::sdl_keys::held(keys, realm::key_escape) ||
       cs.script_keys.contains(SDL_SCANCODE_ESCAPE)) {
     if (!cs.escape_held_since) {
@@ -539,7 +538,8 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
     }
     const auto held = time - *cs.escape_held_since;
     if (cs.startup && cs.game_session && !cs.leaving_game) {
-      cs.returning_home = held >= hold_notice_ms;
+      cs.returning_fade = ramp(held, hold_notice_ms, faded_ms);
+      cs.returning_text = ramp(held, faded_ms, text_shown_ms);
       if (held >= hold_to_leave_ms) {
         cs.leaving_game = true;
         cs.game_session->disconnect();
@@ -548,7 +548,10 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
   } else {
     cs.escape_held_since.reset();
   }
-  cs.returning_home = cs.returning_home || (cs.leaving_game && cs.game_session);
+  if (cs.leaving_game && cs.game_session) {
+    cs.returning_fade = 1;
+    cs.returning_text = 1;
+  }
 
   if (options.world && !options.benchmark && !cs.ui_stack.modal()) {
     // Typed characters never move or turn the player. The rotate keys act only with Allow Camera

@@ -66,6 +66,10 @@ class VkRenderer final : public gfx::RendererBackend {
   void ui_frame(int width, int height);
   void ui_draw(const gfx::vk::ui::Draw& draw);
   void ui_close();
+  // RmlUi layers and composites (see VkUi.hpp).
+  [[nodiscard]] std::uint32_t ui_push_layer();
+  void ui_pop_layer();
+  void ui_composite(const gfx::vk::ui::Composite& composite);
 
  private:
   // GPU timers: one query pool per slot; a sample comes back from its slot once the slot's fence
@@ -170,27 +174,34 @@ class VkRenderer final : public gfx::RendererBackend {
   void record_screen_overlays(VkCommandBuffer command, int width, int height, int clip_width,
                               const ScreenEffects& effects);
   bool swapchain_pass_ = false;  // the open pass writes the swapchain image
-  // RmlUi: the open UI pass, the frame's size, and the pipelines. Passes carry a D24S8 stencil for the
-  // clip masks: the first UI pass of a frame clears it, later ones keep it.
-  VkPipeline ui_ = VK_NULL_HANDLE;  // plain
-  VkPipeline ui_clip_ = VK_NULL_HANDLE;
-  VkPipeline ui_mask_replace_ = VK_NULL_HANDLE;
-  VkPipeline ui_mask_increment_ = VK_NULL_HANDLE;
-  VkRenderPass ui_pass_first_ = VK_NULL_HANDLE;  // clears the stencil
-  VkRenderPass ui_pass_ = VK_NULL_HANDLE;        // keeps it
-  bool ui_open_ = false;
-  bool ui_cleared_ = false;  // this frame's stencil has been cleared
-  int ui_width_ = 0;
-  int ui_height_ = 0;
-  // One stencil image per frame slot, of the window size. A slot's image is reused only after its
-  // fence has passed, so no barrier across frames is needed.
-  struct UiStencil {
+  // RmlUi (phase 3). A UI pass draws into the window or into the top layer. Passes are chosen by
+  // (colour load, offscreen, stencil clear): an offscreen target ends sampleable (SHADER_READ_ONLY), the
+  // window ends presentable. Each frame slot owns its stencil (clip masks), its two post targets (the
+  // blur) and its layers, all window-sized and rebuilt on resize.
+  struct UiImage {
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
-    VkExtent2D extent{};
   };
-  std::array<UiStencil, gfx::vk::frames_in_flight> ui_stencil_{};
+  struct UiSlot {
+    VkExtent2D extent{};
+    UiImage stencil;             // D24S8
+    UiImage post[2];             // the blur's two targets
+    std::vector<UiImage> layers;  // layer k is handle k + 1
+  };
+  std::array<UiSlot, gfx::vk::frames_in_flight> ui_slots_{};
+  VkRenderPass ui_passes_[2][2][2] = {};  // [clear colour][offscreen][clear stencil]
+  VkPipeline ui_ = VK_NULL_HANDLE;        // plain triangles
+  VkPipeline ui_clip_ = VK_NULL_HANDLE;   // test the clip mask
+  VkPipeline ui_mask_replace_ = VK_NULL_HANDLE;
+  VkPipeline ui_mask_increment_ = VK_NULL_HANDLE;
+  VkPipeline ui_post_plain_ = VK_NULL_HANDLE;    // layer composites: copy, blur, upscale
+  VkPipeline ui_post_premult_ = VK_NULL_HANDLE;  // layer composites with RmlUi's blend
+  bool ui_open_ = false;     // a UI pass is open, on the top layer or the window
+  bool ui_cleared_ = false;  // this frame's stencil has been cleared
+  int ui_width_ = 0;
+  int ui_height_ = 0;
+  int ui_depth_ = 0;  // layers pushed
   struct UiFramebuffer {
     VkImageView color = VK_NULL_HANDLE;
     VkImageView stencil = VK_NULL_HANDLE;
@@ -198,8 +209,21 @@ class VkRenderer final : public gfx::RendererBackend {
   };
   std::vector<UiFramebuffer> ui_framebuffers_;
   std::uint64_t ui_generation_ = ~std::uint64_t{};
-  [[nodiscard]] UiStencil& ui_stencil(VkExtent2D extent);
+
+  [[nodiscard]] UiSlot& ui_slot(VkExtent2D extent);
+  void ui_destroy_slot(UiSlot& slot) noexcept;
   [[nodiscard]] VkFramebuffer ui_framebuffer(VkImageView color, VkImageView stencil, VkExtent2D extent);
   void ui_reset_framebuffers() noexcept;
+  // Begins a UI pass on framebuffer (the window when swapchain), and binds its sets.
+  void ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain);
+  // Opens the pass for the top target (the window or the top layer) if none is open.
+  void ui_open(VkExtent2D extent);
+  // One full resample: fills the target's rectangle from the source's, with the blur or a copy.
+  void ui_resample(VkImageView target, bool offscreen, bool load, bool swapchain, VkExtent2D extent,
+                   VkImageView source, const gfx::vk::UiPostPush& push, bool premultiplied);
+  // RmlUi's blur (sigma split into downscales as RenderInterface_GL3 does) over a region; returns the
+  // image that holds the result, one of the two post targets.
+  [[nodiscard]] const UiImage* ui_blur(const UiImage* first, const UiImage* second, VkExtent2D extent,
+                                       std::array<int, 4> region, float sigma);
 };
 }  // namespace realm

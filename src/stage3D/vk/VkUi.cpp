@@ -31,6 +31,25 @@ void draw(const Draw& draw) {
 
 void end_frame() { close_pass(); }
 
+std::uint32_t push_layer() {
+  if (auto* renderer = active_renderer()) {
+    return renderer->ui_push_layer();
+  }
+  return 0;
+}
+
+void pop_layer() {
+  if (auto* renderer = active_renderer()) {
+    renderer->ui_pop_layer();
+  }
+}
+
+void composite(const Composite& composite) {
+  if (auto* renderer = active_renderer()) {
+    renderer->ui_composite(composite);
+  }
+}
+
 std::uint32_t create_texture(int width, int height, bool linear) {
   // The texture needs the device and its resources, not the renderer: RmlUi loads documents (and
   // their art) before the first world frame.
@@ -68,6 +87,9 @@ namespace realm::gfx::vk::ui {
 void begin_frame(int /*width*/, int /*height*/) {}
 void draw(const Draw& /*draw*/) {}
 void end_frame() {}
+std::uint32_t push_layer() { return 0; }
+void pop_layer() {}
+void composite(const Composite& /*composite*/) {}
 std::uint32_t create_texture(int /*width*/, int /*height*/, bool /*linear*/) { return 0; }
 void upload_texture(std::uint32_t /*texture*/, int /*x*/, int /*y*/, int /*width*/, int /*height*/,
                     const std::byte* /*rgba*/) {}

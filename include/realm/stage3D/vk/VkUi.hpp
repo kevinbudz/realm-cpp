@@ -49,6 +49,27 @@ void draw(const Draw& draw);
 // Ends the frame's UI pass, if one is open.
 void end_frame();
 
+// RmlUi layers. Handle 0 is the window. push_layer clears a new layer and makes it the target of the draws
+// that follow; pop_layer returns to the layer below. push_layer returns 0 when no layer can be made.
+[[nodiscard]] std::uint32_t push_layer();
+void pop_layer();
+// A compiled filter of RmlUi (only the blur, sigma in pixels, is implemented).
+struct Filter {
+  float sigma = 0;
+};
+// Composites a layer into a destination (0: the window) through the filters, inside the region (window
+// pixels, top-left origin) when scissor is set. replace: no blending (RmlUi BlendMode::Replace).
+struct Composite {
+  std::uint32_t source = 0;
+  std::uint32_t destination = 0;
+  bool replace = false;
+  bool scissor = false;
+  int region[4] = {0, 0, 0, 0};
+  const Filter* filters = nullptr;
+  std::size_t filter_count = 0;
+};
+void composite(const Composite& composite);
+
 // Surfaces for RmlUi's textures. Linear sampling for file and generated textures, nearest for the
 // HUD art. Returns 0 when the texture cannot be created. Uploads are RGBA8, tightly packed rows.
 [[nodiscard]] std::uint32_t create_texture(int width, int height, bool linear);

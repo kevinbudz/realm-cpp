@@ -208,9 +208,37 @@ class VkRenderInterface final : public Rml::RenderInterface {
     }
   }
 
+  // RmlUi's layers: a new layer is cleared and becomes the target of the draws that follow.
   Rml::LayerHandle PushLayer() override {
-    log_once("layers (filters, backdrop) are not implemented on Vulkan yet");
-    return {};
+    const auto layer = gfx::vk::ui::push_layer();
+    if (!layer) {
+      log_once("no UI layer could be made on Vulkan");
+    }
+    return layer;
+  }
+
+  void PopLayer() override { gfx::vk::ui::pop_layer(); }
+
+  // Composites a layer through its filters (blur) into the destination, as RenderInterface_GL3 does.
+  void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode,
+                       Rml::Span<const Rml::CompiledFilterHandle> filter_handles) override {
+    std::vector<gfx::vk::ui::Filter> filters;
+    for (const auto handle : filter_handles) {
+      if (handle && handle <= filters_.size()) {
+        filters.push_back(filters_[handle - 1]);
+      }
+    }
+    gfx::vk::ui::Composite composite;
+    composite.source = static_cast<std::uint32_t>(source);
+    composite.destination = static_cast<std::uint32_t>(destination);
+    composite.replace = blend_mode == Rml::BlendMode::Replace;
+    composite.scissor = scissor_;
+    for (std::size_t i = 0; i < 4; ++i) {
+      composite.region[i] = region_[i];
+    }
+    composite.filters = filters.data();
+    composite.filter_count = filters.size();
+    gfx::vk::ui::composite(composite);
   }
 
   Rml::CompiledShaderHandle CompileShader(const Rml::String& /*name*/, const Rml::Dictionary& /*parameters*/) override {
@@ -218,10 +246,16 @@ class VkRenderInterface final : public Rml::RenderInterface {
     return {};
   }
 
-  Rml::CompiledFilterHandle CompileFilter(const Rml::String& /*name*/, const Rml::Dictionary& /*parameters*/) override {
-    log_once("filters are not implemented on Vulkan yet");
-    return {};
+  Rml::CompiledFilterHandle CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) override {
+    if (name != "blur") {
+      log_once("this filter is not implemented on Vulkan yet (only blur)");
+      return {};
+    }
+    filters_.push_back({Rml::Get(parameters, "sigma", 1.0f)});
+    return filters_.size();
   }
+
+  void ReleaseFilter(Rml::CompiledFilterHandle /*filter*/) override {}
 
   // Draws compiled geometry (a clip mask's geometry draws into the stencil with no texture).
   void draw_geometry(Rml::CompiledGeometryHandle handle, Rml::Vector2f translation, Rml::TextureHandle texture,
@@ -319,6 +353,7 @@ class VkRenderInterface final : public Rml::RenderInterface {
   std::array<int, 4> region_{};
   bool clip_ = false;
   std::uint32_t stencil_reference_ = 0;
+  std::vector<gfx::vk::ui::Filter> filters_;  // compiled filters: handle k is element k - 1
   bool has_transform_ = false;
   Rml::Matrix4f transform_;
   std::unordered_set<std::string> logged_;

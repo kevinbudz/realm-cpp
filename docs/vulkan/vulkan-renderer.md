@@ -226,10 +226,11 @@ The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fi
 | Milestone | Content | State |
 |---|---|---|
 | M1 | Premultiplied triangles, scissor, RmlUi transform, textures (TGA files, `item:`/`art:` nearest, host-written, generated) | Done, committed |
-| M2 | Clip masks (`EnableClipMask`, `RenderToClipMask` Set/SetInverse/Intersect, stencil) | Done (test sample, below); unused by the client's screens |
-| M3 | Layers, blur filter (Settings), other filters, gradient shaders | Open: logs once, draws without the effect |
+| M2 | Clip masks (`EnableClipMask`, `RenderToClipMask` Set/SetInverse/Intersect, stencil) | Done (test sample, below); the client's screens do not reach it |
+| M3 | Layers (`PushLayer`/`PopLayer`/`CompositeLayers`), blur filter (Settings) | Done: Options screen matches GL to ±1 level |
+| M3 (rest) | Other filters, gradient shaders | Not needed: the client's RCSS and C++ use neither (checked); unimplemented ones log once |
 | M4 | Frame cache (`frame_reused`) | Open: always false |
-| Gate | `REALM_VULKAN_WIP` | Kept: M2-M3 missing, so full-UI parity is not established |
+| Gate | `REALM_VULKAN_WIP` | Kept: parity is verified for the HUD, Options and the test sample only; other screens are unchecked |
 
 ### Design
 
@@ -250,6 +251,21 @@ The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fi
   scanning window ids.
 - Client boundaries: `realm_ui_rmlui` may link `realm_render` (the Vulkan seam), recorded in
   `cmake/ClientBoundaries.cmake`.
+- Clip masks (M2): the UI pass has a D24S8 stencil per frame slot. The first UI pass of a frame clears it
+  (a `CLEAR` stencil load op), later passes keep it. Mask draws use pipelines with stencil ops (replace or
+  increment, colour writes off), and tests use the dynamic reference, tracked as RenderInterface_GL3 does.
+  Set and SetInverse clear with `vkCmdClearAttachments` inside the scissor, as GL's `glClear` does.
+- Layers and blur (M3): each frame slot owns window-sized images: a layer per `PushLayer` depth, and two
+  post targets. Pass kinds are (clear colour, offscreen, clear stencil). Offscreen passes start and end
+  `SHADER_READ_ONLY_OPTIMAL`; subpass dependencies order the writes before the next pass's reads, so no
+  explicit barriers. `PushLayer` clears the layer and keeps its pass open. `CompositeLayers` copies the
+  source into post target 0 when filters apply, runs the blur, and draws into the destination inside the
+  scissor (premultiplied blend, or plain for `BlendMode::Replace`). The blur follows GL3's `RenderBlur`:
+  `SigmaToParameters` splits the sigma into halving downscales, one 7-tap vertical and horizontal pass
+  clamped to the region (`ui_blur.frag` is `ui_post.frag`), then a linear upscale to the region. Sigma 3.5
+  (the Settings blur) gives one downscale to sigma 1.75.
+  Not reproduced: GL3's second, exact power-of-two upscale blit, which only differs when the region's size
+  is not a multiple of two.
 
 ### Verification (M1)
 
@@ -280,18 +296,33 @@ Cross-driver numbers are not comparisons: GL-NVIDIA vs GL-RADV world-only churn 
 GL ctests: `ui_rml_host`, `ui_retained`, `ui_bundle_gpu`, `startup_news_gpu` pass. `options_gpu` and
 `appearance_compose` fail, as before.
 
-Clip masks (M2): no client screen clips with border-radius (`overflow` is only `overflow-y:auto`
-without rounded corners), so the Options capture never reaches them. `REALM_TEST_RML` loads a sample
-(rounded `overflow:hidden` panels, a child overhanging the corner) over the HUD. GL and VK on NVIDIA
-both clip to the rounded shape; 270 px differ, all on the corner edges (the stencil is binary on both).
+### Verification (M2, M3)
 
-Options screen (scripted, `key o`, GL vs VK, NVIDIA): the Settings screen draws, but the HUD behind it
-is blurred on GL (`RetainedUi::set_blur` sets `filter: blur()`) and sharp on VK, so the differences are
-the blur (M3).
+Clip masks: no client screen clips with border-radius (the only `overflow` values are `overflow-y:auto`
+without rounded corners and one `overflow:hidden` field), so the screens never reach them.
+`REALM_TEST_RML` loads a sample (rounded `overflow:hidden` panels, a child overhanging the corner) over the HUD.
+GL and VK on NVIDIA both clip to the rounded shape; 270 px differ, all on the corner edges (the stencil
+is binary on both).
 
-Not verified: the Settings screen (blur, the only RmlUi filter the client uses, from
-`RetainedUi::set_blur`), gradient decorators, and border-radius clipping. No headless flag opens
-Options, so they need M2-M3 and a capture harness first.
+Settings screen (scripted, `key o`): the HUD behind it is blurred by `RetainedUi::set_blur`
+(`filter: blur(3.5dp)`). Before M3 the Vulkan capture showed the HUD sharp (max Δ 17, on the blurred
+counters and backdrop). Now, 800×600, GL vs VK on the same driver:
+
+| Check | NVIDIA (GL vs VK) | RADV (GL vs VK) |
+|---|---|---|
+| Options screen, px / max Δ | 14663 (3.05%) / 2 | 14800 (3.08%) / 2 |
+| Pixels with Δ = 1 / Δ = 2 | 14651 / 12 | same order |
+| S1-mixed-dense, full UI, after M2 and M3 (md5) | byte-identical to GL | not rerun |
+
+The residual is ±1 level across the screen: rounding in the blur passes, not a region difference.
+Warnings: the Options run logs none (before M3 it logged the filter and the layers).
+
+The scripted capture (`--script`, the same format as `tests/options_gpu_tests.py`): a file with
+`300 capture PATH`, `400 key o`, `900 capture PATH`, `1000 quit`, run with
+`--hidden --map realm-server/Resources/Worlds/Tutorial/Nexus.jm --effect-time 0 --scene-time 0 --hp 50`.
+
+Not verified: gradient decorators (none in the client), other filters (none), and the frame cache (M4).
+Screens other than HUD, Options and the test sample are not compared, so the gate stays.
 
 ## Remaining work
 

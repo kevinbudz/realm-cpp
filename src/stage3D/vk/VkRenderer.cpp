@@ -8,6 +8,7 @@
 #include "realm/stage3D/Renderer.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -72,27 +73,27 @@ VkRenderPass make_pass(VkFormat format, VkAttachmentLoadOp load, VkImageLayout i
   return pass;
 }
 
-// The UI pass: the swapchain colour (kept) and a D24S8 stencil for RmlUi's clip masks. The stencil
-// is cleared by the first pass of a frame (stencil_load CLEAR) and kept by the others.
-VkRenderPass make_ui_pass(VkFormat format, VkAttachmentLoadOp stencil_load) {
+// A UI pass: colour (cleared, or kept) and the D24S8 stencil of the clip masks (cleared, or kept). An
+// offscreen target (a layer or a post target) starts and ends sampleable (SHADER_READ_ONLY); the window
+// starts and ends as the colour attachment. Every pass waits for earlier writes before it reads or writes.
+VkRenderPass make_ui_pass(VkFormat format, bool clear_colour, bool offscreen, bool clear_stencil) {
   std::array<VkAttachmentDescription, 2> attachments{};
+  const auto resting = offscreen ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
   attachments[0].format = format;
   attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-  attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+  attachments[0].loadOp = clear_colour ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
   attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  attachments[0].initialLayout = clear_colour ? VK_IMAGE_LAYOUT_UNDEFINED : resting;
+  attachments[0].finalLayout = resting;
   attachments[1].format = VK_FORMAT_D24_UNORM_S8_UINT;
   attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
   attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  attachments[1].stencilLoadOp = stencil_load;
+  attachments[1].stencilLoadOp = clear_stencil ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
   attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-  attachments[1].initialLayout = stencil_load == VK_ATTACHMENT_LOAD_OP_CLEAR
-                                     ? VK_IMAGE_LAYOUT_UNDEFINED
-                                     : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  attachments[1].initialLayout = clear_stencil ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
   attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
   const VkAttachmentReference color{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
   const VkAttachmentReference stencil{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
@@ -110,13 +111,14 @@ VkRenderPass make_ui_pass(VkFormat format, VkAttachmentLoadOp stencil_load) {
                             VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
   dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
                             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
   dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
                              VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
   dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
                              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
   auto info = make<VkRenderPassCreateInfo>(VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO);
   info.attachmentCount = static_cast<std::uint32_t>(attachments.size());
   info.pAttachments = attachments.data();
@@ -198,12 +200,20 @@ VkRenderer::VkRenderer(std::size_t capacity, bool /*persistent_streaming*/,
   mesh_ = pipelines().mesh(clear_pass_);
   post_plain_ = pipelines().post(clear_pass_, false);
   post_blend_ = pipelines().post(clear_pass_, true);
-  ui_pass_first_ = make_ui_pass(format, VK_ATTACHMENT_LOAD_OP_CLEAR);
-  ui_pass_ = make_ui_pass(format, VK_ATTACHMENT_LOAD_OP_LOAD);
-  ui_ = pipelines().ui(ui_pass_, gfx::vk::PipelineShape::Stencil::off);
-  ui_clip_ = pipelines().ui(ui_pass_, gfx::vk::PipelineShape::Stencil::test);
-  ui_mask_replace_ = pipelines().ui(ui_pass_, gfx::vk::PipelineShape::Stencil::replace);
-  ui_mask_increment_ = pipelines().ui(ui_pass_, gfx::vk::PipelineShape::Stencil::increment);
+  for (int clear = 0; clear < 2; ++clear) {
+    for (int offscreen = 0; offscreen < 2; ++offscreen) {
+      for (int stencil = 0; stencil < 2; ++stencil) {
+        ui_passes_[clear][offscreen][stencil] = make_ui_pass(format, clear != 0, offscreen != 0, stencil != 0);
+      }
+    }
+  }
+  const auto ui_pass = ui_passes_[0][0][0];  // compatible with every UI pass
+  ui_ = pipelines().ui(ui_pass, gfx::vk::PipelineShape::Stencil::off);
+  ui_clip_ = pipelines().ui(ui_pass, gfx::vk::PipelineShape::Stencil::test);
+  ui_mask_replace_ = pipelines().ui(ui_pass, gfx::vk::PipelineShape::Stencil::replace);
+  ui_mask_increment_ = pipelines().ui(ui_pass, gfx::vk::PipelineShape::Stencil::increment);
+  ui_post_plain_ = pipelines().ui_post(ui_pass, false);
+  ui_post_premult_ = pipelines().ui_post(ui_pass, true);
   active_ = this;
   // The model triangles are uploaded once; every instance refers to a range of them.
   const auto geometry = model_geometry();
@@ -250,20 +260,12 @@ VkRenderer::~VkRenderer() {
     gfx::vk::destroy_buffer(buffer);
   }
   resources().release(model_geometry_);
-  ui_reset_framebuffers();
-  for (auto& stencil : ui_stencil_) {
-    if (stencil.view != VK_NULL_HANDLE) {
-      device.fn.vkDestroyImageView(device.device, stencil.view, nullptr);
-    }
-    if (stencil.image != VK_NULL_HANDLE) {
-      device.fn.vkDestroyImage(device.device, stencil.image, nullptr);
-    }
-    if (stencil.memory != VK_NULL_HANDLE) {
-      device.fn.vkFreeMemory(device.device, stencil.memory, nullptr);
-    }
+  for (auto& slot : ui_slots_) {
+    ui_destroy_slot(slot);
   }
+  ui_reset_framebuffers();
   for (const auto pipeline : {strip_, list_, model_, mesh_, post_plain_, post_blend_, ui_, ui_clip_,
-                              ui_mask_replace_, ui_mask_increment_}) {
+                              ui_mask_replace_, ui_mask_increment_, ui_post_plain_, ui_post_premult_}) {
     device.fn.vkDestroyPipeline(device.device, pipeline, nullptr);
   }
   for (auto& timer : timers_) {
@@ -273,8 +275,13 @@ VkRenderer::~VkRenderer() {
   }
   device.fn.vkDestroyRenderPass(device.device, clear_pass_, nullptr);
   device.fn.vkDestroyRenderPass(device.device, load_pass_, nullptr);
-  device.fn.vkDestroyRenderPass(device.device, ui_pass_first_, nullptr);
-  device.fn.vkDestroyRenderPass(device.device, ui_pass_, nullptr);
+  for (auto& by_clear : ui_passes_) {
+    for (auto& by_offscreen : by_clear) {
+      for (const auto pass : by_offscreen) {
+        device.fn.vkDestroyRenderPass(device.device, pass, nullptr);
+      }
+    }
+  }
 }
 
 VkRenderer* active_renderer() noexcept { return active_; }
@@ -1025,9 +1032,11 @@ void sample_stats() {
 }  // namespace
 
 void VkRenderer::ui_frame(int width, int height) {
+  ui_close();
   ui_width_ = width;
   ui_height_ = height;
   ui_cleared_ = false;
+  ui_depth_ = 0;
 }
 
 void VkRenderer::ui_close() {
@@ -1037,22 +1046,42 @@ void VkRenderer::ui_close() {
   }
 }
 
-VkRenderer::UiStencil& VkRenderer::ui_stencil(VkExtent2D extent) {
-  auto& stencil = ui_stencil_[frames().slot()];
-  if (stencil.image != VK_NULL_HANDLE && stencil.extent.width == extent.width &&
-      stencil.extent.height == extent.height) {
-    return stencil;
-  }
+void VkRenderer::ui_destroy_slot(UiSlot& slot) noexcept {
   auto& device = context();
-  if (stencil.image != VK_NULL_HANDLE) {
-    // A resize is rare: the GPU must be done with every image and framebuffer that uses this one.
-    device.fn.vkDeviceWaitIdle(device.device);
-    ui_reset_framebuffers();
-    device.fn.vkDestroyImageView(device.device, stencil.view, nullptr);
-    device.fn.vkDestroyImage(device.device, stencil.image, nullptr);
-    device.fn.vkFreeMemory(device.device, stencil.memory, nullptr);
-    stencil = UiStencil{};
+  auto destroy = [&device](UiImage& image) {
+    if (image.view != VK_NULL_HANDLE) {
+      device.fn.vkDestroyImageView(device.device, image.view, nullptr);
+    }
+    if (image.image != VK_NULL_HANDLE) {
+      device.fn.vkDestroyImage(device.device, image.image, nullptr);
+    }
+    if (image.memory != VK_NULL_HANDLE) {
+      device.fn.vkFreeMemory(device.device, image.memory, nullptr);
+    }
+    image = UiImage{};
+  };
+  destroy(slot.stencil);
+  destroy(slot.post[0]);
+  destroy(slot.post[1]);
+  for (auto& layer : slot.layers) {
+    destroy(layer);
   }
+  slot.layers.clear();
+  slot.extent = {};
+}
+
+VkRenderer::UiSlot& VkRenderer::ui_slot(VkExtent2D extent) {
+  auto& slot = ui_slots_[frames().slot()];
+  if (slot.stencil.image != VK_NULL_HANDLE && slot.extent.width == extent.width &&
+      slot.extent.height == extent.height) {
+    return slot;
+  }
+  // The first use or a resize: the GPU is idle first, so no frame still reads the old images.
+  auto& device = context();
+  device.fn.vkDeviceWaitIdle(device.device);
+  ui_reset_framebuffers();
+  pipelines().release_scene();
+  ui_destroy_slot(slot);
   auto info = make<VkImageCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
   info.imageType = VK_IMAGE_TYPE_2D;
   info.format = VK_FORMAT_D24_UNORM_S8_UINT;
@@ -1064,23 +1093,27 @@ VkRenderer::UiStencil& VkRenderer::ui_stencil(VkExtent2D extent) {
   info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
   info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  check(device.fn.vkCreateImage(device.device, &info, nullptr, &stencil.image), "vkCreateImage");
+  check(device.fn.vkCreateImage(device.device, &info, nullptr, &slot.stencil.image), "vkCreateImage");
   VkMemoryRequirements requirements{};
-  device.fn.vkGetImageMemoryRequirements(device.device, stencil.image, &requirements);
+  device.fn.vkGetImageMemoryRequirements(device.device, slot.stencil.image, &requirements);
   auto allocation = make<VkMemoryAllocateInfo>(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
   allocation.allocationSize = requirements.size;
   allocation.memoryTypeIndex =
       device.memory_type(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  check(device.fn.vkAllocateMemory(device.device, &allocation, nullptr, &stencil.memory), "vkAllocateMemory");
-  check(device.fn.vkBindImageMemory(device.device, stencil.image, stencil.memory, 0), "vkBindImageMemory");
+  check(device.fn.vkAllocateMemory(device.device, &allocation, nullptr, &slot.stencil.memory), "vkAllocateMemory");
+  check(device.fn.vkBindImageMemory(device.device, slot.stencil.image, slot.stencil.memory, 0),
+        "vkBindImageMemory");
   auto view_info = make<VkImageViewCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
-  view_info.image = stencil.image;
+  view_info.image = slot.stencil.image;
   view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
   view_info.format = VK_FORMAT_D24_UNORM_S8_UINT;
   view_info.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
-  check(device.fn.vkCreateImageView(device.device, &view_info, nullptr, &stencil.view), "vkCreateImageView");
-  stencil.extent = extent;
-  return stencil;
+  check(device.fn.vkCreateImageView(device.device, &view_info, nullptr, &slot.stencil.view), "vkCreateImageView");
+  for (auto& post : slot.post) {
+    create_color_image(frames().format(), extent.width, extent.height, post.image, post.memory, post.view);
+  }
+  slot.extent = extent;
+  return slot;
 }
 
 void VkRenderer::ui_reset_framebuffers() noexcept {
@@ -1104,7 +1137,7 @@ VkFramebuffer VkRenderer::ui_framebuffer(VkImageView color, VkImageView stencil,
   }
   const std::array<VkImageView, 2> views{color, stencil};
   auto info = make<VkFramebufferCreateInfo>(VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
-  info.renderPass = ui_pass_;  // compatible with the first pass
+  info.renderPass = ui_passes_[0][0][0];  // compatible with every UI pass
   info.attachmentCount = static_cast<std::uint32_t>(views.size());
   info.pAttachments = views.data();
   info.width = extent.width;
@@ -1115,6 +1148,153 @@ VkFramebuffer VkRenderer::ui_framebuffer(VkImageView color, VkImageView stencil,
         "vkCreateFramebuffer");
   ui_framebuffers_.push_back({color, stencil, framebuffer});
   return framebuffer;
+}
+
+void VkRenderer::ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain) {
+  auto& frame = frames();
+  const auto command = frame.record();
+  // Transfers recorded so far (copies cannot run inside a pass) are closed before the pass.
+  resources().close_transfers(command);
+  std::array<VkClearValue, 2> clears{};
+  clears[1].depthStencil = {1.0f, 0};  // the colour clear is zero: layers and post targets start empty
+  auto begin = make<VkRenderPassBeginInfo>(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
+  begin.renderPass = pass;
+  begin.framebuffer = framebuffer;
+  begin.renderArea = rect(static_cast<int>(extent.width), static_cast<int>(extent.height));
+  begin.clearValueCount = static_cast<std::uint32_t>(clears.size());
+  begin.pClearValues = clears.data();
+  auto& device = context();
+  device.fn.vkCmdBeginRenderPass(command, &begin, VK_SUBPASS_CONTENTS_INLINE);
+  swapchain_pass_ = swapchain;
+  bound_ = VK_NULL_HANDLE;
+  device.fn.vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines().layout(), 0, 1,
+                                    &atlas_set_, 0, nullptr);
+  VkViewport viewport{0.0f,
+                      static_cast<float>(extent.height),
+                      static_cast<float>(extent.width),
+                      -static_cast<float>(extent.height),
+                      0.0f,
+                      1.0f};
+  device.fn.vkCmdSetViewport(command, 0, 1, &viewport);
+  const auto full = rect(static_cast<int>(extent.width), static_cast<int>(extent.height));
+  device.fn.vkCmdSetScissor(command, 0, 1, &full);
+}
+
+void VkRenderer::ui_open(VkExtent2D extent) {
+  if (ui_open_) {
+    return;
+  }
+  auto& slot = ui_slot(extent);
+  const bool stencil_clear = !ui_cleared_;
+  ui_cleared_ = true;
+  if (ui_depth_ > 0) {
+    // A layer: its pass keeps what the layer holds.
+    const auto fb = ui_framebuffer(slot.layers[static_cast<std::size_t>(ui_depth_ - 1)].view, slot.stencil.view, extent);
+    ui_begin(ui_passes_[0][1][stencil_clear ? 1 : 0], fb, extent, false);
+  } else {
+    const auto& target = frames().target(extent.width, extent.height);
+    const auto fb = ui_framebuffer(target.view, slot.stencil.view, target.extent);
+    ui_begin(ui_passes_[0][0][stencil_clear ? 1 : 0], fb, target.extent, true);
+  }
+  ui_open_ = true;
+}
+
+void VkRenderer::ui_resample(VkImageView target, bool offscreen, bool load, bool swapchain, VkExtent2D extent,
+                             VkImageView source, const gfx::vk::UiPostPush& push, bool premultiplied) {
+  if (atlas_set_ == VK_NULL_HANDLE) {
+    return;
+  }
+  ui_close();
+  auto& slot = ui_slot(extent);
+  const auto fb = ui_framebuffer(target, slot.stencil.view, extent);
+  const bool stencil_clear = !ui_cleared_;
+  ui_cleared_ = true;
+  ui_begin(ui_passes_[load ? 0 : 1][offscreen ? 1 : 0][stencil_clear ? 1 : 0], fb, extent, swapchain);
+  const auto command = frames().record();
+  auto& device = context();
+  const auto scene = pipelines().scene_set(source, true);
+  device.fn.vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines().layout(), 2, 1,
+                                    &scene, 0, nullptr);
+  use(command, premultiplied ? ui_post_premult_ : ui_post_plain_);
+  device.fn.vkCmdPushConstants(command, pipelines().layout(),
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
+  device.fn.vkCmdDraw(command, 4, 1, 0, 0);
+  end_pass();
+  ++draw_calls_;
+}
+
+const VkRenderer::UiImage* VkRenderer::ui_blur(const UiImage* first, const UiImage* second, VkExtent2D extent,
+                                               std::array<int, 4> region, float sigma) {
+  // RenderInterface_GL3's split (SigmaToParameters): a pass level of halvings, and the sigma left for
+  // one pass of 7 taps. The downscaled result is then upscaled to the requested region.
+  int level = 0;
+  const int scaled = static_cast<int>(sigma * (2.0f / 3.0f));
+  if (scaled > 0) {
+    level = std::clamp(static_cast<int>(std::log2(static_cast<float>(scaled))), 0, 10);
+  }
+  const float pass_sigma = std::clamp(sigma / static_cast<float>(1 << level), 0.0f, 3.0f);
+  // SetBlurWeights: the Gaussian for distances 0..3, normalised over both sides.
+  std::array<float, 4> weights{};
+  float normalisation = 0;
+  for (int i = 0; i < 4; ++i) {
+    weights[i] = std::fabs(pass_sigma) < 0.1f
+                     ? (i == 0 ? 1.0f : 0.0f)
+                     : std::exp(-static_cast<float>(i * i) / (2.0f * pass_sigma * pass_sigma)) /
+                           (std::sqrt(2.0f * 3.14159265f) * pass_sigma);
+    normalisation += (i == 0 ? 1.0f : 2.0f) * weights[i];
+  }
+  for (auto& weight : weights) {
+    weight /= normalisation;
+  }
+  const auto width = static_cast<float>(extent.width);
+  const auto height = static_cast<float>(extent.height);
+  const auto requested = region;
+  auto uv = [&](const std::array<int, 4>& r) {
+    return std::array<float, 4>{r[0] / width, r[1] / height, r[2] / width, r[3] / height};
+  };
+  auto push_for = [&](const std::array<int, 4>& dst, const std::array<int, 4>& src_region, bool blur,
+                      std::array<float, 2> offset) {
+    gfx::vk::UiPostPush push;
+    for (int i = 0; i < 4; ++i) {
+      push.dst[i] = static_cast<float>(dst[i]);
+      push.src[i] = uv(src_region)[i];
+      push.clamp_uv[i] = blur ? (i < 2 ? (dst[i] + 0.5f) / (i == 0 ? width : height)
+                                       : (dst[i] - 0.5f) / (i == 2 ? width : height))
+                              : 0.0f;
+      push.weights[i] = weights[i];
+    }
+    push.offset[0] = offset[0];
+    push.offset[1] = offset[1];
+    push.window[0] = width;
+    push.window[1] = height;
+    push.blur = blur ? 1 : 0;
+    return push;
+  };
+  const UiImage* source = first;
+  const UiImage* target = second;
+  // Downscales: each halves the region (rounding the start up, as GL's scissor does); the content
+  // stays at the region's pixels of the target.
+  for (int i = 0; i < level; ++i) {
+    std::array<int, 4> next{(region[0] + 1) / 2, (region[1] + 1) / 2, 0, 0};
+    next[2] = std::max(region[2] / 2, next[0]);
+    next[3] = std::max(region[3] / 2, next[1]);
+    ui_resample(target->view, true, false, false, extent, source->view, push_for(next, region, false, {0, 0}),
+                false);
+    region = next;
+    std::swap(source, target);
+  }
+  // The vertical and then the horizontal pass over the region, clamped to it.
+  ui_resample(target->view, true, false, false, extent, source->view,
+              push_for(region, region, true, {0.0f, 1.0f / height}), false);
+  std::swap(source, target);
+  ui_resample(target->view, true, false, false, extent, source->view,
+              push_for(region, region, true, {1.0f / width, 0.0f}), false);
+  std::swap(source, target);
+  // The linear upscale to the requested region.
+  ui_resample(target->view, true, false, false, extent, source->view, push_for(requested, region, false, {0, 0}),
+              false);
+  std::swap(source, target);
+  return source;
 }
 
 void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
@@ -1135,16 +1315,7 @@ void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
     scissor.extent = {static_cast<std::uint32_t>(std::max(0, right - left)),
                       static_cast<std::uint32_t>(std::max(0, bottom - top))};
   }
-  if (!ui_open_) {
-    const auto& target = frames().target(extent.width, extent.height);
-    auto& stencil = ui_stencil(extent);
-    const auto swap = ui_framebuffer(target.view, stencil.view, target.extent);
-    // The first pass of a frame clears the stencil; later passes keep it.
-    begin_pass(ui_cleared_ ? ui_pass_ : ui_pass_first_, swap, target.extent, false, rect(ui_width_, ui_height_),
-               VK_NULL_HANDLE, true, !ui_cleared_);
-    ui_cleared_ = true;
-    ui_open_ = true;
-  }
+  ui_open(extent);
   auto& frame = frames();
   const auto command = frame.record();
   auto& ring = frame.ring();
@@ -1202,6 +1373,99 @@ void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
   }
   device.fn.vkCmdDrawIndexed(command, static_cast<std::uint32_t>(geometry.index_count), 1, 0, 0, 0);
   ++draw_calls_;
+}
+
+std::uint32_t VkRenderer::ui_push_layer() {
+  if (ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
+    return 0;
+  }
+  ui_close();
+  const VkExtent2D extent{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)};
+  auto& slot = ui_slot(extent);
+  const auto index = static_cast<std::size_t>(ui_depth_);
+  if (slot.layers.size() <= index) {
+    UiImage layer;
+    create_color_image(frames().format(), extent.width, extent.height, layer.image, layer.memory, layer.view);
+    slot.layers.push_back(layer);
+  }
+  ++ui_depth_;
+  const bool stencil_clear = !ui_cleared_;
+  ui_cleared_ = true;
+  const auto fb = ui_framebuffer(slot.layers[index].view, slot.stencil.view, extent);
+  // The layer's pass clears it (RmlUi's PushLayer clears to transparent); draws then keep it open.
+  ui_begin(ui_passes_[1][1][stencil_clear ? 1 : 0], fb, extent, false);
+  ui_open_ = true;
+  return static_cast<std::uint32_t>(ui_depth_);
+}
+
+void VkRenderer::ui_pop_layer() {
+  ui_close();
+  if (ui_depth_ > 0) {
+    --ui_depth_;
+  }
+}
+
+void VkRenderer::ui_composite(const gfx::vk::ui::Composite& composite) {
+  if (ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
+    return;
+  }
+  ui_close();
+  const VkExtent2D extent{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)};
+  auto& slot = ui_slot(extent);
+  if (composite.source == 0 || composite.source > slot.layers.size() ||
+      composite.destination > slot.layers.size()) {
+    return;
+  }
+  // The region: the scissor clipped to the window, or the window.
+  std::array<int, 4> region{0, 0, ui_width_, ui_height_};
+  if (composite.scissor) {
+    region = {std::max(0, composite.region[0]), std::max(0, composite.region[1]),
+              std::min(ui_width_, composite.region[0] + composite.region[2]),
+              std::min(ui_height_, composite.region[1] + composite.region[3])};
+  }
+  if (region[2] <= region[0] || region[3] <= region[1]) {
+    return;
+  }
+  const UiImage* current = &slot.layers[composite.source - 1];
+  if (composite.filter_count > 0) {
+    // The copy into post target 0 is the filters' working image (GL's PostprocessPrimary).
+    gfx::vk::UiPostPush copy;
+    copy.dst[2] = static_cast<float>(ui_width_);
+    copy.dst[3] = static_cast<float>(ui_height_);
+    copy.src[2] = 1.0f;
+    copy.src[3] = 1.0f;
+    copy.window[0] = static_cast<float>(ui_width_);
+    copy.window[1] = static_cast<float>(ui_height_);
+    ui_resample(slot.post[0].view, true, false, false, extent, current->view, copy, false);
+    current = &slot.post[0];
+    for (std::size_t i = 0; i < composite.filter_count; ++i) {
+      const auto& filter = composite.filters[i];
+      if (filter.sigma > 0) {
+        const UiImage* other = current == &slot.post[0] ? &slot.post[1] : &slot.post[0];
+        current = ui_blur(current, other, extent, region, filter.sigma);
+      }
+    }
+  }
+  // The destination: a layer, or the window (which is then a presentable pass).
+  const bool destination_layer = composite.destination != 0;
+  VkImageView destination = VK_NULL_HANDLE;
+  if (destination_layer) {
+    destination = slot.layers[composite.destination - 1].view;
+  } else {
+    destination = frames().target(extent.width, extent.height).view;
+  }
+  gfx::vk::UiPostPush draw;
+  for (int i = 0; i < 4; ++i) {
+    draw.dst[i] = static_cast<float>(region[i]);
+  }
+  draw.src[0] = region[0] / static_cast<float>(ui_width_);
+  draw.src[1] = region[1] / static_cast<float>(ui_height_);
+  draw.src[2] = region[2] / static_cast<float>(ui_width_);
+  draw.src[3] = region[3] / static_cast<float>(ui_height_);
+  draw.window[0] = static_cast<float>(ui_width_);
+  draw.window[1] = static_cast<float>(ui_height_);
+  ui_resample(destination, destination_layer, true, !destination_layer, extent, current->view, draw,
+              !composite.replace);
 }
 
 void VkRenderer::finish_frame() {

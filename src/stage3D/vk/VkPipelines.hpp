@@ -72,6 +72,19 @@ struct UiPush {
 };
 static_assert(sizeof(UiPush) == 76);
 
+// RmlUi layer composites (ui_post.vert/frag): a target rectangle filled from a source rectangle, and for the
+// blur the tap step, the clamp region and the weights. Scalar arrays, so the std430 layout is 84 bytes.
+struct UiPostPush {
+  float dst[4] = {};       // x0 y0 x1 y1, window pixels
+  float src[4] = {};       // u0 v0 u1 v1
+  float offset[2] = {};    // uv step of one blur tap
+  float clamp_uv[4] = {};  // blur region: min x, min y, max x, max y
+  float weights[4] = {};   // blur weights for tap distance 0..3
+  float window[2] = {};    // window size in pixels
+  std::int32_t blur = 0;   // 0 copy, 1 blur
+};
+static_assert(sizeof(UiPostPush) == 84);
+
 class Pipelines {
  public:
   // Creates the shader modules, layouts and pools, and the dummy surface and wall buffer that
@@ -89,6 +102,8 @@ class Pipelines {
   [[nodiscard]] VkPipeline post(VkRenderPass pass, bool blend) const;  // full-screen post passes
   // RmlUi triangles, premultiplied, with the clip-mask stencil mode (passes with a stencil attachment).
   [[nodiscard]] VkPipeline ui(VkRenderPass pass, PipelineShape::Stencil stencil) const;
+  // RmlUi layer composites: a fullscreen-strip draw from the scene set (set 2), premultiplied or plain.
+  [[nodiscard]] VkPipeline ui_post(VkRenderPass pass, bool premultiplied) const;
   [[nodiscard]] VkPipeline create_pipeline(VkRenderPass pass, const PipelineShape& shape) const;
 
   // Set 0 for a frame of `slot`: the atlas array (binding 0) and that slot's wall corners (binding
@@ -98,7 +113,7 @@ class Pipelines {
   [[nodiscard]] VkDescriptorSet surface_set(std::uint32_t surface);
   // Set 2: the scene image of a post pass (binding 0). Valid until the next call for the same slot
   // of a pass; the caller retires the views' sets through release_scene().
-  [[nodiscard]] VkDescriptorSet scene_set(VkImageView view);
+  [[nodiscard]] VkDescriptorSet scene_set(VkImageView view, bool linear = false);
   // Drops the cached scene sets (offscreen targets were rebuilt; the old views go away).
   void release_scene() noexcept;
 
@@ -133,6 +148,8 @@ class Pipelines {
   VkShaderModule post_fragment_ = VK_NULL_HANDLE;
   VkShaderModule ui_vertex_ = VK_NULL_HANDLE;
   VkShaderModule ui_fragment_ = VK_NULL_HANDLE;
+  VkShaderModule ui_post_vertex_ = VK_NULL_HANDLE;
+  VkShaderModule ui_post_fragment_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout atlas_layout_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout surface_layout_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout scene_layout_ = VK_NULL_HANDLE;

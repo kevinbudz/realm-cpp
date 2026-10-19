@@ -85,6 +85,8 @@ void Pipelines::create() {
   post_fragment_ = make_module(spirv::post_frag_spv, spirv::post_frag_spv_size);
   ui_vertex_ = make_module(spirv::ui_vert_spv, spirv::ui_vert_spv_size);
   ui_fragment_ = make_module(spirv::ui_frag_spv, spirv::ui_frag_spv_size);
+  ui_post_vertex_ = make_module(spirv::ui_post_vert_spv, spirv::ui_post_vert_spv_size);
+  ui_post_fragment_ = make_module(spirv::ui_post_frag_spv, spirv::ui_post_frag_spv_size);
 
   // Set 0: the atlas array, then the wall corners (vertex stage).
   const std::array<VkDescriptorSetLayoutBinding, 2> atlas_bindings{
@@ -165,7 +167,7 @@ void Pipelines::destroy() noexcept {
   device.fn.vkDestroyDescriptorSetLayout(device.device, scene_layout_, nullptr);
   for (const auto module : {quad_vertex_, quad_fragment_, model_vertex_, model_fragment_,
                             mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_,
-                            ui_vertex_, ui_fragment_}) {
+                            ui_vertex_, ui_fragment_, ui_post_vertex_, ui_post_fragment_}) {
     device.fn.vkDestroyShaderModule(device.device, module, nullptr);
   }
   destroy_buffer(walls_);
@@ -173,7 +175,7 @@ void Pipelines::destroy() noexcept {
   atlas_layout_ = surface_layout_ = scene_layout_ = VK_NULL_HANDLE;
   quad_vertex_ = quad_fragment_ = model_vertex_ = model_fragment_ = VK_NULL_HANDLE;
   mesh_vertex_ = mesh_fragment_ = post_vertex_ = post_fragment_ = VK_NULL_HANDLE;
-  ui_vertex_ = ui_fragment_ = VK_NULL_HANDLE;
+  ui_vertex_ = ui_fragment_ = ui_post_vertex_ = ui_post_fragment_ = VK_NULL_HANDLE;
 }
 
 std::pair<VkDescriptorSet, VkDescriptorPool> Pipelines::allocate(VkDescriptorSetLayout layout) {
@@ -287,17 +289,17 @@ VkDescriptorSet Pipelines::surface_set(std::uint32_t surface) {
   return set;
 }
 
-VkDescriptorSet Pipelines::scene_set(VkImageView view) {
-  // The post passes sample at most two offscreen targets: a set per view, kept until a rebuild.
+VkDescriptorSet Pipelines::scene_set(VkImageView view, bool linear) {
+  // The post passes sample at most two offscreen targets: a set per view and filter, kept until a rebuild.
   for (const auto& known : scenes_) {
-    if (known.view == view && known.set != VK_NULL_HANDLE) {
+    if (known.view == view && known.set != VK_NULL_HANDLE && known.key == (linear ? 1u : 0u)) {
       return known.set;
     }
   }
   auto& device = context();
   const auto [set, pool] = allocate(scene_layout_);
   VkDescriptorImageInfo image{};
-  image.sampler = resources().sampler(false);
+  image.sampler = resources().sampler(linear);
   image.imageView = view;
   image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   auto write = make<VkWriteDescriptorSet>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
@@ -307,7 +309,7 @@ VkDescriptorSet Pipelines::scene_set(VkImageView view) {
   write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   write.pImageInfo = &image;
   device.fn.vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
-  Cached cached{0, set, pool, view, image.sampler, VK_NULL_HANDLE};
+  Cached cached{linear ? 1u : 0u, set, pool, view, image.sampler, VK_NULL_HANDLE};
   scenes_.push_back(cached);
   return set;
 }
@@ -519,6 +521,17 @@ VkPipeline Pipelines::post(VkRenderPass pass, bool blend) const {
   shape.fragment = post_fragment_;
   shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
   shape.blend = blend;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::ui_post(VkRenderPass pass, bool premultiplied) const {
+  PipelineShape shape;
+  shape.vertex = ui_post_vertex_;
+  shape.fragment = ui_post_fragment_;
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  shape.cull = VK_CULL_MODE_NONE;
+  shape.blend = premultiplied;
+  shape.premultiplied = true;
   return create_pipeline(pass, shape);
 }
 

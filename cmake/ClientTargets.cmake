@@ -123,7 +123,7 @@ if(REALM_BUILD_VIEWER)
         file(MAKE_DIRECTORY ${REALM_VK_SHADER_OUT})
         set(REALM_VK_SHADER_SPV "")
         foreach(shader quad.vert quad.frag model.vert model.frag mesh.vert mesh.frag post.vert
-                       post.frag ui.vert ui.frag)
+                       post.frag ui.vert ui.frag ui_post.vert ui_post.frag)
             set(in ${REALM_VK_SHADER_DIR}/${shader})
             set(out ${REALM_VK_SHADER_OUT}/${shader}.spv)
             add_custom_command(OUTPUT ${out}

@@ -255,10 +255,10 @@ per-rep means. Columns: FPS / CPU median ms / GPU median ms. Measured 2026-10-19
 | NVIDIA RTX 3050 Ti | S3-combat-cluster | VK + presented copy | 58.8 | 13.2 | 4.18 |
 | NVIDIA RTX 3050 Ti | nexus-pan | GL | 751 | 0.15 | 0.11 |
 | NVIDIA RTX 3050 Ti | nexus-pan | VK | 846 | 0.14 | 0.09 |
-| NVIDIA RTX 3050 Ti | nexus-pan | VK + presented copy | 846 | not recorded | not recorded |
+| NVIDIA RTX 3050 Ti | nexus-pan | VK + presented copy | 846 | 0.14 | 0.09 |
 | RADV Renoir | S3-combat-cluster | GL | 35.0 | 17.9 | 22.8 |
 | RADV Renoir | S3-combat-cluster | VK | 44.7 | 16.3 | 16.2 |
-| RADV Renoir | S3-combat-cluster | VK + presented copy | 47.3 | not recorded | not recorded |
+| RADV Renoir | S3-combat-cluster | VK + presented copy | 47.3 | 16.4 | 15.6 |
 | RADV Renoir | nexus-pan | GL | 1335 | 0.13 | 0.70 |
 | RADV Renoir | nexus-pan | VK | 1035 | 0.84 | 0.84 |
 | RADV Renoir | nexus-pan | VK + presented copy | 711 | 1.24 | 0.85 |

@@ -21,7 +21,7 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
 | 2 | Vulkan world renderer (S0-S8) | S0-S4 committed; S5-S7 code in `s5-s8-wip.patch`, unverified; S8 not done |
-| 3 | RmlUi Vulkan backend, then remove the WIP gate | Not started |
+| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1 committed (geometry, scissor, textures); M2-M4 open; gate kept |
 | 4 | Final verification and perf matrix across stacks | Not started |
 
 ## Phase 1: the backend seam (done)
@@ -218,6 +218,67 @@ Readings: S3 is CPU-bound and both APIs tie, so the earlier "Vulkan GPU is slowe
 vs 3 and the ring memory type make no measurable difference, so keep 2 frames and the default ring.
 The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fix).
 
+## Phase 3: the RmlUi Vulkan backend
+
+### Status
+
+| Milestone | Content | State |
+|---|---|---|
+| M1 | Premultiplied triangles, scissor, RmlUi transform, textures (TGA files, `item:`/`art:` nearest, host-written, generated) | Done, committed |
+| M2 | Clip masks (border-radius) | Open: logs once, draws unclipped |
+| M3 | Layers, blur filter (Settings), other filters, gradient shaders | Open: logs once, draws without the effect |
+| M4 | Frame cache (`frame_reused`) | Open: always false |
+| Gate | `REALM_VULKAN_WIP` | Kept: M2-M3 missing, so full-UI parity is not established |
+
+### Design
+
+- `src/lib/ui/RmlGpuVk.cpp`: the Vulkan `RmlGpu`. Its `Rml::RenderInterface` keeps compiled geometry on
+  the host (copied into the frame ring at draw time) and decodes TGA as RenderInterface_GL3 does.
+  Projection and RmlUi's transform are composed on the CPU: `P * T`, with `P` mapping window pixels to
+  clip space under the negative viewport.
+- `include/realm/stage3D/vk/VkUi.hpp`: plain-data seam (no Vulkan headers), so `realm_ui_rmlui` needs
+  no Vulkan include path. `src/stage3D/vk/VkUi.cpp` implements it over `VkRenderer::ui_*`.
+- `VkRenderer`: the UI pass is a LOAD pass on the frame's swapchain image, sharing the framebuffer
+  cache. The first UI draw opens it; `ui_close` ends it before any upload (a copy cannot run inside a
+  pass) and `end_frame` ends it. Pipeline `ui.vert`/`ui.frag`: 20-byte `Rml::Vertex`, premultiplied
+  blend (ONE, ONE_MINUS_SRC_ALPHA), no cull. Push constants: 4x4 matrix, translate, textured flag (76 B).
+- Textures need the device, not the renderer: RmlUi loads the fame document before the first world
+  frame, so `create_texture` must not require a `VkRenderer` (this was a bug, found by the log).
+- Window: the Vulkan path needs the SDL window only for RmlUi's system interface (clipboard, cursor).
+  `RmlHost` takes it from the app (`ui::set_host_window`, called after `WindowSession::open`) instead of
+  scanning window ids.
+- Client boundaries: `realm_ui_rmlui` may link `realm_render` (the Vulkan seam), recorded in
+  `cmake/ClientBoundaries.cmake`.
+
+### Verification (M1)
+
+GL is unchanged: the checksums and capture md5s match the values in [How to test](#how-to-test).
+
+| Check | Result |
+|---|---|
+| S1-mixed-dense, 300 frames: quad / state / packet | match |
+| S3-combat-cluster, 300 frames: quad / state / packet | match |
+| GL capture md5: churn, S1-mixed-dense, S3-combat-cluster | match all three |
+
+Full UI, 800×600, 120 frames, Vulkan vs GL capture (`compare.py`):
+
+| Fixture | NVIDIA: px / max Δ | RADV: px / max Δ | lavapipe: px / max Δ |
+|---|---|---|---|
+| S1-mixed-dense | 0 / 0 (byte-identical PNG) | 4012 (0.84%) / 2 | 4970 (1.04%) / 7 |
+| churn | 0 / 0 | 3984 (0.83%) / 186 | not run |
+| S3-combat-cluster | 3 (0.0006%) / 1 | 874 (0.18%) / 25 | not run |
+
+The RADV churn differences sit in the world (the crowd area), not the HUD. World-only capture
+(`REALM_TEST_WORLD_ONLY=1`, GL vs RADV) gives 3871 px and max Δ 186, the same. So the UI matches; the
+world differences are the phase 2 WIP. The lavapipe row is report-only.
+
+GL ctests: `ui_rml_host`, `ui_retained`, `ui_bundle_gpu`, `startup_news_gpu` pass. `options_gpu` and
+`appearance_compose` fail, as before.
+
+Not verified: the Settings screen (blur, the only RmlUi filter the client uses, from
+`RetainedUi::set_blur`), gradient decorators, and border-radius clipping. No headless flag opens
+Options, so they need M2-M3 and a capture harness first.
+
 ## Remaining work
 
 ### Phase 2 (apply `s5-s8-wip.patch` first; it applies to `831d1b2`)
@@ -235,9 +296,9 @@ The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fi
 7. Wall/mesh parity on a real scene: a fixture with walls, or `model_instances` under Vulkan.
 8. Full ctest. Known failures: appearance_compose, options_gpu.
 
-### Phase 3: RmlUi Vulkan backend
+### Phase 3: RmlUi Vulkan backend (M2-M4 and gate; M1 is done, see above)
 
-- Our own backend in `src/lib/ui/RmlGpuVk.cpp`. The vendored RmlUi has only the GL3 backend, and
+- Original plan notes follow. Our own backend in `src/lib/ui/RmlGpuVk.cpp`. The vendored RmlUi has only the GL3 backend, and
   RmlUi's upstream Vulkan backend lacks filters and layers anyway.
 - It must support the blur filter (Settings screen), border-radius clipping (clip masks), and the
   existing frame cache.

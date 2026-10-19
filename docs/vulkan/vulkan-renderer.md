@@ -1,8 +1,8 @@
 # Vulkan renderer
 
-The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, after the S5-S8
-work was committed on `vulkan-s5-s8` (phase 1 and S0-S7 committed, S8 measured, see
-[Remaining work](#remaining-work)).
+The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, on `flourish`:
+phase 1 and S0-S8 done (validation sweep clean, presented capture rate-limited), phase 3 M1-M3 done, see
+[Remaining work](#remaining-work).
 
 ## Goal
 
@@ -21,8 +21,8 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 | Phase | Content | State |
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
-| 2 | Vulkan world renderer (S0-S8) | S0-S7 committed; S8 partly done (see below); still behind `REALM_VULKAN_WIP` |
-| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 committed (geometry, scissor, textures, clip masks, layers, blur); M4 frame cache open; gate kept |
+| 2 | Vulkan world renderer (S0-S8) | Done; still behind `REALM_VULKAN_WIP` |
+| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 committed (geometry, scissor, textures, clip masks, layers, blur); offline screens match GL; M4 frame cache open; gate kept |
 | 4 | Final verification and perf matrix across stacks | Not started |
 
 ## Phase 1: the backend seam (done)
@@ -61,7 +61,7 @@ The seam sits at the existing high-level boundaries, not at a low-level RHI.
 | S5 | Walls (SSBO), prepared meshes, model instances | Committed (e760fbe); `model_instances_vulkan` passes on 3 drivers |
 | S6 | Post effects, draw_overlay, back and presented capture | Committed (e760fbe) |
 | S7 | GPU timers, telemetry, perf | Committed (e760fbe); perf measured below |
-| S8 | Validation sweep, ctest, GL identity, parity, memory, perf | Partly done: ctest, GL identity, parity, memory and perf measured. **Validation sweep not run**: the Khronos layer is not installed on the laptop. Presented-capture decision open |
+| S8 | Validation sweep, ctest, GL identity, parity, memory, perf | Done: validation sweep clean on 3 drivers (see [Validation](#validation-sweep-measured)), presented capture rate-limited |
 
 ### Verified facts the design rests on
 
@@ -155,12 +155,17 @@ swizzle BGRA. Synchronous, capture frames only.
   (the only time death can happen), each frame's final image is copied on the GPU into one persistent
   device-local image before present, and `capture(presented)` reads that image back. Menus pay
   nothing. GL ignores the toggle. `REALM_VK_PRESENTED_COPY=1` forces it.
-- Measured cost (1920×1024, world only, see [Perf](#perf-measured)): Renoir nexus-pan GPU 0.84 → 0.85
-  ms median, FPS 1035 → 711 (about 31%); NVIDIA S3 about 4%.
-- **Recommendation: implement the deferred snapshot.** The caller requests it, the next finish_frame
-  fills it from the world image before any death UI draws. This needs the death flow in
-  `ApplicationLoopUpdate.cpp` restructured, and the snapshot is one frame later than GL's. Not
-  implemented.
+- Measured cost of a copy every frame (1920×1024, world only): Renoir nexus-pan FPS 1035 → 711 (about
+  31%); NVIDIA S3 about 4%.
+- **Decision (implemented): rate-limit the copy** to one per 16 ms (`presented_copy_interval` in
+  `VkRenderer.cpp`). The snapshot is then at most one 60 Hz frame older than the last presented image,
+  about what GL's front buffer gives on a 60 Hz display, and the death flow is unchanged. A resize copies
+  at once. The deferred snapshot (request at death, fill at the next finish_frame) was the alternative:
+  zero cost but a restructured death flow and a snapshot one frame late. Not needed: the rate-limited
+  copy measured no cost (Renoir nexus 1377 FPS without copy, 1376 rate-limited, 929 every frame; see
+  [Perf](#perf-measured)).
+- `REALM_VK_PRESENTED_COPY=1` still copies every frame (the s23 harness reads the frame it just
+  presented); `REALM_VK_PRESENTED_COPY=limited` forces the rate-limited copy, as a game session runs.
 
 **Timers.** Per-slot query pool, 69 timestamps (5 + 2×32), reset at command-buffer begin, polled
 WITH_AVAILABILITY. Ticks × timestampPeriod, masked to timestampValidBits (0 disables timers). Vulkan
@@ -176,7 +181,7 @@ uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's.
 | `REALM_VK_PRESENT=immediate\|mailbox\|fifo` | Override the present mode. |
 | `REALM_VK_STATS=1` | Ring, arena and descriptor-set summary at shutdown. |
 | `REALM_VK_RING_MEMORY=host` | Force the ring into plain host memory. |
-| `REALM_VK_PRESENTED_COPY=1` | Force the per-frame presented copy. |
+| `REALM_VK_PRESENTED_COPY=1\|limited` | Force the presented copy: every frame (`1`) or rate-limited as in a game session (`limited`). |
 | `REALM_TEST_RML=file.rml` | Shows this RML document over the UI host, for RmlUi features the client's screens do not use (clip masks). |
 | `REALM_TEST_WORLD_ONLY=1` | Draw the world only (no HUD, RmlUi, overlay text or death fade), above the renderer, so both APIs draw the same quads. |
 
@@ -264,12 +269,25 @@ per-rep means. Columns: FPS / CPU median ms / GPU median ms. Measured 2026-10-19
 | RADV Renoir | nexus-pan | VK | 1035 | 0.84 | 0.84 |
 | RADV Renoir | nexus-pan | VK + presented copy | 711 | 1.24 | 0.85 |
 
-Readings:
+**Rerun 2026-10-19 (later, `flourish` with the rate-limited copy).** Same method; load average 3.7-6.5
+during the runs, so absolute numbers drifted from the table above (the GL rows moved too):
+
+| Device | Scene | GL | VK | VK + copy every frame | VK + copy rate-limited |
+|---|---|---|---|---|---|
+| RADV Renoir | nexus-pan FPS (GPU ms) | 1523 (0.59) | 1377 (0.62) | 929 (0.63) | 1376 (0.60) |
+| RADV Renoir | S3-combat-cluster FPS (GPU ms) | 30.5 (28.95) | 32.9 (26.23) | 33.2 (25.87) | 33.3 (25.64) |
+| NVIDIA RTX 3050 Ti | nexus-pan FPS (GPU ms) | 757 (0.13) | 846 (0.09) | 847 (0.09) | 846 (0.09) |
+| NVIDIA RTX 3050 Ti | S3-combat-cluster FPS (GPU ms) | 53.3 (4.97) | 51.1 (5.20) | 51.2 (5.08) | 51.5 (5.08) |
+
+The Renoir nexus VK row is noisy (per-rep 1191-1495 FPS). In this rerun VK beats GL on Renoir S3 by about
+8%, not the 28% above; both runs agree on the direction.
+
+Readings (first table):
 - VK wins S3 on Renoir by about 28% (GPU-bound: 16.2 vs 22.8 ms) and nexus on NVIDIA by about 13%.
 - VK loses nexus on Renoir by about 22% (the CPU waits on a higher VK GPU time) and S3 on NVIDIA by about
   7% (CPU-bound: VK CPU 12.9 vs 11.8 ms).
-- The presented copy costs about 31% on Renoir nexus and about 4% on NVIDIA S3. Recommend the
-  deferred-snapshot alternative (see Capture).
+- The every-frame presented copy costs about 31% on Renoir nexus and about 4% on NVIDIA S3. Rate-limited,
+  it costs nothing measurable (rerun table).
 
 Earlier WIP numbers (800×600, unverified, superseded) are dropped: S3 looked CPU-bound with both APIs
 tied, and the "Vulkan GPU is slower" reading was a vsync/downclock artifact. The current table is the
@@ -290,6 +308,25 @@ reference.
 The steady-state bar is met. `create_ring_buffer` already falls back to host memory if the BAR heap is
 full. The startup burst may matter on small-BAR systems; the fix would route large staging through plain
 host memory. Not done.
+
+### Validation sweep (measured)
+
+2026-10-19, `REALM_VK_VALIDATION=1` (Khronos layer, synchronization validation on), on RADV Renoir, lavapipe
+and NVIDIA: S3-combat-cluster, S1-enemies-dense, S3-models-dense, nexus-pan, churn (full UI; S3 and churn
+also world only), the scripted Options capture, `realm_model_instance_tests vulkan`, and the s23 and s5
+harnesses.
+
+- No SYNC- messages anywhere. lavapipe and NVIDIA: 0 errors, 0 warnings.
+- RADV: 8-12 errors per run, all from the UI stencil format. It was hard-coded `D24_UNORM_S8_UINT`, which
+  RADV Renoir does not support as an attachment (VUID-VkSubpassDescription-pDepthStencilAttachment-02650,
+  VUID-VkImageViewCreateInfo-usage-02277, VUID-VkImageCreateInfo-imageCreateMaxMipLevels-02251). Fixed:
+  `stencil_format()` picks the first of D24S8, D32S8, D16S8 with optimal-tiling attachment support. After
+  the fix RADV is 0 errors on S3 full UI, Options and s23. The clip-mask sample already clipped correctly
+  on RADV before the fix (the driver tolerated the format) and is byte-identical after it.
+- s23 failed "resized swapchain renders at 400x300" on NVIDIA and RADV: a harness bug. It cleared to 0.9
+  and expected 230, but 0.9f × 255 = 229.49998, which these drivers round to 229 (lavapipe gives 230). The
+  harness now clears to 0.8/0.2 (exact multiples of 1/255) and passes on all three, with
+  `REALM_VK_PRESENTED_COPY=1` and with the `toggle` (rate-limited) path.
 
 ## Phase 3: the RmlUi Vulkan backend
 
@@ -394,32 +431,55 @@ The scripted capture (`--script`, the same format as `tests/options_gpu_tests.py
 `--hidden --map realm-server/Resources/Worlds/Tutorial/Nexus.jm --effect-time 0 --scene-time 0 --hp 50`.
 
 Not verified: gradient decorators (none in the client), other filters (none), and the frame cache (M4).
-Screens other than HUD, Options and the test sample are not compared, so the gate stays.
+
+### Verification (other screens)
+
+2026-10-19, 800×600, GL vs VK on the same driver. Determinism needs two things: `--fixture-step-ms 20
+--frames 400`, and a fixed startup backdrop. `Startup.cpp` `load_background` seeds from
+`std::random_device`, so the runs used an LD_PRELOAD shim that replaces it with a fixed LCG. Two GL runs then
+give 0 differing pixels on every screen. Common flags: `--hidden --width 800 --height 600 --effect-time 0
+--scene-time 0 --fixture-step-ms 20 --frames 400 --script S --settings-file X --account-file Y`; screens are
+reached with `click` script lines (e.g. play at 400,545).
+
+| Screen | NVIDIA: px / max Δ | RADV: px / max Δ |
+|---|---|---|
+| Title | 7.46% / 1 | 7.45% / 5 (14 px ≥ 3) |
+| Title fame popup | 8.60% / 2 | 8.53% / 2 |
+| Character select | 3.79% / 1 | 3.72% / 3 |
+| Classes | 2.41% / 1 | 2.37% / 8 (15 px ≥ 3, top rows) |
+| Login dialog | 44.2% / 2 | 45.6% / 2 (±1-2 over the dimmed backdrop) |
+| Legends | 2.76% / 1 | 2.69% / 3 |
+| Map editor | 0.80% / 1 | 0.79% / 1 |
+| Nexus tooltip | 0 / 0 | 0 / 0 |
+
+Everything is ±1-2 levels (blend rounding) except a few dozen RADV pixels up to Δ 8; no missing or extra
+elements, and no Vulkan UI warnings logged. Not reached offline (need a server): the death screen, guild,
+shop and vault. Chat input did not open from a script.
 
 ## Remaining work
 
 ### Phase 2 (S8)
 
-1. **Validation sweep: not run.** The Khronos validation layer (`vulkan-validation-layers`) is not
-   installed and installing it needs sudo. Bar when run: 0 errors, no SYNC- messages, on RADV and
-   lavapipe: S3-combat-cluster, S1-enemies-dense, S3-models-dense, nexus-pan, churn, plus the s5 and s23
-   harnesses.
-2. **Presented-capture decision:** implement the deferred snapshot (see Capture). Open.
-3. **Renoir nexus GPU gap:** VK GPU 0.84 ms vs GL 0.70 ms, and with the presented copy 1035 → 711 FPS.
-   Open, part of item 2. Measured, not yet explained.
+1. Validation sweep: done, clean after the stencil-format fix (see [Validation](#validation-sweep-measured)).
+2. Presented capture: done, rate-limited (see Capture).
+3. **Renoir nexus gap:** VK 1377 vs GL 1523 FPS in the rerun (CPU 0.59 vs 0.18 ms). The presented-copy part
+   is gone; the rest is open, measured but not explained.
 4. **NVIDIA S3 CPU gap:** VK CPU 12.9 ms vs GL 11.8 ms (CPU-bound). Open.
 5. Done this session (measured above): GL identity, world-only parity on 3 drivers with a labelled
    four-way comparison, memory bounds, perf matrix at 1920×1024, wall/mesh parity under Vulkan. Full
    ctest (`ctest --test-dir build-vk -j4`, 2026-10-19): 89 of 91 pass. The 2 failures are
    `appearance_compose` and `options_gpu`, both failing before this work; not investigated here.
+   Later the same day (`build-vk2`): the same two fail. `client_boundaries` failed because
+   `include/realm/stage3D/vk/VkUi.hpp` had no owner in `cmake/header-owners.json` (fixed: `realm_render`).
+   `renderer_gpu` can fail under `-j4` (GPU contention) and passes alone.
 
 ### Phase 3: RmlUi Vulkan backend (M1-M3 done, see above)
 
 - M4: the frame cache. `frame_reused()` is always false under Vulkan, so a static UI is redrawn every
   frame. Reuse the previous frame's resolved UI image when the command queue and generation match, as
   RmlUi_Renderer_GL3 does.
-- Parity on the screens not yet compared: startup (font-effect text shadows), fame/death, guild,
-  shop, tooltips. Use `--script` captures as in Verification (M2, M3).
+- Parity: the offline screens match (see Verification (other screens)). The death screen, guild, shop and
+  vault need a server and are unchecked.
 - Then remove `REALM_VULKAN_WIP` so the Options choice takes effect.
 
 ### Phase 4: final verification

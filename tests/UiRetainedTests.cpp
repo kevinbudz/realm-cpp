@@ -219,7 +219,7 @@ void run(const FontBook& fonts, const HudArt& art) {
 int main() {
   try {
     platform::WindowSession session;
-    session.open("retained UI", width, height, true, 0);
+    session.open(realm::gfx::Api::opengl, "retained UI", width, height, true, 0);
     FontBook fonts;
     HudArt art;
     run(fonts, art);

@@ -1,4 +1,5 @@
 #include "realm/parameters/Settings.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
 #include <algorithm>
 #include <array>
@@ -213,6 +214,16 @@ std::vector<OptionDef> build() {
   add(toggle(at, "fullscreenMode", "Fullscreen", "Fills the whole screen with the game.", false));
   add(toggle(at, "vsync", "VSync",
              "Synchronizes rendering with the display refresh to prevent screen tearing."));
+  // The graphics API the window opens with. It is read once at startup (after vsync, so the
+  // Display section keeps its order).
+  auto renderer = choice(at, "renderer", "Renderer",
+                         "Graphics API for the game window: OpenGL or Vulkan. Takes effect after "
+                         "you restart the client.",
+                         static_cast<int>(gfx::Api::opengl),
+                         {{"OpenGL", static_cast<int>(gfx::Api::opengl)},
+                          {"Vulkan", static_cast<int>(gfx::Api::vulkan)}});
+  renderer.restart = true;
+  add(std::move(renderer));
   add(slider(at, "maxFPS", "Max FPS",
              "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
              "refresh with VSync on).",

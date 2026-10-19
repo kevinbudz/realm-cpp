@@ -129,6 +129,12 @@ Options parse(int argc, char** argv) {
       options.status_age = integer(value());
     } else if (arg == "--effect-time") {
       options.effect_time = integer(value());
+    } else if (arg == "--renderer") {
+      const auto api = realm::gfx::parse_api_flag(value());
+      if (!api) {
+        throw std::invalid_argument("--renderer expects gl or vulkan");
+      }
+      options.renderer = *api;
     } else if (arg == "--hidden") {
       options.hidden = true;
     } else if (arg == "--benchmark") {
@@ -138,6 +144,8 @@ Options parse(int argc, char** argv) {
           << "realm_client [--flash-root PATH] [--server HOST] [--port N] [--app-port N] "
              "[--account-file PATH]\n"
              "  [--settings-file PATH] [--width N] [--height N] [--hidden]\n"
+             "  [--renderer gl|vulkan] (graphics API for this run only; the Options screen saves "
+             "the choice)\n"
              "  [--audio auto|on|off|null] (sound output; auto plays only in the client; "
              "REALM_AUDIO_DEVICE=null also "
              "selects null)\n"

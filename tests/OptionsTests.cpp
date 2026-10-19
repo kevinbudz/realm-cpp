@@ -1,4 +1,5 @@
 #include "realm/ui/options/OptionsMenu.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -40,6 +41,20 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("maxFPS") == 0 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("playSFX") &&
             s.flag("showTradePopup"),
         "graphics defaults");
+  // Renderer: the graphics API for the next start. OpenGL by default, a restart-required choice.
+  const auto* renderer = find_option("renderer");
+  check(renderer && renderer->kind == OptionDef::Kind::choice &&
+            renderer->category == OptionsCategory::video && renderer->section == "Display" &&
+            renderer->restart && renderer->fallback == 0 &&
+            renderer->choices == ChoiceList{{"OpenGL", 0}, {"Vulkan", 1}} &&
+            value_text(*renderer, 1) == "Vulkan" &&
+            s.get("renderer") == static_cast<int>(gfx::Api::opengl) &&
+            !find_option("vsync")->restart,
+        "Renderer is a restart-required choice (OpenGL, Vulkan), OpenGL by default");
+  Settings renderer_copy = s;
+  check(renderer_copy.set_value("renderer", 1) && renderer_copy.get("renderer") == 1 &&
+            !renderer_copy.set_value("renderer", 2) && renderer_copy.get("renderer") == 1,
+        "Renderer accepts only its two values");
   check(s.get("aspectRatio") == aspect_any && s.get("resolution") == 0 &&
             s.preferences().ally_particles == AllyParticles::all,
         "window size defaults to Any and Custom, and Ally Particles to All");
@@ -132,6 +147,20 @@ void settings_rules(const std::filesystem::path& scratch) {
   // A file saved before the UI Quality row was removed still loads: the old name is dropped.
   check(!odd.values().contains("quality") && odd.get("playerAlpha") == 100,
         "a stored quality value from an older build is dropped");
+  // The Renderer choice persists with the other settings; a stored value outside the choices falls
+  // back.
+  {
+    Settings chosen;
+    chosen.set_value("renderer", 1);
+    check(chosen.save(scratch / "renderer.json") &&
+              Settings::load(scratch / "renderer.json").get("renderer") == 1,
+          "Renderer choice persists to the settings file");
+    std::ofstream bad_renderer(scratch / "renderer_bad.json");
+    bad_renderer << R"({"values":{"renderer":7}})";
+    bad_renderer.close();
+    check(Settings::load(scratch / "renderer_bad.json").get("renderer") == 0,
+          "a stored Renderer value outside its choices falls back to OpenGL");
+  }
   check(odd.camera_angle() == odd.default_camera_angle(),
         "missing camera angle falls back to the default");
   // Shift+wheel zoom: a notch is 0.1, rounded to the nearest 0.1 and held to 0.8 to 2.
@@ -184,7 +213,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   // Option table shape: every row in a section, no section split across the table.
   check(category_options(OptionsCategory::keybinds).size() == 35 &&
             category_options(OptionsCategory::gameplay).size() == 10 &&
-            category_options(OptionsCategory::video).size() == 20 &&
+            category_options(OptionsCategory::video).size() == 21 &&
             category_options(OptionsCategory::audio).size() == 5,
         "category sizes");
   check(category_sections(OptionsCategory::video) ==
@@ -342,9 +371,10 @@ void window_size_rules(const std::filesystem::path& scratch) {
             value_text(*aspect, 4) == "4:3",
         "Aspect Ratio lists Any, 16:9, 16:10, 21:9 and 4:3");
   const auto video = category_options(OptionsCategory::video);
-  check(video.size() >= 4 && video[0]->param == "aspectRatio" && video[1]->param == "resolution" &&
-            video[2]->param == "fullscreenMode" && video[3]->param == "vsync",
-        "Aspect Ratio and Resolution come above Fullscreen in Display");
+  check(video.size() >= 5 && video[0]->param == "aspectRatio" && video[1]->param == "resolution" &&
+            video[2]->param == "fullscreenMode" && video[3]->param == "vsync" &&
+            video[4]->param == "renderer",
+        "Aspect Ratio and Resolution come above Fullscreen in Display; Renderer follows VSync");
   // The dropdown lists the sizes grouped by aspect ratio (4:3, 16:10, 16:9, 21:9), ascending width
   // in each.
   int last_group = -1;
@@ -600,7 +630,7 @@ void menu_behavior() {
   // Categories and reset.
   revision = menu.layout_revision();
   menu.set_category(OptionsCategory::video);
-  check(menu.category() == OptionsCategory::video && menu.rows().size() == 20 &&
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 21 &&
             menu.layout_revision() != revision && listed(menu, "maxFPS"),
         "category switches the rows");
   menu.set_value("particles", 0);
@@ -616,7 +646,7 @@ void menu_behavior() {
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
         "search lists matches from every category");
   menu.set_query("  ");
-  check(menu.rows().size() == 20, "a blank query lists the open category");
+  check(menu.rows().size() == 21, "a blank query lists the open category");
   menu.set_query("chat scroll");
   check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
         "every query word must match (label, section or category)");

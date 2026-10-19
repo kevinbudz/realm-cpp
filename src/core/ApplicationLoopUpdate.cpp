@@ -184,7 +184,7 @@ void update_session(ClientState& cs, Frame& f) {
         if (death) {
           int snapshot_width{};
           int snapshot_height{};
-          SDL_GL_GetDrawableSize(cs.session.window, &snapshot_width, &snapshot_height);
+          cs.session.drawable_size(snapshot_width, snapshot_height);
           cs.death_background = std::make_unique<realm::SurfaceTexture>();
           cs.death_background->update(cs.renderer.capture(snapshot_width, snapshot_height, true));
         }

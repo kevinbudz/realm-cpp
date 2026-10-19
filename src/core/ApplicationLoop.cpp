@@ -4,11 +4,13 @@
 #include <SDL.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -71,7 +73,7 @@ bool prepare_frame(ClientState& cs, Frame& f) {
   auto& width = f.width;
   auto& height = f.height;
   auto& cpu_zone = f.cpu_zone;
-  SDL_GL_GetDrawableSize(cs.session.window, &width, &height);
+  cs.session.drawable_size(width, height);
   if (width <= 0 || height <= 0) {
     cs.reset_perf();
     cpu_zone->finish();
@@ -110,9 +112,15 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     effects.blur = std::max(effects.blur, static_cast<float>(12 * height / 600.0));
     effects.whole = true;
   }
+  // Test hook (REALM_TEST_WORLD_ONLY=1): the world alone, without the HUD, the minimap or RmlUi, so
+  // renderers draw the same quads for a comparison.
+  static const bool world_only = [] {
+    const char* value = std::getenv("REALM_TEST_WORLD_ONLY");
+    return value && std::string_view(value) == "1";
+  }();
   ui_zone->finish();
   std::vector<realm::Quad> native_ui;
-  if (cs.production_ui) {
+  if (cs.production_ui && !world_only) {
     REALM_ZONE("ui.documents.update");
     // The renderer's box blur of width 12 dp is close to a Gaussian of sigma 12 / sqrt(12).
     cs.production_ui->set_blur(effects.whole ? 3.5 : 0);
@@ -127,9 +135,12 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const bool normal_frame =
       cs.frame >= static_cast<std::uint64_t>(o.telemetry_warmup) && !capture_frame;
   cs.renderer.timing(cs.telemetry.get(), cs.frame, normal_frame);
+  if (world_only) {
+    overlay = {};
+  }
   cs.renderer.draw(cs.atlas, cs.quads, width, height, clip_width, overlay, effects);
 
-  if (cs.production_ui) {
+  if (cs.production_ui && !world_only) {
     REALM_ZONE("ui.documents.render");
     cs.production_ui->render(width, height);
     using C = realm::telemetry::Counter;
@@ -158,7 +169,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
 
   // A held Escape (and leaving the game) says so in small text in the window's top-left corner,
   // over everything, the Settings screen included.
-  if (cs.returning_text > 0) {
+  if (cs.returning_text > 0 && !world_only) {
     if (cs.returning_height != height) {
       cs.fonts.set_pixel_scale(height / 600.0);
       const auto text = cs.fonts.rasterize("Returning to home...", 13, true, true, 0xffffff);
@@ -177,7 +188,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     quad.multiply = {1, 1, 1, cs.returning_text};
     cs.renderer.draw_overlay(cs.atlas, std::span<const realm::Quad>(&quad, 1), width, height);
   }
-  if (cs.death_background && cs.startup) {
+  if (cs.death_background && cs.startup && !world_only) {
     const auto alpha = static_cast<float>(cs.startup->death_fade(time));
     if (alpha > 0) {
       auto snapshot = cs.death_background->quad({0, 0}, {static_cast<double>(width), 0},
@@ -211,7 +222,8 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const auto present_start = Clock::now();
   {
     REALM_ZONE("present.swap");
-    SDL_GL_SwapWindow(cs.session.window);
+    cs.renderer.finish_frame();
+    cs.session.present();
   }
   const auto presented = Clock::now();
 
@@ -267,7 +279,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
          milliseconds(submitted - start), milliseconds(presented - present_start),
          milliseconds(Clock::now() - presented),
          input_observed ? std::max(0.0, input_age + milliseconds(submitted - start)) : -1, width,
-         height, SDL_GL_GetSwapInterval(),
+         height, cs.session.swap_interval(),
          o.benchmark || o.hidden ? 0 : cs.settings.get("maxFPS")});
   }
 

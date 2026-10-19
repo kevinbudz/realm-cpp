@@ -34,7 +34,9 @@ find_package(nlohmann_json REQUIRED CONFIG)
 find_package(PNG REQUIRED)
 find_package(Freetype REQUIRED)
 
-realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp src/stage3D/WallGeometry.cpp)
+realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp
+    src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp
+    src/stage3D/WallGeometry.cpp src/stage3D/GraphicsApi.cpp)
 realm_library(realm_platform src/platform/Platform.cpp)
 realm_library(realm_network src/messaging/Protocol.cpp src/messaging/Messages.cpp src/net/Transport.cpp src/net/Http.cpp)
 target_link_libraries(realm_network PUBLIC realm_support)
@@ -95,13 +97,57 @@ if(REALM_BUILD_VIEWER)
     find_package(SDL2 REQUIRED CONFIG)
     find_package(OpenGL REQUIRED)
     find_package(GLEW REQUIRED)
-    realm_library(realm_render src/stage3D/Renderer.cpp src/stage3D/RendererPostProcess.cpp src/stage3D/RendererGpuTimers.cpp
-        src/stage3D/RendererStream.cpp src/stage3D/Atlas.cpp src/map/Scene.cpp src/background/Backdrop.cpp)
+    # The graphics backend seam: the Renderer facade and shared surfaces, the OpenGL backend (gl/)
+    # and the Vulkan stub (vk/).
+    realm_library(realm_render src/stage3D/Renderer.cpp src/stage3D/Surfaces.cpp
+        src/stage3D/GraphicsBackend.cpp src/stage3D/gl/GlBackend.cpp src/stage3D/gl/RendererGl.cpp
+        src/stage3D/gl/RendererPostProcess.cpp src/stage3D/gl/RendererGpuTimers.cpp
+        src/stage3D/gl/RendererStream.cpp src/stage3D/vk/VulkanBackend.cpp src/stage3D/Atlas.cpp
+        src/stage3D/DrawPlan.cpp
+        src/map/Scene.cpp src/background/Backdrop.cpp)
     target_link_libraries(realm_render PUBLIC realm_assets PRIVATE OpenGL::GL GLEW::GLEW)
+    if(REALM_ENABLE_VULKAN)
+        if(NOT REALM_GLSLC)
+            message(FATAL_ERROR "REALM_ENABLE_VULKAN needs glslc (shaderc) to compile the Vulkan shaders")
+        endif()
+        # The Vulkan headers only: the loader comes from the platform session (no libvulkan link).
+        target_sources(realm_render PRIVATE src/stage3D/vk/VkCommon.cpp src/stage3D/vk/VkFrame.cpp
+            src/stage3D/vk/VkRenderer.cpp src/stage3D/vk/VkResources.cpp src/stage3D/vk/VkPipelines.cpp)
+        target_include_directories(realm_render PRIVATE ${Vulkan_INCLUDE_DIRS})
+        target_compile_definitions(realm_render PRIVATE REALM_VULKAN_ENABLED=1)
+        # Shaders: glslc compiles each stage to SPIR-V at build time; cmake/EmbedSpirv.cmake embeds the
+        # bytes in one generated header (src/stage3D/vk/VkPipelines.cpp includes it).
+        set(REALM_VK_SHADER_DIR ${CMAKE_SOURCE_DIR}/src/stage3D/vk/shaders)
+        set(REALM_VK_SHADER_OUT ${CMAKE_BINARY_DIR}/generated/vk)
+        file(MAKE_DIRECTORY ${REALM_VK_SHADER_OUT})
+        set(REALM_VK_SHADER_SPV "")
+        foreach(shader quad.vert quad.frag)
+            set(in ${REALM_VK_SHADER_DIR}/${shader})
+            set(out ${REALM_VK_SHADER_OUT}/${shader}.spv)
+            add_custom_command(OUTPUT ${out}
+                COMMAND ${REALM_GLSLC} --target-env=vulkan1.1 -O0 ${in} -o ${out}
+                DEPENDS ${in} VERBATIM)
+            list(APPEND REALM_VK_SHADER_SPV ${out})
+        endforeach()
+        set(REALM_VK_SHADER_HEADER ${REALM_VK_SHADER_OUT}/vk_shaders.hpp)
+        add_custom_command(OUTPUT ${REALM_VK_SHADER_HEADER}
+            COMMAND ${CMAKE_COMMAND} -DOUTPUT=${REALM_VK_SHADER_HEADER} "-DINPUTS=${REALM_VK_SHADER_SPV}"
+                -P ${CMAKE_SOURCE_DIR}/cmake/EmbedSpirv.cmake
+            DEPENDS ${REALM_VK_SHADER_SPV} ${CMAKE_SOURCE_DIR}/cmake/EmbedSpirv.cmake VERBATIM)
+        add_custom_target(realm_vk_shaders DEPENDS ${REALM_VK_SHADER_HEADER})
+        add_dependencies(realm_render realm_vk_shaders)
+        target_include_directories(realm_render PRIVATE ${REALM_VK_SHADER_OUT})
+    endif()
     realm_library(realm_ui_gpu src/minimap/MinimapGpu.cpp)
     target_link_libraries(realm_ui_gpu PUBLIC realm_ui realm_render)
     realm_library(realm_platform_sdl src/platform/PlatformSdl.cpp)
-    target_link_libraries(realm_platform_sdl PUBLIC realm_platform SDL2::SDL2 PRIVATE OpenGL::GL GLEW::GLEW)
+    if(REALM_ENABLE_VULKAN)
+        # The platform adapter owns the window side of Vulkan (surface, extensions, loader).
+        target_include_directories(realm_platform_sdl PRIVATE ${Vulkan_INCLUDE_DIRS})
+        target_compile_definitions(realm_platform_sdl PRIVATE REALM_VULKAN_ENABLED=1)
+    endif()
+    target_link_libraries(realm_platform_sdl PUBLIC realm_platform realm_support SDL2::SDL2
+        PRIVATE OpenGL::GL GLEW::GLEW)
     target_compile_definitions(realm_platform_sdl PRIVATE SDL_MAIN_HANDLED)
     # Startup is split by concern (entry points and dispatch, frame and task completions, input, dialogs, fame and legends);
     # its HTTP task service and retained view model remain separate parts.
@@ -119,7 +165,8 @@ if(REALM_BUILD_VIEWER)
             "-DHEADER=realm/lib/ui/RmlHost.hpp" "-DNAMESPACE=realm::ui" "-DFUNCTION=embedded_ui_file"
             -P "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake"
         DEPENDS ${REALM_UI_FILES} "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake" VERBATIM)
-    realm_library(realm_ui_rmlui src/lib/ui/RmlHost.cpp "${REALM_UI_EMBEDDED}" ${REALM_RMLUI_BACKENDS})
+    realm_library(realm_ui_rmlui src/lib/ui/RmlHost.cpp src/lib/ui/RmlGpuGl.cpp src/lib/ui/RmlGpuVk.cpp
+        "${REALM_UI_EMBEDDED}" ${REALM_RMLUI_BACKENDS})
     target_link_libraries(realm_ui_rmlui PUBLIC realm_ui PRIVATE RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW)
     target_include_directories(realm_ui_rmlui SYSTEM PRIVATE "${RMLUI_BACKENDS_DIR}")
     target_compile_definitions(realm_ui_rmlui PRIVATE RMLUI_GL3_CUSTOM_LOADER=<GL/glew.h> RMLUI_SDL_VERSION_MAJOR=2)

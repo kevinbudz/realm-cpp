@@ -39,6 +39,9 @@ struct OptionDef {
   std::string_view enabled_by;
   // The row is disabled while this flag is on: Resolution while fullscreen.
   std::string_view disabled_by;
+  // The row takes effect when the client next starts. Options says so, and shows the running value
+  // when it differs.
+  bool restart{};
   // Sliders: the inclusive range, the drag step and the unit shown after the number.
   // With top_label set, one step past max stores 0 and reads as top_label ("Unlimited").
   int min{};

@@ -35,8 +35,10 @@ struct Quad {
                  // a WallGeometryStore owned by the quad; drawn as triangles by the main program)
   std::array<float, 2> uv_offset{};
   std::shared_ptr<const void> owner;  // Keeps lazy GPU storage alive through submission.
-  std::uint32_t texture{};  // zero: shared sprite atlas (static sprites or dynamic-page bitmaps,
-                            // kinds 5/6/8 clamp to uv); otherwise a retained UI surface
+  std::uint32_t
+      texture{};  // zero: shared sprite atlas (static sprites or dynamic-page bitmaps,
+                  // kinds 5/6/8 clamp to uv); otherwise a retained UI surface. A handle of
+                  // the active graphics backend (GraphicsBackend.hpp), never a raw object.
 };
 
 // A quad's GPU instance is its first quad_instance_bytes: every shader input in declaration order,

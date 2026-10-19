@@ -31,6 +31,7 @@ class Atlas {
     return regions_.at(asset_count_ + index);
   }
 
+  // The layer array's handle in the active graphics backend (GraphicsBackend.hpp); 0 when none.
   [[nodiscard]] std::uint32_t texture() const { return texture_; }
 
   void update_additional(std::size_t index, const Image& image);

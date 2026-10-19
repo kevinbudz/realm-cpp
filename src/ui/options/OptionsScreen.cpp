@@ -1,4 +1,5 @@
 #include "realm/ui/options/OptionsScreen.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/Elements/ElementFormControlSelect.h>
@@ -225,6 +226,31 @@ struct OptionsScreen::Impl {
     reset_label->SetInnerRML(armed ? "Click again to reset" : "Reset to Defaults");
   }
 
+  // The tooltip, plus what the running client does about the Renderer row: the API this run uses
+  // when it is not the saved one, and any fallback.
+  [[nodiscard]] std::string hint_text(const OptionDef* option) const {
+    if (!option) {
+      return std::string(default_hint);
+    }
+    std::string text(option->tooltip);
+    if (option->param == "renderer") {
+      const auto saved = static_cast<realm::gfx::Api>(menu.value(*option));
+      const auto active = realm::gfx::active_api();
+      if (const auto& fallback = realm::gfx::fallback()) {
+        text += " Using " + std::string(realm::gfx::api_name(active)) + ": " +
+                std::string(realm::gfx::api_name(fallback->requested)) + " unavailable (" +
+                fallback->reason + ").";
+      } else if (const auto flag = realm::gfx::command_line_api()) {
+        text += " This run uses " + std::string(realm::gfx::api_name(*flag)) +
+                " from --renderer; the saved " + std::string(realm::gfx::api_name(saved)) +
+                " applies on the next normal start.";
+      } else if (active != saved) {
+        text += " Restart to apply.";
+      }
+    }
+    return text;
+  }
+
   void set_hint(Rml::Element* row) {
     const OptionDef* option =
         row ? find_option(row->GetAttribute<Rml::String>("data-row", "")) : nullptr;
@@ -232,7 +258,7 @@ struct OptionsScreen::Impl {
       return;
     }
     hovered = option;
-    hint->SetInnerRML(escaped(option ? option->tooltip : default_hint));
+    hint->SetInnerRML(escaped(hint_text(option)));
   }
 
   void update(bool showable) {

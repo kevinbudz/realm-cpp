@@ -479,7 +479,7 @@ void run(const FontBook& fonts, const HudArt& art) {
 int main() {
   try {
     platform::WindowSession session;
-    session.open("q10 host", width, height, true, 0);
+    session.open(realm::gfx::Api::opengl, "q10 host", width, height, true, 0);
     FontBook fonts;
     HudArt art;
     run(fonts, art);

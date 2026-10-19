@@ -12,12 +12,14 @@
 #include <memory>
 #include <vector>
 
-namespace realm {
-class RendererPostProcess;
-class RendererGpuTimers;
-class RendererStream;
+#include "realm/stage3D/GraphicsApi.hpp"
 
-// Queried once after the platform adapter has made a GL context current.
+namespace realm {
+namespace gfx {
+class RendererBackend;
+}
+
+// Queried once after the platform adapter has made the active API's context current.
 struct GraphicsInfo {
   std::string vendor;
   std::string renderer;
@@ -26,6 +28,13 @@ struct GraphicsInfo {
 
 [[nodiscard]] GraphicsInfo graphics_info();
 void check_graphics_error();
+// Brings up the active graphics backend once its window exists, before any GPU object. Throws with
+// the reason when the API cannot start (the caller then falls back to OpenGL).
+void initialise_graphics(const gfx::WindowSurface& window);
+// Releases the active API's state; GPU objects must be gone first. Idempotent.
+void shutdown_graphics() noexcept;
+// The vsync interval of the window, for the presentation mode (Vulkan; OpenGL swaps through the session).
+void set_present_interval(int interval);
 
 // Resizing a surface replaces only its own storage, never the world atlas.
 class SurfaceTexture {
@@ -109,6 +118,9 @@ struct QuadLayer {
   std::vector<QuadMeta> meta;
 };
 
+// The frame facade: forwards to the active graphics backend (gfx::backend().create_renderer). Its
+// methods are per frame or per submission, so the indirection costs nothing per quad. Texture
+// handles in the submission are the active backend's (see GraphicsBackend.hpp).
 class Renderer {
  public:
   explicit Renderer(std::size_t capacity, bool persistent_streaming = true,
@@ -117,7 +129,7 @@ class Renderer {
   Renderer(const Renderer&) = delete;
   Renderer& operator=(const Renderer&) = delete;
 
-  void clear_color(std::array<float, 4> color) { clear_color_ = color; }
+  void clear_color(std::array<float, 4> color);
 
   void draw(const Atlas& atlas, std::span<const Quad> quads, int width, int height, int clip_width,
             std::span<const Quad> overlay = {}, const ScreenEffects& effects = {});
@@ -125,10 +137,12 @@ class Renderer {
   // every GL state it uses and draws over the whole window. Quads and draw calls are counted like
   // draw()'s.
   void draw_overlay(const Atlas& atlas, std::span<const Quad> overlay, int width, int height);
+  // Ends the frame before the window presents: Vulkan submits and presents here; OpenGL does nothing.
+  void finish_frame();
 
   // Resolves to the default framebuffer; the world is rendered offscreen only while a filter is
   // active.
-  [[nodiscard]] std::size_t draw_calls() const { return draw_calls_; }
+  [[nodiscard]] std::size_t draw_calls() const;
 
   // Timing is opt-in. The fixed query ring skips busy slots; never waits.
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal);
@@ -142,95 +156,10 @@ class Renderer {
   // Runs read their instances from their first quad (GL 4.2 base instance) instead of re-pointing
   // attributes per run. Only enabled where supported; false selects the per-run path, which renders
   // the same pixels.
-  void set_base_instance_draws(bool enabled) {
-    base_instance_ = enabled && base_instance_supported_;
-  }
-
-  [[nodiscard]] bool base_instance_draws() const { return base_instance_; }
+  void set_base_instance_draws(bool enabled);
+  [[nodiscard]] bool base_instance_draws() const;
 
  private:
-  std::array<float, 4> clear_color_{0, 0, 0, 1};
-  bool base_instance_supported_{};
-  bool base_instance_{};
-  std::uint32_t program_{};
-  std::uint32_t vao_{};
-  std::uint32_t mesh_program_{};
-  std::uint32_t mesh_vao_{};
-  std::uint32_t mesh_buffer_{};
-  std::uint32_t model_program_{};
-  std::uint32_t model_vao_{};
-  std::uint32_t model_geometry_{};
-  std::unique_ptr<RendererPostProcess> post_process_;
-  std::unique_ptr<RendererGpuTimers> gpu_timers_;
-  std::unique_ptr<RendererStream> stream_;
-  std::size_t draw_calls_{};
-
-  // Prepared meshes (kind 9 with a MeshDraw owner) are expanded per submission into one buffer, in
-  // painter order. Each vertex carries its mesh's sprite and color and its group's material, so a
-  // run of meshes is one draw.
-  struct MeshBatchVertex {
-    float x, y, u, v, shade;
-    std::array<float, 4> bounds;
-    float page;
-    std::array<float, 3> color;
-    float textured;
-    float repeat;
-  };
-
-  struct MeshBatchRange {
-    std::size_t first;
-    std::size_t count;
-  };
-
-  std::vector<MeshBatchVertex> mesh_vertices_;
-  std::vector<QuadMeta> meta_;  // run data of the submission being drawn (quads, then overlay)
-  std::vector<MeshBatchRange>
-      mesh_ranges_;  // One per mesh quad, in the order draw_batch visits them.
-  std::size_t mesh_cursor_{};
-  // Wall instances (kind 17) fetch their corners from a texture buffer (RGBA32F, two texels per
-  // corner) mirroring the submission's WallGeometryStore: a new generation uploads everything,
-  // appended corners upload as a tail, and growth reallocates with headroom.
-  std::uint32_t wall_geometry_{};
-  std::uint32_t wall_texture_{};
-  int wall_texel_limit_{};
-  std::size_t wall_capacity_{};
-  std::size_t wall_uploaded_{};  // corners
-  std::uint64_t wall_generation_{};
-  void find_walls(std::span<const Quad> list, const WallGeometryStore*& store);
-  void bind_walls();
-  void upload_walls(const WallGeometryStore& store);
-
-  // Draws a painter-ordered quad list whose instances start at offset (bytes) in buffer. meta
-  // holds the run data of list's quads, in order.
-  void draw_batch(std::span<const Quad> list, std::span<const QuadMeta> meta, std::size_t offset,
-                  int width, int height, std::uint32_t buffer, bool measure_models);
-  void bind_quad_attributes(std::size_t offset);
-  void draw_instanced(std::uint32_t mode, std::int32_t first_vertex, std::int32_t vertices,
-                      std::int32_t instances, std::size_t first_instance) const;
-  // Packs list's instances into `instances` and its run data into `meta`, one pass. With collect,
-  // the pass also gathers the list's meshes (in order) and its wall store, as collect_meshes and
-  // find_walls do for layers.
-  void pack_quads(std::span<const Quad> list, std::byte* instances, QuadMeta* meta,
-                  const WallGeometryStore*& walls, bool collect);
-  void collect_meshes(std::span<const Quad> list);
-  // Packs and uploads one submission (quads, then overlay). Returns the stream buffer.
-  [[nodiscard]] std::uint32_t upload_submission(std::span<const Quad> quads,
-                                                std::span<const Quad> overlay);
-  void upload_mesh_vertices();
-  void release_gl_resources() noexcept;
-  int viewport_location_{};
-  int model_viewport_{};
-  int mesh_viewport_{};
-  int triangle_list_location_{};
-  int standalone_location_{};
-  int surface_location_{};
-  int ground_location_{};
-  int ground_origin_{};
-  int ground_x_{};
-  int ground_y_{};
-  int ground_time_{};
-  int clip_location_{};
-  int clip_rect_{};
-  int clip_cut_{};
+  std::unique_ptr<gfx::RendererBackend> backend_;
 };
 }

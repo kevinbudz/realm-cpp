@@ -1,7 +1,9 @@
 #pragma once
 #include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace realm::application {
@@ -25,6 +27,8 @@ struct Options {
   // The HUD, menus and text UI are always on. world is set for every mode (internal; not a flag).
   bool hidden{};
   bool benchmark{};
+  // --renderer gl|vulkan: the graphics API for this run only (the saved Renderer setting is kept).
+  std::optional<realm::gfx::Api> renderer;
   bool world{};
   bool connect{};
   bool password_stdin{};

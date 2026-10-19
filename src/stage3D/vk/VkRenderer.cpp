@@ -8,6 +8,7 @@
 #include "realm/stage3D/Renderer.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -73,7 +74,23 @@ VkRenderPass make_pass(VkFormat format, VkAttachmentLoadOp load, VkImageLayout i
   return pass;
 }
 
-// A UI pass: colour (cleared, or kept) and the D24S8 stencil of the clip masks (cleared, or kept). An
+// The clip-mask stencil format: the first combined depth-stencil format the device can attach with
+// optimal tiling. D24S8 is missing on AMD (RADV Renoir reports no attachment support), so it falls
+// back to D32S8, then D16S8.
+VkFormat stencil_format() {
+  auto& device = context();
+  for (const auto format :
+       {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT}) {
+    VkFormatProperties properties{};
+    device.fn.vkGetPhysicalDeviceFormatProperties(device.physical, format, &properties);
+    if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+      return format;
+    }
+  }
+  throw std::runtime_error("Vulkan: no depth-stencil attachment format");
+}
+
+// A UI pass: colour (cleared, or kept) and the stencil of the clip masks (cleared, or kept). An
 // offscreen target (a layer or a post target) starts and ends sampleable (SHADER_READ_ONLY); the window
 // starts and ends as the colour attachment. Every pass waits for earlier writes before it reads or writes.
 VkRenderPass make_ui_pass(VkFormat format, bool clear_colour, bool offscreen, bool clear_stencil) {
@@ -87,7 +104,7 @@ VkRenderPass make_ui_pass(VkFormat format, bool clear_colour, bool offscreen, bo
   attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   attachments[0].initialLayout = clear_colour ? VK_IMAGE_LAYOUT_UNDEFINED : resting;
   attachments[0].finalLayout = resting;
-  attachments[1].format = VK_FORMAT_D24_UNORM_S8_UINT;
+  attachments[1].format = stencil_format();
   attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
   attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1092,7 +1109,7 @@ VkRenderer::UiSlot& VkRenderer::ui_slot(VkExtent2D extent) {
   ui_destroy_slot(slot);
   auto info = make<VkImageCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
   info.imageType = VK_IMAGE_TYPE_2D;
-  info.format = VK_FORMAT_D24_UNORM_S8_UINT;
+  info.format = stencil_format();
   info.extent = {extent.width, extent.height, 1};
   info.mipLevels = 1;
   info.arrayLayers = 1;
@@ -1114,7 +1131,7 @@ VkRenderer::UiSlot& VkRenderer::ui_slot(VkExtent2D extent) {
   auto view_info = make<VkImageViewCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
   view_info.image = slot.stencil.image;
   view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = VK_FORMAT_D24_UNORM_S8_UINT;
+  view_info.format = info.format;
   view_info.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1};
   check(device.fn.vkCreateImageView(device.device, &view_info, nullptr, &slot.stencil.view), "vkCreateImageView");
   for (auto& post : slot.post) {
@@ -1513,25 +1530,37 @@ struct PresentedCopy {
   VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
   bool valid = false;    // holds the image of a presented frame
   bool enabled = false;  // set_presented_capture: frames are copied while true
+  std::chrono::steady_clock::time_point copied{};  // when the last copy was recorded
 };
+
+// The copy is rate-limited: a full-window copy every frame cost about 31% of the FPS at ~1000 FPS
+// (RADV Renoir, nexus). One copy per 16 ms keeps the snapshot within one 60 Hz frame of the last
+// presented image, about as old as GL's front buffer can be on a 60 Hz display.
+constexpr auto presented_copy_interval = std::chrono::milliseconds(16);
 
 PresentedCopy& presented() {
   static PresentedCopy instance;
   return instance;
 }
 
-// REALM_VK_PRESENTED_COPY=1 keeps copies on regardless of the app (the measurement and harness
-// override).
-bool presented_copy_forced() {
-  static const bool forced = [] {
+// REALM_VK_PRESENTED_COPY keeps copies on regardless of the app (the measurement and harness
+// override): `1` copies every frame (the harness reads the frame it just presented), `limited`
+// copies as a game session does, rate-limited.
+enum class ForcedCopy { off, every_frame, limited };
+
+ForcedCopy presented_copy_forced() {
+  static const ForcedCopy forced = [] {
     const char* value = std::getenv("REALM_VK_PRESENTED_COPY");
-    return value && std::string_view(value) == "1";
+    const std::string_view mode = value ? value : "";
+    return mode == "1"         ? ForcedCopy::every_frame
+           : mode == "limited" ? ForcedCopy::limited
+                               : ForcedCopy::off;
   }();
   return forced;
 }
 
 bool presented_copy_enabled() {
-  return presented().enabled || presented_copy_forced();
+  return presented().enabled || presented_copy_forced() != ForcedCopy::off;
 }
 }  // namespace
 
@@ -1567,6 +1596,13 @@ void record_presented_copy(VkCommandBuffer command) {
   auto& device = context();
   const auto& target = frame.target(frame.extent().width, frame.extent().height);
   auto& copy = presented();
+  const auto now = std::chrono::steady_clock::now();
+  const bool same_size = copy.valid && copy.extent.width == target.extent.width &&
+                         copy.extent.height == target.extent.height;
+  if (same_size && presented_copy_forced() != ForcedCopy::every_frame && now - copy.copied < presented_copy_interval) {
+    return;
+  }
+  copy.copied = now;
   if (copy.image == VK_NULL_HANDLE || copy.extent.width != target.extent.width ||
       copy.extent.height != target.extent.height) {
     if (copy.image != VK_NULL_HANDLE) {

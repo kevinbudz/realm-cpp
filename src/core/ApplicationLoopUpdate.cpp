@@ -174,6 +174,8 @@ void update_session(ClientState& cs, Frame& f) {
     }
 
     const auto state = cs.game_session->state();
+    // Death happens only while playing: Vulkan keeps the last playing frame for the death screen.
+    cs.renderer.set_presented_capture(state == realm::SessionState::playing);
     if (cs.startup) {
       if (state == realm::SessionState::playing && cs.startup->menus()) {
         cs.startup->entered_game();

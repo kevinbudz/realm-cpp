@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #if REALM_VULKAN_ENABLED
+#include "VkArena.hpp"
 #include "VkCommon.hpp"
 #include "VkFrame.hpp"
 #include "VkPipelines.hpp"
@@ -34,14 +35,20 @@ class VulkanBackend final : public Backend {
     vk::frames().create();
     vk::resources().create();
     vk::pipelines().create();
-    vk::frames().set_before_submit([](VkCommandBuffer command) { vk::resources().close_transfers(command); });
+    vk::frames().set_before_submit([](VkCommandBuffer command) {
+      vk::resources().close_transfers(command);
+      record_presented_copy(command);
+    });
   }
 
   void shutdown() noexcept override {
+    report_stats();  // REALM_VK_STATS=1: the peaks and the final holdings, for the memory checks
     // Resources retire into the frames, so they go first; then the frames finish and release.
     vk::resources().destroy();
     vk::frames().destroy();
+    release_presented_copy();
     vk::pipelines().destroy();
+    vk::arena().destroy();
     vk::context().shutdown();
   }
 

@@ -36,6 +36,10 @@ class RendererBackend {
   [[nodiscard]] virtual double gpu_ms() const = 0;
   [[nodiscard]] virtual bool persistent_streaming() const = 0;
   [[nodiscard]] virtual Image capture(int width, int height, bool presented) const = 0;
+
+  // While enabled, Vulkan keeps a device-local copy of each presented frame so capture(presented)
+  // can read the last one back. OpenGL reads its back buffer and ignores this.
+  virtual void set_presented_capture(bool /*enabled*/) {}
   // A capability: GL runs with base instances (GL 4.2); the per-run path renders the same pixels.
   virtual void set_base_instance_draws(bool enabled) = 0;
   [[nodiscard]] virtual bool base_instance_draws() const = 0;

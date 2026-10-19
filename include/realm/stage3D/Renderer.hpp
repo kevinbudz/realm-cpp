@@ -152,6 +152,10 @@ class Renderer {
   [[nodiscard]] double gpu_ms() const;
   [[nodiscard]] bool persistent_streaming() const;
   [[nodiscard]] Image capture(int width, int height, bool presented = false) const;
+  // Vulkan: while enabled, each presented frame is copied on the GPU so capture(presented) can read
+  // the last one back (the death screen). Enable it only while a session is playing. OpenGL ignores
+  // it.
+  void set_presented_capture(bool enabled);
 
   // Runs read their instances from their first quad (GL 4.2 base instance) instead of re-pointing
   // attributes per run. Only enabled where supported; false selects the per-run path, which renders

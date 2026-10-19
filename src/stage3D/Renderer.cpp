@@ -79,6 +79,10 @@ Image Renderer::capture(int width, int height, bool presented) const {
   return backend_->capture(width, height, presented);
 }
 
+void Renderer::set_presented_capture(bool enabled) {
+  backend_->set_presented_capture(enabled);
+}
+
 void Renderer::set_base_instance_draws(bool enabled) {
   backend_->set_base_instance_draws(enabled);
 }

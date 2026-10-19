@@ -137,6 +137,7 @@
   "src/stage3D/vk/VkRenderer.hpp": "realm_render",
   "src/stage3D/vk/VkResources.hpp": "realm_render",
   "src/stage3D/vk/VkPipelines.hpp": "realm_render",
+  "src/stage3D/vk/VkArena.hpp": "realm_render",
   "src/stage3D/GraphicsBackend.hpp": "realm_render",
   "src/stage3D/vk/VulkanBackend.hpp": "realm_render",
   "src/stage3D/gl/GlBackend.hpp": "realm_render",

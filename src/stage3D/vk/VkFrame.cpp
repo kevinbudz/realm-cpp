@@ -10,6 +10,9 @@
 namespace realm::gfx::vk {
 namespace {
 constexpr VkDeviceSize ring_chunk_bytes = 8u << 20;
+// Steady state keeps at most this much per slot; chunks idle for kRingIdleFrames frames go.
+constexpr VkDeviceSize kRingBudgetBytes = 16u << 20;
+constexpr std::uint32_t kRingIdleFrames = 3;
 
 VkDeviceSize align_up(VkDeviceSize value, VkDeviceSize alignment) {
   return alignment ? (value + alignment - 1) / alignment * alignment : value;
@@ -71,28 +74,69 @@ Ring::Span Ring::allocate(VkDeviceSize bytes, VkDeviceSize alignment) {
     if (current_ < chunks_.size()) {
       auto& chunk = chunks_[current_];
       const auto offset = align_up(used_, alignment);
-      if (offset + bytes <= chunk.size) {
+      if (offset + bytes <= chunk.buffer.size) {
         used_ = offset + bytes;
-        return {chunk.buffer, offset, chunk.mapped + offset};
+        chunk.used = true;
+        return {chunk.buffer.buffer, offset, chunk.buffer.mapped + offset};
       }
       ++current_;
       used_ = 0;
       continue;
     }
-    chunks_.push_back(create_host_buffer(std::max(bytes, ring_chunk_bytes),
-                                         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+    Chunk chunk;
+    chunk.buffer =
+        create_ring_buffer(std::max(bytes, ring_chunk_bytes),
+                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+    chunk.used = true;
+    chunks_.push_back(chunk);
   }
 }
 
 void Ring::reset() noexcept {
+  // Runs after the slot's frame finished. A chunk that went unused for kRingIdleFrames is released,
+  // and so is an oversized one-off after a single idle frame; idle chunks also go while the ring
+  // holds more than kRingBudgetBytes. Chunks in use stay, so steady frames keep their memory.
+  for (auto& chunk : chunks_) {
+    chunk.idle = chunk.used ? 0 : chunk.idle + 1;
+    chunk.used = false;
+  }
+  for (auto it = chunks_.begin(); it != chunks_.end();) {
+    const bool oversized = it->buffer.size > ring_chunk_bytes;
+    if (it->idle >= kRingIdleFrames || (oversized && it->idle >= 1)) {
+      destroy_buffer(it->buffer);
+      it = chunks_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  while (retained() > kRingBudgetBytes) {
+    auto victim = chunks_.end();
+    for (auto it = chunks_.begin(); it != chunks_.end(); ++it) {
+      if (it->idle >= 1 && (victim == chunks_.end() || it->buffer.size > victim->buffer.size)) {
+        victim = it;
+      }
+    }
+    if (victim == chunks_.end()) {
+      break;
+    }
+    destroy_buffer(victim->buffer);
+    chunks_.erase(victim);
+  }
   current_ = 0;
   used_ = 0;
 }
 
+VkDeviceSize Ring::retained() const {
+  VkDeviceSize total = 0;
+  for (const auto& chunk : chunks_) {
+    total += chunk.buffer.size;
+  }
+  return total;
+}
+
 void Ring::destroy() noexcept {
   for (auto& chunk : chunks_) {
-    destroy_buffer(chunk);
+    destroy_buffer(chunk.buffer);
   }
   chunks_.clear();
   reset();
@@ -506,6 +550,22 @@ void Frames::finish() {
   acquired_ = false;
   presentable_ = false;
   written_ = false;
+}
+
+VkDeviceSize Frames::ring_retained() const {
+  VkDeviceSize total = 0;
+  for (const auto& slot : slots_) {
+    total += slot.ring.retained();
+  }
+  return total;
+}
+
+VkDeviceSize Frames::ring_retained_max() const {
+  VkDeviceSize largest = 0;
+  for (const auto& slot : slots_) {
+    largest = std::max(largest, slot.ring.retained());
+  }
+  return largest;
 }
 
 Frames& frames() {

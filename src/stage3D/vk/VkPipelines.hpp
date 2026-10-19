@@ -1,13 +1,17 @@
 #pragma once
-// Shaders, descriptor layouts, the pipeline layout and the descriptor sets of the quad programs.
+// Shaders, descriptor layouts, the pipeline layout and the descriptor sets of the draw programs:
+// quads, models, prepared meshes and the post-effect pass.
 #include "VkCommon.hpp"
+#include "VkFrame.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace realm::gfx::vk {
-// The push constants of the quad programs: the std430 layout of the GLSL block in quad.vert and
-// quad.frag (84 bytes). Changing one needs the other.
+// The push constants of the programs: the std430 layout of the GLSL block in the shaders (84
+// bytes). Changing one needs the others.
 struct QuadPush {
   float viewport[2] = {0, 0};        // 0
   float ground_origin[2] = {0, 0};   // 8
@@ -25,6 +29,35 @@ struct QuadPush {
 static_assert(sizeof(QuadPush) == 84);
 static_assert(offsetof(QuadPush, clip_rect) == 48);
 
+// The push constants of the post-effect pass (the same 84-byte range, a different block).
+struct PostPush {
+  float viewport[2] = {0, 0};    // 0
+  float pad[2] = {0, 0};         // 8: std430 aligns the vec4 below to 16
+  float rect[4] = {0, 0, 0, 0};  // 16
+  float region[2] = {0, 0};      // 32
+  float axis[2] = {0, 0};        // 40
+  float blur = 0;                // 48
+  std::int32_t mode = 0;         // 52: 0 filter, 1 vignette, 2 sidebar
+  std::int32_t blind = 0;        // 56
+  float alpha = 0;               // 60
+  float sidebar = 0;             // 64
+};
+
+static_assert(sizeof(PostPush) <= 84);
+
+// What differs between the pipelines: the shaders, the vertex inputs, the topology and the culling.
+struct PipelineShape {
+  VkShaderModule vertex = VK_NULL_HANDLE;
+  VkShaderModule fragment = VK_NULL_HANDLE;
+  std::vector<VkVertexInputBindingDescription> bindings;
+  std::vector<VkVertexInputAttributeDescription> attributes;
+  VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  VkCullModeFlags cull = VK_CULL_MODE_NONE;
+  // The negative viewport flips winding: GL's counter-clockwise front is clockwise here.
+  VkFrontFace front = VK_FRONT_FACE_CLOCKWISE;
+  bool blend = true;
+};
+
 class Pipelines {
  public:
   // Creates the shader modules, layouts and pools, and the dummy surface and wall buffer that
@@ -34,16 +67,35 @@ class Pipelines {
   void destroy() noexcept;
 
   [[nodiscard]] VkPipelineLayout layout() const { return layout_; }
-  // A quad pipeline (triangle strip, or triangle list for walls) for render passes compatible with pass.
-  [[nodiscard]] VkPipeline quad_pipeline(VkRenderPass pass, bool list) const;
 
-  // Set 0: the atlas array (binding 0) and the wall corners (binding 1, vertex stage).
-  [[nodiscard]] VkDescriptorSet atlas_set(std::uint32_t atlas);
+  // Pipelines for render passes compatible with pass.
+  [[nodiscard]] VkPipeline quad(VkRenderPass pass, bool list) const;   // strips, or lists for walls
+  [[nodiscard]] VkPipeline model(VkRenderPass pass) const;             // instanced model geometry
+  [[nodiscard]] VkPipeline mesh(VkRenderPass pass) const;              // prepared meshes
+  [[nodiscard]] VkPipeline post(VkRenderPass pass, bool blend) const;  // full-screen post passes
+  [[nodiscard]] VkPipeline create_pipeline(VkRenderPass pass, const PipelineShape& shape) const;
+
+  // Set 0 for a frame of `slot`: the atlas array (binding 0) and that slot's wall corners (binding
+  // 1). The set changes when either does; the old one retires.
+  [[nodiscard]] VkDescriptorSet atlas_set(std::uint32_t atlas, VkBuffer walls, std::uint32_t slot);
   // Set 1: a surface (binding 0). Handle 0 is the dummy, which the shader never samples.
   [[nodiscard]] VkDescriptorSet surface_set(std::uint32_t surface);
+  // Set 2: the scene image of a post pass (binding 0). Valid until the next call for the same slot
+  // of a pass; the caller retires the views' sets through release_scene().
+  [[nodiscard]] VkDescriptorSet scene_set(VkImageView view);
+  // Drops the cached scene sets (offscreen targets were rebuilt; the old views go away).
+  void release_scene() noexcept;
 
-  // The dummy wall buffer of set 0 until walls are drawn (phase S5).
-  [[nodiscard]] VkBuffer wall_buffer() const { return walls_.buffer; }
+  // The surface handle that stands in for handle 0 (sampled by no draw that needs a real surface).
+  [[nodiscard]] std::uint32_t dummy_surface() const { return dummy_surface_; }
+
+  // The wall buffer that stands in for a slot before any walls (until a slot has its own).
+  [[nodiscard]] VkBuffer dummy_walls() const { return walls_.buffer; }
+
+  // Statistics for the summary: live surface sets, descriptor pools.
+  [[nodiscard]] std::size_t surface_sets() const;
+
+  [[nodiscard]] std::size_t pools() const { return pools_.size(); }
 
  private:
   struct Cached {
@@ -52,16 +104,25 @@ class Pipelines {
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkImageView view = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
+    VkBuffer extra = VK_NULL_HANDLE;  // set 0: the wall buffer
   };
 
-  VkDescriptorSetLayout atlas_layout_ = VK_NULL_HANDLE;
-  VkDescriptorSetLayout surface_layout_ = VK_NULL_HANDLE;
-  VkPipelineLayout layout_ = VK_NULL_HANDLE;
   VkShaderModule quad_vertex_ = VK_NULL_HANDLE;
   VkShaderModule quad_fragment_ = VK_NULL_HANDLE;
+  VkShaderModule model_vertex_ = VK_NULL_HANDLE;
+  VkShaderModule model_fragment_ = VK_NULL_HANDLE;
+  VkShaderModule mesh_vertex_ = VK_NULL_HANDLE;
+  VkShaderModule mesh_fragment_ = VK_NULL_HANDLE;
+  VkShaderModule post_vertex_ = VK_NULL_HANDLE;
+  VkShaderModule post_fragment_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout atlas_layout_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout surface_layout_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout scene_layout_ = VK_NULL_HANDLE;
+  VkPipelineLayout layout_ = VK_NULL_HANDLE;
   std::vector<VkDescriptorPool> pools_;
-  Cached atlas_;
+  std::array<Cached, frames_in_flight> atlas_{};
   std::vector<Cached> surfaces_;  // by surface handle - 1
+  std::vector<Cached> scenes_;
   std::uint32_t dummy_surface_ = 0;
   Buffer walls_;
 

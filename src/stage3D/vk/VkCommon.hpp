@@ -136,6 +136,9 @@ struct Buffer {
 
 Buffer create_host_buffer(VkDeviceSize size, VkBufferUsageFlags usage);
 Buffer create_device_buffer(VkDeviceSize size, VkBufferUsageFlags usage);
+// Host-visible memory for the per-frame ring; prefers memory that is device-local too (see
+// VkCommon.cpp).
+Buffer create_ring_buffer(VkDeviceSize size, VkBufferUsageFlags usage);
 void destroy_buffer(Buffer& buffer) noexcept;
 
 // The process's context; the Vulkan backend initialises it.

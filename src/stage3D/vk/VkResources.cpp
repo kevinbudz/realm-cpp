@@ -105,9 +105,9 @@ std::uint32_t Resources::add(Entry value) {
 void Resources::retire_entry(Entry& value) noexcept {
   auto& frame = frames();
   if (value.kind == Kind::buffer) {
-    Buffer buffer = value.buffer;
-    value.buffer = Buffer{};
-    frame.retire([buffer]() mutable { destroy_buffer(buffer); });
+    const auto allocation = value.alloc;
+    value.alloc = Arena::Allocation{};
+    frame.retire([allocation] { arena().free(allocation); });
   } else {
     const auto image = value.image;
     const auto view = value.view;
@@ -218,9 +218,9 @@ void Resources::close_transfers(VkCommandBuffer command) {
       barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
       barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
       barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      barrier.buffer = value.buffer.buffer;
-      barrier.offset = 0;
-      barrier.size = VK_WHOLE_SIZE;
+      barrier.buffer = value.alloc.buffer;
+      barrier.offset = value.alloc.offset;
+      barrier.size = value.alloc.size;
       barriers.push_back(barrier);
       value.pending = false;
     }
@@ -361,16 +361,15 @@ std::uint32_t Resources::create_buffer(std::span<const std::byte> bytes) {
   const auto size = std::max<VkDeviceSize>(bytes.size(), 16);
   Entry value;
   value.kind = Kind::buffer;
-  value.buffer = create_device_buffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  value.alloc = arena().allocate(size, staging_alignment);
   value.width = static_cast<int>(bytes.size());
   const auto handle = add(std::move(value));
   if (!bytes.empty()) {
     auto span = frames().ring().allocate(bytes.size(), staging_alignment);
     std::memcpy(span.data, bytes.data(), bytes.size());
     const auto command = frames().record();
-    VkBufferCopy copy{span.offset, 0, bytes.size()};
-    context().fn.vkCmdCopyBuffer(command, span.buffer, entries_[handle - 1].buffer.buffer, 1, &copy);
+    VkBufferCopy copy{span.offset, entries_[handle - 1].alloc.offset, bytes.size()};
+    context().fn.vkCmdCopyBuffer(command, span.buffer, entries_[handle - 1].alloc.buffer, 1, &copy);
     entries_[handle - 1].pending = true;
     pending_buffers_.push_back(handle - 1);
   }
@@ -396,7 +395,11 @@ VkImageView Resources::view(std::uint32_t handle) const {
 }
 
 VkBuffer Resources::buffer(std::uint32_t handle) const {
-  return entry(handle).buffer.buffer;
+  return entry(handle).alloc.buffer;
+}
+
+VkDeviceSize Resources::buffer_offset(std::uint32_t handle) const {
+  return entry(handle).alloc.offset;
 }
 
 void Resources::read_layer(std::uint32_t handle, int layer, int x, int y, int width, int height,

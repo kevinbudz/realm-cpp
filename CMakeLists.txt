@@ -223,8 +223,14 @@ if(BUILD_TESTING)
             SOURCES tests/FrameCacheTests.cpp LINK realm_ui_gpu realm_platform_sdl)
         realm_add_test(NAME model_instances TARGET realm_model_instance_tests LABELS gpu
             SOURCES tests/ModelInstanceTests.cpp
-            LINK realm_render GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_game
+            LINK realm_render realm_platform_sdl GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_game
             DEFINES SDL_MAIN_HANDLED)
+        if(REALM_ENABLE_VULKAN)
+            # The same checks on the Vulkan renderer (walls, prepared meshes, model instances).
+            add_test(NAME model_instances_vulkan COMMAND realm_model_instance_tests vulkan)
+            set_tests_properties(model_instances_vulkan PROPERTIES LABELS gpu
+                ENVIRONMENT "REALM_VULKAN_WIP=1")
+        endif()
         realm_add_test(NAME dynamic_atlas TARGET realm_dynamic_atlas_tests LABELS gpu
             SOURCES tests/DynamicAtlasTests.cpp
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_render
@@ -375,7 +381,7 @@ if(BUILD_TESTING)
     # Tests that open a window, GL context or GPU (SDL, realm_client, or a *_gpu script). They share one lock so they
     # never overlap; CPU-only tests keep running in parallel. Names missing from this configuration are skipped.
     # delete_character_stale is not listed: it drives Startup headlessly through a Python HTTP mock.
-    set(REALM_GPU_TESTS stress_rendered telemetry_gpu postfx visibility_culling frame_caches model_instances
+    set(REALM_GPU_TESTS stress_rendered telemetry_gpu postfx visibility_culling frame_caches model_instances model_instances_vulkan
         dynamic_atlas status_gpu options_gpu sdl_keys legends_gpu death_fame_gpu flash_gap_gpu delete_character_gpu
         ui_rml_host ui_retained ui_bundle_gpu startup_news_gpu editor_gpu)
     foreach(gpu_test IN LISTS REALM_GPU_TESTS)

@@ -23,11 +23,19 @@ class Ring {
   };
 
   Span allocate(VkDeviceSize bytes, VkDeviceSize alignment);
+  // Starts the next frame of this slot. Chunks idle for a while are released (see VkFrame.cpp).
   void reset() noexcept;
   void destroy() noexcept;
+  [[nodiscard]] VkDeviceSize retained() const;  // bytes of the chunks held
 
  private:
-  std::vector<Buffer> chunks_;
+  struct Chunk {
+    Buffer buffer;
+    bool used = false;       // written by the frame being recorded
+    std::uint32_t idle = 0;  // frames since it was last written
+  };
+
+  std::vector<Chunk> chunks_;
   std::size_t current_ = 0;
   VkDeviceSize used_ = 0;
 };
@@ -56,9 +64,20 @@ class Frames {
   // and rebuilds the swapchain when the size or the present mode changed.
   [[nodiscard]] const Target& target(std::uint32_t width, std::uint32_t height);
   [[nodiscard]] bool has_target() const { return acquired_; }
+
+  [[nodiscard]] bool written() const { return written_; }
+
+  [[nodiscard]] bool presentable() const {
+    return presentable_;
+  }  // the image is already in PRESENT_SRC
+
+  [[nodiscard]] VkExtent2D extent() const { return extent_; }
   // The frame's render passes write the target: finish() then leaves it in PRESENT_SRC from COLOR.
   void mark_written();
   [[nodiscard]] VkFormat format() const { return format_; }
+
+  // The slot of the frame being recorded (or the next one): per-slot state is indexed by it.
+  [[nodiscard]] std::uint32_t slot() const { return current_; }
   // Bumped on every swapchain rebuild; caches of swapchain views and framebuffers key on it.
   [[nodiscard]] std::uint64_t generation() const { return generation_; }
 
@@ -75,7 +94,14 @@ class Frames {
   // waits for it: the frame then stays in the submitted state, presented by finish().
   void read_target(VkBuffer destination, std::uint32_t width, std::uint32_t height);
   // Runs with the frame's command buffer before it is submitted (the transfer batch closes here).
-  void set_before_submit(std::function<void(VkCommandBuffer)> before) { before_submit_ = std::move(before); }
+  void set_before_submit(std::function<void(VkCommandBuffer)> before) {
+    before_submit_ = std::move(before);
+  }
+
+  // Host bytes the frame slots' rings hold (steady state is bounded; see VkFrame.cpp).
+  [[nodiscard]] VkDeviceSize ring_retained() const;
+  [[nodiscard]] VkDeviceSize ring_retained_max() const;  // the largest single slot's ring
+
   // Counts finished frames; caches of per-frame results key on it.
   [[nodiscard]] std::uint64_t serial() const { return serial_; }
   // Ends the frame: submits it when still recording, then presents the image when one was acquired.

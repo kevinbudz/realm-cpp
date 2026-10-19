@@ -37,6 +37,7 @@ realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const O
   try {
     session.open(requested, "Realm of the Mad God", o.width, o.height, o.hidden, swap_interval);
     realm::initialise_graphics(window_surface(session));
+    realm::set_present_interval(swap_interval);
   } catch (const std::exception& error) {
     if (requested == realm::gfx::Api::opengl) {
       throw;
@@ -49,6 +50,7 @@ realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const O
     session.open(realm::gfx::Api::opengl, "Realm of the Mad God", o.width, o.height, o.hidden,
                  swap_interval);
     realm::initialise_graphics(window_surface(session));
+    realm::set_present_interval(swap_interval);
   }
   const auto graphics = realm::graphics_info();
   std::cout << "Flash revision " << realm::flash::revision << "\nRenderer "
@@ -294,7 +296,9 @@ ClientState::ClientState(Options options)
 
   if (telemetry) {
     telemetry->metadata("quad_stream",
-                        renderer.persistent_streaming()
+                        realm::gfx::active_api() == realm::gfx::Api::vulkan
+                            ? "Vulkan per-frame host ring"
+                        : renderer.persistent_streaming()
                             ? "persistent coherent ring above 64 KiB; small/busy streams orphan"
                             : "OpenGL 3.3 orphan stream");
   }

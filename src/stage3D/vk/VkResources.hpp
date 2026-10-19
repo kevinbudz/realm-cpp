@@ -3,6 +3,7 @@
 // atlas) and static or updated buffers. A handle is index + 1 into the table; 0 means none. Uploads
 // are staged in the current frame's ring and copied into the frame's command buffer, outside any
 // render pass. Released objects are destroyed once the frames that may use them have finished.
+#include "VkArena.hpp"
 #include "VkCommon.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -42,6 +43,7 @@ class Resources {
   // The objects behind a handle, for the draw path (valid until released).
   [[nodiscard]] VkImageView view(std::uint32_t handle) const;
   [[nodiscard]] VkBuffer buffer(std::uint32_t handle) const;
+  [[nodiscard]] VkDeviceSize buffer_offset(std::uint32_t handle) const;
   [[nodiscard]] bool linear(std::uint32_t handle) const { return entry(handle).linear; }
   // Called with a handle when it is released (its descriptor sets go with it).
   void set_release_hook(std::function<void(std::uint32_t)> hook) { release_hook_ = std::move(hook); }
@@ -64,7 +66,7 @@ class Resources {
     int height = 0;  // image height
     int layers = 0;
     bool linear = false;
-    Buffer buffer;
+    Arena::Allocation alloc;  // buffers: a range of the arena
     bool pending = false;  // in this frame's transfer batch
   };
 

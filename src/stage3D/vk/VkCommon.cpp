@@ -458,9 +458,14 @@ std::uint32_t Context::memory_type(std::uint32_t type_bits, VkMemoryPropertyFlag
 
 std::uint32_t Context::memory_type(std::uint32_t type_bits, VkMemoryPropertyFlags required,
                                    VkMemoryPropertyFlags preferred) const {
+  // A preferred property only counts in a heap large enough to hold the frames' rings (the BAR heap
+  // is 256 MB).
+  constexpr VkDeviceSize min_preferred_heap = VkDeviceSize{256} << 20;
   for (std::uint32_t i = 0; i < memory.memoryTypeCount; ++i) {
+    const auto& type = memory.memoryTypes[i];
     if ((type_bits & (1u << i)) &&
-        (memory.memoryTypes[i].propertyFlags & (required | preferred)) == (required | preferred)) {
+        (type.propertyFlags & (required | preferred)) == (required | preferred) &&
+        memory.memoryHeaps[type.heapIndex].size >= min_preferred_heap) {
       return i;
     }
   }
@@ -491,11 +496,14 @@ GraphicsInfo Context::info() const {
     }
   };
   const auto api = properties.apiVersion;
+  const auto two_digits = [](std::uint32_t value) {
+    return (value < 10 ? "0" : "") + std::to_string(value);
+  };
   // NVIDIA packs its driver version differently from the Vulkan version triple.
   const auto driver = properties.vendorID == 0x10DE
                           ? std::to_string(properties.driverVersion >> 22) + "." +
                                 std::to_string((properties.driverVersion >> 14) & 0xff) + "." +
-                                std::to_string(properties.driverVersion & 0x3fff)
+                                two_digits((properties.driverVersion >> 6) & 0xff)
                           : std::to_string(VK_API_VERSION_MAJOR(properties.driverVersion)) + "." +
                                 std::to_string(VK_API_VERSION_MINOR(properties.driverVersion)) + "." +
                                 std::to_string(VK_API_VERSION_PATCH(properties.driverVersion));
@@ -544,6 +552,27 @@ Buffer create_host_buffer(VkDeviceSize size, VkBufferUsageFlags usage) {
 
 Buffer create_device_buffer(VkDeviceSize size, VkBufferUsageFlags usage) {
   return create_buffer(size, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
+}
+
+Buffer create_ring_buffer(VkDeviceSize size, VkBufferUsageFlags usage) {
+  // REALM_VK_RING_MEMORY=host keeps the ring in plain host-visible memory (the measurement
+  // override).
+  static const bool host_only = [] {
+    const char* value = std::getenv("REALM_VK_RING_MEMORY");
+    return value && std::string_view(value) == "host";
+  }();
+  if (host_only) {
+    return create_host_buffer(size, usage);
+  }
+  // Host-visible memory that is also device-local (ReBAR, or the BAR heap) keeps the instances in
+  // VRAM, so the GPU does not read them across PCIe. When that memory is full (the BAR heap is
+  // small and the first frame's uploads can fill it), plain host-visible memory takes over.
+  constexpr auto host = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  try {
+    return create_buffer(size, usage, host, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  } catch (const std::runtime_error&) {
+    return create_host_buffer(size, usage);
+  }
 }
 
 void destroy_buffer(Buffer& buffer) noexcept {

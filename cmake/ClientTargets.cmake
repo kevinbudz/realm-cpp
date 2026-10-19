@@ -112,7 +112,8 @@ if(REALM_BUILD_VIEWER)
         endif()
         # The Vulkan headers only: the loader comes from the platform session (no libvulkan link).
         target_sources(realm_render PRIVATE src/stage3D/vk/VkCommon.cpp src/stage3D/vk/VkFrame.cpp
-            src/stage3D/vk/VkRenderer.cpp src/stage3D/vk/VkResources.cpp src/stage3D/vk/VkPipelines.cpp)
+            src/stage3D/vk/VkRenderer.cpp src/stage3D/vk/VkResources.cpp
+            src/stage3D/vk/VkPipelines.cpp src/stage3D/vk/VkArena.cpp)
         target_include_directories(realm_render PRIVATE ${Vulkan_INCLUDE_DIRS})
         target_compile_definitions(realm_render PRIVATE REALM_VULKAN_ENABLED=1)
         # Shaders: glslc compiles each stage to SPIR-V at build time; cmake/EmbedSpirv.cmake embeds the
@@ -121,7 +122,8 @@ if(REALM_BUILD_VIEWER)
         set(REALM_VK_SHADER_OUT ${CMAKE_BINARY_DIR}/generated/vk)
         file(MAKE_DIRECTORY ${REALM_VK_SHADER_OUT})
         set(REALM_VK_SHADER_SPV "")
-        foreach(shader quad.vert quad.frag)
+        foreach(shader quad.vert quad.frag model.vert model.frag mesh.vert mesh.frag post.vert
+                       post.frag)
             set(in ${REALM_VK_SHADER_DIR}/${shader})
             set(out ${REALM_VK_SHADER_OUT}/${shader}.spv)
             add_custom_command(OUTPUT ${out}

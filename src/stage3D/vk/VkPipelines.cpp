@@ -2,8 +2,10 @@
 #include "VkFrame.hpp"
 #include "VkResources.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
+#include "realm/engine3d/Model3D.hpp"
 #include "../DrawPlan.hpp"
 #include "vk_shaders.hpp"
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <limits>
@@ -41,11 +43,33 @@ VkFormat format_of(int components) {
       return VK_FORMAT_R32_SFLOAT;
     case 2:
       return VK_FORMAT_R32G32_SFLOAT;
+    case 3:
+      return VK_FORMAT_R32G32B32_SFLOAT;
     case 4:
       return VK_FORMAT_R32G32B32A32_SFLOAT;
     default:
-      throw std::logic_error("Quad attribute with an unsupported component count");
+      throw std::logic_error("Vertex attribute with an unsupported component count");
   }
+}
+
+// The instance attributes of a Quad (locations first..first+8), as the quad program reads them.
+void quad_instance_attributes(std::uint32_t binding, std::uint32_t first,
+                              std::vector<VkVertexInputAttributeDescription>& out) {
+  for (std::size_t i = 0; i < draw_plan::quad_sizes.size(); ++i) {
+    out.push_back({first + static_cast<std::uint32_t>(i), binding,
+                   format_of(draw_plan::quad_sizes[i]),
+                   static_cast<std::uint32_t>(draw_plan::quad_offsets[i])});
+  }
+}
+
+VkDescriptorSetLayoutBinding layout_binding(std::uint32_t binding, VkDescriptorType type,
+                                            VkShaderStageFlags stages, std::uint32_t count = 1) {
+  VkDescriptorSetLayoutBinding result{};
+  result.binding = binding;
+  result.descriptorType = type;
+  result.descriptorCount = count;
+  result.stageFlags = stages;
+  return result;
 }
 }  // namespace
 
@@ -53,36 +77,37 @@ void Pipelines::create() {
   auto& device = context();
   quad_vertex_ = make_module(spirv::quad_vert_spv, spirv::quad_vert_spv_size);
   quad_fragment_ = make_module(spirv::quad_frag_spv, spirv::quad_frag_spv_size);
+  model_vertex_ = make_module(spirv::model_vert_spv, spirv::model_vert_spv_size);
+  model_fragment_ = make_module(spirv::model_frag_spv, spirv::model_frag_spv_size);
+  mesh_vertex_ = make_module(spirv::mesh_vert_spv, spirv::mesh_vert_spv_size);
+  mesh_fragment_ = make_module(spirv::mesh_frag_spv, spirv::mesh_frag_spv_size);
+  post_vertex_ = make_module(spirv::post_vert_spv, spirv::post_vert_spv_size);
+  post_fragment_ = make_module(spirv::post_frag_spv, spirv::post_frag_spv_size);
 
-  // Set 0: atlas array, then the wall corners.
-  std::array<VkDescriptorSetLayoutBinding, 2> atlas_bindings{};
-  atlas_bindings[0].binding = 0;
-  atlas_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  atlas_bindings[0].descriptorCount = 1;
-  atlas_bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-  atlas_bindings[1].binding = 1;
-  atlas_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  atlas_bindings[1].descriptorCount = 1;
-  atlas_bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  // Set 0: the atlas array, then the wall corners (vertex stage).
+  const std::array<VkDescriptorSetLayoutBinding, 2> atlas_bindings{
+      layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+      layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)};
   auto atlas_info = make<VkDescriptorSetLayoutCreateInfo>(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
   atlas_info.bindingCount = static_cast<std::uint32_t>(atlas_bindings.size());
   atlas_info.pBindings = atlas_bindings.data();
   check(device.fn.vkCreateDescriptorSetLayout(device.device, &atlas_info, nullptr, &atlas_layout_),
         "vkCreateDescriptorSetLayout");
 
-  // Set 1: one surface.
-  VkDescriptorSetLayoutBinding surface_binding{};
-  surface_binding.binding = 0;
-  surface_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  surface_binding.descriptorCount = 1;
-  surface_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  // Set 1: one surface. Set 2: the post pass's scene image.
+  const auto surface_binding =
+      layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
   auto surface_info = make<VkDescriptorSetLayoutCreateInfo>(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
   surface_info.bindingCount = 1;
   surface_info.pBindings = &surface_binding;
   check(device.fn.vkCreateDescriptorSetLayout(device.device, &surface_info, nullptr, &surface_layout_),
         "vkCreateDescriptorSetLayout");
+  check(
+      device.fn.vkCreateDescriptorSetLayout(device.device, &surface_info, nullptr, &scene_layout_),
+      "vkCreateDescriptorSetLayout");
 
-  const std::array<VkDescriptorSetLayout, 2> set_layouts{atlas_layout_, surface_layout_};
+  const std::array<VkDescriptorSetLayout, 3> set_layouts{atlas_layout_, surface_layout_,
+                                                         scene_layout_};
   VkPushConstantRange push{};
   push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   push.offset = 0;
@@ -95,7 +120,8 @@ void Pipelines::create() {
   check(device.fn.vkCreatePipelineLayout(device.device, &layout_info, nullptr, &layout_),
         "vkCreatePipelineLayout");
 
-  // Stand-ins for handle 0: a 16-byte wall buffer, and a 1x1 surface (never sampled when standalone is 0).
+  // Stand-ins for handle 0 and for slots without walls: a 16-byte wall buffer, and a 1x1 surface
+  // (never sampled when standalone is 0).
   walls_ = create_device_buffer(16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   auto& resources_ = resources();
   dummy_surface_ = resources_.create_surface(false);
@@ -120,7 +146,13 @@ void Pipelines::destroy() noexcept {
     retire(cached);
   }
   surfaces_.clear();
-  retire(atlas_);
+  for (auto& cached : atlas_) {
+    retire(cached);
+  }
+  for (auto& cached : scenes_) {
+    retire(cached);
+  }
+  scenes_.clear();
   for (auto pool : pools_) {
     device.fn.vkDestroyDescriptorPool(device.device, pool, nullptr);
   }
@@ -128,12 +160,16 @@ void Pipelines::destroy() noexcept {
   device.fn.vkDestroyPipelineLayout(device.device, layout_, nullptr);
   device.fn.vkDestroyDescriptorSetLayout(device.device, atlas_layout_, nullptr);
   device.fn.vkDestroyDescriptorSetLayout(device.device, surface_layout_, nullptr);
-  device.fn.vkDestroyShaderModule(device.device, quad_vertex_, nullptr);
-  device.fn.vkDestroyShaderModule(device.device, quad_fragment_, nullptr);
+  device.fn.vkDestroyDescriptorSetLayout(device.device, scene_layout_, nullptr);
+  for (const auto module : {quad_vertex_, quad_fragment_, model_vertex_, model_fragment_,
+                            mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_}) {
+    device.fn.vkDestroyShaderModule(device.device, module, nullptr);
+  }
   destroy_buffer(walls_);
   layout_ = VK_NULL_HANDLE;
-  atlas_layout_ = surface_layout_ = VK_NULL_HANDLE;
-  quad_vertex_ = quad_fragment_ = VK_NULL_HANDLE;
+  atlas_layout_ = surface_layout_ = scene_layout_ = VK_NULL_HANDLE;
+  quad_vertex_ = quad_fragment_ = model_vertex_ = model_fragment_ = VK_NULL_HANDLE;
+  mesh_vertex_ = mesh_fragment_ = post_vertex_ = post_fragment_ = VK_NULL_HANDLE;
 }
 
 std::pair<VkDescriptorSet, VkDescriptorPool> Pipelines::allocate(VkDescriptorSetLayout layout) {
@@ -183,18 +219,19 @@ void Pipelines::retire(Cached& cached) noexcept {
   cached = Cached{};
 }
 
-VkDescriptorSet Pipelines::atlas_set(std::uint32_t atlas) {
-  if (atlas_.set != VK_NULL_HANDLE && atlas_.key == atlas) {
-    return atlas_.set;
+VkDescriptorSet Pipelines::atlas_set(std::uint32_t atlas, VkBuffer walls, std::uint32_t slot) {
+  auto& cached = atlas_[slot];
+  if (cached.set != VK_NULL_HANDLE && cached.key == atlas && cached.extra == walls) {
+    return cached.set;
   }
   auto& device = context();
-  retire(atlas_);
+  retire(cached);
   const auto [set, pool] = allocate(atlas_layout_);
   VkDescriptorImageInfo image{};
   image.sampler = resources().sampler(false);
   image.imageView = resources().view(atlas);
   image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  VkDescriptorBufferInfo walls{walls_.buffer, 0, VK_WHOLE_SIZE};
+  VkDescriptorBufferInfo storage{walls, 0, VK_WHOLE_SIZE};
   std::array<VkWriteDescriptorSet, 2> writes{};
   writes[0] = make<VkWriteDescriptorSet>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
   writes[0].dstSet = set;
@@ -207,9 +244,9 @@ VkDescriptorSet Pipelines::atlas_set(std::uint32_t atlas) {
   writes[1].dstBinding = 1;
   writes[1].descriptorCount = 1;
   writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  writes[1].pBufferInfo = &walls;
+  writes[1].pBufferInfo = &storage;
   device.fn.vkUpdateDescriptorSets(device.device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-  atlas_ = Cached{atlas, set, pool, nullptr, nullptr};
+  cached = Cached{atlas, set, pool, nullptr, nullptr, walls};
   return set;
 }
 
@@ -242,42 +279,69 @@ VkDescriptorSet Pipelines::surface_set(std::uint32_t surface) {
   write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   write.pImageInfo = &image;
   device.fn.vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
-  cached = Cached{surface, set, pool, view, sampler};
+  cached = Cached{surface, set, pool, view, sampler, VK_NULL_HANDLE};
   return set;
 }
 
-VkPipeline Pipelines::quad_pipeline(VkRenderPass pass, bool list) const {
+VkDescriptorSet Pipelines::scene_set(VkImageView view) {
+  // The post passes sample at most two offscreen targets: a set per view, kept until a rebuild.
+  for (const auto& known : scenes_) {
+    if (known.view == view && known.set != VK_NULL_HANDLE) {
+      return known.set;
+    }
+  }
+  auto& device = context();
+  const auto [set, pool] = allocate(scene_layout_);
+  VkDescriptorImageInfo image{};
+  image.sampler = resources().sampler(false);
+  image.imageView = view;
+  image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  auto write = make<VkWriteDescriptorSet>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+  write.dstSet = set;
+  write.dstBinding = 0;
+  write.descriptorCount = 1;
+  write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  write.pImageInfo = &image;
+  device.fn.vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
+  Cached cached{0, set, pool, view, image.sampler, VK_NULL_HANDLE};
+  scenes_.push_back(cached);
+  return set;
+}
+
+void Pipelines::release_scene() noexcept {
+  for (auto& cached : scenes_) {
+    retire(cached);
+  }
+  scenes_.clear();
+}
+
+std::size_t Pipelines::surface_sets() const {
+  return static_cast<std::size_t>(
+      std::count_if(surfaces_.begin(), surfaces_.end(),
+                    [](const Cached& cached) { return cached.set != VK_NULL_HANDLE; }));
+}
+
+VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& shape) const {
   auto& device = context();
   std::array<VkPipelineShaderStageCreateInfo, 2> stages{};
   stages[0] = make<VkPipelineShaderStageCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
   stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-  stages[0].module = quad_vertex_;
+  stages[0].module = shape.vertex;
   stages[0].pName = "main";
   stages[1] = make<VkPipelineShaderStageCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
   stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  stages[1].module = quad_fragment_;
+  stages[1].module = shape.fragment;
   stages[1].pName = "main";
 
-  // The instance layout of a Quad: one binding, nine attributes at the offsets of draw_plan.
-  VkVertexInputBindingDescription binding{};
-  binding.binding = 0;
-  binding.stride = static_cast<std::uint32_t>(quad_instance_bytes);
-  binding.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
-  std::array<VkVertexInputAttributeDescription, draw_plan::quad_sizes.size()> attributes{};
-  for (std::size_t i = 0; i < attributes.size(); ++i) {
-    attributes[i].location = static_cast<std::uint32_t>(i);
-    attributes[i].binding = 0;
-    attributes[i].format = format_of(draw_plan::quad_sizes[i]);
-    attributes[i].offset = static_cast<std::uint32_t>(draw_plan::quad_offsets[i]);
-  }
   auto vertex_input = make<VkPipelineVertexInputStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
-  vertex_input.vertexBindingDescriptionCount = 1;
-  vertex_input.pVertexBindingDescriptions = &binding;
-  vertex_input.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
-  vertex_input.pVertexAttributeDescriptions = attributes.data();
+  vertex_input.vertexBindingDescriptionCount = static_cast<std::uint32_t>(shape.bindings.size());
+  vertex_input.pVertexBindingDescriptions = shape.bindings.data();
+  vertex_input.vertexAttributeDescriptionCount =
+      static_cast<std::uint32_t>(shape.attributes.size());
+  vertex_input.pVertexAttributeDescriptions = shape.attributes.data();
 
   auto assembly = make<VkPipelineInputAssemblyStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO);
-  assembly.topology = list ? VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  assembly.topology = shape.topology;
 
   auto viewport = make<VkPipelineViewportStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO);
   viewport.viewportCount = 1;
@@ -285,8 +349,8 @@ VkPipeline Pipelines::quad_pipeline(VkRenderPass pass, bool list) const {
 
   auto raster = make<VkPipelineRasterizationStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO);
   raster.polygonMode = VK_POLYGON_MODE_FILL;
-  raster.cullMode = VK_CULL_MODE_NONE;
-  raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  raster.cullMode = shape.cull;
+  raster.frontFace = shape.front;
   raster.lineWidth = 1.0f;
 
   auto multisample = make<VkPipelineMultisampleStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO);
@@ -294,7 +358,7 @@ VkPipeline Pipelines::quad_pipeline(VkRenderPass pass, bool list) const {
 
   // The GL blend: SRC_ALPHA / ONE_MINUS_SRC_ALPHA for colour, ONE / ONE_MINUS_SRC_ALPHA for alpha.
   VkPipelineColorBlendAttachmentState blend{};
-  blend.blendEnable = VK_TRUE;
+  blend.blendEnable = shape.blend ? VK_TRUE : VK_FALSE;
   blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
   blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   blend.colorBlendOp = VK_BLEND_OP_ADD;
@@ -329,6 +393,88 @@ VkPipeline Pipelines::quad_pipeline(VkRenderPass pass, bool list) const {
   check(device.fn.vkCreateGraphicsPipelines(device.device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
         "vkCreateGraphicsPipelines");
   return pipeline;
+}
+
+VkPipeline Pipelines::quad(VkRenderPass pass, bool list) const {
+  PipelineShape shape;
+  shape.vertex = quad_vertex_;
+  shape.fragment = quad_fragment_;
+  shape.bindings.push_back(
+      {0, static_cast<std::uint32_t>(quad_instance_bytes), VK_VERTEX_INPUT_RATE_INSTANCE});
+  quad_instance_attributes(0, 0, shape.attributes);
+  shape.topology =
+      list ? VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::model(VkRenderPass pass) const {
+  PipelineShape shape;
+  shape.vertex = model_vertex_;
+  shape.fragment = model_fragment_;
+  // Binding 0: the model geometry (ModelVertex, 36 bytes); binding 1: the quad instances.
+  shape.bindings.push_back({0, sizeof(ModelVertex), VK_VERTEX_INPUT_RATE_VERTEX});
+  shape.bindings.push_back(
+      {1, static_cast<std::uint32_t>(quad_instance_bytes), VK_VERTEX_INPUT_RATE_INSTANCE});
+  shape.attributes.push_back(
+      {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<std::uint32_t>(offsetof(ModelVertex, x))});
+  shape.attributes.push_back(
+      {1, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<std::uint32_t>(offsetof(ModelVertex, nx))});
+  shape.attributes.push_back(
+      {2, 0, VK_FORMAT_R32G32_SFLOAT, static_cast<std::uint32_t>(offsetof(ModelVertex, u))});
+  shape.attributes.push_back(
+      {3, 0, VK_FORMAT_R32_SFLOAT, static_cast<std::uint32_t>(offsetof(ModelVertex, solid))});
+  // Locations 4..11 are the Quad fields the model program reads: origin, axisX, axisY, axisZ (the
+  // uv offset), sprite UV, page, multiply and rotation (the offset vector).
+  const std::array<std::size_t, 8> fields{0, 1, 2, 8, 3, 4, 5, 6};
+  for (std::size_t i = 0; i < fields.size(); ++i) {
+    const auto field = fields[i];
+    shape.attributes.push_back({static_cast<std::uint32_t>(4 + i), 1,
+                                format_of(draw_plan::quad_sizes[field]),
+                                static_cast<std::uint32_t>(draw_plan::quad_offsets[field])});
+  }
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  shape.cull = VK_CULL_MODE_BACK_BIT;
+  // Measured on RADV against GL (S3-models-dense): with the negative viewport, GL's
+  // counter-clockwise front stays counter-clockwise here.
+  shape.front = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::mesh(VkRenderPass pass) const {
+  PipelineShape shape;
+  shape.vertex = mesh_vertex_;
+  shape.fragment = mesh_fragment_;
+  shape.bindings.push_back({0, static_cast<std::uint32_t>(sizeof(draw_plan::MeshBatchVertex)),
+                            VK_VERTEX_INPUT_RATE_VERTEX});
+  using V = draw_plan::MeshBatchVertex;
+  shape.attributes.push_back(
+      {0, 0, VK_FORMAT_R32G32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, x))});
+  shape.attributes.push_back(
+      {1, 0, VK_FORMAT_R32G32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, u))});
+  shape.attributes.push_back(
+      {2, 0, VK_FORMAT_R32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, shade))});
+  shape.attributes.push_back(
+      {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, bounds))});
+  shape.attributes.push_back(
+      {4, 0, VK_FORMAT_R32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, page))});
+  shape.attributes.push_back(
+      {5, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, color))});
+  shape.attributes.push_back(
+      {6, 0, VK_FORMAT_R32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, textured))});
+  shape.attributes.push_back(
+      {7, 0, VK_FORMAT_R32_SFLOAT, static_cast<std::uint32_t>(offsetof(V, repeat))});
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  shape.cull = VK_CULL_MODE_NONE;  // the GL mesh program draws both faces
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::post(VkRenderPass pass, bool blend) const {
+  PipelineShape shape;
+  shape.vertex = post_vertex_;
+  shape.fragment = post_fragment_;
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  shape.blend = blend;
+  return create_pipeline(pass, shape);
 }
 
 Pipelines& pipelines() {

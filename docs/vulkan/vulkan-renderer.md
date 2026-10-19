@@ -22,7 +22,7 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
 | 2 | Vulkan world renderer (S0-S8) | S0-S7 committed; S8 partly done (see below); still behind `REALM_VULKAN_WIP` |
-| 3 | RmlUi Vulkan backend, then remove the WIP gate | Not started |
+| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 committed (geometry, scissor, textures, clip masks, layers, blur); M4 frame cache open; gate kept |
 | 4 | Final verification and perf matrix across stacks | Not started |
 
 ## Phase 1: the backend seam (done)
@@ -177,6 +177,7 @@ uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's.
 | `REALM_VK_STATS=1` | Ring, arena and descriptor-set summary at shutdown. |
 | `REALM_VK_RING_MEMORY=host` | Force the ring into plain host memory. |
 | `REALM_VK_PRESENTED_COPY=1` | Force the per-frame presented copy. |
+| `REALM_TEST_RML=file.rml` | Shows this RML document over the UI host, for RmlUi features the client's screens do not use (clip masks). |
 | `REALM_TEST_WORLD_ONLY=1` | Draw the world only (no HUD, RmlUi, overlay text or death fade), above the renderer, so both APIs draw the same quads. |
 
 ### Parity
@@ -290,6 +291,111 @@ The steady-state bar is met. `create_ring_buffer` already falls back to host mem
 full. The startup burst may matter on small-BAR systems; the fix would route large staging through plain
 host memory. Not done.
 
+## Phase 3: the RmlUi Vulkan backend
+
+### Status
+
+| Milestone | Content | State |
+|---|---|---|
+| M1 | Premultiplied triangles, scissor, RmlUi transform, textures (TGA files, `item:`/`art:` nearest, host-written, generated) | Done, committed |
+| M2 | Clip masks (`EnableClipMask`, `RenderToClipMask` Set/SetInverse/Intersect, stencil) | Done (test sample, below); the client's screens do not reach it |
+| M3 | Layers (`PushLayer`/`PopLayer`/`CompositeLayers`), blur filter (Settings) | Done: Options screen matches GL to ±1 level |
+| M3 (rest) | Other filters, gradient shaders | Not needed: the client's RCSS and C++ use neither (checked); unimplemented ones log once |
+| M4 | Frame cache (`frame_reused`) | Open: always false |
+| Gate | `REALM_VULKAN_WIP` | Kept: parity is verified for the HUD, Options and the test sample only; other screens are unchecked |
+
+### Design
+
+- `src/lib/ui/RmlGpuVk.cpp`: the Vulkan `RmlGpu`. Its `Rml::RenderInterface` keeps compiled geometry on
+  the host (copied into the frame ring at draw time) and decodes TGA as RenderInterface_GL3 does.
+  Projection and RmlUi's transform are composed on the CPU: `P * T`, with `P` mapping window pixels to
+  clip space under the negative viewport.
+- `include/realm/stage3D/vk/VkUi.hpp`: plain-data seam (no Vulkan headers), so `realm_ui_rmlui` needs
+  no Vulkan include path. `src/stage3D/vk/VkUi.cpp` implements it over `VkRenderer::ui_*`.
+- `VkRenderer`: the UI pass is a LOAD pass on the frame's swapchain image, sharing the framebuffer
+  cache. The first UI draw opens it; `ui_close` ends it before any upload (a copy cannot run inside a
+  pass) and `end_frame` ends it. Pipeline `ui.vert`/`ui.frag`: 20-byte `Rml::Vertex`, premultiplied
+  blend (ONE, ONE_MINUS_SRC_ALPHA), no cull. Push constants: 4x4 matrix, translate, textured flag (76 B).
+- Textures need the device, not the renderer: RmlUi loads the fame document before the first world
+  frame, so `create_texture` must not require a `VkRenderer` (this was a bug, found by the log).
+- Window: the Vulkan path needs the SDL window only for RmlUi's system interface (clipboard, cursor).
+  `RmlHost` takes it from the app (`ui::set_host_window`, called after `WindowSession::open`) instead of
+  scanning window ids.
+- Client boundaries: `realm_ui_rmlui` may link `realm_render` (the Vulkan seam), recorded in
+  `cmake/ClientBoundaries.cmake`.
+- Clip masks (M2): the UI pass has a D24S8 stencil per frame slot. The first UI pass of a frame clears it
+  (a `CLEAR` stencil load op), later passes keep it. Mask draws use pipelines with stencil ops (replace or
+  increment, colour writes off), and tests use the dynamic reference, tracked as RenderInterface_GL3 does.
+  Set and SetInverse clear with `vkCmdClearAttachments` inside the scissor, as GL's `glClear` does.
+- Layers and blur (M3): each frame slot owns window-sized images: a layer per `PushLayer` depth, and two
+  post targets. Pass kinds are (clear colour, offscreen, clear stencil). Offscreen passes start and end
+  `SHADER_READ_ONLY_OPTIMAL`; subpass dependencies order the writes before the next pass's reads, so no
+  explicit barriers. `PushLayer` clears the layer and keeps its pass open. `CompositeLayers` copies the
+  source into post target 0 when filters apply, runs the blur, and draws into the destination inside the
+  scissor (premultiplied blend, or plain for `BlendMode::Replace`). The blur follows GL3's `RenderBlur`:
+  `SigmaToParameters` splits the sigma into halving downscales, one 7-tap vertical and horizontal pass
+  clamped to the region (`ui_blur.frag` is `ui_post.frag`), then a linear upscale to the region. Sigma 3.5
+  (the Settings blur) gives one downscale to sigma 1.75.
+  Not reproduced: GL3's second, exact power-of-two upscale blit, which only differs when the region's size
+  is not a multiple of two.
+
+### Verification (M1)
+
+GL is unchanged: the checksums and capture md5s match the values in [How to test](#how-to-test).
+
+| Check | Result |
+|---|---|
+| S1-mixed-dense, 300 frames: quad / state / packet | match |
+| S3-combat-cluster, 300 frames: quad / state / packet | match |
+| GL capture md5: churn, S1-mixed-dense, S3-combat-cluster | match all three |
+
+Full UI, 800×600, 120 frames, Vulkan vs GL capture (`compare.py`). Each row compares the same driver:
+GL on NVIDIA against VK on NVIDIA, GL on RADV against VK on RADV (GL on RADV: `__GLX_VENDOR_LIBRARY_NAME=mesa
+__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json`). Lavapipe is report-only; its GL reference is GL on llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`).
+
+| Fixture | NVIDIA (GL vs VK): px / max Δ | RADV (GL vs VK): px / max Δ | lavapipe (GL vs VK, both llvmpipe): px / max Δ |
+|---|---|---|---|
+| S1-mixed-dense | 0 / 0 (byte-identical PNG) | 21 (0.0044%) / 48 | 0 / 0 |
+| churn | 0 / 0 | 188 (0.0392%) / 196 | not run |
+| S3-combat-cluster | 3 (0.0006%) / 1 | 178 (0.0371%) / 255 | not run |
+
+RADV world-only churn (`REALM_TEST_WORLD_ONLY=1`, GL vs VK, both RADV) also gives 188 px (0.039%), so the
+full-UI churn differences are the world's, and the HUD adds none. The RADV differences fall inside the
+world area (x 143–545, y 234–578; the S3 box reaches the bottom-left, under the chat, checked by bounding box
+only). They are the same-driver world-rasterization differences that phase 2 measured on RADV, not the UI.
+Cross-driver numbers are not comparisons: GL-NVIDIA vs GL-RADV world-only churn is 0.81% on its own.
+
+GL ctests: `ui_rml_host`, `ui_retained`, `ui_bundle_gpu`, `startup_news_gpu` pass. `options_gpu` and
+`appearance_compose` fail, as before.
+
+### Verification (M2, M3)
+
+Clip masks: no client screen clips with border-radius (the only `overflow` values are `overflow-y:auto`
+without rounded corners and one `overflow:hidden` field), so the screens never reach them.
+`REALM_TEST_RML` loads a sample (rounded `overflow:hidden` panels, a child overhanging the corner) over the HUD.
+GL and VK on NVIDIA both clip to the rounded shape; 270 px differ, all on the corner edges (the stencil
+is binary on both).
+
+Settings screen (scripted, `key o`): the HUD behind it is blurred by `RetainedUi::set_blur`
+(`filter: blur(3.5dp)`). Before M3 the Vulkan capture showed the HUD sharp (max Δ 17, on the blurred
+counters and backdrop). Now, 800×600, GL vs VK on the same driver:
+
+| Check | NVIDIA (GL vs VK) | RADV (GL vs VK) |
+|---|---|---|
+| Options screen, px / max Δ | 14663 (3.05%) / 2 | 14800 (3.08%) / 2 |
+| Pixels with Δ = 1 / Δ = 2 | 14651 / 12 | 14787 / 13 |
+| S1-mixed-dense, full UI, after M2 and M3 (md5) | byte-identical to GL | not rerun |
+
+The residual is ±1 level across the screen: rounding in the blur passes, not a region difference.
+Warnings: the Options run logs none (before M3 it logged the filter and the layers).
+
+The scripted capture (`--script`, the same format as `tests/options_gpu_tests.py`): a file with
+`300 capture PATH`, `400 key o`, `900 capture PATH`, `1000 quit`, run with
+`--hidden --map realm-server/Resources/Worlds/Tutorial/Nexus.jm --effect-time 0 --scene-time 0 --hp 50`.
+
+Not verified: gradient decorators (none in the client), other filters (none), and the frame cache (M4).
+Screens other than HUD, Options and the test sample are not compared, so the gate stays.
+
 ## Remaining work
 
 ### Phase 2 (S8)
@@ -307,17 +413,13 @@ host memory. Not done.
    ctest (`ctest --test-dir build-vk -j4`, 2026-10-19): 89 of 91 pass. The 2 failures are
    `appearance_compose` and `options_gpu`, both failing before this work; not investigated here.
 
-### Phase 3: RmlUi Vulkan backend
+### Phase 3: RmlUi Vulkan backend (M1-M3 done, see above)
 
-- Our own backend in `src/lib/ui/RmlGpuVk.cpp`. The vendored RmlUi has only the GL3 backend, and
-  RmlUi's upstream Vulkan backend lacks filters and layers anyway.
-- It must support the blur filter (Settings screen), border-radius clipping (clip masks), and the
-  existing frame cache.
-- RmlHost uploads textures between draw() and draw_overlay(), so uploads can arrive while the
-  swapchain render pass is open. The "keep the pass open" logic must close the pass before any
-  transfer and reopen with LOAD.
-- Replace the stopgap in `RmlHost.cpp` that finds the window by scanning SDL window ids for
-  SDL_WINDOW_VULKAN: pass the window from WindowSession instead.
+- M4: the frame cache. `frame_reused()` is always false under Vulkan, so a static UI is redrawn every
+  frame. Reuse the previous frame's resolved UI image when the command queue and generation match, as
+  RmlUi_Renderer_GL3 does.
+- Parity on the screens not yet compared: startup (font-effect text shadows), fame/death, guild,
+  shop, tooltips. Use `--script` captures as in Verification (M2, M3).
 - Then remove `REALM_VULKAN_WIP` so the Options choice takes effect.
 
 ### Phase 4: final verification

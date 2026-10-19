@@ -1,5 +1,6 @@
 #include "ApplicationState.hpp"
 #include "ApplicationLoopDetail.hpp"
+#include "realm/lib/ui/RmlHost.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -36,6 +37,7 @@ realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const O
   realm::gfx::select_api(requested);
   try {
     session.open(requested, "Realm of the Mad God", o.width, o.height, o.hidden, swap_interval);
+    realm::ui::set_host_window(session.window);
     realm::initialise_graphics(window_surface(session));
     realm::set_present_interval(swap_interval);
   } catch (const std::exception& error) {

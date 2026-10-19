@@ -83,6 +83,10 @@ void Pipelines::create() {
   mesh_fragment_ = make_module(spirv::mesh_frag_spv, spirv::mesh_frag_spv_size);
   post_vertex_ = make_module(spirv::post_vert_spv, spirv::post_vert_spv_size);
   post_fragment_ = make_module(spirv::post_frag_spv, spirv::post_frag_spv_size);
+  ui_vertex_ = make_module(spirv::ui_vert_spv, spirv::ui_vert_spv_size);
+  ui_fragment_ = make_module(spirv::ui_frag_spv, spirv::ui_frag_spv_size);
+  ui_post_vertex_ = make_module(spirv::ui_post_vert_spv, spirv::ui_post_vert_spv_size);
+  ui_post_fragment_ = make_module(spirv::ui_post_frag_spv, spirv::ui_post_frag_spv_size);
 
   // Set 0: the atlas array, then the wall corners (vertex stage).
   const std::array<VkDescriptorSetLayoutBinding, 2> atlas_bindings{
@@ -163,7 +167,8 @@ void Pipelines::destroy() noexcept {
   device.fn.vkDestroyDescriptorSetLayout(device.device, surface_layout_, nullptr);
   device.fn.vkDestroyDescriptorSetLayout(device.device, scene_layout_, nullptr);
   for (const auto module : {quad_vertex_, quad_fragment_, model_vertex_, model_fragment_,
-                            mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_}) {
+                            mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_,
+                            ui_vertex_, ui_fragment_, ui_post_vertex_, ui_post_fragment_}) {
     device.fn.vkDestroyShaderModule(device.device, module, nullptr);
   }
   destroy_buffer(walls_);
@@ -171,6 +176,7 @@ void Pipelines::destroy() noexcept {
   atlas_layout_ = surface_layout_ = scene_layout_ = VK_NULL_HANDLE;
   quad_vertex_ = quad_fragment_ = model_vertex_ = model_fragment_ = VK_NULL_HANDLE;
   mesh_vertex_ = mesh_fragment_ = post_vertex_ = post_fragment_ = VK_NULL_HANDLE;
+  ui_vertex_ = ui_fragment_ = ui_post_vertex_ = ui_post_fragment_ = VK_NULL_HANDLE;
 }
 
 std::pair<VkDescriptorSet, VkDescriptorPool> Pipelines::allocate(VkDescriptorSetLayout layout) {
@@ -284,17 +290,17 @@ VkDescriptorSet Pipelines::surface_set(std::uint32_t surface) {
   return set;
 }
 
-VkDescriptorSet Pipelines::scene_set(VkImageView view) {
-  // The post passes sample at most two offscreen targets: a set per view, kept until a rebuild.
+VkDescriptorSet Pipelines::scene_set(VkImageView view, bool linear) {
+  // The post passes sample at most two offscreen targets: a set per view and filter, kept until a rebuild.
   for (const auto& known : scenes_) {
-    if (known.view == view && known.set != VK_NULL_HANDLE) {
+    if (known.view == view && known.set != VK_NULL_HANDLE && known.key == (linear ? 1u : 0u)) {
       return known.set;
     }
   }
   auto& device = context();
   const auto [set, pool] = allocate(scene_layout_);
   VkDescriptorImageInfo image{};
-  image.sampler = resources().sampler(false);
+  image.sampler = resources().sampler(linear);
   image.imageView = view;
   image.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   auto write = make<VkWriteDescriptorSet>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
@@ -304,7 +310,7 @@ VkDescriptorSet Pipelines::scene_set(VkImageView view) {
   write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   write.pImageInfo = &image;
   device.fn.vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
-  Cached cached{0, set, pool, view, image.sampler, VK_NULL_HANDLE};
+  Cached cached{linear ? 1u : 0u, set, pool, view, image.sampler, VK_NULL_HANDLE};
   scenes_.push_back(cached);
   return set;
 }
@@ -368,7 +374,7 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   // The GL blend: SRC_ALPHA / ONE_MINUS_SRC_ALPHA for colour, ONE / ONE_MINUS_SRC_ALPHA for alpha.
   VkPipelineColorBlendAttachmentState blend{};
   blend.blendEnable = shape.blend ? VK_TRUE : VK_FALSE;
-  blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  blend.srcColorBlendFactor = shape.premultiplied ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
   blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   blend.colorBlendOp = VK_BLEND_OP_ADD;
   blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -376,11 +382,51 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   blend.alphaBlendOp = VK_BLEND_OP_ADD;
   blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  const bool mask_write = shape.stencil == PipelineShape::Stencil::replace ||
+                          shape.stencil == PipelineShape::Stencil::increment;
+  if (mask_write) {
+    blend.colorWriteMask = 0;  // a mask draw writes only the stencil
+  }
   auto color = make<VkPipelineColorBlendStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO);
   color.attachmentCount = 1;
   color.pAttachments = &blend;
 
-  const std::array<VkDynamicState, 2> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  // The stencil comes from the pass (passes without one ignore this state). Its reference is
+  // dynamic, set before each draw that uses it.
+  auto depth = make<VkPipelineDepthStencilStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
+  depth.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+  VkStencilOpState face{};
+  face.failOp = VK_STENCIL_OP_KEEP;
+  face.passOp = VK_STENCIL_OP_KEEP;
+  face.depthFailOp = VK_STENCIL_OP_KEEP;
+  face.compareOp = VK_COMPARE_OP_ALWAYS;
+  face.compareMask = 0xff;
+  face.writeMask = 0;
+  switch (shape.stencil) {
+    case PipelineShape::Stencil::off:
+      break;
+    case PipelineShape::Stencil::test:
+      depth.stencilTestEnable = VK_TRUE;
+      face.compareOp = VK_COMPARE_OP_EQUAL;
+      break;
+    case PipelineShape::Stencil::replace:
+      depth.stencilTestEnable = VK_TRUE;
+      face.passOp = VK_STENCIL_OP_REPLACE;
+      face.writeMask = 0xff;
+      break;
+    case PipelineShape::Stencil::increment:
+      depth.stencilTestEnable = VK_TRUE;
+      face.passOp = VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+      face.writeMask = 0xff;
+      break;
+  }
+  depth.front = face;
+  depth.back = face;
+
+  std::vector<VkDynamicState> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  if (shape.stencil != PipelineShape::Stencil::off) {
+    dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
+  }
   auto dynamic = make<VkPipelineDynamicStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO);
   dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size());
   dynamic.pDynamicStates = dynamic_states.data();
@@ -394,6 +440,7 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   info.pRasterizationState = &raster;
   info.pMultisampleState = &multisample;
   info.pColorBlendState = &color;
+  info.pDepthStencilState = &depth;
   info.pDynamicState = &dynamic;
   info.layout = layout_;
   info.renderPass = pass;
@@ -483,6 +530,34 @@ VkPipeline Pipelines::post(VkRenderPass pass, bool blend) const {
   shape.fragment = post_fragment_;
   shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
   shape.blend = blend;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::ui_post(VkRenderPass pass, bool premultiplied) const {
+  PipelineShape shape;
+  shape.vertex = ui_post_vertex_;
+  shape.fragment = ui_post_fragment_;
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+  shape.cull = VK_CULL_MODE_NONE;
+  shape.blend = premultiplied;
+  shape.premultiplied = true;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::ui(VkRenderPass pass, PipelineShape::Stencil stencil) const {
+  PipelineShape shape;
+  shape.stencil = stencil;
+  shape.vertex = ui_vertex_;
+  shape.fragment = ui_fragment_;
+  // Rml::Vertex: position (2 floats), premultiplied RGBA8, texture coordinate (2 floats).
+  shape.bindings.push_back({0, 20, VK_VERTEX_INPUT_RATE_VERTEX});
+  shape.attributes.push_back({0, 0, VK_FORMAT_R32G32_SFLOAT, 0});
+  shape.attributes.push_back({1, 0, VK_FORMAT_R8G8B8A8_UNORM, 8});
+  shape.attributes.push_back({2, 0, VK_FORMAT_R32G32_SFLOAT, 12});
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  shape.cull = VK_CULL_MODE_NONE;
+  shape.blend = true;
+  shape.premultiplied = true;
   return create_pipeline(pass, shape);
 }
 

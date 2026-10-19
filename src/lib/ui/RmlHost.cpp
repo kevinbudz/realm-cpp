@@ -1,3 +1,6 @@
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
 #include "realm/lib/ui/RmlHost.hpp"
 #include "realm/assets/VectorArt.hpp"
 #include "realm/util/Telemetry.hpp"
@@ -1271,23 +1274,23 @@ class HostLayer final : public Layer {
 };
 }
 
+namespace {
+SDL_Window* host_window = nullptr;  // see set_host_window()
+}  // namespace
+
+void set_host_window(SDL_Window* window) { host_window = window; }
+
 struct RmlHost::Impl {
   Impl(const FontBook& font_book, const HudArt* hud_art)
       : fonts(font_book), art(hud_art), gpu(make_rml_gpu(hud_art)), files(text_rcss), layer(*this) {
-    // OpenGL: the window whose context is current. Vulkan has no current context (phase S1 stopgap;
-    // revisit with the Vulkan RmlUi backend).
+    // OpenGL: the window whose context is current. Vulkan has no current context: the app passes
+    // its window (set_host_window). The drawing itself uses the frame's swapchain image.
     SDL_Window* window = SDL_GL_GetCurrentWindow();
     if (!window && gfx::active_api() == gfx::Api::vulkan) {
-      // The client's one window: the first id that carries the Vulkan flag.
-      for (std::uint32_t id = 1; !window && id < 64; ++id) {
-        SDL_Window* candidate = SDL_GetWindowFromID(id);
-        if (candidate && (SDL_GetWindowFlags(candidate) & SDL_WINDOW_VULKAN)) {
-          window = candidate;
-        }
-      }
+      window = host_window;
     }
     if (!window) {
-      throw std::runtime_error("The RmlUi host needs the SDL window's GL context to be current");
+      throw std::runtime_error("The RmlUi host needs the SDL window (GL context current, or the Vulkan window)");
     }
     if (!gpu) {
       throw std::runtime_error("RmlUi's GL3 renderer could not be created");
@@ -1593,6 +1596,16 @@ RmlHost::RmlHost(const FontBook& fonts, const HudArt* art) {
     throw std::logic_error("Only one RmlHost can exist at a time");
   }
   impl_ = std::make_unique<Impl>(fonts, art);
+  // Test-only switch (docs/vulkan): REALM_TEST_RML=<file.rml> shows that document over the context, so a
+  // capture can check a feature the client's own screens do not use.
+  if (const char* path = std::getenv("REALM_TEST_RML"); path && *path) {
+    std::ifstream in(path);
+    std::stringstream text;
+    text << in.rdbuf();
+    if (auto* document = impl_->context->LoadDocumentFromMemory(text.str(), path)) {
+      document->Show();
+    }
+  }
 }
 
 RmlHost::~RmlHost() = default;

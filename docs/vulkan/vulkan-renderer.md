@@ -260,17 +260,21 @@ GL is unchanged: the checksums and capture md5s match the values in [How to test
 | S3-combat-cluster, 300 frames: quad / state / packet | match |
 | GL capture md5: churn, S1-mixed-dense, S3-combat-cluster | match all three |
 
-Full UI, 800×600, 120 frames, Vulkan vs GL capture (`compare.py`):
+Full UI, 800×600, 120 frames, Vulkan vs GL capture (`compare.py`). Each row compares the same driver:
+GL on NVIDIA against VK on NVIDIA, GL on RADV against VK on RADV (GL on RADV: `__GLX_VENDOR_LIBRARY_NAME=mesa
+__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json`). Lavapipe is report-only; its GL reference is GL on llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`).
 
-| Fixture | NVIDIA: px / max Δ | RADV: px / max Δ | lavapipe: px / max Δ |
+| Fixture | NVIDIA (GL vs VK): px / max Δ | RADV (GL vs VK): px / max Δ | lavapipe (GL vs VK, both llvmpipe): px / max Δ |
 |---|---|---|---|
-| S1-mixed-dense | 0 / 0 (byte-identical PNG) | 4012 (0.84%) / 2 | 4970 (1.04%) / 7 |
-| churn | 0 / 0 | 3984 (0.83%) / 186 | not run |
-| S3-combat-cluster | 3 (0.0006%) / 1 | 874 (0.18%) / 25 | not run |
+| S1-mixed-dense | 0 / 0 (byte-identical PNG) | 21 (0.0044%) / 48 | 0 / 0 |
+| churn | 0 / 0 | 188 (0.0392%) / 196 | not run |
+| S3-combat-cluster | 3 (0.0006%) / 1 | 178 (0.0371%) / 255 | not run |
 
-The RADV churn differences sit in the world (the crowd area), not the HUD. World-only capture
-(`REALM_TEST_WORLD_ONLY=1`, GL vs RADV) gives 3871 px and max Δ 186, the same. So the UI matches; the
-world differences are the phase 2 WIP. The lavapipe row is report-only.
+RADV world-only churn (`REALM_TEST_WORLD_ONLY=1`, GL vs VK, both RADV) also gives 188 px (0.039%), so the
+full-UI churn differences are the world's, and the HUD adds none. The RADV differences fall inside the
+world area (x 143–545, y 234–578; the S3 box reaches the bottom-left, under the chat, checked by bounding box
+only). They are the same-driver world-rasterization differences that phase 2 measured on RADV, not the UI.
+Cross-driver numbers are not comparisons: GL-NVIDIA vs GL-RADV world-only churn is 0.81% on its own.
 
 GL ctests: `ui_rml_host`, `ui_retained`, `ui_bundle_gpu`, `startup_news_gpu` pass. `options_gpu` and
 `appearance_compose` fail, as before.

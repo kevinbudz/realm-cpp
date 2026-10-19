@@ -169,6 +169,7 @@ uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's.
 | `REALM_VK_STATS=1` | (WIP) ring, arena and descriptor-set summary at shutdown. |
 | `REALM_VK_RING_MEMORY=host` | (WIP) force the ring into plain host memory. |
 | `REALM_VK_PRESENTED_COPY=1` | (WIP) force the per-frame presented copy. |
+| `REALM_TEST_RML=file.rml` | (Phase 3) Shows this RML document over the UI host, for RmlUi features the client's screens do not use (clip masks). |
 | `REALM_TEST_WORLD_ONLY=1` | Draw the world only (no HUD, RmlUi, overlay text or death fade), above the renderer, so both APIs draw the same quads. |
 
 ### Parity
@@ -225,7 +226,7 @@ The telemetry metadata still prints GL's `quad_stream` strategy under Vulkan (fi
 | Milestone | Content | State |
 |---|---|---|
 | M1 | Premultiplied triangles, scissor, RmlUi transform, textures (TGA files, `item:`/`art:` nearest, host-written, generated) | Done, committed |
-| M2 | Clip masks (border-radius) | Open: logs once, draws unclipped |
+| M2 | Clip masks (`EnableClipMask`, `RenderToClipMask` Set/SetInverse/Intersect, stencil) | Done (test sample, below); unused by the client's screens |
 | M3 | Layers, blur filter (Settings), other filters, gradient shaders | Open: logs once, draws without the effect |
 | M4 | Frame cache (`frame_reused`) | Open: always false |
 | Gate | `REALM_VULKAN_WIP` | Kept: M2-M3 missing, so full-UI parity is not established |
@@ -278,6 +279,15 @@ Cross-driver numbers are not comparisons: GL-NVIDIA vs GL-RADV world-only churn 
 
 GL ctests: `ui_rml_host`, `ui_retained`, `ui_bundle_gpu`, `startup_news_gpu` pass. `options_gpu` and
 `appearance_compose` fail, as before.
+
+Clip masks (M2): no client screen clips with border-radius (`overflow` is only `overflow-y:auto`
+without rounded corners), so the Options capture never reaches them. `REALM_TEST_RML` loads a sample
+(rounded `overflow:hidden` panels, a child overhanging the corner) over the HUD. GL and VK on NVIDIA
+both clip to the rounded shape; 270 px differ, all on the corner edges (the stencil is binary on both).
+
+Options screen (scripted, `key o`, GL vs VK, NVIDIA): the Settings screen draws, but the HUD behind it
+is blurred on GL (`RetainedUi::set_blur` sets `filter: blur()`) and sharp on VK, so the differences are
+the blur (M3).
 
 Not verified: the Settings screen (blur, the only RmlUi filter the client uses, from
 `RetainedUi::set_blur`), gradient decorators, and border-radius clipping. No headless flag opens

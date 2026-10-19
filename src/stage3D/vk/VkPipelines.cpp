@@ -371,11 +371,51 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   blend.alphaBlendOp = VK_BLEND_OP_ADD;
   blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  const bool mask_write = shape.stencil == PipelineShape::Stencil::replace ||
+                          shape.stencil == PipelineShape::Stencil::increment;
+  if (mask_write) {
+    blend.colorWriteMask = 0;  // a mask draw writes only the stencil
+  }
   auto color = make<VkPipelineColorBlendStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO);
   color.attachmentCount = 1;
   color.pAttachments = &blend;
 
-  const std::array<VkDynamicState, 2> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  // The stencil comes from the pass (passes without one ignore this state). Its reference is
+  // dynamic, set before each draw that uses it.
+  auto depth = make<VkPipelineDepthStencilStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
+  depth.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+  VkStencilOpState face{};
+  face.failOp = VK_STENCIL_OP_KEEP;
+  face.passOp = VK_STENCIL_OP_KEEP;
+  face.depthFailOp = VK_STENCIL_OP_KEEP;
+  face.compareOp = VK_COMPARE_OP_ALWAYS;
+  face.compareMask = 0xff;
+  face.writeMask = 0;
+  switch (shape.stencil) {
+    case PipelineShape::Stencil::off:
+      break;
+    case PipelineShape::Stencil::test:
+      depth.stencilTestEnable = VK_TRUE;
+      face.compareOp = VK_COMPARE_OP_EQUAL;
+      break;
+    case PipelineShape::Stencil::replace:
+      depth.stencilTestEnable = VK_TRUE;
+      face.passOp = VK_STENCIL_OP_REPLACE;
+      face.writeMask = 0xff;
+      break;
+    case PipelineShape::Stencil::increment:
+      depth.stencilTestEnable = VK_TRUE;
+      face.passOp = VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+      face.writeMask = 0xff;
+      break;
+  }
+  depth.front = face;
+  depth.back = face;
+
+  std::vector<VkDynamicState> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  if (shape.stencil != PipelineShape::Stencil::off) {
+    dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
+  }
   auto dynamic = make<VkPipelineDynamicStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO);
   dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size());
   dynamic.pDynamicStates = dynamic_states.data();
@@ -389,6 +429,7 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   info.pRasterizationState = &raster;
   info.pMultisampleState = &multisample;
   info.pColorBlendState = &color;
+  info.pDepthStencilState = &depth;
   info.pDynamicState = &dynamic;
   info.layout = layout_;
   info.renderPass = pass;
@@ -481,8 +522,9 @@ VkPipeline Pipelines::post(VkRenderPass pass, bool blend) const {
   return create_pipeline(pass, shape);
 }
 
-VkPipeline Pipelines::ui(VkRenderPass pass) const {
+VkPipeline Pipelines::ui(VkRenderPass pass, PipelineShape::Stencil stencil) const {
   PipelineShape shape;
+  shape.stencil = stencil;
   shape.vertex = ui_vertex_;
   shape.fragment = ui_fragment_;
   // Rml::Vertex: position (2 floats), premultiplied RGBA8, texture coordinate (2 floats).

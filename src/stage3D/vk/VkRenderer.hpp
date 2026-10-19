@@ -150,7 +150,7 @@ class VkRenderer final : public gfx::RendererBackend {
   [[nodiscard]] VkBuffer upload_walls(const WallGeometryStore& store);
   // Begins a pass on a target (the swapchain, or an offscreen image), with the given scissor.
   void begin_pass(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool clear,
-                  VkRect2D scissor, VkDescriptorSet scene, bool swapchain);
+                  VkRect2D scissor, VkDescriptorSet scene, bool swapchain, bool clear_stencil = false);
   void end_pass();
   // Binds a pipeline when the open pass does not have it yet.
   void use(VkCommandBuffer command, VkPipeline pipeline);
@@ -170,10 +170,36 @@ class VkRenderer final : public gfx::RendererBackend {
   void record_screen_overlays(VkCommandBuffer command, int width, int height, int clip_width,
                               const ScreenEffects& effects);
   bool swapchain_pass_ = false;  // the open pass writes the swapchain image
-  // RmlUi: the pipeline (compatible with load_pass_), and the open UI pass and the frame's size.
-  VkPipeline ui_ = VK_NULL_HANDLE;
+  // RmlUi: the open UI pass, the frame's size, and the pipelines. Passes carry a D24S8 stencil for the
+  // clip masks: the first UI pass of a frame clears it, later ones keep it.
+  VkPipeline ui_ = VK_NULL_HANDLE;  // plain
+  VkPipeline ui_clip_ = VK_NULL_HANDLE;
+  VkPipeline ui_mask_replace_ = VK_NULL_HANDLE;
+  VkPipeline ui_mask_increment_ = VK_NULL_HANDLE;
+  VkRenderPass ui_pass_first_ = VK_NULL_HANDLE;  // clears the stencil
+  VkRenderPass ui_pass_ = VK_NULL_HANDLE;        // keeps it
   bool ui_open_ = false;
+  bool ui_cleared_ = false;  // this frame's stencil has been cleared
   int ui_width_ = 0;
   int ui_height_ = 0;
+  // One stencil image per frame slot, of the window size. A slot's image is reused only after its
+  // fence has passed, so no barrier across frames is needed.
+  struct UiStencil {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkExtent2D extent{};
+  };
+  std::array<UiStencil, gfx::vk::frames_in_flight> ui_stencil_{};
+  struct UiFramebuffer {
+    VkImageView color = VK_NULL_HANDLE;
+    VkImageView stencil = VK_NULL_HANDLE;
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+  };
+  std::vector<UiFramebuffer> ui_framebuffers_;
+  std::uint64_t ui_generation_ = ~std::uint64_t{};
+  [[nodiscard]] UiStencil& ui_stencil(VkExtent2D extent);
+  [[nodiscard]] VkFramebuffer ui_framebuffer(VkImageView color, VkImageView stencil, VkExtent2D extent);
+  void ui_reset_framebuffers() noexcept;
 };
 }  // namespace realm

@@ -26,10 +26,17 @@ struct Geometry {
   std::size_t index_count = 0;
 };
 
+// RmlUi's clip masks (the stencil buffer, as RenderInterface_GL3): a draw tests the mask (equal to
+// the reference), or writes it. Set and SetInverse clear the stencil first, then write 1 or 0 inside
+// the geometry. Intersect increments the stencil inside the geometry.
+enum class Clip : std::uint8_t { none, test, mask_set, mask_set_inverse, mask_intersect };
+
 struct Draw {
   Geometry geometry;
   std::uint32_t texture = 0;  // 0: untextured
   bool textured = false;
+  Clip clip = Clip::none;
+  std::uint32_t stencil_reference = 0;  // Clip::test: the value the stencil must equal
   float transform[16] = {};  // column-major: window pixels (after translate) to clip space
   float translate[2] = {0, 0};
   bool scissor = false;

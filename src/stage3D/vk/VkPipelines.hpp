@@ -58,6 +58,9 @@ struct PipelineShape {
   bool blend = true;
   // RmlUi's blend (ONE, ONE_MINUS_SRC_ALPHA): its colours are premultiplied.
   bool premultiplied = false;
+  // RmlUi's clip masks: test the stencil (equal to the dynamic reference), or write it.
+  enum class Stencil : std::uint8_t { off, test, replace, increment };
+  Stencil stencil = Stencil::off;
 };
 
 // The RmlUi push constants (76 bytes of the 84-byte range): the projection times RmlUi's transform,
@@ -84,7 +87,8 @@ class Pipelines {
   [[nodiscard]] VkPipeline model(VkRenderPass pass) const;             // instanced model geometry
   [[nodiscard]] VkPipeline mesh(VkRenderPass pass) const;              // prepared meshes
   [[nodiscard]] VkPipeline post(VkRenderPass pass, bool blend) const;  // full-screen post passes
-  [[nodiscard]] VkPipeline ui(VkRenderPass pass) const;                // RmlUi triangles, premultiplied
+  // RmlUi triangles, premultiplied, with the clip-mask stencil mode (passes with a stencil attachment).
+  [[nodiscard]] VkPipeline ui(VkRenderPass pass, PipelineShape::Stencil stencil) const;
   [[nodiscard]] VkPipeline create_pipeline(VkRenderPass pass, const PipelineShape& shape) const;
 
   // Set 0 for a frame of `slot`: the atlas array (binding 0) and that slot's wall corners (binding

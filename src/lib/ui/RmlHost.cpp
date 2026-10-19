@@ -1,3 +1,6 @@
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
 #include "realm/lib/ui/RmlHost.hpp"
 #include "realm/assets/VectorArt.hpp"
 #include "realm/util/Telemetry.hpp"
@@ -1593,6 +1596,16 @@ RmlHost::RmlHost(const FontBook& fonts, const HudArt* art) {
     throw std::logic_error("Only one RmlHost can exist at a time");
   }
   impl_ = std::make_unique<Impl>(fonts, art);
+  // Test-only switch (docs/vulkan): REALM_TEST_RML=<file.rml> shows that document over the context, so a
+  // capture can check a feature the client's own screens do not use.
+  if (const char* path = std::getenv("REALM_TEST_RML"); path && *path) {
+    std::ifstream in(path);
+    std::stringstream text;
+    text << in.rdbuf();
+    if (auto* document = impl_->context->LoadDocumentFromMemory(text.str(), path)) {
+      document->Show();
+    }
+  }
 }
 
 RmlHost::~RmlHost() = default;

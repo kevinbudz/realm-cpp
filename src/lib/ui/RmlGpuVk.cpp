@@ -129,27 +129,34 @@ class VkRenderInterface final : public Rml::RenderInterface {
 
   void RenderGeometry(Rml::CompiledGeometryHandle handle, Rml::Vector2f translation,
                       Rml::TextureHandle texture) override {
-    if (!handle || handle > geometries_.size() || !geometries_[handle - 1].live) {
-      return;
-    }
-    const auto& geometry = geometries_[handle - 1];
-    gfx::vk::ui::Draw draw;
-    draw.geometry.vertices = geometry.vertices.data();
-    draw.geometry.vertex_count = geometry.vertices.size();
-    draw.geometry.indices = geometry.indices.data();
-    draw.geometry.index_count = geometry.indices.size();
-    draw.texture = static_cast<std::uint32_t>(texture);
-    draw.textured = texture != 0;
-    draw.translate[0] = translation.x;
-    draw.translate[1] = translation.y;
-    projection(draw.transform);
-    draw.scissor = scissor_;
-    for (std::size_t i = 0; i < 4; ++i) {
-      draw.region[i] = region_[i];
-    }
-    ++draws;
-    gfx::vk::ui::draw(draw);
+    // While a clip mask is enabled, the geometry draws only where the stencil equals its reference.
+    draw_geometry(handle, translation, texture, clip_ ? gfx::vk::ui::Clip::test : gfx::vk::ui::Clip::none);
   }
+
+  // As RenderInterface_GL3: Set and SetInverse clear the stencil and write 1 (or 0) inside the
+  // geometry; Intersect increments it. The reference after each operation is the value the following
+  // draws must match.
+  void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry,
+                        Rml::Vector2f translation) override {
+    gfx::vk::ui::Clip clip = gfx::vk::ui::Clip::mask_set;
+    switch (operation) {
+      case Rml::ClipMaskOperation::Set:
+        clip = gfx::vk::ui::Clip::mask_set;
+        stencil_reference_ = 1;
+        break;
+      case Rml::ClipMaskOperation::SetInverse:
+        clip = gfx::vk::ui::Clip::mask_set_inverse;
+        stencil_reference_ = 1;
+        break;
+      case Rml::ClipMaskOperation::Intersect:
+        clip = gfx::vk::ui::Clip::mask_intersect;
+        stencil_reference_ += 1;
+        break;
+    }
+    draw_geometry(geometry, translation, 0, clip);
+  }
+
+  void EnableClipMask(bool enable) override { clip_ = enable; }
 
   void ReleaseGeometry(Rml::CompiledGeometryHandle handle) override {
     if (handle && handle <= geometries_.size()) {
@@ -201,12 +208,6 @@ class VkRenderInterface final : public Rml::RenderInterface {
     }
   }
 
-  void EnableClipMask(bool enable) override {
-    if (enable) {
-      log_once("clip masks (border-radius clipping) are not implemented on Vulkan yet");
-    }
-  }
-
   Rml::LayerHandle PushLayer() override {
     log_once("layers (filters, backdrop) are not implemented on Vulkan yet");
     return {};
@@ -220,6 +221,33 @@ class VkRenderInterface final : public Rml::RenderInterface {
   Rml::CompiledFilterHandle CompileFilter(const Rml::String& /*name*/, const Rml::Dictionary& /*parameters*/) override {
     log_once("filters are not implemented on Vulkan yet");
     return {};
+  }
+
+  // Draws compiled geometry (a clip mask's geometry draws into the stencil with no texture).
+  void draw_geometry(Rml::CompiledGeometryHandle handle, Rml::Vector2f translation, Rml::TextureHandle texture,
+                     gfx::vk::ui::Clip clip) {
+    if (!handle || handle > geometries_.size() || !geometries_[handle - 1].live) {
+      return;
+    }
+    const auto& geometry = geometries_[handle - 1];
+    gfx::vk::ui::Draw draw;
+    draw.geometry.vertices = geometry.vertices.data();
+    draw.geometry.vertex_count = geometry.vertices.size();
+    draw.geometry.indices = geometry.indices.data();
+    draw.geometry.index_count = geometry.indices.size();
+    draw.texture = static_cast<std::uint32_t>(texture);
+    draw.textured = texture != 0;
+    draw.clip = clip;
+    draw.stencil_reference = stencil_reference_;
+    draw.translate[0] = translation.x;
+    draw.translate[1] = translation.y;
+    projection(draw.transform);
+    draw.scissor = scissor_;
+    for (std::size_t i = 0; i < 4; ++i) {
+      draw.region[i] = region_[i];
+    }
+    ++draws;
+    gfx::vk::ui::draw(draw);
   }
 
   // Nearest sampling at the image's own size: HUD art and items.
@@ -289,6 +317,8 @@ class VkRenderInterface final : public Rml::RenderInterface {
   std::vector<Geometry> geometries_;
   bool scissor_ = false;
   std::array<int, 4> region_{};
+  bool clip_ = false;
+  std::uint32_t stencil_reference_ = 0;
   bool has_transform_ = false;
   Rml::Matrix4f transform_;
   std::unordered_set<std::string> logged_;

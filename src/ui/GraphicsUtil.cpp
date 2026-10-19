@@ -1,6 +1,7 @@
 #include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace realm {
 std::vector<Vec2> cut_edge_rect(double x, double y, double width, double height, double cut,
@@ -56,32 +57,89 @@ void ui_path(Image& image, std::span<const Vec2> path, std::optional<std::uint32
   const int x1 = std::min(image.width, static_cast<int>(std::ceil((right + radius + 1) * scale)));
   const int y0 = std::max(0, static_cast<int>(std::floor((top - radius - 1) * scale)));
   const int y1 = std::min(image.height, static_cast<int>(std::ceil((bottom + radius + 1) * scale)));
+  if (x1 <= x0 || y1 <= y0) {
+    return;
+  }
+  // Past `reach` from every edge, both coverages are saturated: the fill is 1 inside and 0 outside
+  // (its ramp spans 1/scale around the edge) and the stroke is 0 (its ramp ends at radius + 1/2
+  // px). Only pixels within `reach` of an edge need the exact distance, so the band is marked first
+  // and the rest take a saturated distance. The margin keeps rounding of the marking test from
+  // deciding a pixel the exact test would not.
+  const double reach = radius + .5 / scale;
+  const double reach_squared = reach * reach * (1 + 1e-9);
+  const auto width = static_cast<std::size_t>(x1 - x0);
+  std::vector<unsigned char> band(width * static_cast<std::size_t>(y1 - y0), 0);
+  for (std::size_t i = 0, j = path.size() - 1; i < path.size(); j = i++) {
+    const auto start = path[i];
+    const auto end = path[j];
+    const double dx = end.x - start.x;
+    const double dy = end.y - start.y;
+    const double length = dx * dx + dy * dy;
+    const int bx0 =
+        std::max(x0, static_cast<int>(std::floor((std::min(start.x, end.x) - reach) * scale)) - 1);
+    const int bx1 =
+        std::min(x1, static_cast<int>(std::ceil((std::max(start.x, end.x) + reach) * scale)) + 1);
+    const int by0 =
+        std::max(y0, static_cast<int>(std::floor((std::min(start.y, end.y) - reach) * scale)) - 1);
+    const int by1 =
+        std::min(y1, static_cast<int>(std::ceil((std::max(start.y, end.y) + reach) * scale)) + 1);
+    for (int py = by0; py < by1; ++py) {
+      const double y = (py + .5) / scale;
+      for (int px = bx0; px < bx1; ++px) {
+        const double x = (px + .5) / scale;
+        const double fraction =
+            length > 0 ? std::clamp(((x - start.x) * dx + (y - start.y) * dy) / length, 0.0, 1.0)
+                       : 0;
+        const double qx = x - start.x - fraction * dx, qy = y - start.y - fraction * dy;
+        if (qx * qx + qy * qy <= reach_squared) {
+          band[static_cast<std::size_t>(py - y0) * width + static_cast<std::size_t>(px - x0)] = 1;
+        }
+      }
+    }
+  }
+  // Crossings are the even-odd edge tests of one row: the row's y and every edge's x at that y are
+  // the same expressions the per-pixel test used, so the parity is unchanged.
+  std::vector<double> crossings;
+  crossings.reserve(path.size());
   for (int py = y0; py < y1; ++py) {
+    const double y = (py + .5) / scale;
+    crossings.clear();
+    for (std::size_t i = 0, j = path.size() - 1; i < path.size(); j = i++) {
+      const auto start = path[i];
+      const auto end = path[j];
+      if ((start.y > y) != (end.y > y)) {
+        crossings.push_back((end.x - start.x) * (y - start.y) / (end.y - start.y) + start.x);
+      }
+    }
     for (int px = x0; px < x1; ++px) {
-      const Vec2 p{(px + .5) / scale, (py + .5) / scale};
+      const Vec2 p{(px + .5) / scale, y};
       if (p.x > clip_right) {
         continue;
       }
       bool inside = false;
-      double distance = 1e9;
-      for (std::size_t i = 0, j = path.size() - 1; i < path.size(); j = i++) {
-        const auto start = path[i];
-        const auto end = path[j];
-        if ((start.y > p.y) != (end.y > p.y) &&
-            p.x < (end.x - start.x) * (p.y - start.y) / (end.y - start.y) + start.x) {
+      for (const double crossing : crossings) {
+        if (p.x < crossing) {
           inside = !inside;
         }
-        const double dx = end.x - start.x;
-        const double dy = end.y - start.y;
-        const double length = dx * dx + dy * dy;
-        const double fraction =
-            length > 0 ? std::clamp(((p.x - start.x) * dx + (p.y - start.y) * dy) / length, 0.0,
-                                    1.0)
-                       : 0;
-        distance = std::min(
-            distance, std::hypot(p.x - start.x - fraction * dx, p.y - start.y - fraction * dy));
       }
-      
+      double distance = 2 * reach;
+      if (band[static_cast<std::size_t>(py - y0) * width + static_cast<std::size_t>(px - x0)]) {
+        distance = 1e9;
+        for (std::size_t i = 0, j = path.size() - 1; i < path.size(); j = i++) {
+          const auto start = path[i];
+          const auto end = path[j];
+          const double dx = end.x - start.x;
+          const double dy = end.y - start.y;
+          const double length = dx * dx + dy * dy;
+          const double fraction =
+              length > 0
+                  ? std::clamp(((p.x - start.x) * dx + (p.y - start.y) * dy) / length, 0.0, 1.0)
+                  : 0;
+          distance = std::min(
+              distance, std::hypot(p.x - start.x - fraction * dx, p.y - start.y - fraction * dy));
+        }
+      }
+
       auto* pixel =
           &image.pixels[(static_cast<std::size_t>(py) * static_cast<std::size_t>(image.width) +
                          static_cast<std::size_t>(px)) *
@@ -97,7 +155,8 @@ void ui_path(Image& image, std::span<const Vec2> path, std::optional<std::uint32
         pixel[3] = static_cast<unsigned char>(std::lround(alpha * 255 + pixel[3] * (1 - alpha)));
       };
       if (fill) {
-        over(*fill, std::clamp(.5 + (inside ? distance : -distance) * scale, 0.0, 1.0) * fill_alpha);
+        over(*fill,
+             std::clamp(.5 + (inside ? distance : -distance) * scale, 0.0, 1.0) * fill_alpha);
       }
       if (stroke) {
         over(*stroke, std::clamp((radius - distance) * scale + .5, 0.0, 1.0));

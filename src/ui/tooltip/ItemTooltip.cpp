@@ -161,11 +161,8 @@ void ItemTooltip::render(const ItemTooltipTarget& target) {
       restrictions.empty() ? attributes_bottom : restrictions_y + field_height(restrictions, 14);
   content_height_ = static_cast<int>(std::ceil(bottom + origin));
 
-  image_ = ui_image(width, height(), fonts_.pixel_scale());
   const bool usable_frame = target.usable || target.player_type == 0;
-  ui_path(image_,
-          cut_edge_rect(padding - 6, padding - 6, content_width + 12, content_height_ + 12, 4),
-          usable_frame ? 0x363636 : 6036765, usable_frame ? 0x9b9b9b : 10965039, 1);
+  image_ = frame_layer(usable_frame);
 
   if (art_.contains(icon)) {
     blit(art_.image(icon), 0, static_cast<int>(origin), true);
@@ -209,6 +206,30 @@ void ItemTooltip::render(const ItemTooltipTarget& target) {
          restrictions_y + origin);
   }
   shadow();
+}
+
+const Image& ItemTooltip::frame_layer(bool usable) {
+  constexpr std::size_t capacity = 6;
+  const int frame_height = height();
+  const double scale = fonts_.pixel_scale();
+  for (auto& frame : frames_) {
+    if (frame.height == frame_height && frame.usable == usable && frame.scale == scale) {
+      frame.used = ++frame_clock_;
+      return frame.image;
+    }
+  }
+  Image made = ui_image(width, frame_height, scale);
+  ui_path(made,
+          cut_edge_rect(padding - 6, padding - 6, content_width + 12, content_height_ + 12, 4),
+          usable ? 0x363636 : 6036765, usable ? 0x9b9b9b : 10965039, 1);
+  if (frames_.size() < capacity) {
+    frames_.push_back({frame_height, usable, scale, std::move(made), ++frame_clock_});
+    return frames_.back().image;
+  }
+  auto oldest = std::min_element(frames_.begin(), frames_.end(),
+                                 [](const Frame& a, const Frame& b) { return a.used < b.used; });
+  *oldest = {frame_height, usable, scale, std::move(made), ++frame_clock_};
+  return oldest->image;
 }
 
 void ItemTooltip::shadow() {

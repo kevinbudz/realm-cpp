@@ -5,6 +5,7 @@
 #include "realm/stage3D/WallGeometry.hpp"
 #include "realm/map/PostEffects.hpp"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -82,6 +83,17 @@ class TerrainBuffer {
   std::size_t count_{};
 };
 
+// The CPU-only part of one quad in a submission, in the quad's own order: what the draw loop
+// decides runs by. owner is the quad's owner.get(); the submission's quads keep it alive while
+// drawn.
+struct QuadMeta {
+  const void* owner{};
+  std::uint32_t texture{};
+  float kind{};
+  float model{};  // offset[2]: the model of a kind 9 instance
+  float walls{};  // multiply[1]: the corner count of a kind 17 wall
+};
+
 // A clipped overlay kept together in painter order (minimap map, markers, arrow and buttons).
 struct QuadLayer {
   QuadLayer() = default;
@@ -90,8 +102,11 @@ struct QuadLayer {
   ~QuadLayer();
   std::vector<Quad> quads;
   std::uint32_t buffer{};
-  // The quads last uploaded to buffer (owners dropped); skips re-uploading an unchanged layer.
-  std::vector<Quad> uploaded;
+  // Packed GPU instances (quad_instance_bytes each) of quads, and the bytes last uploaded to
+  // buffer; an unchanged layer keeps the buffer's contents.
+  std::vector<std::byte> packed;
+  std::vector<std::byte> uploaded;
+  std::vector<QuadMeta> meta;
 };
 
 class Renderer {
@@ -168,6 +183,7 @@ class Renderer {
   };
 
   std::vector<MeshBatchVertex> mesh_vertices_;
+  std::vector<QuadMeta> meta_;  // run data of the submission being drawn (quads, then overlay)
   std::vector<MeshBatchRange>
       mesh_ranges_;  // One per mesh quad, in the order draw_batch visits them.
   std::size_t mesh_cursor_{};
@@ -184,14 +200,23 @@ class Renderer {
   void bind_walls();
   void upload_walls(const WallGeometryStore& store);
 
-  // Draws a painter-ordered quad list whose bytes start at offset in buffer.
-  void draw_batch(std::span<const Quad> list, std::size_t offset, int width, int height,
-                  std::uint32_t buffer, bool measure_models);
+  // Draws a painter-ordered quad list whose instances start at offset (bytes) in buffer. meta
+  // holds the run data of list's quads, in order.
+  void draw_batch(std::span<const Quad> list, std::span<const QuadMeta> meta, std::size_t offset,
+                  int width, int height, std::uint32_t buffer, bool measure_models);
   void bind_quad_attributes(std::size_t offset);
   void draw_instanced(std::uint32_t mode, std::int32_t first_vertex, std::int32_t vertices,
                       std::int32_t instances, std::size_t first_instance) const;
+  // Packs list's instances into `instances` and its run data into `meta`, one pass. With collect,
+  // the pass also gathers the list's meshes (in order) and its wall store, as collect_meshes and
+  // find_walls do for layers.
+  void pack_quads(std::span<const Quad> list, std::byte* instances, QuadMeta* meta,
+                  const WallGeometryStore*& walls, bool collect);
   void collect_meshes(std::span<const Quad> list);
-  void upload_meshes(std::span<const Quad> quads, std::span<const Quad> overlay);
+  // Packs and uploads one submission (quads, then overlay). Returns the stream buffer.
+  [[nodiscard]] std::uint32_t upload_submission(std::span<const Quad> quads,
+                                                std::span<const Quad> overlay);
+  void upload_mesh_vertices();
   void release_gl_resources() noexcept;
   int viewport_location_{};
   int model_viewport_{};

@@ -802,4 +802,23 @@ void Hud::bar(const StatusBarState& state) {
     text(boost, 14, true, color, ax + amount_width, state.y - 3, .6);
   }
 }
+
+void warm_hud_art(const HudArt& art, const Catalog& catalog, const FontBook& fonts) {
+  // The heading draws the player's portrait, which needs a legal class. Priest is the class the
+  // stress and fixture players use; another class's portrait is decoded on first use.
+  const auto* priest = catalog.object("Priest");
+  if (!priest) {
+    return;
+  }
+  // Inventory tab and stats tab (selected 0 and 1) draw different art. Each scratch Hud does a full
+  // first build, so its keys are all requested.
+  for (const int selected : {0, 1}) {
+    Hud scratch(fonts, &art, &catalog);
+    HudState state;
+    state.inventory.enabled = true;
+    state.inventory.selected = selected;
+    state.inventory.portrait = priest->type;
+    scratch.update(state);
+  }
+}
 }

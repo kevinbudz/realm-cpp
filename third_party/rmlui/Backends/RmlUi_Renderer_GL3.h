@@ -3,6 +3,8 @@
 #include <RmlUi/Core/RenderInterface.h>
 #include <RmlUi/Core/Types.h>
 #include <bitset>
+#include <cstdint>
+#include <vector>
 
 enum class ProgramId;
 enum class UniformId;
@@ -30,6 +32,11 @@ public:
 
 	// Optional, can be used to clear the active framebuffer.
 	void Clear();
+	// realm: true when the last EndFrame composited the cached layer instead of drawing the frame.
+	[[nodiscard]] bool frame_reused() const { return reused_frame; }
+	// realm: call before texture contents are written outside the backend. Commands queued for the frame are replayed first, and the
+	// frame cache is invalidated.
+	void TextureContentChanged();
 
 	// -- Inherited from Rml::RenderInterface --
 
@@ -91,6 +98,26 @@ private:
 
 	void DrawFullscreenQuad();
 	void DrawFullscreenQuad(Rml::Vector2f uv_offset, Rml::Vector2f uv_scaling = Rml::Vector2f(1.f));
+	// realm: frame command recording. See BeginFrame.
+	struct FrameCommand {
+		enum class Kind : std::uint8_t { Geometry, Scissor, EnableScissor, Transform };
+		Kind kind{};
+		bool flag{};  // EnableScissor: enable; Transform: matrix present
+		Rml::CompiledGeometryHandle geometry{};
+		Rml::TextureHandle texture{};
+		Rml::Vector2f translation{};
+		Rml::Rectanglei region{};
+		Rml::Matrix4f matrix{};
+		bool operator==(const FrameCommand& other) const {
+			return kind == other.kind && flag == other.flag && geometry == other.geometry && texture == other.texture &&
+				translation == other.translation && region == other.region && matrix == other.matrix;
+		}
+	};
+	void EndRecording();
+	void ReplayFrameCommands();
+	void ClearPreviousBounds();
+	void ReleaseGeometryNow(Rml::CompiledGeometryHandle handle);
+	void ReleaseTextureNow(Rml::TextureHandle texture);
 
 	void RenderBlur(float sigma, const Gfx::FramebufferData& source_destination, const Gfx::FramebufferData& temp, Rml::Rectanglei window_flipped);
 
@@ -119,6 +146,26 @@ private:
 	Rml::Rectanglei previous_bounds = Rml::Rectanglei::MakeInvalid();
 
 	Rml::UniquePtr<const Gfx::ProgramData> program_data;
+
+	// realm: frame cache. Between BeginFrame and EndFrame, draw, scissor and transform calls are queued and replayed in order (see
+	// EndRecording), so a frame can be decided before any of its GL runs. A frame whose queue and resource generation equal the
+	// last replayed frame's reuses that frame's resolved layer (postprocess primary), which is still in place
+	// because nothing else writes it: only the layer, filter and shader paths do, and those end recording and disable reuse.
+	bool recording = false;
+	bool frame_flushed = false;
+	bool reused_frame = false;
+	std::vector<FrameCommand> frame_commands;
+	std::vector<FrameCommand> previous_commands;
+	std::vector<Rml::CompiledGeometryHandle> deferred_geometry;
+	std::vector<Rml::TextureHandle> deferred_textures;
+	// Bumped by any change to the drawn content: texture or geometry creation and release, texture writes and viewport changes.
+	std::uint64_t generation = 0;
+	bool cache_valid = false;
+	std::uint64_t cached_generation = 0;
+	Rml::Rectanglei cached_frame_bounds = Rml::Rectanglei::MakeInvalid();
+	bool cached_frame_full_screen = false;
+	bool cached_scissor_enabled = false;
+	int cached_scissor_box[4] = {};
 
 	/*
 	    Manages render targets, including the layer stack and postprocessing framebuffers.
@@ -170,42 +217,17 @@ private:
 
 	RenderLayerStack render_layers;
 
-	struct GLStateBackup {
-		bool enable_cull_face;
-		bool enable_blend;
-		bool enable_stencil_test;
-		bool enable_scissor_test;
-		bool enable_depth_test;
-
-		int viewport[4];
-		int scissor[4];
-
-		int active_texture;
-
-		int stencil_clear_value;
-		float color_clear_value[4];
-		unsigned char color_writemask[4];
-
-		int blend_equation_rgb;
-		int blend_equation_alpha;
-		int blend_src_rgb;
-		int blend_dst_rgb;
-		int blend_src_alpha;
-		int blend_dst_alpha;
-
-		struct Stencil {
-			int func;
-			int ref;
-			int value_mask;
-			int writemask;
-			int fail;
-			int pass_depth_fail;
-			int pass_depth_pass;
-		};
-		Stencil stencil_front;
-		Stencil stencil_back;
-	};
-	GLStateBackup glstate_backup = {};
+	// realm: the UI pass does not back up GL state. SetFrameState sets everything the pass depends on on entry, and SetBaseState leaves the
+	// renderer's baseline on exit, so no frame waits for the driver. The scissor test and box and the stencil reference are tracked
+	// here, because reading them back would stall too.
+	void SetFrameState();
+	void SetBaseState();
+	void SetGlScissorTest(bool enable);
+	void SetGlScissorBox(int x, int y, int width, int height);
+	void SetStencilFunc(unsigned int func, int ref);
+	bool gl_scissor_on = false;
+	int gl_scissor_box[4] = {};
+	int stencil_ref = 0;
 };
 
 /**

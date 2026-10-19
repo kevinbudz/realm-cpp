@@ -47,7 +47,10 @@ void WindowSession::open(const char* title, int width, int height, bool hidden, 
 
   glewExperimental = GL_TRUE;
   const auto glew_status = glewInit();
-  if (glew_status != GLEW_OK) {
+  // Under EGL (native Wayland, X11 with SDL_VIDEO_FORCE_EGL) GLEW has no current GLX display and
+  // returns GLEW_ERROR_NO_GLX_DISPLAY only after the GL core entry points and version flags are
+  // loaded; the 3.3 check below covers them.
+  if (glew_status != GLEW_OK && glew_status != GLEW_ERROR_NO_GLX_DISPLAY) {
     throw std::runtime_error(reinterpret_cast<const char*>(glewGetErrorString(glew_status)));
   }
 

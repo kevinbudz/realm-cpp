@@ -13,6 +13,7 @@
 #include <chrono>
 #include <list>
 #include <optional>
+#include <string>
 #include <unordered_map>
 
 namespace realm {
@@ -27,7 +28,10 @@ class Scene {
   [[nodiscard]] std::size_t appearance_bytes() const { return appearance_bytes_; }
 
   // Condition icons and names are drawn with their objects; without art none are.
-  void set_status_art(StatusArt* art) { status_art_ = art; }
+  void set_status_art(StatusArt* art) {
+    status_art_ = art;
+    name_labels_.clear();
+  }
 
   // Differential oracle: with culling off every entity and particle is built, so a test can prove
   // the camera bounds never drop anything that reaches the viewport. Never disabled in the client.
@@ -231,6 +235,18 @@ class Scene {
   // SpiderWeb.wallFound_: webs stay hidden until a Wall touches them, then keep that rotation.
   std::unordered_map<std::int32_t, double> webs_;
 
+  // The name label of each entity. A name's bitmap depends only on its text (rasterized at density
+  // 1 whatever the zoom), so the label is reused while the text holds.
+  struct NameLabel {
+    std::string text;
+    StatusArt::Label label;
+    std::uint64_t seen{};  // the build that last used it
+  };
+
+  std::unordered_map<std::int32_t, NameLabel> name_labels_;
+  std::uint64_t name_build_{};
+  StatusArt::Label name_label(const Entity& e);
+
   // One catalog lookup and one depth projection per camera-visible entity, reused by every pass
   // below.
   struct Visible {
@@ -238,10 +254,8 @@ class Scene {
     const ObjectDef* def;
     int depth;
     std::int32_t id;
-    // The entity's screen point at its z, and on the ground (z = 0, the depth's source). Projection
-    // is a pure function of the camera and position, so every pass reads these instead of
-    // projecting again.
-    Vec2 at, ground;
+    // Kept small: the sort and the passes move these. Screen points are projected where used (a
+    // pure function of the camera and the entity's position, so the same values).
     std::uint8_t draw_class;  // DrawClass of def, as TypeEntry::draw_class
     // The base texture's sprite, once the shadow pass has read it (draw_impl reuses it: same call,
     // same result).
@@ -266,6 +280,8 @@ class Scene {
   // The first flash of each target, by index into world.particles().flashes(), for this build.
   std::unordered_map<std::int32_t, std::size_t> flash_index_;
   std::vector<Visible> visible_, visible_scratch_;
+  std::vector<std::uint64_t> visible_order_, visible_order_scratch_;
+  std::vector<std::uint32_t> visible_depths_;  // visible_[i].depth - base, for the depth sort
 
   struct DrawItem {
     const Entity* entity{};

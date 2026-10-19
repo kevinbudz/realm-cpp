@@ -289,6 +289,8 @@ if(BUILD_TESTING)
         SOURCES tests/InteractionTests.cpp LINK realm_ui)
     realm_add_test(NAME item_tooltips TARGET realm_tooltip_tests LABELS unit
         SOURCES tests/TooltipTests.cpp LINK realm_game realm_ui)
+    realm_add_test(NAME graphics_placement TARGET realm_graphics_placement_tests LABELS unit
+        SOURCES tests/GraphicsPlacementTests.cpp LINK realm_ui)
     realm_add_test(NAME player_tooltips TARGET realm_player_tooltip_tests LABELS unit
         SOURCES tests/PlayerTooltipTests.cpp LINK realm_ui)
     realm_add_test(NAME guild_members TARGET realm_guild_members_tests LABELS unit

@@ -5,6 +5,24 @@
 
 namespace realm {
 namespace {
+// Sets the font book's density for one rasterization and restores the previous one, so a label can
+// be made at a fixed density whatever the frame's density is.
+class DensityScope {
+ public:
+  DensityScope(FontBook& fonts, double density) : fonts_(fonts), saved_(fonts.pixel_scale()) {
+    fonts_.set_pixel_scale(density);
+  }
+
+  ~DensityScope() { fonts_.set_pixel_scale(saved_); }
+
+  DensityScope(const DensityScope&) = delete;
+  DensityScope& operator=(const DensityScope&) = delete;
+
+ private:
+  FontBook& fonts_;
+  double saved_;
+};
+
 int texture_height(const ObjectDef& definition) {
   const auto& texture = definition.texture;
   if (texture.animated >= 0 &&
@@ -19,16 +37,21 @@ int texture_height(const ObjectDef& definition) {
 }
 
 StatusArt::Label StatusArt::label(std::string key, std::string_view text, int size,
-                                  std::uint32_t color, unsigned strength, double blur) {
+                                  std::uint32_t color, unsigned strength, double blur,
+                                  double density) {
   if (!text_) {
     return {};
   }
-  key += ':' + std::to_string(fonts_.pixel_scale());
+  const double scale = density > 0 ? density : fonts_.pixel_scale();
+  key += ':' + std::to_string(scale);
   if (const auto it = labels_.find(key); it != labels_.end()) {
     lru_.splice(lru_.begin(), lru_, it->second.lru);
     return it->second.label;
   }
-  const auto bitmap = fonts_.rasterize_glow(text, size, true, color, strength, blur);
+  const auto bitmap = [&] {
+    const DensityScope at(fonts_, scale);
+    return fonts_.rasterize_glow(text, size, true, color, strength, blur);
+  }();
   Label result{std::make_shared<const Image>(bitmap.image), bitmap.width, bitmap.height,
                bitmap.offset};
   const std::size_t bytes = result.image->pixels.size();
@@ -52,7 +75,9 @@ StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t col
 }
 
 StatusArt::Label StatusArt::name(std::string_view text) {
-  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2);
+  // Density 1 whatever the camera zoom: the scene scales the quad, so a zoom change keeps the same
+  // bitmap (nearest-sampled when zoomed).
+  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2, 1.0);
 }
 
 StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size) {

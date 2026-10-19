@@ -162,6 +162,24 @@ void finish(Image& image, bool shadow, unsigned shadow_strength, double blur = 4
   }
 }
 
+// Sum over k in [-radius, radius] of weight(k) * value(i + k), with values outside [0, n) taken as
+// 0. The weights are edge_weight at k = +-radius and 2 between. The sum is a running window, which
+// is exact because it is integer arithmetic: the same results as the direct double loop.
+template <typename Value, typename Put>
+void blur_line(int n, int radius, unsigned edge_weight, Value&& value, Put&& put) {
+  const auto at = [&](int i) -> unsigned { return i >= 0 && i < n ? value(i) : 0U; };
+  // window = sum of value(j) for j in [i - radius + 1, i + radius - 1].
+  unsigned window{};
+  for (int j = -radius + 1; j <= radius - 1; ++j) {
+    window += at(j);
+  }
+  for (int i = 0; i < n; ++i) {
+    put(i, 2U * window + edge_weight * (at(i - radius) + at(i + radius)));
+    window += at(i + radius);
+    window -= at(i - radius + 1);
+  }
+}
+
 // DropShadowFilter(0,0,0,.5,12,12) at quality 1, each pass sums 13 taps weighted 1,2,...,2,1;
 // the horizontal pass divides by 24, the vertical pass by 48 (including half alpha), truncating
 // both. Resized text uses a box of the same logical radius.
@@ -170,41 +188,33 @@ void soft_shadow(Image& image) {
   std::vector<unsigned> horizontal(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
   const bool exact = image.pixel_scale == 1;
   const int radius = exact ? 6 : std::max(1, static_cast<int>(std::lround(6 * image.pixel_scale)));
-  const auto weight = [&](int k) { return exact && std::abs(k) == radius ? 1U : 2U; };
+  const unsigned edge_weight = exact ? 1U : 2U;
   const unsigned total = exact ? 24U : static_cast<unsigned>(radius * 2 + 1) * 2U;
   for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      unsigned sum{};
-      for (int k = -radius; k <= radius; ++k) {
-        if (x + k >= 0 && x + k < w) {
-          sum +=
-              weight(k) * image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                        static_cast<std::size_t>(x + k)) *
-                                           4 +
-                                       3];
-        }
-      }
-      horizontal[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                 static_cast<std::size_t>(x)] = sum / total;
-    }
+    const auto row = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+    blur_line(
+        w, radius, edge_weight,
+        [&](int x) -> unsigned {
+          return image.pixels[(row + static_cast<std::size_t>(x)) * 4 + 3];
+        },
+        [&](int x, unsigned sum) { horizontal[row + static_cast<std::size_t>(x)] = sum / total; });
   }
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      unsigned sum{};
-      for (int k = -radius; k <= radius; ++k) {
-        if (y + k >= 0 && y + k < h) {
-          sum +=
-              weight(k) * horizontal[static_cast<std::size_t>(y + k) * static_cast<std::size_t>(w) +
-                                     static_cast<std::size_t>(x)];
-        }
-      }
-      const unsigned shadow = sum / (total * 2U);
-      auto& alpha = image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
-                                  static_cast<std::size_t>(x)) *
-                                     4 +
-                                 3];
-      alpha = static_cast<unsigned char>(alpha + (std::min(255U, shadow) * (256U - alpha) >> 8U));
-    }
+  for (int x = 0; x < w; ++x) {
+    blur_line(
+        h, radius, edge_weight,
+        [&](int y) -> unsigned {
+          return horizontal[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                            static_cast<std::size_t>(x)];
+        },
+        [&](int y, unsigned sum) {
+          const unsigned shadow = sum / (total * 2U);
+          auto& alpha = image.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                                      static_cast<std::size_t>(x)) *
+                                         4 +
+                                     3];
+          alpha =
+              static_cast<unsigned char>(alpha + (std::min(255U, shadow) * (256U - alpha) >> 8U));
+        });
   }
 }
 
@@ -1096,22 +1106,94 @@ TextBitmap redrawable_text(std::function<TextBitmap(Vec2)> render) {
   return result;
 }
 
-TextBitmap place_text(const TextBitmap& text, double scale, double& x, double& y) {
+namespace {
+using Recipe = std::function<TextBitmap(Vec2)>;
+
+// Exact memo of recipe renders for place_text. The key is the recipe object's identity and the
+// phase bits (no quantization), so a hit returns the bytes a fresh render would produce. The entry
+// keeps the recipe alive, so its address cannot be reused by another recipe while the entry exists.
+struct PlacedKey {
+  const void* recipe{};
+  std::uint64_t x{}, y{};
+  bool operator==(const PlacedKey&) const = default;
+};
+
+struct PlacedKeyHash {
+  std::size_t operator()(const PlacedKey& key) const noexcept {
+    std::size_t seed = std::hash<const void*>{}(key.recipe);
+    for (const std::uint64_t word : {key.x, key.y}) {
+      seed ^=
+          std::hash<std::uint64_t>{}(word) + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U);
+    }
+    return seed;
+  }
+};
+
+class PlacedMemo {
+ public:
+  // The bitmap render(phase) would return. The reference is valid until the next get() call.
+  const TextBitmap& get(const std::shared_ptr<const Recipe>& recipe, Vec2 phase) {
+    const PlacedKey key{recipe.get(), std::bit_cast<std::uint64_t>(phase.x),
+                        std::bit_cast<std::uint64_t>(phase.y)};
+    if (const auto found = entries_.find(key); found != entries_.end()) {
+      lru_.splice(lru_.begin(), lru_, found->second.position);
+      return found->second.bitmap;
+    }
+    // A recipe may place other text (redrawable_text), so it renders before the memo is touched.
+    TextBitmap bitmap = (*recipe)(phase);
+    const std::size_t bytes = bitmap.image.pixels.size();
+    while (!lru_.empty() && bytes_ + bytes > budget) {
+      const auto victim = entries_.find(lru_.back());
+      bytes_ -= victim->second.bytes;
+      entries_.erase(victim);
+      lru_.pop_back();
+    }
+    lru_.push_front(key);
+    bytes_ += bytes;
+    return entries_.emplace(key, Entry{recipe, std::move(bitmap), bytes, lru_.begin()})
+        .first->second.bitmap;
+  }
+
+ private:
+  // Bounded in bytes. Each text bitmap at density is a few tens of KB to about 1 MB.
+  static constexpr std::size_t budget = 16 * 1024 * 1024;
+
+  struct Entry {
+    std::shared_ptr<const Recipe> recipe;
+    TextBitmap bitmap;
+    std::size_t bytes{};
+    std::list<PlacedKey>::iterator position;
+  };
+
+  std::unordered_map<PlacedKey, Entry, PlacedKeyHash> entries_;
+  std::list<PlacedKey> lru_;
+  std::size_t bytes_{};
+};
+
+// The bitmap to blit for `text` at logical (x,y) on a surface of density `scale`. x and y move to
+// the whole-pixel origin. A text without a recipe, or at another density, is returned as it is.
+const TextBitmap& placed_text(const TextBitmap& text, double scale, double& x, double& y) {
   if (!text.redraw || scale == 1 || text.image.pixel_scale != scale || !std::isfinite(x) ||
       !std::isfinite(y)) {
     return text;
   }
+  static thread_local PlacedMemo memo;
   const double dx = x * scale, dy = y * scale, nx = std::floor(dx), ny = std::floor(dy);
-  auto exact = (*text.redraw)({dx - nx, dy - ny});
+  const auto& exact = memo.get(text.redraw, {dx - nx, dy - ny});
   x = nx / scale;
   y = ny / scale;
   return exact;
+}
+}
+
+TextBitmap place_text(const TextBitmap& text, double scale, double& x, double& y) {
+  return placed_text(text, scale, x, y);
 }
 
 void ui_blit_text(Image& destination, const TextBitmap& text, double x, double y,
                   bool source_premultiplied, bool destination_premultiplied, double opacity,
                   double clip_x, double clip_y, double clip_width, double clip_height) {
-  const auto placed = place_text(text, destination.pixel_scale, x, y);
+  const auto& placed = placed_text(text, destination.pixel_scale, x, y);
   ui_blit(destination, placed.image, x, y, source_premultiplied, destination_premultiplied, opacity,
           clip_x, clip_y, clip_width, clip_height);
 }

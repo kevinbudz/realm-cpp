@@ -15,6 +15,16 @@ std::array<float, 2> floats(Vec2 v) {
   return {static_cast<float>(v.x), static_cast<float>(v.y)};
 }
 
+// Entities are read in painter and shadow order, which is not their storage order, so their lines
+// are pulled in ahead of use. A hint only: results do not depend on it.
+constexpr std::size_t entity_prefetch_distance = 16;
+void prefetch_entity(const Entity* e) {
+  const char* first = reinterpret_cast<const char*>(e);
+  for (std::size_t offset = 0; offset < sizeof(Entity); offset += 64) {
+    __builtin_prefetch(first + offset);
+  }
+}
+
 // The zoom in tenths when it is an exact tenth in [0.8, 2.0] other than 1.0; 10 otherwise. A
 // continuous zoom draws every sprite at scale 10, as it always has.
 std::uint8_t zoom_tenths(double zoom) {
@@ -102,6 +112,78 @@ bool bucket_by_depth(std::vector<T>& items, std::vector<T>& scratch,
   scratch.resize(items.size());
   for (const auto& item : items) {
     scratch[counts[static_cast<std::size_t>(item.depth - base)]++] = item;
+  }
+  items.swap(scratch);
+  return true;
+}
+
+// Sorts items by (depth, id) when ids are unique (Scene's visible entities): a radix sort of the
+// biased ids, carried as 8-byte keys with each item's index, then the stable counting sort by depth
+// over that order. The result is the (depth, id) order whatever the gather order, so it equals
+// bucket_by_depth followed by sorting each equal-depth run by id, without the per-run comparison
+// sorts. False (items untouched) under the same conditions as bucket_by_depth.
+template <class T>
+bool sort_by_depth_then_id(std::vector<T>& items, std::vector<T>& scratch,
+                           std::vector<std::uint64_t>& order,
+                           std::vector<std::uint64_t>& order_scratch,
+                           std::vector<std::uint32_t>& counts, std::vector<std::uint32_t>& depths,
+                           std::size_t minimum) {
+  if (items.size() < 2) {
+    return true;
+  }
+  if (items.size() < minimum) {
+    return false;
+  }
+  const std::size_t n = items.size();
+  // One pass over the items gathers the depth bounds, the 32-bit depths (the counting passes then
+  // read 4-byte values, not the items) and the biased id keys.
+  order.resize(n);
+  depths.resize(n);
+  int low = items[0].depth;
+  int high = low;
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto& item = items[i];
+    low = std::min(low, item.depth);
+    high = std::max(high, item.depth);
+    depths[i] = static_cast<std::uint32_t>(item.depth);
+    const auto biased = static_cast<std::uint32_t>(item.id) ^ 0x80000000U;
+    order[i] = (static_cast<std::uint64_t>(biased) << 32U) | i;
+  }
+  const auto span = static_cast<std::size_t>(static_cast<std::int64_t>(high) - low) + 1;
+  if (span > 4 * n + 4096) {
+    return false;
+  }
+  // Depths are stored raw; the bucket of one is depth - base in uint32, which wraps correctly.
+  const auto base = static_cast<std::uint32_t>(low);
+  // Stable LSD radix on the biased id (bits 32..63), 11 bits a pass.
+  order_scratch.resize(n);
+  for (unsigned shift = 32; shift < 64; shift += 11) {
+    std::array<std::uint32_t, 2048> offsets{};
+    for (const auto key : order) {
+      ++offsets[(key >> shift) & 2047U];
+    }
+    std::uint32_t sum = 0;
+    for (auto& offset : offsets) {
+      const auto count = offset;
+      offset = sum;
+      sum += count;
+    }
+    for (const auto key : order) {
+      order_scratch[offsets[(key >> shift) & 2047U]++] = key;
+    }
+    order.swap(order_scratch);
+  }
+  counts.assign(span + 1, 0);
+  for (const auto depth : depths) {
+    ++counts[static_cast<std::size_t>(depth - base) + 1];
+  }
+  for (std::size_t i = 1; i < counts.size(); ++i) {
+    counts[i] += counts[i - 1];
+  }
+  scratch.resize(n);
+  for (const auto key : order) {
+    const auto i = static_cast<std::size_t>(key & 0xffffffffU);
+    scratch[counts[static_cast<std::size_t>(depths[i] - base)]++] = items[i];
   }
   items.swap(scratch);
   return true;
@@ -706,6 +788,31 @@ void Scene::emit_wall(std::vector<Quad>& out, WallRange& range,
   }
 }
 
+// The label for an entity's name. StatusArt::name keys its cache by text on every call; here a
+// named entity keeps its label until its text changes. Names are rasterized at density 1 for every
+// zoom, so the label does not depend on the camera. Cleared at a size bound (rebuilt labels are
+// identical: the bitmap is a function of the text).
+StatusArt::Label Scene::name_label(const Entity& e) {
+  constexpr std::size_t maximum_name_labels = 8192;
+  if (const auto found = name_labels_.find(e.id);
+      found != name_labels_.end() && found->second.text == e.profile.name) {
+    found->second.seen = name_build_;
+    return found->second.label;
+  }
+  auto label = status_art_->name(e.profile.name);
+  if (name_labels_.size() >= maximum_name_labels) {
+    // Ids of entities that left are never reused soon: drop the entries no recent build used, and
+    // only clear when that frees nothing.
+    std::erase_if(name_labels_,
+                  [&](const auto& entry) { return entry.second.seen + 1 < name_build_; });
+    if (name_labels_.size() >= maximum_name_labels) {
+      name_labels_.clear();
+    }
+  }
+  name_labels_[e.id] = NameLabel{e.profile.name, label, name_build_};
+  return label;
+}
+
 void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
                   const AnimationLibrary& animations, const ProcessedTextures* processed,
                   const Terrain* terrain, const Appearances* appearances, Vec2 position,
@@ -713,6 +820,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
                   std::vector<Quad>& out) {
   REALM_ZONE("scene.build");
   submitted_.fill(0);
+  ++name_build_;
   // A nearly full store is replaced rather than cleared: quads of an earlier build that still
   // reference it keep their contents.
   if (!walls_ || walls_->vertices().size() > walls_->limit() / 4 * 3) {
@@ -805,7 +913,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
           q.kind = 3;
           q.uv_offset = {static_cast<float>(offset.x), static_cast<float>(offset.y)};
         }
-        out.push_back(q);
+        out.push_back(std::move(q));
         if (terrain && visual.overlay >= 0) {
           out.push_back(ground_quad(atlas.additional(static_cast<std::size_t>(visual.overlay)),
                                     world_pos, camera));
@@ -835,7 +943,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       negative_ids |= e.id < 0;
       const auto ground = camera.world_to_screen(e.motion.position);
       visible_.push_back({&e, def, static_cast<int>(ground.y / zoom + camera.clip_rect().y), e.id,
-                          at, ground, type.draw_class});
+                          type.draw_class});
     };
     if (!cull_ || scan_visibility_) {
       for (const auto& e : world.entities()) {
@@ -853,19 +961,9 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   }
   {
     REALM_ZONE("scene.sort_entities");
-    // Bucket by depth, then order each (short) equal-depth run by id: the same (depth, id) order as
-    // one comparison sort.
-    if (bucket_by_depth(visible_, visible_scratch_, depth_counts_, depth_bucket_minimum_)) {
-      for (auto run = visible_.begin(); run != visible_.end();) {
-        const auto end = std::find_if(run + 1, visible_.end(), [&](const Visible& visible) {
-          return visible.depth != run->depth;
-        });
-        if (end - run > 1) {
-          std::sort(run, end, [](const Visible& a, const Visible& b) { return a.id < b.id; });
-        }
-        run = end;
-      }
-    } else {
+    // Sorted by (depth, id): the same order as one comparison sort.
+    if (!sort_by_depth_then_id(visible_, visible_scratch_, visible_order_, visible_order_scratch_,
+                               depth_counts_, visible_depths_, depth_bucket_minimum_)) {
       std::sort(visible_.begin(), visible_.end(), [](const Visible& a, const Visible& b) {
         return a.depth == b.depth ? a.id < b.id : a.depth < b.depth;
       });
@@ -932,8 +1030,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     // world_dyes returns the entity's own dyes unless it is the focus player.
     auto dyes = e.player ? world_dyes(world, e)
                          : std::array<std::uint32_t, 2>{e.appearance.tex1, e.appearance.tex2};
-    const auto screen =
-        visible ? visible->at : camera.world_to_screen(e.motion.position, e.motion.z);
+    const auto screen = camera.world_to_screen(e.motion.position, e.motion.z);
     const TextureDef* const base_texture =
         e.player ? &world.catalog().player_texture(e.type, e.appearance.texture) : &d.texture;
     const TextureDef* tex = base_texture;
@@ -1150,14 +1247,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
           q.kind = 2;
           q.multiply = {0, 0, 0, 1};
         }
-        out.push_back(q);
+        out.push_back(std::move(q));
       }
       const auto top =
           texture(d.top, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
       auto q = ground_quad(top, {x, y}, camera, 1);
       q.multiply[0] = q.multiply[1] = q.multiply[2] =
           static_cast<float>(.75 + .5 / std::sqrt(14.0));
-      out.push_back(q);
+      out.push_back(std::move(q));
       return;
     }
     std::optional<std::uint32_t> model;
@@ -1348,7 +1445,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     if (status_art_ && !e.profile.name.empty() &&
         (d.show_name || d.nexus_portal || (d.player && e.id != world.player_id()))) {
       // GameObject.drawName: the name bitmap is centered on the object, top at its ground position.
-      const auto label = status_art_->name(e.profile.name);
+      const auto label = name_label(e);
       if (label.image) {
         const auto ground = camera.world_to_screen(e.motion.position);
         const double image_w = label.image->width / label.image->pixel_scale,
@@ -1382,7 +1479,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         q.multiply = {static_cast<float>((color >> 16U) & 255U) / 255,
                       static_cast<float>((color >> 8U) & 255U) / 255,
                       static_cast<float>(color & 255U) / 255, 1};
-        out.push_back(q);
+        out.push_back(std::move(q));
       };
       // Device pixels: the 40x5 bar origin and size round once, and the black frame is the same
       // border on all four sides, so its edges are hard at fractional UI scales.
@@ -1417,7 +1514,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
           q.multiply = {static_cast<float>((color >> 16U) & 255U) / 255,
                         static_cast<float>((color >> 8U) & 255U) / 255,
                         static_cast<float>(color & 255U) / 255, 1};
-          out.push_back(q);
+          out.push_back(std::move(q));
         };
         // Whole device pixels, as the health bar.
         const double bar_x = std::round(ground.x - 20 * zoom);
@@ -1463,7 +1560,11 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   {
     REALM_ZONE("scene.shadows");
     if (world.preferences().draw_shadows) {
-      for (auto& visible : visible_) {
+      for (std::size_t i = 0; i < visible_.size(); ++i) {
+        if (i + entity_prefetch_distance < visible_.size()) {
+          prefetch_entity(visible_[i + entity_prefetch_distance].entity);
+        }
+        auto& visible = visible_[i];
         const auto* e = visible.entity;
         const auto* d = visible.def;
         // Deliberate deviation from Flash: 3D objects (walls, caves, stalagmites and OBJ models)
@@ -1480,7 +1581,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         const double scale = e->projectile ? d->shadow_size / 400.0 * zoom
                                            : e->appearance.size / 100.0 * d->shadow_size / 100.0 *
                                                  base_sprite_height(visible, *d) / 8.0 * zoom;
-        const auto p = visible.ground;
+        const auto p = camera.world_to_screen(e->motion.position);
         const auto color = d->shadow_color;
         out.push_back(radial_shadow({p.x - 30 * scale, p.y - 15 * scale}, {60 * scale, 0},
                                     {0, 30 * scale},
@@ -1503,10 +1604,14 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     REALM_ZONE("scene.particle_gather");
     ordered_.clear();
     particle_items_.clear();
-    for (const auto& visible : visible_) {
-      if (visible.def && !visible.def->draw_under) {
-        ordered_.push_back({visible.entity, nullptr, visible.depth,
-                            static_cast<std::uint32_t>(visible.id), visible.def, &visible});
+    // Only the negative-id path merges through ordered_. Otherwise the draw walk reads visible_ in
+    // its sorted order directly.
+    if (negative_ids) {
+      for (const auto& visible : visible_) {
+        if (visible.def && !visible.def->draw_under) {
+          ordered_.push_back({visible.entity, nullptr, visible.depth,
+                              static_cast<std::uint32_t>(visible.id), visible.def, &visible});
+        }
       }
     }
     for (const auto& particle : world.particles().particles()) {
@@ -1628,19 +1733,38 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     } else {
       // The two sorted runs are walked together. An entity is drawn before the next particle unless
       // that particle precedes it in (depth, 0x80000000+order), which is the order std::merge gave.
+      // Entities are the drawable visible_ entries in their sorted order; the same comparison as the
+      // ordered_ walk, with an entity's order key the 32-bit id it always had.
+      const std::size_t count = visible_.size();
+      const auto drawable = [&](std::size_t i) {
+        return visible_[i].def && !visible_[i].def->draw_under;
+      };
       std::size_t next = 0;
-      for (const auto& item : particle_items_) {
-        while (next < ordered_.size() &&
-               !(item.depth == ordered_[next].depth
-                     ? 0x80000000ULL + item.particle->order < ordered_[next].order
-                     : item.depth < ordered_[next].depth)) {
-          draw(*ordered_[next].entity, *ordered_[next].def, ordered_[next].visible);
+      const auto skip_undrawn = [&] {
+        while (next < count && !drawable(next)) {
           ++next;
+        }
+      };
+      skip_undrawn();
+      for (const auto& item : particle_items_) {
+        while (next < count &&
+               !(item.depth == visible_[next].depth
+                     ? 0x80000000ULL + item.particle->order <
+                           static_cast<std::uint64_t>(static_cast<std::uint32_t>(visible_[next].id))
+                     : item.depth < visible_[next].depth)) {
+          if (next + entity_prefetch_distance < count) {
+            prefetch_entity(visible_[next + entity_prefetch_distance].entity);
+          }
+          draw(*visible_[next].entity, *visible_[next].def, &visible_[next]);
+          ++next;
+          skip_undrawn();
         }
         draw_particle(*item.particle, item.at);
       }
-      for (; next < ordered_.size(); ++next) {
-        draw(*ordered_[next].entity, *ordered_[next].def, ordered_[next].visible);
+      while (next < count) {
+        draw(*visible_[next].entity, *visible_[next].def, &visible_[next]);
+        ++next;
+        skip_undrawn();
       }
     }
   }

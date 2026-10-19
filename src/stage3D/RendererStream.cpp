@@ -18,7 +18,7 @@ RendererStream::RendererStream(std::size_t capacity, bool persistent_streaming,
     for (std::size_t i = 0; i < buffers_.size(); ++i) {
       glBindBuffer(GL_ARRAY_BUFFER, buffers_[i]);
       capacities_[i] = capacity_;
-      const auto bytes = static_cast<GLsizeiptr>(capacity_ * sizeof(Quad));
+      const auto bytes = static_cast<GLsizeiptr>(capacity_ * quad_instance_bytes);
       if (persistent_) {
         constexpr auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
         glBufferStorage(GL_ARRAY_BUFFER, bytes, nullptr, flags);
@@ -72,14 +72,13 @@ void RendererStream::ensure_capacity(std::size_t total) {
   }
 }
 
-std::uint32_t RendererStream::upload(std::span<const Quad> quads, std::span<const Quad> overlay) {
-  REALM_ZONE("render.quad_upload");
-  telemetry::add(telemetry::Counter::quad_upload_bytes, quads.size_bytes() + overlay.size_bytes());
+std::span<std::byte> RendererStream::begin_upload(std::size_t bytes) {
+  telemetry::add(telemetry::Counter::quad_upload_bytes, bytes);
   const auto slot = frame_ % buffers_.size();
   // Small post-cache streams benchmark faster with orphaning on the Nexus workload; reserve the
   // mapped path for substantial streams. A zero threshold lets differential tests exercise it at
   // any size.
-  const bool mapped = persistent_ && quads.size_bytes() + overlay.size_bytes() >= minimum_bytes_;
+  const bool mapped = persistent_ && bytes >= minimum_bytes_;
   auto buffer = mapped || !persistent_ ? buffers_[slot] : fallback_buffer_;
   bool available = true;
   if (mapped && fences_[slot]) {
@@ -98,6 +97,7 @@ std::uint32_t RendererStream::upload(std::span<const Quad> quads, std::span<cons
     buffer = fallback_buffer_;
   }
   glBindBuffer(GL_ARRAY_BUFFER, buffer);
+  pending_buffer_ = buffer;
   if (mapped && available) {
     if (capacities_[slot] < capacity_) {
       glUnmapBuffer(GL_ARRAY_BUFFER);
@@ -106,47 +106,46 @@ std::uint32_t RendererStream::upload(std::span<const Quad> quads, std::span<cons
       glGenBuffers(1, &buffers_[slot]);
       buffer = buffers_[slot];
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
+      pending_buffer_ = buffer;
       capacities_[slot] = capacity_;
       constexpr auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-      const auto bytes = static_cast<GLsizeiptr>(capacity_ * sizeof(Quad));
-      glBufferStorage(GL_ARRAY_BUFFER, bytes, nullptr, flags);
-      mapped_[slot] = glMapBufferRange(GL_ARRAY_BUFFER, 0, bytes, flags);
+      const auto mapped_bytes = static_cast<GLsizeiptr>(capacity_ * quad_instance_bytes);
+      glBufferStorage(GL_ARRAY_BUFFER, mapped_bytes, nullptr, flags);
+      mapped_[slot] = glMapBufferRange(GL_ARRAY_BUFFER, 0, mapped_bytes, flags);
       if (!mapped_[slot]) {
         throw std::runtime_error("Persistent quad buffer growth failed");
       }
     }
-    auto* target = static_cast<std::byte*>(mapped_[slot]);
-    if (!quads.empty()) {
-      std::memcpy(target, quads.data(), quads.size_bytes());
-    }
-    if (!overlay.empty()) {
-      std::memcpy(target + quads.size_bytes(), overlay.data(), overlay.size_bytes());
-    }
-  } else {
-    // Orphaned at this submission's size: the driver allocates the bytes drawn, not the whole
-    // capacity.
-    const auto bytes = static_cast<GLsizeiptr>(quads.size_bytes() + overlay.size_bytes());
-    if (overlay.empty()) {
-      glBufferData(GL_ARRAY_BUFFER, bytes, quads.data(), GL_STREAM_DRAW);
-    } else {
-      glBufferData(GL_ARRAY_BUFFER, bytes, nullptr, GL_STREAM_DRAW);
-      if (!quads.empty()) {
-        glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(quads.size_bytes()),
-                        quads.data());
-      }
-      glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(quads.size_bytes()),
-                      static_cast<GLsizeiptr>(overlay.size_bytes()), overlay.data());
-    }
+    pending_orphan_ = false;
+    return {static_cast<std::byte*>(mapped_[slot]), bytes};
   }
-  return buffer;
+  // Orphaned at this submission's size (end_upload): the driver allocates the bytes drawn, not the
+  // whole capacity.
+  pending_orphan_ = true;
+  staging_.resize(bytes);
+  return {staging_.data(), bytes};
 }
 
-std::uint32_t RendererStream::upload_overlay(std::span<const Quad> overlay) {
+std::uint32_t RendererStream::end_upload() {
+  glBindBuffer(GL_ARRAY_BUFFER, pending_buffer_);
+  if (pending_orphan_) {
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(staging_.size()), staging_.data(),
+                 GL_STREAM_DRAW);
+  }
+  return pending_buffer_;
+}
+
+std::span<std::byte> RendererStream::begin_overlay(std::size_t bytes) {
+  overlay_staging_.resize(bytes);
+  return {overlay_staging_.data(), bytes};
+}
+
+std::uint32_t RendererStream::end_overlay() {
   glBindBuffer(GL_ARRAY_BUFFER, overlay_buffer_);
-  telemetry::add(telemetry::Counter::quad_upload_bytes, overlay.size_bytes());
+  telemetry::add(telemetry::Counter::quad_upload_bytes, overlay_staging_.size());
   // Orphaned each call: the previous frame's draw may still be reading the old storage.
-  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(overlay.size_bytes()), overlay.data(),
-               GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(overlay_staging_.size()),
+               overlay_staging_.data(), GL_STREAM_DRAW);
   return overlay_buffer_;
 }
 

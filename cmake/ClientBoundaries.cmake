@@ -15,7 +15,8 @@ set(REALM_ALLOWED_realm_ui_gpu realm_build_options realm_ui realm_render)
 set(REALM_ALLOWED_realm_platform_sdl realm_build_options realm_platform realm_support SDL2::SDL2
     OpenGL::GL GLEW::GLEW)
 set(REALM_ALLOWED_realm_startup realm_build_options realm_ui realm_render)
-set(REALM_ALLOWED_realm_ui_rmlui realm_build_options realm_ui RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW)
+# realm_render: the Vulkan RmlUi backend (RmlGpuVk.cpp) draws through the renderer's UI seam (VkUi).
+set(REALM_ALLOWED_realm_ui_rmlui realm_build_options realm_ui realm_render RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW)
 set(REALM_ALLOWED_realm_application realm_build_options realm_startup realm_ui_views realm_platform_sdl realm_fixtures realm_ui_gpu realm_audio)
 set(REALM_ALLOWED_realm_ui_views realm_build_options realm_ui_rmlui realm_startup realm_render RmlUi::Core SDL2::SDL2)
 set(boundary_manifest "${CMAKE_CURRENT_BINARY_DIR}/client-boundaries.tsv")

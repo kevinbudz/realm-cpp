@@ -17,6 +17,7 @@
 
 namespace realm {
 namespace {
+VkRenderer* active_ = nullptr;  // see active_renderer()
 using gfx::vk::check;
 using gfx::vk::context;
 using gfx::vk::frames;
@@ -140,6 +141,8 @@ VkRenderer::VkRenderer(std::size_t capacity, bool /*persistent_streaming*/,
   mesh_ = pipelines().mesh(clear_pass_);
   post_plain_ = pipelines().post(clear_pass_, false);
   post_blend_ = pipelines().post(clear_pass_, true);
+  ui_ = pipelines().ui(load_pass_);
+  active_ = this;
   // The model triangles are uploaded once; every instance refers to a range of them.
   const auto geometry = model_geometry();
   model_geometry_ = resources().create_buffer(std::as_bytes(geometry));
@@ -155,6 +158,9 @@ VkRenderer::VkRenderer(std::size_t capacity, bool /*persistent_streaming*/,
 }
 
 VkRenderer::~VkRenderer() {
+  if (active_ == this) {
+    active_ = nullptr;
+  }
   auto& device = context();
   if (!device.ready()) {
     return;
@@ -182,7 +188,7 @@ VkRenderer::~VkRenderer() {
     gfx::vk::destroy_buffer(buffer);
   }
   resources().release(model_geometry_);
-  for (const auto pipeline : {strip_, list_, model_, mesh_, post_plain_, post_blend_}) {
+  for (const auto pipeline : {strip_, list_, model_, mesh_, post_plain_, post_blend_, ui_}) {
     device.fn.vkDestroyPipeline(device.device, pipeline, nullptr);
   }
   for (auto& timer : timers_) {
@@ -193,6 +199,8 @@ VkRenderer::~VkRenderer() {
   device.fn.vkDestroyRenderPass(device.device, clear_pass_, nullptr);
   device.fn.vkDestroyRenderPass(device.device, load_pass_, nullptr);
 }
+
+VkRenderer* active_renderer() noexcept { return active_; }
 
 VkFramebuffer VkRenderer::framebuffer(VkImageView view, VkExtent2D extent) {
   auto& device = context();
@@ -936,6 +944,75 @@ void sample_stats() {
   peaks.pools = std::max(peaks.pools, pipelines().pools());
 }
 }  // namespace
+
+void VkRenderer::ui_frame(int width, int height) {
+  ui_width_ = width;
+  ui_height_ = height;
+}
+
+void VkRenderer::ui_close() {
+  if (ui_open_) {
+    end_pass();
+    ui_open_ = false;
+  }
+}
+
+void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
+  const auto& geometry = draw.geometry;
+  if (!geometry.vertex_count || !geometry.index_count || !geometry.vertices || !geometry.indices ||
+      ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
+    return;  // no frame has bound the atlas yet, or nothing to draw
+  }
+  if (!ui_open_) {
+    const auto w = static_cast<std::uint32_t>(ui_width_);
+    const auto h = static_cast<std::uint32_t>(ui_height_);
+    const auto& target = frames().target(w, h);
+    const auto swap = framebuffer(target.view, target.extent);
+    begin_pass(load_pass_, swap, target.extent, false, rect(ui_width_, ui_height_), VK_NULL_HANDLE,
+               true);
+    ui_open_ = true;
+  }
+  auto& frame = frames();
+  const auto command = frame.record();
+  auto& ring = frame.ring();
+  const auto vertex_bytes = geometry.vertex_count * sizeof(gfx::vk::ui::Vertex);
+  const auto index_bytes = geometry.index_count * sizeof(std::uint32_t);
+  const auto vertices = ring.allocate(vertex_bytes, 16);
+  std::memcpy(vertices.data, geometry.vertices, vertex_bytes);
+  const auto indices = ring.allocate(index_bytes, 4);
+  std::memcpy(indices.data, geometry.indices, index_bytes);
+
+  use(command, ui_);
+  bind_surface(command, draw.textured ? draw.texture : 0);
+  auto& device = context();
+  VkDeviceSize vertex_offset = vertices.offset;
+  device.fn.vkCmdBindVertexBuffers(command, 0, 1, &vertices.buffer, &vertex_offset);
+  device.fn.vkCmdBindIndexBuffer(command, indices.buffer, indices.offset, VK_INDEX_TYPE_UINT32);
+
+  gfx::vk::UiPush push;
+  std::memcpy(push.transform, draw.transform, sizeof(push.transform));
+  push.translate[0] = draw.translate[0];
+  push.translate[1] = draw.translate[1];
+  push.textured = draw.textured ? 1 : 0;
+  device.fn.vkCmdPushConstants(command, pipelines().layout(),
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(push), &push);
+
+  // The region is clipped to the window: a Vulkan scissor must lie inside the framebuffer.
+  VkRect2D scissor = rect(ui_width_, ui_height_);
+  if (draw.scissor) {
+    const auto left = std::max(0, draw.region[0]);
+    const auto top = std::max(0, draw.region[1]);
+    const auto right = std::min(ui_width_, draw.region[0] + draw.region[2]);
+    const auto bottom = std::min(ui_height_, draw.region[1] + draw.region[3]);
+    scissor.offset = {left, top};
+    scissor.extent = {static_cast<std::uint32_t>(std::max(0, right - left)),
+                      static_cast<std::uint32_t>(std::max(0, bottom - top))};
+  }
+  device.fn.vkCmdSetScissor(command, 0, 1, &scissor);
+  device.fn.vkCmdDrawIndexed(command, static_cast<std::uint32_t>(geometry.index_count), 1, 0, 0, 0);
+  ++draw_calls_;
+}
 
 void VkRenderer::finish_frame() {
   if (stats_enabled()) {

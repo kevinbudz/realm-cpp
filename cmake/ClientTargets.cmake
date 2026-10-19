@@ -103,7 +103,7 @@ if(REALM_BUILD_VIEWER)
         src/stage3D/GraphicsBackend.cpp src/stage3D/gl/GlBackend.cpp src/stage3D/gl/RendererGl.cpp
         src/stage3D/gl/RendererPostProcess.cpp src/stage3D/gl/RendererGpuTimers.cpp
         src/stage3D/gl/RendererStream.cpp src/stage3D/vk/VulkanBackend.cpp src/stage3D/Atlas.cpp
-        src/stage3D/DrawPlan.cpp
+        src/stage3D/DrawPlan.cpp src/stage3D/vk/VkUi.cpp
         src/map/Scene.cpp src/background/Backdrop.cpp)
     target_link_libraries(realm_render PUBLIC realm_assets PRIVATE OpenGL::GL GLEW::GLEW)
     if(REALM_ENABLE_VULKAN)
@@ -123,7 +123,7 @@ if(REALM_BUILD_VIEWER)
         file(MAKE_DIRECTORY ${REALM_VK_SHADER_OUT})
         set(REALM_VK_SHADER_SPV "")
         foreach(shader quad.vert quad.frag model.vert model.frag mesh.vert mesh.frag post.vert
-                       post.frag)
+                       post.frag ui.vert ui.frag)
             set(in ${REALM_VK_SHADER_DIR}/${shader})
             set(out ${REALM_VK_SHADER_OUT}/${shader}.spv)
             add_custom_command(OUTPUT ${out}
@@ -169,7 +169,7 @@ if(REALM_BUILD_VIEWER)
         DEPENDS ${REALM_UI_FILES} "${PROJECT_SOURCE_DIR}/cmake/EmbedUiFiles.cmake" VERBATIM)
     realm_library(realm_ui_rmlui src/lib/ui/RmlHost.cpp src/lib/ui/RmlGpuGl.cpp src/lib/ui/RmlGpuVk.cpp
         "${REALM_UI_EMBEDDED}" ${REALM_RMLUI_BACKENDS})
-    target_link_libraries(realm_ui_rmlui PUBLIC realm_ui PRIVATE RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW)
+    target_link_libraries(realm_ui_rmlui PUBLIC realm_ui PRIVATE RmlUi::Core SDL2::SDL2 OpenGL::GL GLEW::GLEW realm_render)
     target_include_directories(realm_ui_rmlui SYSTEM PRIVATE "${RMLUI_BACKENDS_DIR}")
     target_compile_definitions(realm_ui_rmlui PRIVATE RMLUI_GL3_CUSTOM_LOADER=<GL/glew.h> RMLUI_SDL_VERSION_MAJOR=2)
     set_source_files_properties(${REALM_RMLUI_BACKENDS} PROPERTIES COMPILE_OPTIONS -w)

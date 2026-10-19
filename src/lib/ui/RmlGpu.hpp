@@ -57,8 +57,7 @@ class RmlGpu {
 
 // The implementation for gfx::active_api(). Throws if the API's renderer cannot be created.
 [[nodiscard]] std::unique_ptr<RmlGpu> make_rml_gpu(const HudArt* art);
-// The Vulkan implementation (RmlGpuVk.cpp). Phase S1 renders nothing; it lets world rendering run on
-// Vulkan alone.
+// The Vulkan implementation (RmlGpuVk.cpp): RmlUi's geometry and textures on the renderer's UI pass.
 [[nodiscard]] std::unique_ptr<RmlGpu> make_vulkan_rml_gpu(const HudArt* art);
 
 // Releases a texture that outlives the host (its renderer is gone). Only for teardown order.

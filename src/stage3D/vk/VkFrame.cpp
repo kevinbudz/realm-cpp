@@ -86,7 +86,8 @@ Ring::Span Ring::allocate(VkDeviceSize bytes, VkDeviceSize alignment) {
     Chunk chunk;
     chunk.buffer =
         create_ring_buffer(std::max(bytes, ring_chunk_bytes),
-                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
     chunk.used = true;
     chunks_.push_back(chunk);
   }

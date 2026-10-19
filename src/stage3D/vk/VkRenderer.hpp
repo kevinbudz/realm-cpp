@@ -8,6 +8,7 @@
 #include "VkCommon.hpp"
 #include "VkFrame.hpp"
 #include "VkPipelines.hpp"
+#include "realm/stage3D/vk/VkUi.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -23,6 +24,9 @@ void release_presented_copy() noexcept;
 // REALM_VK_STATS=1: prints the high-water marks of the steady-state memory (rings, arena, surface
 // sets).
 void report_stats() noexcept;
+// The renderer that owns the window's frames (null before it exists or after it is destroyed).
+class VkRenderer;
+[[nodiscard]] VkRenderer* active_renderer() noexcept;
 
 class VkRenderer final : public gfx::RendererBackend {
  public:
@@ -56,6 +60,12 @@ class VkRenderer final : public gfx::RendererBackend {
   [[nodiscard]] bool base_instance_draws() const override { return base_instance_; }
 
   void finish_frame() override;
+
+  // RmlUi (phase 3). ui_frame sets the window size of the frame's UI draws. ui_draw opens the UI pass
+  // on demand and records the geometry. ui_close ends the pass; it must run before any transfer.
+  void ui_frame(int width, int height);
+  void ui_draw(const gfx::vk::ui::Draw& draw);
+  void ui_close();
 
  private:
   // GPU timers: one query pool per slot; a sample comes back from its slot once the slot's fence
@@ -160,5 +170,10 @@ class VkRenderer final : public gfx::RendererBackend {
   void record_screen_overlays(VkCommandBuffer command, int width, int height, int clip_width,
                               const ScreenEffects& effects);
   bool swapchain_pass_ = false;  // the open pass writes the swapchain image
+  // RmlUi: the pipeline (compatible with load_pass_), and the open UI pass and the frame's size.
+  VkPipeline ui_ = VK_NULL_HANDLE;
+  bool ui_open_ = false;
+  int ui_width_ = 0;
+  int ui_height_ = 0;
 };
 }  // namespace realm

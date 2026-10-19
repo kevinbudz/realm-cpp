@@ -40,6 +40,7 @@ namespace realm::gfx::vk {
   X(vkCmdBeginRenderPass) X(vkCmdEndRenderPass) X(vkCmdBindPipeline) \
   X(vkCmdBindDescriptorSets) X(vkCmdBindVertexBuffers) X(vkCmdDraw) X(vkCmdSetViewport) \
   X(vkCmdSetScissor) X(vkCmdPushConstants) X(vkCmdCopyBufferToImage) \
+  X(vkCmdBindIndexBuffer) X(vkCmdDrawIndexed) \
   X(vkCmdCopyImageToBuffer) X(vkCmdCopyBuffer) X(vkCmdCopyImage) X(vkCmdClearColorImage) X(vkCmdResetQueryPool) \
   X(vkCmdWriteTimestamp) X(vkCreateFence) X(vkDestroyFence) X(vkWaitForFences) \
   X(vkResetFences) X(vkGetFenceStatus) X(vkCreateSemaphore) X(vkDestroySemaphore) \

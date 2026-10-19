@@ -56,7 +56,18 @@ struct PipelineShape {
   // The negative viewport flips winding: GL's counter-clockwise front is clockwise here.
   VkFrontFace front = VK_FRONT_FACE_CLOCKWISE;
   bool blend = true;
+  // RmlUi's blend (ONE, ONE_MINUS_SRC_ALPHA): its colours are premultiplied.
+  bool premultiplied = false;
 };
+
+// The RmlUi push constants (76 bytes of the 84-byte range): the projection times RmlUi's transform,
+// the translation, and whether the fragment samples the surface (set 1).
+struct UiPush {
+  float transform[16] = {};  // column-major, window pixels to clip space
+  float translate[2] = {0, 0};
+  std::int32_t textured = 0;
+};
+static_assert(sizeof(UiPush) == 76);
 
 class Pipelines {
  public:
@@ -73,6 +84,7 @@ class Pipelines {
   [[nodiscard]] VkPipeline model(VkRenderPass pass) const;             // instanced model geometry
   [[nodiscard]] VkPipeline mesh(VkRenderPass pass) const;              // prepared meshes
   [[nodiscard]] VkPipeline post(VkRenderPass pass, bool blend) const;  // full-screen post passes
+  [[nodiscard]] VkPipeline ui(VkRenderPass pass) const;                // RmlUi triangles, premultiplied
   [[nodiscard]] VkPipeline create_pipeline(VkRenderPass pass, const PipelineShape& shape) const;
 
   // Set 0 for a frame of `slot`: the atlas array (binding 0) and that slot's wall corners (binding
@@ -115,6 +127,8 @@ class Pipelines {
   VkShaderModule mesh_fragment_ = VK_NULL_HANDLE;
   VkShaderModule post_vertex_ = VK_NULL_HANDLE;
   VkShaderModule post_fragment_ = VK_NULL_HANDLE;
+  VkShaderModule ui_vertex_ = VK_NULL_HANDLE;
+  VkShaderModule ui_fragment_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout atlas_layout_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout surface_layout_ = VK_NULL_HANDLE;
   VkDescriptorSetLayout scene_layout_ = VK_NULL_HANDLE;

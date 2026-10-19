@@ -83,6 +83,8 @@ void Pipelines::create() {
   mesh_fragment_ = make_module(spirv::mesh_frag_spv, spirv::mesh_frag_spv_size);
   post_vertex_ = make_module(spirv::post_vert_spv, spirv::post_vert_spv_size);
   post_fragment_ = make_module(spirv::post_frag_spv, spirv::post_frag_spv_size);
+  ui_vertex_ = make_module(spirv::ui_vert_spv, spirv::ui_vert_spv_size);
+  ui_fragment_ = make_module(spirv::ui_frag_spv, spirv::ui_frag_spv_size);
 
   // Set 0: the atlas array, then the wall corners (vertex stage).
   const std::array<VkDescriptorSetLayoutBinding, 2> atlas_bindings{
@@ -162,7 +164,8 @@ void Pipelines::destroy() noexcept {
   device.fn.vkDestroyDescriptorSetLayout(device.device, surface_layout_, nullptr);
   device.fn.vkDestroyDescriptorSetLayout(device.device, scene_layout_, nullptr);
   for (const auto module : {quad_vertex_, quad_fragment_, model_vertex_, model_fragment_,
-                            mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_}) {
+                            mesh_vertex_, mesh_fragment_, post_vertex_, post_fragment_,
+                            ui_vertex_, ui_fragment_}) {
     device.fn.vkDestroyShaderModule(device.device, module, nullptr);
   }
   destroy_buffer(walls_);
@@ -170,6 +173,7 @@ void Pipelines::destroy() noexcept {
   atlas_layout_ = surface_layout_ = scene_layout_ = VK_NULL_HANDLE;
   quad_vertex_ = quad_fragment_ = model_vertex_ = model_fragment_ = VK_NULL_HANDLE;
   mesh_vertex_ = mesh_fragment_ = post_vertex_ = post_fragment_ = VK_NULL_HANDLE;
+  ui_vertex_ = ui_fragment_ = VK_NULL_HANDLE;
 }
 
 std::pair<VkDescriptorSet, VkDescriptorPool> Pipelines::allocate(VkDescriptorSetLayout layout) {
@@ -359,7 +363,7 @@ VkPipeline Pipelines::create_pipeline(VkRenderPass pass, const PipelineShape& sh
   // The GL blend: SRC_ALPHA / ONE_MINUS_SRC_ALPHA for colour, ONE / ONE_MINUS_SRC_ALPHA for alpha.
   VkPipelineColorBlendAttachmentState blend{};
   blend.blendEnable = shape.blend ? VK_TRUE : VK_FALSE;
-  blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  blend.srcColorBlendFactor = shape.premultiplied ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
   blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   blend.colorBlendOp = VK_BLEND_OP_ADD;
   blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -474,6 +478,22 @@ VkPipeline Pipelines::post(VkRenderPass pass, bool blend) const {
   shape.fragment = post_fragment_;
   shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
   shape.blend = blend;
+  return create_pipeline(pass, shape);
+}
+
+VkPipeline Pipelines::ui(VkRenderPass pass) const {
+  PipelineShape shape;
+  shape.vertex = ui_vertex_;
+  shape.fragment = ui_fragment_;
+  // Rml::Vertex: position (2 floats), premultiplied RGBA8, texture coordinate (2 floats).
+  shape.bindings.push_back({0, 20, VK_VERTEX_INPUT_RATE_VERTEX});
+  shape.attributes.push_back({0, 0, VK_FORMAT_R32G32_SFLOAT, 0});
+  shape.attributes.push_back({1, 0, VK_FORMAT_R8G8B8A8_UNORM, 8});
+  shape.attributes.push_back({2, 0, VK_FORMAT_R32G32_SFLOAT, 12});
+  shape.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  shape.cull = VK_CULL_MODE_NONE;
+  shape.blend = true;
+  shape.premultiplied = true;
   return create_pipeline(pass, shape);
 }
 

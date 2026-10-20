@@ -601,8 +601,10 @@ void VkRenderer::draw_list(VkCommandBuffer command, std::span<const Quad> list,
         const auto range = model_range(static_cast<std::uint32_t>(meta[run].model));
         const bool measured = active_timer_ && active_timer_->models < timer_model_limit;
         if (measured) {
+          // BOTTOM_OF_PIPE: the start waits for earlier draws, so runs do not overlap and their sum
+          // stays within the frame (a TOP_OF_PIPE start counted pipelined overlap twice on RADV).
           stamp(5 + 2 * static_cast<std::uint32_t>(active_timer_->models),
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
         }
         device.fn.vkCmdDraw(command, range.count, static_cast<std::uint32_t>(next - run),
                             range.first, static_cast<std::uint32_t>(run));

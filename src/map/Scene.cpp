@@ -1614,7 +1614,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   }
   {
     REALM_ZONE("scene.shadows");
-    if (world.preferences().draw_shadows) {
+    const auto shadows = world.preferences().shadows;
+    if (shadows != ShadowQuality::off) {
       for (std::size_t i = 0; i < visible_.size(); ++i) {
         if (i + entity_prefetch_distance < visible_.size()) {
           prefetch_entity(visible_[i + entity_prefetch_distance].entity);
@@ -1622,6 +1623,10 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         auto& visible = visible_[i];
         const auto* e = visible.entity;
         const auto* d = visible.def;
+        // Minimal skips a projectile's shadow before any other work for it.
+        if (e->projectile && shadows == ShadowQuality::minimal) {
+          continue;
+        }
         // Deliberate deviation from Flash: 3D objects (walls, caves, stalagmites and OBJ models)
         // never cast the radial shadow.
         if (!d || d->draw_under || !d->model.empty() || !d->shadow_size) {

@@ -70,6 +70,21 @@ OptionDef slider(Section at, std::string_view param, std::string_view label,
   return option;
 }
 
+// A row of checkboxes. The id names the row (its param is never stored); each box flips its own
+// hidden_value parameter.
+OptionDef checks(Section at, std::string_view id, std::string_view label, std::string_view tip,
+                 std::vector<CheckBox> boxes) {
+  auto option = row(at, K::checks, id, label, tip, 0);
+  option.boxes = std::move(boxes);
+  return option;
+}
+
+// A 0/1 parameter with no row of its own: it keeps its default, saved value and consumers, and a
+// checks row or a row shown elsewhere flips it.
+OptionDef hidden_value(Section at, std::string_view param, std::string_view label, int value) {
+  return row(at, K::hidden_value, param, label, {}, value);
+}
+
 std::vector<OptionDef> build() {
   std::vector<OptionDef> options;
   const auto add = [&](OptionDef option) { options.push_back(std::move(option)); };
@@ -211,11 +226,8 @@ std::vector<OptionDef> build() {
              std::move(sizes));
   resolution.disabled_by = "fullscreenMode";
   add(std::move(resolution));
-  add(toggle(at, "fullscreenMode", "Fullscreen", "Fills the whole screen with the game.", false));
-  add(toggle(at, "vsync", "VSync",
-             "Synchronizes rendering with the display refresh to prevent screen tearing."));
-  // The graphics API the window opens with. It is read once at startup (after vsync, so the
-  // Display section keeps its order).
+  // The graphics API the window opens with, read once at startup. It sits after Resolution, with
+  // the other window settings.
   auto renderer = choice(at, "renderer", "Renderer",
                          "Graphics API for the game window: OpenGL or Vulkan. Takes effect after "
                          "you restart the client.",
@@ -224,19 +236,25 @@ std::vector<OptionDef> build() {
                           {"Vulkan", static_cast<int>(gfx::Api::vulkan)}});
   renderer.restart = true;
   add(std::move(renderer));
+  add(toggle(at, "fullscreenMode", "Fullscreen", "Fills the whole screen with the game.", false));
+  add(toggle(at, "vsync", "VSync",
+             "Synchronizes rendering with the display refresh to prevent screen tearing."));
+  add(slider(at, "maxFPS", "Max FPS",
+             "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
+             "refresh with VSync on).",
+             0, 30, 1000, 1, {}, "\xE2\x88\x9E"));
+  // Performance Stats has no row: togglePerformanceStats flips it and the overlay follows.
+  add(hidden_value(at, "showStatistics", "Performance Stats", 0));
+  at.name = "Appearance";
   // World text at the camera zoom (names, signs, damage text, speech balloons). Live: no restart.
   add(choice(at, "uiQuality", "UI Quality",
              "Sharpness of names, signs, damage and balloons when zoomed. High redraws them "
              "at each zoom step; Low scales one bitmap, so zoom steps cost nothing.",
              1, {{"Low", 0}, {"High", 1}}));
-  add(slider(at, "maxFPS", "Max FPS",
-             "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
-             "refresh with VSync on).",
-             0, 30, 1000, 1, {}, "\xE2\x88\x9E"));
-  add(toggle(at, "showStatistics", "Performance Stats",
-             "Shows the frame rate, frame times and memory in the corner.", false));
-  at.name = "Appearance";
-  add(toggle(at, "drawShadows", "Shadows", "Draws shadows under players, enemies and objects."));
+  // Live: read each frame. Saved 0 is Off and 1 High, as the old toggle wrote them; Minimal is 2.
+  add(choice(at, "drawShadows", "Shadows",
+             "Draws shadows under players, enemies and objects. Minimal skips projectile shadows.",
+             1, {{"Off", 0}, {"Minimal", 2}, {"High", 1}}));
   add(toggle(at, "particles", "Particles",
              "Renders particles that are not needed for gameplay, such as hit and death "
              "particles."));
@@ -253,22 +271,28 @@ std::vector<OptionDef> build() {
              "Particle effects from other players. Minimal keeps heals, ability areas and flashes; "
              "Off hides them all.",
              1, {{"Off", 0}, {"Minimal", 2}, {"All", 1}}));
-  add(toggle(at, "allyShots", "Ally Shots",
-             "Shows other players' projectiles. Turn off to improve performance."));
-  add(toggle(at, "allyDamage", "Ally Damage",
-             "Shows damage dealt to and by other players. Turn off to improve performance."));
-  add(toggle(at, "allyNotifs", "Ally Notifications",
-             "Shows notifications aimed at other players. Turn off to improve performance."));
+  // The Show row's boxes keep their own saved values; the row shows them as one line of checkboxes.
+  add(hidden_value(at, "allyShots", "Ally Shots", 1));
+  add(hidden_value(at, "allyDamage", "Ally Damage", 1));
+  add(hidden_value(at, "allyNotifs", "Ally Notifications", 1));
+  add(checks(at, "allyShowRow", "Show..",
+             "Other players' projectiles, damage text and notifications. Turn off to improve "
+             "performance.",
+             {{"Shots", "allyShots"}, {"Damage", "allyDamage"}, {"Notifications", "allyNotifs"}}));
   // Native addition: BetterSkillys hides players by category ("Hide Players"). These fade them
-  // instead, each category with its own switch.
+  // instead, each category with its own box.
   at.name = "Players";
   add(slider(at, "playerAlpha", "Player Opacity",
-             "Fades the players chosen below. Lower values are more see-through; 0% hides them.",
+             "Fades the players picked under Apply to. Lower values are more see-through; 0% hides "
+             "them.",
              100, 0, 100, 1, "%"));
-  add(toggle(at, "fadePlayers", "Fade Other Players",
-             "Fades players who are neither in your guild nor locked."));
-  add(toggle(at, "fadeGuild", "Fade Guild Members", "Fades players in your guild.", false));
-  add(toggle(at, "fadeLocked", "Fade Locked Players", "Fades players you have locked.", false));
+  add(hidden_value(at, "fadePlayers", "Fade Other Players", 1));
+  add(hidden_value(at, "fadeGuild", "Fade Guild Members", 0));
+  add(hidden_value(at, "fadeLocked", "Fade Locked Players", 0));
+  add(checks(at, "fadeApplyRow", "Apply to..",
+             "Which players Player Opacity fades: unlocked players outside your guild, guild "
+             "members, and locked players.",
+             {{"Unlocked", "fadePlayers"}, {"Guild", "fadeGuild"}, {"Locked", "fadeLocked"}}));
   // Options.addSoundOptions, plus native volume sliders.
   at = {C::audio, "Volume"};
   add(slider(at, "masterVolume", "Master Volume", "Scales every sound the game plays.", 100, 0,
@@ -445,6 +469,9 @@ std::string value_text(const OptionDef& option, int value) {
       return std::string(key_name(value));
     case K::hidden_value:
       return std::to_string(value);
+    case K::checks:
+      // A checks row shows its boxes, not one value.
+      return {};
   }
   return {};
 }
@@ -487,7 +514,8 @@ int largest_resolution(int aspect, int max_width, int max_height) {
 
 Settings::Settings() : camera_angle_(default_angle), camera_zoom_(1) {
   for (const auto& option : table()) {
-    if (!option.param.empty()) {
+    // A checks row's param is only its id, so it is not a stored value.
+    if (!option.param.empty() && option.kind != K::checks) {
       values_.emplace(std::string(option.param), option.fallback);
     }
   }
@@ -537,6 +565,8 @@ bool Settings::valid(const OptionDef& option, int value) {
     case K::slider:
       return (value >= option.min && value <= option.max) ||
              (!option.top_label.empty() && value == 0);
+    case K::checks:
+      return false;
   }
   return false;
 }
@@ -544,7 +574,8 @@ bool Settings::valid(const OptionDef& option, int value) {
 bool Settings::set_value(std::string_view param, int value) {
   const auto* option = find_option(param);
   if (!option ||
-      (option->kind != K::toggle && option->kind != K::choice && option->kind != K::slider) ||
+      (option->kind != K::toggle && option->kind != K::hidden_value && option->kind != K::choice &&
+       option->kind != K::slider) ||
       !valid(*option, value)) {
     return false;
   }
@@ -565,9 +596,10 @@ double Settings::default_camera_angle() const {
 }
 
 void Settings::reset_category(OptionsCategory category) {
+  // Hidden toggles reset with their category (Performance Stats and the checks rows' boxes).
   for (const auto& option : table()) {
     if (option.category == category && !option.param.empty() && option.kind != K::hidden_key &&
-        option.kind != K::hidden_value) {
+        option.kind != K::checks) {
       values_[std::string(option.param)] = option.fallback;
     }
   }
@@ -585,7 +617,11 @@ Preferences Settings::preferences() const {
   p.hp_bars = flag("hpBars");
   p.ui_quality = get("uiQuality") == 0 ? UiQuality::low : UiQuality::high;
   p.particles = flag("particles");
-  p.draw_shadows = flag("drawShadows");
+  // Shadows: 0 is Off, 2 Minimal and 1 High, so a saved Off or High keeps its meaning.
+  const int shadows = get("drawShadows");
+  p.shadows = shadows == 0   ? ShadowQuality::off
+              : shadows == 2 ? ShadowQuality::minimal
+                             : ShadowQuality::high;
   p.proj_outline = flag("projOutline");
   p.smart_projectiles = flag("smartProjectiles");
   p.text_bubbles = flag("textBubbles");

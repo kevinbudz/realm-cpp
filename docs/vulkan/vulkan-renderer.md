@@ -725,7 +725,7 @@ Telemetry breakdown after the pass (S3, 3 reps, telemetry on, which adds about 2
 
 Open (not on the list, measured): `projectile_quad` takes a sincos per projectile (about 3.6 M Ir/frame on S3, about 20 000 projectiles); `animation_frame` takes an atan2 for each walking entity (about 1.8 M Ir/frame); `Quad` copies in `emplace_back` (about 1.6 M Ir/frame). Per-entity zones distort the frame (the aggregate zone search is linear), so use callgrind diffs for per-entity costs.
 
-UI Quality (Options › Video › Display, after Renderer; live, no restart). High (default) rasterizes names, signs, damage text and speech balloons at the camera zoom, so they stay crisp; Low rasterizes them once at density 1 and scales the bitmap. Verified 2026-10-19: High with frozen time (`--effect-time 0 --scene-time 0`) is byte-identical to the base build for damage text at zoom 1.3 and 2.0 and for a plain Nexus scene at both zooms. Names at High are rasterized at the zoom, which is the pre-density-1 behaviour, so they differ from the old density-1 names at zoom ≠ 1 by design. A zoom sweep with 20 signs, an ally name, a speaker name, a balloon and a damage number costs High 2.30 ms per frame (p95 2.95 ms, about 23 label re-rasters per frame) against Low 0.037 ms; with a fixed zoom both modes cost 0.033 ms.
+UI Quality (Options › Video › Appearance, first row; live, no restart). High (default) rasterizes names, signs, damage text and speech balloons at the camera zoom, so they stay crisp; Low rasterizes them once at density 1 and scales the bitmap. Verified 2026-10-19: High with frozen time (`--effect-time 0 --scene-time 0`) is byte-identical to the base build for damage text at zoom 1.3 and 2.0 and for a plain Nexus scene at both zooms. Names at High are rasterized at the zoom, which is the pre-density-1 behaviour, so they differ from the old density-1 names at zoom ≠ 1 by design. A zoom sweep with 20 signs, an ally name, a speaker name, a balloon and a damage number costs High 2.30 ms per frame (p95 2.95 ms, about 23 label re-rasters per frame) against Low 0.037 ms; with a fixed zoom both modes cost 0.033 ms.
 
 Identity: the S1 and S3 quad, state and packet checksums match the oracle in How to test. 120-frame GL captures at zoom 1 are byte-identical base and final. New md5s (plain `--capture`, 120 frames): churn `e4b13f5d0fa6161f6906f8f5d26d289d`, S1-mixed-dense `7b427977854a1df0ab9b3769310a4026`, S3-combat-cluster `5cf3f88e7d3bbd6ce983e597e9edad91`.
 
@@ -772,6 +772,20 @@ Identity (final build against HEAD): the six oracle values (300 frames) match; G
 ctest (full `-j4`): 89 of 91 pass; the two failures are the baseline `appearance_compose` and `options_gpu`. `-L gpu -j1`: 20 of 21 under GL and 20 of 21 with `REALM_RENDERER=vulkan`, the failure again `options_gpu`.
 
 Open: the next Combat cost is the fixed per-projectile work (two `projectile_position` calls with `travel_angle`'s `atan2`, tile and cover lookups, particle trails), about 1 ms of the mean at this load; the 1c move removal is a separate decision.
+
+### Projectile memo ceilings (2026-10-20)
+
+A per-projectile memo of the shadow and sprite quads (base HEAD c111a79) was measured as an upper bound before any memo code was written. Neither stage is in the tree. Method: a scratch copy with three environment switches, not in the repository. `REALM_EXP_NOSHADOW` drops projectile shadow quads (E1). `REALM_EXP_NOSPRITE` returns from `draw_impl` for projectiles (E2). `REALM_EXP_MEMO` is memo-shaped (E3): an entity-id hash lookup, an 88 B copy, the flash tint and the push, without the residency touch or the translation, so it bounds the memo from above. Runs at 1920×1024, telemetry off, 1000 frames, 3 interleaved reps, medians; zones from one telemetry-on run per label. 1-minute load at run start 1.1 to 2.8.
+
+| Config | base | E1 no proj shadows | E2 no proj sprites | E3 memo shape |
+|---|---|---|---|---|
+| S3-2k GL world, CPU mean (ms) | 2.785 | 2.758 | 2.595 | 2.691 |
+| S3-2k VK world, CPU mean (ms) | 2.705 | 2.646 | 2.607 | 2.654 |
+| S3-20k GL world, CPU mean (ms) | 6.486 | 6.218 | 5.317 | 6.136 |
+
+Zones (`scene.draw_stream` / `scene.shadows`, ms): S3-2k GL world 1.160 / 0.245 (E1 1.145 / 0.231, E2 1.056 / 0.244, E3 1.098 / 0.247); S3-2k VK world 1.135 / 0.242 (E1 1.129 / 0.233, E2 1.062 / 0.247, E3 1.069 / 0.245); S3-20k GL world 2.471 / 0.486 (E1 2.417 / 0.365, E2 1.825 / 0.510, E3 2.236 / 0.524). E2 also removes projectile quads from the upload, so its CPU delta is not all emission; E3 keeps them and is the closer bound.
+
+Decision: stage 1 (shadows) is rejected at the 0.05 ms gate. Projectile shadow emission is about 0.005 ms at 2k even when removed entirely. Stage 2 (sprites) is not implemented: the E3 ceiling at 2k is 0.06 to 0.07 ms of `scene.draw_stream`, at the gate, and a real memo must keep the residency touch (`TextureResidency::find` moves the entry to the LRU front and refreshes its protection stamp) plus the translation, so it lands at or below that. At 20k the E3 ceiling is 0.24 ms of `scene.draw_stream` and 0.35 ms of CPU mean (about 5%), so whether stage 2 is worth building for the 20k target is a lead decision.
 
 ## How to test
 

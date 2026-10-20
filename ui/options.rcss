@@ -130,6 +130,19 @@ body{z-index:100;background-color:transparent}
 .switch:hover .knob{background-color:#ffdc85}
 .switch.on .knob{margin-left:29dp}
 
+/* Checks: a row of boxes on one line. Each box uses the switch's frame colours on a 20 dp square, filled
+   green when on, and sits beside its label. The control sizes to the boxes (.wide), so the label keeps the rest. */
+.row .control.wide{width:auto}
+.checks{display:flex;flex-direction:row;align-items:center;height:28dp}
+.check{display:flex;flex-direction:row;align-items:center;height:28dp;margin-left:14dp}
+.check:first-child{margin-left:0dp}
+.check-box{width:20dp;height:20dp;decorator:paint(cut-rect 0x333333 0x444444 4 2)}
+.check:hover .check-box{decorator:paint(cut-rect 0x333333 0xb3b3b3 4 2)}
+.check.on .check-box{decorator:paint(cut-rect 0x57ad62 0x444444 4 2)}
+.check.on:hover .check-box{decorator:paint(cut-rect 0x57ad62 0xb3b3b3 4 2)}
+.check-label{margin-left:6dp;font-size:16dp;line-height:20dp;color:#b3b3b3;font-effect:shadow(0px 0px #000)}
+.check:hover .check-label{color:#ffffff}
+
 /* ChoiceBox as a dropdown: a bordered_field with the spinner's down arrow, and the list on a Deca popup. */
 select.choice{box-sizing:border-box;width:160dp;   /* until OptionsScreen fits it to its longest choice */
     height:28dp;font-size:16dp;font-weight:bold;color:#ffffff;

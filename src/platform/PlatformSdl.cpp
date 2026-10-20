@@ -155,6 +155,15 @@ void WindowSession::set_swap_interval(int interval) {
   }
 }
 
+int WindowSession::refresh_rate() const {
+  SDL_DisplayMode mode{};
+  const int display = std::max(SDL_GetWindowDisplayIndex(window), 0);
+  if (SDL_GetCurrentDisplayMode(display, &mode) != 0) {
+    return 0;
+  }
+  return mode.refresh_rate;
+}
+
 CursorSet::CursorSet(std::vector<unsigned char> pixels, int width, int height)
     : pixels_(std::move(pixels)), width_(width), height_(height) {}
 

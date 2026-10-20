@@ -122,6 +122,17 @@ std::string control_rml(const OptionDef& option, int value, const ChoiceList& ch
              std::to_string(slider_end(option)) + "\" step=\"" + std::to_string(option.step) +
              "\" value=\"" + std::to_string(slider_position(option, value)) +
              "\"/></div><div class=\"readout\"></div>";
+    case OptionDef::Kind::checks: {
+      // Each box is a switch's frame on a small square, with its label beside it. A box flips
+      // its own parameter, so it reads the same as a toggle row.
+      std::string result = "<div class=\"checks\">";
+      for (const auto& box : option.boxes) {
+        result += "<div class=\"check\" data-action=\"toggle\" data-param=\"" + escaped(box.param) +
+                  "\"><div class=\"check-box\"></div><div class=\"check-label\">" +
+                  escaped(box.label) + "</div></div>";
+      }
+      return result + "</div>";
+    }
     case OptionDef::Kind::hidden_key:
     case OptionDef::Kind::hidden_value:
       return {};
@@ -138,6 +149,8 @@ struct OptionsScreen::Impl {
     Rml::Element* fill{};
     Rml::Element* readout{};
     Rml::ElementList tiles;
+    // A checks row's boxes, in display order.
+    Rml::ElementList boxes;
     // The choices a dropdown lists, as its options were last built.
     ChoiceList offered;
     std::string text;
@@ -358,9 +371,13 @@ struct OptionsScreen::Impl {
                 "\"><div class=\"label\">" + escaped(option->label) + "</div>" +
                 gallery_rml(*option) + "</div>";
       } else {
+        // A checks row's boxes need more width than a control's column, so its control sizes to
+        // them.
+        const std::string control =
+            option->kind == OptionDef::Kind::checks ? "control wide" : "control";
         html += "<div class=\"row\" data-row=\"" + escaped(option->param) +
-                "\"><div class=\"label\">" + escaped(option->label) +
-                "</div><div class=\"control\">" +
+                "\"><div class=\"label\">" + escaped(option->label) + "</div><div class=\"" +
+                control + "\">" +
                 control_rml(*option, menu.value(*option), menu.choices(*option)) + "</div></div>";
       }
     }
@@ -379,13 +396,14 @@ struct OptionsScreen::Impl {
       Node node;
       node.def = find_option(row->GetAttribute<Rml::String>("data-row", ""));
       node.row = row;
-      node.control = row->QuerySelector(".key, .switch, select, input, .gallery");
+      node.control = row->QuerySelector(".key, .switch, select, input, .gallery, .checks");
       node.fill = row->QuerySelector(".fill");
       node.readout = row->QuerySelector(".readout");
       if (node.def && node.def->kind == OptionDef::Kind::choice) {
         node.offered = menu.choices(*node.def);
       }
       row->GetElementsByClassName(node.tiles, "tile");
+      row->GetElementsByClassName(node.boxes, "check");
       Rml::ElementList images;
       row->GetElementsByTagName(images, "native-image");
       for (auto* image : images) {
@@ -448,6 +466,13 @@ struct OptionsScreen::Impl {
         }
         case OptionDef::Kind::toggle:
           node.control->SetClass("on", value != 0);
+          break;
+        case OptionDef::Kind::checks:
+          // Each box shows its own parameter.
+          for (auto* box : node.boxes) {
+            const auto param = box->GetAttribute<Rml::String>("data-param", "");
+            box->SetClass("on", menu.settings().flag(param));
+          }
           break;
         case OptionDef::Kind::choice: {
           // A Resolution list narrows with its Aspect Ratio, so the options are rebuilt when the

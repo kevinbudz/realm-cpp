@@ -111,6 +111,7 @@ struct ClientState {
   void apply_settings();
   void save_settings();
   void open_options();
+  void set_fullscreen(bool on);
   void reset_perf();
   void sample_perf(Clock::time_point presented);
   std::optional<realm::Quad> perf_quad(int height);
@@ -290,8 +291,9 @@ struct ClientState {
   bool leaving_game{};
   // Holding Escape returns to character selection from any screen, Settings included; a tap
   // still reaches whatever has focus. Over the hold, returning_fade ramps 0 to 1 as the chat,
-  // CreditDisplay, rank/guild display and quest portrait fade out; returning_text then ramps 0 to
-  // 1 as "Returning to home..." fades in. Both stay 1 once the game is leaving.
+  // CreditDisplay, rank/guild display, quest portrait and Performance Stats fade out;
+  // returning_text then ramps 0 to 1 as "Returning to home..." fades in. Both stay 1 once the
+  // game is leaving.
   std::optional<std::int32_t> escape_held_since;
   float returning_fade{};
   float returning_text{};
@@ -302,6 +304,8 @@ struct ClientState {
   bool applied_centering;
   // The Resolution value apply_settings last evaluated in a window (-1 before the first).
   int applied_resolution{-1};
+  // The fullscreenMode value apply_settings last applied to the window (unset before the first).
+  std::optional<bool> applied_fullscreen;
   bool autofire{};
   bool perf_stats{};
   // The UI Quality the world text caches were last made for (a change drops them).

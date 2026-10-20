@@ -62,7 +62,7 @@ class OptionsMenu {
 
   [[nodiscard]] std::string_view capture() const { return capture_; }
 
-  // Toggle, choice and slider rows; ignored for a disabled row or an invalid value.
+  // Toggle, choice, slider and checks-box values; ignored for a disabled row or an invalid value.
   void set_value(std::string_view param, int value);
   void toggle(std::string_view param);
   // Reset to Defaults: every setting, in every category (while searching, only the listed
@@ -107,6 +107,6 @@ class OptionsMenu {
 };
 
 // Whether a row matches a search: every word of the query, case-insensitively, appears in
-// its label, section or category name.
+// its label, a checks row's box labels, its section or its category name.
 [[nodiscard]] bool option_matches(const OptionDef& option, std::string_view query);
 }

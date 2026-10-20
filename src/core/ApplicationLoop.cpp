@@ -172,7 +172,8 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   if (cs.returning_text > 0 && !world_only) {
     if (cs.returning_height != height) {
       cs.fonts.set_pixel_scale(height / 600.0);
-      const auto text = cs.fonts.rasterize("Returning to home...", 13, true, true, 0xffffff);
+      const auto text = cs.fonts.rasterize("Returning to home...", 13, true,
+                                           realm::TextEffect::outline, 0xffffff);
       cs.returning_texture.update(text.image);
       cs.returning_size = {static_cast<double>(text.image.width),
                            static_cast<double>(text.image.height)};
@@ -241,10 +242,22 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   realm::check_graphics_error();
   cs.sample_perf(presented);
 
-  // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap. Sleep while the
-  // deadline is far away; only the final sub-millisecond stretch is a yielding spin.
-  if (!o.benchmark && !o.hidden && cs.settings.get("maxFPS") > 0) {
-    const double target = 1000.0 / cs.settings.get("maxFPS");
+  // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap. UI screens (menus,
+  // Settings, fame) gain nothing from more frames than the display shows, so they cap at the
+  // refresh rate, or at Max FPS when that is lower. Gameplay keeps Max FPS as set.
+  const int max_fps = cs.settings.get("maxFPS");
+  int fps_cap = max_fps;
+  const bool ui_screen =
+      f.menus || cs.options_menu.visible() || (cs.fame_popup && cs.fame_popup->visible());
+  if (ui_screen) {
+    const int refresh = cs.session.refresh_rate();
+    if (refresh > 0) {
+      fps_cap = max_fps > 0 ? std::min(max_fps, refresh) : refresh;
+    }
+  }
+  // Sleep while the deadline is far away; only the final sub-millisecond stretch is a yielding spin.
+  if (!o.benchmark && !o.hidden && fps_cap > 0) {
+    const double target = 1000.0 / fps_cap;
     while (target - milliseconds(Clock::now() - start) > 1.5) {
       SDL_Delay(1);
     }
@@ -280,7 +293,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
          milliseconds(Clock::now() - presented),
          input_observed ? std::max(0.0, input_age + milliseconds(submitted - start)) : -1, width,
          height, cs.session.swap_interval(),
-         o.benchmark || o.hidden ? 0 : cs.settings.get("maxFPS")});
+         o.benchmark || o.hidden ? 0 : fps_cap});
   }
 
   if (cs.stress) {

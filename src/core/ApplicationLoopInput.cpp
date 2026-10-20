@@ -383,6 +383,13 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
         return code != 0 && code == cs.settings.get(param);
       };
       const bool fresh = !event.key.repeat;
+      // A tap of Escape that no layer took leaves fullscreen. The hold polled below still returns
+      // to character selection in a game.
+      if (key == SDLK_ESCAPE && fresh && !options.hidden &&
+          (SDL_GetWindowFlags(cs.session.window) &
+           (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0) {
+        cs.set_fullscreen(false);
+      }
       // In a game, Escape leaves only through the hold polled below; a tap does nothing here.
       if (key == SDLK_ESCAPE && !(cs.startup && cs.game_session)) {
         cs.running = false;
@@ -463,7 +470,7 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
       if (fresh && bound("toggleFullscreenMode") && !options.hidden) {
         const bool fullscreen = (SDL_GetWindowFlags(cs.session.window) &
                                  (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
-        SDL_SetWindowFullscreen(cs.session.window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+        cs.set_fullscreen(!fullscreen);
       }
       // C toggles centering outside the startup flow (the test-only modes).
       if (key == SDLK_c && !cs.startup) {

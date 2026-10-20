@@ -153,6 +153,8 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
   if (options.world && !menus) {
     if (const auto quad = cs.perf_quad(height)) {
       overlay_storage[overlay.size()] = *quad;
+      // The Performance Stats panel fades with the rest of the HUD while Escape is held.
+      realm::fade_quad(overlay_storage[overlay.size()], 1 - cs.returning_fade);
       overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
     }
   }

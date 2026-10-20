@@ -23,8 +23,16 @@ inline constexpr std::size_t options_category_count = 4;
 // A choice's labels and values, in display order.
 using ChoiceList = std::vector<std::pair<std::string_view, int>>;
 
+// A box of a checks row: its label, and the 0/1 parameter it flips (a hidden_value row).
+struct CheckBox {
+  std::string_view label;
+  std::string_view param;
+};
+
 struct OptionDef {
-  enum class Kind { key, toggle, choice, slider, hidden_key, hidden_value };
+  // checks: a row of boxes side by side. Its param only names the row (for search and hover) and
+  // is never stored; each box keeps its own saved value.
+  enum class Kind { key, toggle, choice, slider, checks, hidden_key, hidden_value };
   OptionsCategory category{};
   std::string_view section;
   Kind kind{Kind::key};
@@ -35,6 +43,8 @@ struct OptionDef {
   // Choice labels and values in source order. The Resolution row lists fewer
   // (OptionsMenu::choices).
   ChoiceList choices;
+  // Checks rows: the boxes in display order.
+  std::vector<CheckBox> boxes;
   // KeyMapper disabled state: the rotate keys follow allowRotation.
   std::string_view enabled_by;
   // The row is disabled while this flag is on: Resolution while fullscreen.
@@ -119,12 +129,16 @@ enum class UiQuality : std::uint8_t { low, high };
   return quality == UiQuality::low ? 1.0 : 0.0;
 }
 
+// Shadows: which ground shadows are drawn. Minimal keeps every shadow but a projectile's, and more
+// kinds can move under it later.
+enum class ShadowQuality : std::uint8_t { off, minimal, high };
+
 // Settings the game systems read each frame.
 struct Preferences {
   bool hp_bars{true};
   UiQuality ui_quality{UiQuality::high};
   bool particles{true};
-  bool draw_shadows{true};
+  ShadowQuality shadows{ShadowQuality::high};
   bool proj_outline{true};
   bool smart_projectiles{false};
   bool text_bubbles{true};
@@ -173,8 +187,8 @@ class Settings {
 
   // Parameters.setKey: any other registered binding on the same code is unset.
   void set_key(std::string_view param, int code);
-  // Toggle, choice and slider values only; anything else is ignored. Returns whether it
-  // changed.
+  // Toggle, hidden toggle, choice and slider values only; a checks row is not a value, so anything
+  // else is ignored. Returns whether it changed.
   bool set_value(std::string_view param, int value);
   // Options.onResetToDefaultsClick: only the rows of the open category are reset.
   void reset_category(OptionsCategory category);

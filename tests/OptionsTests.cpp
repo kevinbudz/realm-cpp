@@ -213,7 +213,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   // Option table shape: every row in a section, no section split across the table.
   check(category_options(OptionsCategory::keybinds).size() == 35 &&
             category_options(OptionsCategory::gameplay).size() == 10 &&
-            category_options(OptionsCategory::video).size() == 22 &&
+            category_options(OptionsCategory::video).size() == 17 &&
             category_options(OptionsCategory::audio).size() == 5,
         "category sizes");
   check(category_sections(OptionsCategory::video) ==
@@ -318,6 +318,41 @@ void ally_particles_rules(const std::filesystem::path& scratch) {
         "an invalid saved Ally Particles falls back to All");
 }
 
+// Shadows is a choice under the saved key drawShadows: a saved 0 is Off and 1 High, the values the
+// old toggle wrote, and Minimal is 2.
+void shadow_rules(const std::filesystem::path& scratch) {
+  const auto* shadows = find_option("drawShadows");
+  check(shadows && shadows->kind == OptionDef::Kind::choice && shadows->section == "Appearance" &&
+            shadows->category == OptionsCategory::video && shadows->fallback == 1 &&
+            shadows->choices == ChoiceList{{"Off", 0}, {"Minimal", 2}, {"High", 1}},
+        "Shadows is a video choice in Appearance (Off, Minimal, High), defaulting to High");
+  Settings s;
+  check(s.preferences().shadows == ShadowQuality::high, "Shadows defaults to High");
+  check(s.set_value("drawShadows", 0) && s.preferences().shadows == ShadowQuality::off &&
+            s.set_value("drawShadows", 2) && s.preferences().shadows == ShadowQuality::minimal &&
+            s.set_value("drawShadows", 1) && s.preferences().shadows == ShadowQuality::high,
+        "each Shadows value reaches the preferences");
+  check(!s.set_value("drawShadows", 3) && !s.set_value("drawShadows", -1) &&
+            s.get("drawShadows") == 1,
+        "Shadows rejects values outside its choices");
+  for (const auto [saved, expected] :
+       {std::pair{0, ShadowQuality::off}, std::pair{1, ShadowQuality::high},
+        std::pair{2, ShadowQuality::minimal}}) {
+    {
+      std::ofstream file(scratch / "shadows.json");
+      file << R"({"values":{"drawShadows":)" << saved << "}}";
+    }
+    check(Settings::load(scratch / "shadows.json").preferences().shadows == expected,
+          "a saved Shadows value loads (0 Off, 1 High, 2 Minimal)");
+  }
+  {
+    std::ofstream file(scratch / "shadows.json");
+    file << R"({"values":{"drawShadows":7}})";
+  }
+  check(Settings::load(scratch / "shadows.json").preferences().shadows == ShadowQuality::high,
+        "an invalid saved Shadows falls back to High");
+}
+
 // Aspect Ratio and Resolution: the size table, its labels and value validation, the offer and
 // reconcile rules, and the list a menu shows for a display.
 void window_size_rules(const std::filesystem::path& scratch) {
@@ -371,10 +406,10 @@ void window_size_rules(const std::filesystem::path& scratch) {
             value_text(*aspect, 4) == "4:3",
         "Aspect Ratio lists Any, 16:9, 16:10, 21:9 and 4:3");
   const auto video = category_options(OptionsCategory::video);
-  check(video.size() >= 5 && video[0]->param == "aspectRatio" && video[1]->param == "resolution" &&
-            video[2]->param == "fullscreenMode" && video[3]->param == "vsync" &&
-            video[4]->param == "renderer",
-        "Aspect Ratio and Resolution come above Fullscreen in Display; Renderer follows VSync");
+  check(video.size() >= 6 && video[0]->param == "aspectRatio" && video[1]->param == "resolution" &&
+            video[2]->param == "renderer" && video[3]->param == "fullscreenMode" &&
+            video[4]->param == "vsync" && video[5]->param == "maxFPS",
+        "Display lists Aspect Ratio, Resolution, Renderer, Fullscreen, VSync and Max FPS in order");
   // The dropdown lists the sizes grouped by aspect ratio (4:3, 16:10, 16:9, 21:9), ascending width
   // in each.
   int last_group = -1;
@@ -545,10 +580,10 @@ void row_layout_rules(const std::filesystem::path& scratch) {
     return params;
   };
   check(section_params(video, "Appearance") ==
-            std::vector<std::string_view>{"drawShadows", "particles", "screenShake", "hpBars",
-                                          "projOutline", "smartProjectiles"},
-        "Appearance lists Shadows, Particles, Screen Shake, Health Bars, Projectile Outline and "
-        "Projectile Direction in that order");
+            std::vector<std::string_view>{"uiQuality", "drawShadows", "particles", "screenShake",
+                                          "hpBars", "projOutline", "smartProjectiles"},
+        "Appearance lists UI Quality, Shadows, Particles, Screen Shake, Health Bars, Projectile "
+        "Outline and Projectile Direction in that order");
   check(
       section_params(gameplay, "Interface") ==
           std::vector<std::string_view>{"toggleBarText", "textBubbles", "showTierTag",
@@ -630,7 +665,7 @@ void menu_behavior() {
   // Categories and reset.
   revision = menu.layout_revision();
   menu.set_category(OptionsCategory::video);
-  check(menu.category() == OptionsCategory::video && menu.rows().size() == 22 &&
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 17 &&
             menu.layout_revision() != revision && listed(menu, "maxFPS"),
         "category switches the rows");
   menu.set_value("particles", 0);
@@ -646,7 +681,7 @@ void menu_behavior() {
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
         "search lists matches from every category");
   menu.set_query("  ");
-  check(menu.rows().size() == 22, "a blank query lists the open category");
+  check(menu.rows().size() == 17, "a blank query lists the open category");
   menu.set_query("chat scroll");
   check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
         "every query word must match (label, section or category)");
@@ -678,6 +713,147 @@ void menu_behavior() {
   check(!menu.visible() && menu.take_home() && !menu.take_home(),
         "Back to Home closes and signals");
 }
+
+// Checks rows: the Show row under Allies and the Apply to row under Players. Each is one line of
+// boxes, and each box flips its own 0/1 parameter, a hidden row that is not listed. Performance
+// Stats is a hidden row too: it has no screen row, and togglePerformanceStats still flips it.
+void checks_rules(const std::filesystem::path& scratch) {
+  using Boxes = std::vector<std::pair<std::string_view, std::string_view>>;
+  const auto boxes_of = [](const OptionDef& row) {
+    Boxes result;
+    for (const auto& box : row.boxes) {
+      result.emplace_back(box.label, box.param);
+    }
+    return result;
+  };
+  const auto* show = find_option("allyShowRow");
+  check(show && show->kind == OptionDef::Kind::checks &&
+            show->category == OptionsCategory::video && show->section == "Allies" &&
+            show->label == "Show.." &&
+            show->tooltip == "Other players' projectiles, damage text and notifications. Turn off "
+                             "to improve performance." &&
+            boxes_of(*show) == Boxes{{"Shots", "allyShots"},
+                                     {"Damage", "allyDamage"},
+                                     {"Notifications", "allyNotifs"}},
+        "the Show row is a checks row in Allies with Shots, Damage and Notifications boxes");
+  const auto* apply = find_option("fadeApplyRow");
+  check(apply && apply->kind == OptionDef::Kind::checks &&
+            apply->category == OptionsCategory::video && apply->section == "Players" &&
+            apply->label == "Apply to.." &&
+            apply->tooltip == "Which players Player Opacity fades: unlocked players outside your "
+                              "guild, guild members, and locked players." &&
+            boxes_of(*apply) == Boxes{{"Unlocked", "fadePlayers"},
+                                      {"Guild", "fadeGuild"},
+                                      {"Locked", "fadeLocked"}},
+        "the Apply to row is a checks row in Players with Unlocked, Guild and Locked boxes");
+  const auto video = category_options(OptionsCategory::video);
+  const auto params_in = [&](std::string_view section) {
+    std::vector<std::string_view> params;
+    for (const auto* row : video) {
+      if (row->section == section) {
+        params.push_back(row->param);
+      }
+    }
+    return params;
+  };
+  check(params_in("Allies") == std::vector<std::string_view>{"allyParticles", "allyShowRow"} &&
+            params_in("Players") == std::vector<std::string_view>{"playerAlpha", "fadeApplyRow"},
+        "Allies ends with the Show row and Players with Apply to, under their slider or choice");
+  const auto row_listed = [&](std::string_view param) {
+    return std::any_of(video.begin(), video.end(),
+                       [&](const OptionDef* row) { return row->param == param; });
+  };
+  check(!row_listed("allyShots") && !row_listed("allyDamage") && !row_listed("allyNotifs") &&
+            !row_listed("fadePlayers") && !row_listed("fadeGuild") && !row_listed("fadeLocked") &&
+            !row_listed("showStatistics") && row_listed("allyShowRow") &&
+            row_listed("fadeApplyRow"),
+        "the boxes and Performance Stats have no rows of their own");
+  // Box kinds and defaults: Shots, Damage, Notifications and Unlocked on; Guild and Locked off.
+  for (const auto* box : {"allyShots", "allyDamage", "allyNotifs", "fadePlayers", "fadeGuild",
+                          "fadeLocked", "showStatistics"}) {
+    const auto* option = find_option(box);
+    check(option && option->kind == OptionDef::Kind::hidden_value &&
+              option->category == OptionsCategory::video,
+          "a box is a hidden video value");
+  }
+  Settings s;
+  check(s.flag("allyShots") && s.flag("allyDamage") && s.flag("allyNotifs") &&
+            s.flag("fadePlayers") && !s.flag("fadeGuild") && !s.flag("fadeLocked") &&
+            !s.flag("showStatistics"),
+        "box defaults: Shots, Damage, Notifications and Unlocked on; Guild, Locked and Performance "
+        "Stats off");
+  check(!s.set_value("allyShowRow", 1) && !s.set_value("allyShowRow", 0) &&
+            !s.values().contains("allyShowRow") && !s.values().contains("fadeApplyRow") &&
+            Settings().get("allyShowRow") == 0,
+        "a checks row is not a stored value");
+  check(s.set_value("allyDamage", 0) && !s.flag("allyDamage") && !s.preferences().ally_damage &&
+            s.set_value("allyDamage", 1) && s.preferences().ally_damage &&
+            !s.set_value("allyShots", 2) && s.flag("allyShots"),
+        "a box flips its own parameter, which accepts 0 and 1 only");
+  check(s.set_value("fadeGuild", 1) && s.preferences().fade_guild && s.preferences().fade_players &&
+            !s.preferences().fade_locked && s.set_value("fadeLocked", 1) &&
+            s.preferences().fade_locked,
+        "Apply to boxes reach the preferences");
+  check(s.set_value("showStatistics", 1) && s.flag("showStatistics") &&
+            !Settings().flag("showStatistics"),
+        "Performance Stats is set by value, with its default off");
+  // Saved and loaded like any other value. A saved checks row id is dropped.
+  check(s.set_value("allyShots", 0) && s.save(scratch / "boxes.json"), "boxes save");
+  {
+    std::ofstream file(scratch / "ids.json");
+    file << R"({"values":{"allyShots":0,"fadeLocked":1,"allyShowRow":0,"fadeApplyRow":1}})";
+  }
+  const auto boxes = Settings::load(scratch / "boxes.json");
+  check(!boxes.flag("allyShots") && boxes.flag("allyDamage") && boxes.flag("showStatistics") &&
+            boxes.values().contains("allyShots") && boxes.flag("fadeGuild"),
+        "saved boxes load with their values");
+  const auto ids = Settings::load(scratch / "ids.json");
+  check(ids.get("allyShots") == 0 && ids.flag("fadeLocked") &&
+            !ids.values().contains("allyShowRow") && !ids.values().contains("fadeApplyRow"),
+        "a saved checks row id is dropped and the boxes load");
+  // Category reset restores the boxes (and Performance Stats) with their category, not the rows.
+  Settings r;
+  r.set_value("allyShots", 0);
+  r.set_value("fadeGuild", 1);
+  r.set_value("showStatistics", 1);
+  r.reset_category(OptionsCategory::gameplay);
+  check(!r.flag("allyShots") && r.flag("fadeGuild") && r.flag("showStatistics"),
+        "reset of another category keeps the boxes");
+  r.reset_category(OptionsCategory::video);
+  check(r.flag("allyShots") && !r.flag("fadeGuild") && !r.flag("showStatistics") &&
+            r.values().contains("allyShots") && !r.values().contains("allyShowRow"),
+        "reset of Video restores the boxes and Performance Stats");
+  // The menu: a box click applies live, the Show row matches by its boxes, and a search reset
+  // restores only the listed row's boxes.
+  Settings ms;
+  OptionsMenu menu;
+  menu.open(ms);
+  menu.set_category(OptionsCategory::video);
+  check(listed(menu, "allyShowRow") && listed(menu, "fadeApplyRow") && !listed(menu, "allyShots") &&
+            !listed(menu, "showStatistics"),
+        "the checks rows are listed and their boxes are not");
+  menu.toggle("allyDamage");
+  check(!ms.flag("allyDamage") && ms.flag("allyShots") && ms.flag("allyNotifs") &&
+            menu.take_changed(),
+        "a box click flips only its parameter and reports a change");
+  menu.set_query("notifications");
+  check(menu.rows().size() == 1 && listed(menu, "allyShowRow"),
+        "search matches a checks row by its box labels");
+  menu.set_query("unlocked");
+  check(menu.rows().size() == 1 && listed(menu, "fadeApplyRow"),
+        "search matches Apply to by its Unlocked box");
+  menu.set_query("show shots");
+  check(menu.rows().size() == 1 && listed(menu, "allyShowRow"),
+        "search words match the row title and a box label together");
+  menu.toggle("fadeGuild");
+  menu.toggle("allyShots");
+  menu.set_query("shots");
+  menu.reset();
+  check(ms.flag("allyShots") && ms.flag("allyDamage") && ms.flag("allyNotifs") &&
+            ms.flag("fadeGuild") && menu.take_changed(),
+        "reset while searching restores the listed row's boxes and leaves Apply to alone");
+  menu.close();
+}
 }
 
 int main(int argc, char** argv) {
@@ -688,9 +864,11 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(argv[1]);
     settings_rules(argv[1]);
     ally_particles_rules(argv[1]);
+    shadow_rules(argv[1]);
     window_size_rules(argv[1]);
     hp_bar_key_rules();
     row_layout_rules(argv[1]);
+    checks_rules(argv[1]);
     menu_behavior();
     std::cout << "Options checks: " << checks << '\n';
   } catch (const std::exception& e) {

@@ -447,11 +447,6 @@ void World::report_damage(std::int32_t id, int amount, std::int32_t time,
     return;
   }
 
-  // GameServerConnection.onDamage: damage to other objects is dropped when Ally Damage is off.
-  if (!preferences_.ally_damage && id != player_id_) {
-    return;
-  }
-
   // Character.damage: the hit sound comes with every damage call, even a zero-amount one.
   sound_hit(id);
   // GameObject.damage displays feedback. HP and conditions change only when

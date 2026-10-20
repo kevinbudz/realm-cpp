@@ -12,6 +12,12 @@ bool contains(std::string_view text, std::string_view word) {
   return std::search(text.begin(), text.end(), word.begin(), word.end(),
                      [](char a, char b) { return lower(a) == lower(b); }) != text.end();
 }
+
+// A checks row also matches the labels of its boxes, so "Shots" finds the Show row.
+bool box_contains(const OptionDef& option, std::string_view word) {
+  return std::any_of(option.boxes.begin(), option.boxes.end(),
+                     [&](const CheckBox& box) { return contains(box.label, word); });
+}
 }
 
 bool option_matches(const OptionDef& option, std::string_view query) {
@@ -27,7 +33,7 @@ bool option_matches(const OptionDef& option, std::string_view query) {
     }
     any = true;
     if (!contains(option.label, word) && !contains(option.section, word) &&
-        !contains(category, word)) {
+        !contains(category, word) && !box_contains(option, word)) {
       return false;
     }
   }
@@ -164,6 +170,13 @@ void OptionsMenu::reset() {
     for (const auto* option : rows_) {
       if (option->kind == OptionDef::Kind::key) {
         settings_->set_key(option->param, option->fallback);
+      } else if (option->kind == OptionDef::Kind::checks) {
+        // A checks row resets each of its boxes to their own defaults.
+        for (const auto& box : option->boxes) {
+          if (const auto* box_option = find_option(box.param)) {
+            settings_->set_value(box.param, box_option->fallback);
+          }
+        }
       } else {
         settings_->set_value(option->param, option->fallback);
       }

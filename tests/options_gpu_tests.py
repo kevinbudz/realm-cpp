@@ -53,7 +53,7 @@ KEYBINDS, GAMEPLAY, VIDEO = '70 77', '75 269', '56 307'   # Gameplay and Video s
 key_row = lambda index: f'555 {111 + index * 40}'
 MOVE_RIGHT, ROTATE_LEFT = key_row(3), '555 321'
 ALLOW_ROTATION = '521 151'   # Gameplay, scrolled to: Camera row 1
-APPEARANCE, HEALTH_BARS = '82 207', '521 231'   # Video: the Appearance section link, then its Health Bars switch
+APPEARANCE, HEALTH_BARS = '82 207', '521 271'   # Video: the Appearance section link, then its Health Bars switch
 RESET = '80 501'
 
 def main():

@@ -25,6 +25,8 @@ class WindowSession {
   void present();
   [[nodiscard]] int swap_interval() const;
   void set_swap_interval(int interval);
+  // Refresh rate in Hz of the display the window is on; zero when the display does not report one.
+  [[nodiscard]] int refresh_rate() const;
 
   [[nodiscard]] gfx::Api api() const { return api_; }
   // Vulkan sessions: the loader's vkGetInstanceProcAddr (opaque), the instance extensions the window

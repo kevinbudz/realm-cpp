@@ -88,9 +88,7 @@ class World {
   // per rendered frame.
   [[nodiscard]] SoundCues& sounds() { return sound_events_.cues(); }
 
-  // Character.damage plays the hit sound. report_damage does this for each report it keeps; a
-  // caller whose report is dropped under Ally Damage still plays it for the player's own
-  // projectiles hitting enemies.
+  // Character.damage plays the hit sound. report_damage does this for each report it keeps.
   void sound_hit(std::int32_t id);
   // `projectile` marks a projectile visual at insertion (Combat moves those itself, so they never
   // join the static grid).

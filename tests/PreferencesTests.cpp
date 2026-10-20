@@ -1,3 +1,4 @@
+#include "realm/messaging/Session.hpp"
 #include "realm/objects/Combat.hpp"
 #include "realm/hud/Hud.hpp"
 #include "realm/stage3D/DrawTypes.hpp"
@@ -70,14 +71,31 @@ struct Fixture {
   }
 };
 
+// A server DAMAGE packet (Messages.cpp): the target, no effects and 10 damage.
+net::Packet damage_packet(std::int32_t target) {
+  net::Writer body;
+  body.i32(target);
+  body.u8(0);
+  body.u16(10);
+  return net::Packet{static_cast<std::uint8_t>(flash::PacketId::DAMAGE), body.bytes()};
+}
+
 void damage() {
   Fixture f;
   f.world.report_damage(2, 10, 0);
   check(f.world.take_status_events().size() == 1, "ally damage is shown by default");
   f.apply([](Settings& s) { s.set_value("allyDamage", 0); });
+  // Ally Damage drops only the server's damage packets for others, so the player's own hits show.
   f.world.report_damage(2, 10, 0);
-  check(f.world.take_status_events().empty() && f.world.damage_cues().size() == 1,
-        "Ally Damage off drops damage to others");
+  check(f.world.take_status_events().size() == 1,
+        "Ally Damage off still shows the player's own hits on others");
+  Session session(f.world, [](const net::Packet&) {}, SessionOptions{});
+  session.replay(damage_packet(2), 0);
+  check(f.world.take_status_events().empty(),
+        "Ally Damage off drops a server damage packet for others");
+  session.replay(damage_packet(1), 0);
+  check(f.world.take_status_events().size() == 1,
+        "a server damage packet for the player is shown");
   f.world.report_damage(1, 10, 0);
   check(f.world.take_status_events().size() == 1, "damage to the player is always shown");
 }
@@ -316,7 +334,7 @@ void tiers() {
   const auto item_off = item_tooltip_target(f.world, gear, TooltipOwner::other_player);
   check(item_off && !item_tooltip_content(f.catalog, *item_off).tier.empty(),
         "the item tooltip keeps its tier tag with Show Tier Tag off");
-  check(f.world.preferences().hp_bars && f.world.preferences().draw_shadows &&
+  check(f.world.preferences().hp_bars && f.world.preferences().shadows == ShadowQuality::high &&
             f.world.preferences().text_bubbles,
         "unrelated flags unchanged");
 }

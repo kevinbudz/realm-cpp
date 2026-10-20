@@ -18,6 +18,15 @@ int integer(std::string_view value) {
 
 Options parse(int argc, char** argv) {
   Options options;
+  // REALM_RENDERER=gl|vulkan acts as --renderer (which wins), so test drivers that build their own
+  // command lines can run on either API.
+  if (const char* env = std::getenv("REALM_RENDERER"); env && *env) {
+    const auto api = realm::gfx::parse_api_flag(env);
+    if (!api) {
+      throw std::invalid_argument("REALM_RENDERER expects gl or vulkan");
+    }
+    options.renderer = *api;
+  }
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
     const auto value = [&]() -> std::string {

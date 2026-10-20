@@ -1,7 +1,8 @@
 # Vulkan renderer
 
 The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, on `flourish`:
-phase 1 and S0-S8 done (validation sweep clean, presented capture rate-limited), phase 3 M1-M3 done, see
+phase 1 and S0-S8 done (validation sweep clean, presented capture rate-limited), phase 3 M1-M3 done and
+the `REALM_VULKAN_WIP` gate removed: the Options Renderer choice now takes effect. See
 [Remaining work](#remaining-work).
 
 ## Goal
@@ -21,8 +22,8 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 | Phase | Content | State |
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
-| 2 | Vulkan world renderer (S0-S8) | Done; still behind `REALM_VULKAN_WIP` |
-| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 committed (geometry, scissor, textures, clip masks, layers, blur); offline screens match GL; M4 frame cache open; gate kept |
+| 2 | Vulkan world renderer (S0-S8) | Done |
+| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 done (geometry, scissor, textures, clip masks, layers, blur); screens match GL; gate removed; M4 frame cache open |
 | 4 | Final verification and perf matrix across stacks | Not started |
 
 ## Phase 1: the backend seam (done)
@@ -54,7 +55,7 @@ The seam sits at the existing high-level boundaries, not at a low-level RHI.
 | Step | Content | State |
 |---|---|---|
 | S0 | Shared CPU planning extracted into `src/stage3D/DrawPlan.{hpp,cpp}` (GL only) | Committed |
-| S1 | Loader, instance, device selection, validation opt-in, WIP gate | Committed |
+| S1 | Loader, instance, device selection, validation opt-in, WIP gate (removed in phase 3) | Committed |
 | S2 | Swapchain, frame slots, present modes, resize | Committed |
 | S3 | Handles, memory, staging, atlas, surfaces, buffers, readback | Committed |
 | S4 | Quad pipeline: sprites, surfaces, clip, terrain, layers, overlay | Committed |
@@ -169,13 +170,15 @@ swizzle BGRA. Synchronous, capture frames only.
 
 **Timers.** Per-slot query pool, 69 timestamps (5 + 2×32), reset at command-buffer begin, polled
 WITH_AVAILABILITY. Ticks × timestampPeriod, masked to timestampValidBits (0 disables timers). Vulkan
-uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's.
+uses TOP/BOTTOM_OF_PIPE stamps, so its numbers approximate GL's. Per-model stamps are both BOTTOM_OF_PIPE:
+a TOP_OF_PIPE start let pipelined model runs overlap, so their sum exceeded the frame's GPU time on RADV
+(`telemetry_gpu`: `models_ms <= total_ms`).
 
 ### Test-only switches
 
 | Variable | Effect |
 |---|---|
-| `REALM_VULKAN_WIP=1` | Allow Vulkan to start. Without it Vulkan fails with "Vulkan UI not implemented yet" and the client falls back to OpenGL. Removed in phase 3. |
+| `REALM_RENDERER=gl\|vulkan` | Acts as `--renderer` (the flag wins), so test drivers that build their own command lines run on either API. (`REALM_VULKAN_WIP`, the phase 1-3 gate, is gone.) |
 | `REALM_VK_VALIDATION=1` | Khronos validation layer, debug messenger, synchronization validation when available; counts at shutdown. Off costs nothing. |
 | `REALM_VK_DEVICE=index\|substring` | Pick a device, e.g. `NVIDIA`, `RENOIR` or `llvmpipe` (lavapipe). No match throws. |
 | `REALM_VK_PRESENT=immediate\|mailbox\|fifo` | Override the present mode. |
@@ -339,7 +342,7 @@ harnesses.
 | M3 | Layers (`PushLayer`/`PopLayer`/`CompositeLayers`), blur filter (Settings) | Done: Options screen matches GL to ±1 level |
 | M3 (rest) | Other filters, gradient shaders | Not needed: the client's RCSS and C++ use neither (checked); unimplemented ones log once |
 | M4 | Frame cache (`frame_reused`) | Open: always false |
-| Gate | `REALM_VULKAN_WIP` | Kept: parity is verified for the HUD, Options and the test sample only; other screens are unchecked |
+| Gate | `REALM_VULKAN_WIP` | Removed 2026-10-19 after the server-screen checks (see Verification (server screens)) |
 
 ### Design
 
@@ -453,8 +456,43 @@ reached with `click` script lines (e.g. play at 400,545).
 | Nexus tooltip | 0 / 0 | 0 / 0 |
 
 Everything is ±1-2 levels (blend rounding) except a few dozen RADV pixels up to Δ 8; no missing or extra
-elements, and no Vulkan UI warnings logged. Not reached offline (need a server): the death screen, guild,
-shop and vault. Chat input did not open from a script.
+elements, and no Vulkan UI warnings logged. Chat input did not open from a script.
+
+### Verification (server screens)
+
+2026-10-19. The GPU tests start their own HTTP/TCP peers, so with `REALM_RENDERER` they run on Vulkan.
+
+**Suite.** `ctest -L gpu -j1` (21 tests), GL and VK on NVIDIA and on RADV: VK fails nothing GL passes, after
+one fix. `telemetry_gpu` failed on VK RADV only (per-model timer overlap, see Timers; fixed).
+`options_gpu` fails on all four (baseline). `renderer_gpu` was rewritten for the gateless renderer (below).
+
+**Pixels.** Captures of death_fame, flash_gap, delete_character, guild_board, guild_members, dialog and dye,
+GL vs VK on the same driver, with the startup shim (see Verification (other screens)):
+
+| Test | NVIDIA | RADV | Verdict |
+|---|---|---|---|
+| death_fame, deterministic screens (world, options, new-world) | 0-0.085% / ±1 | same | match |
+| flash_gap (all) | 0.2-0.9% / ±1 | same | match |
+| guild_board, guild_members (views, lists) | ≤ 0.001% / ±1; one 37 px Δ44 spot | same | match |
+| dialog (all) | 0 | 0 | identical |
+| dye | 1-2 px | 0 | match |
+| delete_character (49 captures) | 2-49% / ±2 | ±2 (one px ±6) | blend rounding, region-wide like the login dialog |
+
+Three apparent differences were timing, not rendering:
+- guild_board `restored` (NV) and guild_members `restored` (RADV): the modal was already closed. A resize
+  to 4K stalls 135-140 ms on both APIs (and 35-45 ms back), so the capture and the Close click 100 ms later
+  can fall into one frame, and the click runs first. With the click moved 2 s later, VK passes. Resize cost,
+  measured from telemetry around each resize: GL and VK within about 30% of each other (VK slightly slower on 4 of 6).
+- death_fame `late-*` (NV): the menu background world scrolls with time, and VK vs VK runs differ as much
+  (20-92%) as VK vs GL, also with `REALM_VK_PRESENTED_COPY=1`. Same scene and overlay; only the scroll
+  position differs.
+
+Not covered: shop and trade (no server fixture), death_fame screens that are not deterministic on GL.
+
+**Fallback.** `renderer_gpu` now checks that a Vulkan build starts Vulkan (`--renderer vulkan`, the saved
+setting, `REALM_RENDERER`), and forces the fallback with `REALM_VK_DEVICE=no-such-device`. A build with
+`-DREALM_ENABLE_VULKAN=OFF` (which did not compile: the stub backend lacked `set_swap_interval`; fixed)
+passes it through "Vulkan renderer not available in this build".
 
 ## Remaining work
 
@@ -471,22 +509,23 @@ shop and vault. Chat input did not open from a script.
    `appearance_compose` and `options_gpu`, both failing before this work; not investigated here.
    Later the same day (`build-vk2`): the same two fail. `client_boundaries` failed because
    `include/realm/stage3D/vk/VkUi.hpp` had no owner in `cmake/header-owners.json` (fixed: `realm_render`).
-   `renderer_gpu` can fail under `-j4` (GPU contention) and passes alone.
+   `renderer_gpu` can fail under `-j4` (GPU contention) and passes alone. After the gate removal (no env):
+   unit tests 69 of 70, GPU tests (`-j1`) 20 of 21; the failures are the two above.
 
 ### Phase 3: RmlUi Vulkan backend (M1-M3 done, see above)
 
 - M4: the frame cache. `frame_reused()` is always false under Vulkan, so a static UI is redrawn every
   frame. Reuse the previous frame's resolved UI image when the command queue and generation match, as
   RmlUi_Renderer_GL3 does.
-- Parity: the offline screens match (see Verification (other screens)). The death screen, guild, shop and
-  vault need a server and are unchecked.
-- Then remove `REALM_VULKAN_WIP` so the Options choice takes effect.
+- Parity and the gate: done (see Verification (server screens)). Shop and trade are not covered by any
+  fixture.
 
 ### Phase 4: final verification
 
 - Full-UI parity against GL, perf matrix (Nexus and S3, GL vs Vulkan), on RADV and correctness on
   lavapipe. The world-only parity and perf matrix above are a start.
-- Check the fallback on a machine without Vulkan.
+- Check the fallback on a machine without a Vulkan driver (a build without Vulkan and a device that fails
+  are tested; a missing loader is not).
 - Ideally test a Windows AMD/Intel stack, the case that motivated the work.
 
 ## How to test
@@ -507,7 +546,7 @@ REALM_QUAD_CHECKSUM=1 build/realm_client --hidden --stress tests/fixtures/S1-mix
 Capture md5s (`glid.sh`, GL, 120 frames): churn `6c19e46498095a5add38c50366b55872`, S1-mixed-dense
 `424955535ce96ab5e30d57725b417b6d`, S3-combat-cluster `7a76f9e61d6addbdde1e5eadd6153628`.
 
-World-only parity capture (Vulkan: add `REALM_VULKAN_WIP=1 REALM_VK_VALIDATION=1` and
+World-only parity capture (Vulkan: add `REALM_VK_VALIDATION=1` and
 `--renderer vulkan`; lavapipe: `REALM_VK_DEVICE=llvmpipe`; GL on llvmpipe: `LIBGL_ALWAYS_SOFTWARE=1`):
 
 ```
@@ -518,7 +557,7 @@ Compare: `python3 docs/vulkan/tools/compare.py gl.png vk.png diff.png` (differin
 histogram, bbox). `tools/clusters.py` groups differing pixels; `tools/perf_stats.py` summarises
 telemetry JSONL files.
 
-GPU model tests: `REALM_VULKAN_WIP=1 REALM_VK_DEVICE=NVIDIA|RENOIR|llvmpipe build/tests/realm_model_instance_tests vulkan`
+GPU model tests: `REALM_VK_DEVICE=NVIDIA|RENOIR|llvmpipe build/tests/realm_model_instance_tests vulkan`
 (ctest `model_instances_vulkan`); `build/tests/realm_model_instance_tests` runs the GL section.
 
 Harnesses (`harness/`): `s23.cpp` checks frames, present, resize, capture, and atlas/surface/layer

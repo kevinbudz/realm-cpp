@@ -2,7 +2,8 @@
 
 The plan, design and status of the OpenGL/Vulkan renderer choice. Last updated 2026-10-19, on `flourish`:
 phase 1 and S0-S8 done (validation sweep clean, presented capture rate-limited), phase 3 M1-M3 done and
-the `REALM_VULKAN_WIP` gate removed: the Options Renderer choice now takes effect. See
+the `REALM_VULKAN_WIP` gate removed: the Options Renderer choice now takes effect. Phase 4 final
+verification done on the RX 6700 XT and lavapipe (see [Phase 4](#phase-4-final-verification)). See
 [Remaining work](#remaining-work).
 
 ## Goal
@@ -23,8 +24,8 @@ OpenGL and Options shows why. `--renderer gl|vulkan` overrides the setting. Vulk
 |---|---|---|
 | 1 | Backend seam, settings row, fallback, CMake option | Done, committed |
 | 2 | Vulkan world renderer (S0-S8) | Done |
-| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M3 done (geometry, scissor, textures, clip masks, layers, blur); screens match GL; gate removed; M4 frame cache open |
-| 4 | Final verification and perf matrix across stacks | Not started |
+| 3 | RmlUi Vulkan backend, then remove the WIP gate | M1-M4 done (geometry, scissor, textures, clip masks, layers, blur, frame cache); screens match GL; gate removed |
+| 4 | Final verification and perf matrix across stacks | Done on this machine (RX 6700 XT, lavapipe, fallbacks, ctest); NVIDIA, Renoir and Windows not run. See [Phase 4](#phase-4-final-verification) |
 
 ## Phase 1: the backend seam (done)
 
@@ -187,6 +188,7 @@ a TOP_OF_PIPE start let pipelined model runs overlap, so their sum exceeded the 
 | `REALM_VK_PRESENTED_COPY=1\|limited` | Force the presented copy: every frame (`1`) or rate-limited as in a game session (`limited`). |
 | `REALM_TEST_RML=file.rml` | Shows this RML document over the UI host, for RmlUi features the client's screens do not use (clip masks). |
 | `REALM_TEST_WORLD_ONLY=1` | Draw the world only (no HUD, RmlUi, overlay text or death fade), above the renderer, so both APIs draw the same quads. |
+| `REALM_VK_UI_CACHE=0` | Turns off the RmlUi frame cache (M4): every UI draw is recorded at once, as before M4. The comparison for the cache. |
 
 ### Parity
 
@@ -341,7 +343,7 @@ harnesses.
 | M2 | Clip masks (`EnableClipMask`, `RenderToClipMask` Set/SetInverse/Intersect, stencil) | Done (test sample, below); the client's screens do not reach it |
 | M3 | Layers (`PushLayer`/`PopLayer`/`CompositeLayers`), blur filter (Settings) | Done: Options screen matches GL to ±1 level |
 | M3 (rest) | Other filters, gradient shaders | Not needed: the client's RCSS and C++ use neither (checked); unimplemented ones log once |
-| M4 | Frame cache (`frame_reused`) | Open: always false |
+| M4 | Frame cache: a static frame's queued draws replay from a per-slot secondary command buffer (`frame_reused`) | Done (see Verification (M4)); no measurable frame-time gain on the Nexus map |
 | Gate | `REALM_VULKAN_WIP` | Removed 2026-10-19 after the server-screen checks (see Verification (server screens)) |
 
 ### Design
@@ -378,6 +380,18 @@ harnesses.
   (the Settings blur) gives one downscale to sigma 1.75.
   Not reproduced: GL3's second, exact power-of-two upscale blit, which only differs when the region's size
   is not a multiple of two.
+- Frame cache (M4, as RmlUi_Renderer_GL3). `RmlGpuVk.cpp` queues the draws between BeginFrame and EndFrame. A
+  frame whose draws were all queued is replayed when its draw list equals the last recorded one and the
+  generation has not moved (the generation changes on compile, release, texture creation or upload, content
+  change and viewport change). Otherwise the draws are recorded once into the frame slot's secondary command
+  buffer (`VkRenderer::ui_record_bundle`, `VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT | SIMULTANEOUS_USE_BIT`)
+  and executed in the UI pass (`VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS`). The recording binds the atlas set
+  and the surfaces it draws, sets its own viewport, and keeps its vertex and index bytes in its own host buffer
+  (grows only). It is per frame slot: a slot's recording is re-recorded only after that slot's frame has
+  finished, so no retire list is needed. A replay also checks the atlas set, the swapchain generation and the
+  window size. A clip mask, a layer or a composite runs the queued draws at once and makes the frame ineligible,
+  as does a write to a texture while draws are queued; releases during a recorded frame wait for EndFrame.
+  The immediate and the recorded paths share `ui_record`. `REALM_VK_UI_CACHE=0` runs every draw at once.
 
 ### Verification (M1)
 
@@ -433,7 +447,47 @@ The scripted capture (`--script`, the same format as `tests/options_gpu_tests.py
 `300 capture PATH`, `400 key o`, `900 capture PATH`, `1000 quit`, run with
 `--hidden --map realm-server/Resources/Worlds/Tutorial/Nexus.jm --effect-time 0 --scene-time 0 --hp 50`.
 
-Not verified: gradient decorators (none in the client), other filters (none), and the frame cache (M4).
+Not verified: gradient decorators (none in the client), other filters (none). The frame cache (M4) is in Verification (M4).
+
+### Verification (M4)
+
+2026-10-19, the frame cache (Design). The cache-off runs use `REALM_VK_UI_CACHE=0` on the same binary. HEAD is
+the binary before this work. The machine has one GPU (RX 6700 XT, RADV Navi22) and llvmpipe: no NVIDIA or Renoir
+device (`REALM_VK_DEVICE=RENOIR` falls back to GL), so those perf legs are not measured.
+
+| Check | Result |
+|---|---|
+| S1-mixed-dense full UI, 800×600, 120 frames, `--fixture-step-ms 20`: cache on, cache off, HEAD | 0 px; all three byte-identical (md5 `a0a944ea…`) |
+| Nexus map (`--map ../realm-server/Resources/Worlds/Nexus/0.jm`), 800×600, 300 frames: on, off vs HEAD | 0 px, 0 px |
+| Options script (`300 capture`, `400 key o`, `900 capture`, `1000 quit`): on and off vs HEAD, both captures | 0 px for all four |
+| Clip-mask sample (`REALM_TEST_RML`, rounded `overflow:hidden`, 60 frames): on vs off | 0 px (the clip frames run at once) |
+| Clip-mask sample, VK vs GL (same sample) | 227 px (0.047%), max Δ 83: the clip-edge difference recorded under M2 |
+| Validation (`REALM_VK_VALIDATION=1`): Nexus 300 frames, Options script, S1 120 frames, clip sample | 0 errors, 0 warnings each |
+| Replays (RmlGpuVk trace, not kept): Nexus 298 of 300 frames; S1 42 of 120; Options script 26 of 64 | the Options frames under PushLayer run at once |
+| `REALM_RENDERER=vulkan ctest --test-dir build -L gpu -j1` (21 tests) | 20 pass; `options_gpu` fails at "a greyed-out Rotate key ignores clicks" (the baseline failure) |
+| GL checksum oracle, 300 frames: S1 quad/state/packet, S3 quad/state/packet | match How to test |
+| GL captures, HEAD binary vs new binary, 120 frames: churn, S1-mixed-dense, S3-combat-cluster | identical md5 for each pair (the md5s in How to test do not reproduce: `glid.sh` is not in the repo, and 800×600 does not match either) |
+| Build (`cmake --build build -j6`) | no new warnings; the 10 `-Wconversion` warnings in `VkRenderer.cpp` (`ui_blur`, `ui_composite`) are on lines unchanged from HEAD |
+
+Perf: Nexus map, 1920×1024, `--benchmark`, uncapped, telemetry off, RADV Navi22. Frame time is the wall-clock
+slope between 20 000 and 100 000 frames (startup cancels), 3 interleaved reps per row. Load average (1 min)
+was 1.7–2.2 during matrix A and 2.9–4.0 during matrix B (the box was busier; compare within a matrix only).
+
+| Config | A: rep 1 / 2 / 3 (µs per frame) | A median | B: rep 1 / 2 / 3 (µs per frame) | B median |
+|---|---|---|---|---|
+| GL (RADV) | 96.8 / 92.3 / 91.0 | 92.3 (10 835 FPS) | 121.8 / 117.2 / 126.9 | 121.8 (8 213 FPS) |
+| VK, cache off | 71.1 / 68.7 / 69.9 | 69.9 (14 315 FPS) | 92.6 / 94.0 / 85.8 | 92.6 (10 798 FPS) |
+| VK, cache on | 70.3 / 68.8 / 70.8 | 70.3 (14 219 FPS) | 93.0 / 87.4 / 95.7 | 93.0 (10 752 FPS) |
+
+Matrix A ran before the last write-path change, matrix B on the final binary. Cache on vs off: +0.5 µs (A) and
++0.4 µs (B) at the median, with per-rep differences of both signs (−6.6 to +9.9 µs in B). That is no measurable
+gain and no measurable regression.
+
+Why there is no gain here: the Nexus map's RmlUi documents issue one draw per frame (`ui_draw_calls` = 1 with and
+without the cache; the `--hp`, `--breath` and `--notify` fixtures do not change it), and the title screen issues
+three. The cache can only remove the RmlUi draw work, so on these scenes it has little to remove. Telemetry on (4000 frames, 2 reps each): `ui.documents.render` median 3.31 and
+3.40 µs with the cache off, 2.82 and 2.81 µs with it on; frame CPU is unchanged within noise. A fuller RmlUi scene
+is needed to see the cache (see Remaining work).
 
 ### Verification (other screens)
 
@@ -494,6 +548,121 @@ setting, `REALM_RENDERER`), and forces the fallback with `REALM_VK_DEVICE=no-suc
 `-DREALM_ENABLE_VULKAN=OFF` (which did not compile: the stub backend lacked `set_swap_interval`; fixed)
 passes it through "Vulkan renderer not available in this build".
 
+## Phase 4: final verification
+
+2026-10-19, RX 6700 XT (desktop) (RADV Navi22, radeonsi), llvmpipe and lavapipe. This machine has no NVIDIA
+or Renoir device, so the NVIDIA and Renoir rows above were not rerun. New rows are labelled `RX 6700 XT (desktop)`.
+The build was current (`cmake --build build -j6`: no work to do) with the seven uncommitted M4 files.
+
+### Loader path
+
+The client links no Vulkan loader. `ldd build/realm_client` lists no libvulkan, and the link line has no
+`-lvulkan` (`cmake/ClientTargets.cmake:113`). SDL dlopens the loader in `SDL_Vulkan_LoadLibrary`
+(`src/platform/PlatformSdl.cpp:40`). `VkCommon.cpp:262` takes `vkGetInstanceProcAddr` from the session. A
+failed open throws, and `open_window` falls back to OpenGL (`src/core/ApplicationState.cpp:47-51`).
+
+### Perf matrix (RX 6700 XT (desktop), 1920×1024)
+
+`--benchmark` (uncapped, no vsync), telemetry off, `--width 1920 --height 1024`. FPS is the wall-clock slope
+between two frame counts, `(t(N2) − t(N1)) / (N2 − N1)`, so startup cancels. Nexus full UI: N1 20 000, N2
+100 000 (as in M4). nexus-pan and S3-combat-cluster world only (`REALM_TEST_WORLD_ONLY=1`): nexus-pan 20 000 /
+100 000, S3 1 000 / 4 000. S1-mixed-dense and churn full UI: 1 000 / 4 000. Three interleaved reps (the GL and VK
+order alternates), median of the rep slopes. Load average (1 min) before each run: 1.4–3.3 on 20 threads.
+
+| Scene | GL FPS (per rep) | VK FPS (per rep) | VK/GL median | VK/GL per rep | Load1 mean (range) |
+|---|---|---|---|---|---|
+| Nexus full UI | 11 075 (11 934 / 11 075 / 11 073) | 14 651 (14 748 / 14 651 / 14 584) | 1.32 | 1.24 / 1.32 / 1.32 | 1.55 (1.40–1.71) |
+| nexus-pan, world only | 12 182 (12 480 / 12 182 / 12 147) | 13 643 (13 643 / 13 760 / 13 518) | 1.12 | 1.09 / 1.13 / 1.11 | 1.57 (1.44–1.77) |
+| S3-combat-cluster, world only | 102 (95 / 103 / 102), 9.79 ms | 100 (98 / 103 / 100), 9.95 ms | 0.98 | 1.04 / 1.00 / 0.98 | 1.88 (1.47–2.35) |
+| S1-mixed-dense, full UI | 378 (372 / 383 / 378) | 417 (417 / 420 / 403) | 1.10 | 1.12 / 1.10 / 1.07 | 2.27 (1.92–3.29) |
+| churn, full UI | 372 (374 / 372 / 368) | 415 (415 / 418 / 411) | 1.12 | 1.11 / 1.12 / 1.12 | 2.04 (1.63–2.90) |
+
+Telemetry pass for CPU and GPU medians (2 000 frames, 3 interleaved reps, `tools/perf_group.py`). Telemetry
+adds its own cost, so use these medians for zones and the slope table for FPS:
+
+| Scene | Row | Interval median ms | CPU median ms | GPU median ms |
+|---|---|---|---|---|
+| S3-combat-cluster, world only | GL | 9.03 | 8.26 | 6.02 |
+| S3-combat-cluster, world only | VK | 8.90 | 8.37 | 5.83 |
+| S1-mixed-dense, full UI | GL | 1.81 | 1.56 | 1.16 |
+| S1-mixed-dense, full UI | VK | 1.43 | 1.36 | 1.22 |
+
+Readings:
+- VK wins Nexus full UI by 32%. The medians are close to M4's matrix A (GL 92, VK 70 µs per frame).
+- VK wins nexus-pan by 12% and S1 and churn full UI by 10–12%.
+- S3 world only is a tie (0.98). The rep ratios (1.04, 1.00, 0.98) sit inside the GL spread (95–103 FPS), and
+  the telemetry CPU and GPU medians match. No scene loses by more than noise, so no zone breakdown is needed.
+
+### Lavapipe correctness (full UI, 800×600, `--fixture-step-ms 20`)
+
+VK: `REALM_VK_DEVICE=llvmpipe REALM_VK_VALIDATION=1 build/realm_client --renderer vulkan …`. GL:
+`LIBGL_ALWAYS_SOFTWARE=1 build/realm_client --renderer gl …`. Stress scenes: `--stress tests/fixtures/<f>.json
+--frames 120 --stress-summary …`. Nexus: `--map ../realm-server/Resources/Worlds/Nexus/0.jm --frames 300`.
+Options: the script `300 capture`, `400 key o`, `900 capture`, `1000 quit` with `--frames 64`. A fixed clock
+needs finite frames, so the M2/M3 script (no fixed clock) cannot be reused as is.
+
+| Scene | Differing px (%) | Max Δ | Notes |
+|---|---|---|---|
+| S1-mixed-dense | 0 | 0 | |
+| churn | 0 | 0 | |
+| S3-combat-cluster | 4 (0.0008%) | 10 | Δ1 ×3, Δ10 ×1, inside the world (x 352–546, y 317–591) |
+| Nexus map, 300 frames | 0 | 0 | |
+| Options, closed | 0 | 0 | |
+| Options, open | 15 617 (3.25%) | 2 | Δ1 15 605, Δ2 12: blur rounding, the M3 pattern |
+
+All five VK runs log `Vulkan validation summary: 0 errors, 0 warnings`. The VK Options screen was viewed: all
+rows and the footer are present. No missing or extra elements. The S3 residual is rounding-level.
+
+### Full UI on RADV (GL vs VK, 800×600, validation on)
+
+| Scene | Differing px (%) | Max Δ | M1 (before M4) |
+|---|---|---|---|
+| S1-mixed-dense, 120 frames | 21 (0.0044%) | 48 | 21 / 48 |
+| churn, 120 frames | 184 (0.0383%) | 196 | 188 / 196 |
+| S3-combat-cluster, 120 frames | 178 (0.0371%) | 255 | 178 / 255 |
+| Nexus map, 300 frames | 15 (0.0031%) | 1 | not run |
+| Options, open | 14 800 (3.08%) | 2 | 14 800 / 2 (M3) |
+
+Validation: 0 errors and 0 warnings on all five VK runs. The residuals are the same world-area differences as
+M1, within 4 px. The Options closed capture is identical.
+
+### Fallback without a Vulkan loader
+
+Two simulations. Neither touches system files:
+- `SDL_VULKAN_LIBRARY=/nonexistent/libvulkan.so.1`. SDL 2.32.74 honours it.
+- `LD_PRELOAD` of a scratch shim that makes `dlopen` fail for any `libvulkan` name.
+
+| Case | Result |
+|---|---|
+| `SDL_VULKAN_LIBRARY` bad, `--renderer vulkan` | Exit 0. stderr: `Vulkan renderer unavailable: Vulkan loader: Failed loading …; starting with OpenGL`. Banner `Renderer OpenGL` |
+| Shim, `--renderer vulkan` | Same. Telemetry metadata `renderer_fallback` is set |
+| Shim, saved `renderer: 1`, no flag | Same fallback. The settings file is unchanged |
+| Shim, `--renderer gl` | Starts on GL with no message |
+| `VK_ICD_FILENAMES=<empty dir>`, `--renderer vulkan` | Falls back: `Installed Vulkan doesn't implement the VK_KHR_surface extension`. SDL's check fails before device selection, so the "No Vulkan device meets the baseline" text is not reached |
+| No ICD, saved `renderer: 1` | Same fallback. The settings file is unchanged |
+| Options Renderer hint, saved Vulkan, loader missing | Hover on the control: `Using OpenGL: Vulkan unavailable (Vulkan loader)`, two lines at 800×600. Before the fix the full SDL reason ran to four lines and was cut (the full reason stays in the log and in `renderer_fallback`) |
+| Options Renderer hint, `--renderer vulkan`, no ICD | `Using OpenGL: Vulkan unavailable (Vulkan loader)`, two lines at 800×600 (the clause is the first of the reason; `OptionsScreen.cpp` `short_reason`, capped at 32 characters) |
+
+### ctest
+
+| Run | Command | Result |
+|---|---|---|
+| Full suite, GL | `ctest --test-dir build -j4` | 89 of 91 pass. Fail: `appearance_compose` (unit), `options_gpu` (gpu). Both baseline |
+| GPU, GL | `ctest --test-dir build -L gpu -j1` | 20 of 21. Fail: `options_gpu` (baseline) |
+| GPU, Vulkan | `REALM_RENDERER=vulkan ctest --test-dir build -L gpu -j1` | 20 of 21. Fail: `options_gpu`, same assertion ("a greyed-out Rotate key ignores clicks") |
+
+No test regresses against GL.
+
+### Open after Phase 4
+
+- Windows AMD and Intel stacks: not available here. This is still the case that motivated the work.
+- NVIDIA and Renoir rows: not rerun on this machine.
+- Options hint at 800×600: the long loader reason needs four lines, and the last one is cut. A wording or
+  layout choice, not changed here. Options: shorten the SDL reason, or give the footer more room.
+- Hovering the Renderer label does not update the hint; hovering the control does. Other rows not checked.
+- A real machine without `libvulkan.so.1` was not tested. The simulations cover the dlopen failure only.
+- GL on llvmpipe prints `Swap interval unavailable` on stderr. It does not affect captures.
+
 ## Remaining work
 
 ### Phase 2 (S8)
@@ -512,21 +681,53 @@ passes it through "Vulkan renderer not available in this build".
    `renderer_gpu` can fail under `-j4` (GPU contention) and passes alone. After the gate removal (no env):
    unit tests 69 of 70, GPU tests (`-j1`) 20 of 21; the failures are the two above.
 
-### Phase 3: RmlUi Vulkan backend (M1-M3 done, see above)
+### Phase 3: RmlUi Vulkan backend (M1-M4 done, see above)
 
-- M4: the frame cache. `frame_reused()` is always false under Vulkan, so a static UI is redrawn every
-  frame. Reuse the previous frame's resolved UI image when the command queue and generation match, as
-  RmlUi_Renderer_GL3 does.
+- M4: done (see Design and Verification (M4)). The cache saves nothing measurable on the scenes measured:
+  the Nexus map has one RmlUi draw per frame, the title screen three, and the Options screen flushes (a
+  layer), so its frames are not reused. Open: measure a fuller RmlUi scene (live play with many documents,
+  inventory, chat) before deciding that M4 is worth keeping. The NVIDIA and Renoir perf legs were not run
+  (not on this machine; see Verification (M4)).
 - Parity and the gate: done (see Verification (server screens)). Shop and trade are not covered by any
   fixture.
 
-### Phase 4: final verification
+### Phase 4: final verification (done on this machine, see [Phase 4](#phase-4-final-verification))
 
-- Full-UI parity against GL, perf matrix (Nexus and S3, GL vs Vulkan), on RADV and correctness on
-  lavapipe. The world-only parity and perf matrix above are a start.
-- Check the fallback on a machine without a Vulkan driver (a build without Vulkan and a device that fails
-  are tested; a missing loader is not).
-- Ideally test a Windows AMD/Intel stack, the case that motivated the work.
+- Done: full-UI parity on RADV and lavapipe, the perf matrix (RX 6700 XT), the fallback without a loader
+  (simulated), and ctest under GL and Vulkan.
+- Open: a Windows AMD/Intel stack (the case that motivated the work), a real machine without a Vulkan
+  loader, and NVIDIA and Renoir reruns.
+
+### CPU hotspots (2026-10-19)
+
+Scene::build pass (GL, 1920×1024, uncapped). CPU is the client's `CPU event/build/submit mean` from runs without telemetry (3 interleaved reps, medians). FPS is the wall-clock slope (Nexus 20 000 to 100 000 frames, S3 world only 1 000 to 4 000, S1 and churn full UI 1 000 to 4 000).
+
+| Item | Zone or metric | Before | After | Decision |
+|---|---|---|---|---|
+| 1 Terrain sink | S3 CPU mean (two sessions); callgrind Scene::build | 8.70 and 8.62 ms; 18.5 M Ir/frame | 7.98 and 8.10 ms; 17.4 M Ir/frame | accepted: only grounds with `sink` consult the composition (exact) |
+| 2 Ground tops | `scene.ground_tops` | 0.009 ms | not changed | rejected: too small to matter |
+| 3 Sign text key | `sign_text` calls | 0 on S3, S1, churn | not changed | no hot path in the fixtures (no Sign objects); the key keeps the scale |
+| 4 Animated frame reuse | S3 CPU mean, same session | 8.10 ms | 7.91 ms | accepted: the baked path reuses the shadow pass's AnimationFrame (about 3 000 fewer animation_frame calls per frame) |
+| 4 Residency lookups | `resident_appearance` 2.2 M Ir/frame | — | — | not changed: the find is an LRU touch, so skipping it changes eviction order |
+| 5 Depth sort | `scene.sort_entities` | 0.39 ms (about 10% of scene.build) | not changed | incremental sort not attempted; see Open below |
+| 6 Zoom text | per-frame zoom sweep, frame CPU | Low 0.037 ms, High 2.30 ms (p95 2.95) | see UI Quality below | UI Quality setting added (Low, High; High is the default) |
+
+Final against base (medians of 3 reps):
+
+| Scene | CPU mean base → final (ms) | FPS base → final |
+|---|---|---|
+| Nexus full UI | 0.0399 → 0.0395 | 11 015 → 11 328 |
+| S3-combat-cluster, world only | 8.60 → 7.79 | 100.8 → 111.1 |
+| S1-mixed-dense, full UI | 2.57 → 2.48 | 379 → 386 |
+| churn, full UI | 2.49 → 2.43 | 372 → 386 |
+
+Telemetry breakdown after the pass (S3, 3 reps, telemetry on, which adds about 2 ms; medians): frame.cpu 7.44 ms, scene.build 3.88 ms, of which `scene.draw_stream` 2.53, `scene.sort_entities` 0.39, `scene.shadows` 0.50, `scene.visibility` 0.29, `scene.ground_tops` 0.009.
+
+Open (not on the list, measured): `projectile_quad` takes a sincos per projectile (about 3.6 M Ir/frame on S3, about 20 000 projectiles); `animation_frame` takes an atan2 for each walking entity (about 1.8 M Ir/frame); `Quad` copies in `emplace_back` (about 1.6 M Ir/frame). Per-entity zones distort the frame (the aggregate zone search is linear), so use callgrind diffs for per-entity costs.
+
+UI Quality (Options › Video › Display, after Renderer; live, no restart). High (default) rasterizes names, signs, damage text and speech balloons at the camera zoom, so they stay crisp; Low rasterizes them once at density 1 and scales the bitmap. Verified 2026-10-19: High with frozen time (`--effect-time 0 --scene-time 0`) is byte-identical to the base build for damage text at zoom 1.3 and 2.0 and for a plain Nexus scene at both zooms. Names at High are rasterized at the zoom, which is the pre-density-1 behaviour, so they differ from the old density-1 names at zoom ≠ 1 by design. A zoom sweep with 20 signs, an ally name, a speaker name, a balloon and a damage number costs High 2.30 ms per frame (p95 2.95 ms, about 23 label re-rasters per frame) against Low 0.037 ms; with a fixed zoom both modes cost 0.033 ms.
+
+Identity: the S1 and S3 quad, state and packet checksums match the oracle in How to test. 120-frame GL captures at zoom 1 are byte-identical base and final. New md5s (plain `--capture`, 120 frames): churn `e4b13f5d0fa6161f6906f8f5d26d289d`, S1-mixed-dense `7b427977854a1df0ab9b3769310a4026`, S3-combat-cluster `5cf3f88e7d3bbd6ce983e597e9edad91`.
 
 ## How to test
 

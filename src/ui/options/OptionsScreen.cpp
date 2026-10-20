@@ -296,8 +296,8 @@ struct OptionsScreen::Impl {
     hint->SetInnerRML(escaped(hint_text(option)));
   }
 
-  void update(bool showable) {
-    if (!menu.visible() || !showable) {
+  void update(bool showable, double opacity) {
+    if (!showable || opacity <= 0) {
       if (shown) {
         arm_reset(false);
         search->Blur();
@@ -309,6 +309,15 @@ struct OptionsScreen::Impl {
     if (!shown) {
       host.show(*document, true, false);
       shown = true;
+    }
+    // The document holds the scrim and the screen, so one opacity fades both.
+    if (opacity != drawn_opacity) {
+      drawn_opacity = opacity;
+      document->SetProperty("opacity", std::to_string(opacity));
+    }
+    // A closed menu keeps the rows it last showed while it fades.
+    if (!menu.visible()) {
+      return;
     }
     if (menu.layout_revision() != layout) {
       rebuild();
@@ -592,6 +601,7 @@ struct OptionsScreen::Impl {
   std::uint64_t values{~std::uint64_t{}};
   int current{-1};
   bool shown{};
+  double drawn_opacity{1};
   bool syncing{};
   bool reset_armed{};
 };
@@ -606,8 +616,8 @@ void OptionsScreen::set_cursors(Image sheet) {
   impl_->layout = ~std::uint64_t{};
 }
 
-void OptionsScreen::update(bool showable) {
-  impl_->update(showable);
+void OptionsScreen::update(bool showable, double opacity) {
+  impl_->update(showable, opacity);
 }
 
 bool OptionsScreen::wants_text() const {

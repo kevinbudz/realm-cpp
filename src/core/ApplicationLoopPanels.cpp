@@ -76,6 +76,11 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
   auto& overlay_storage = f.overlay_storage;
   auto& overlay = f.overlay;
 
+  // A closing modal keeps drawing at its fade's opacity (see ModalFade), and so does the blur.
+  cs.dialog_fade.update(cs.dialog.visible(), time);
+  cs.options_fade.update(cs.options_menu.visible(), time);
+  cs.fame_fade.update(cs.fame_popup && cs.fame_popup->visible(), time);
+
   if (cs.interaction.visible() && !menus) {
     cs.fonts.set_pixel_scale(realm::InteractionDialog::scale(width, height));
     if (cs.interaction.render(cs.fonts)) {
@@ -144,10 +149,10 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
   }
 
   if (cs.options_screen) {
-    cs.options_screen->update(!menus);
+    cs.options_screen->update(!menus, cs.options_fade.opacity());
   }
   if (cs.fame_popup) {
-    cs.fame_popup->update(!menus);
+    cs.fame_popup->update(!menus, cs.fame_fade.opacity());
   }
 
   if (options.world && !menus) {
@@ -187,7 +192,9 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
     overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
   }
 
-  if (cs.dialog.visible() && !menus) {
+  if (cs.dialog_fade.active() && !menus) {
+    // Once closed, the dialog keeps its last image (update does nothing while hidden) and fades.
+    const auto opacity = static_cast<float>(cs.dialog_fade.opacity());
     if (cs.dialog.update(cs.fonts, width, height)) {
       cs.dialog_texture.update(cs.dialog.image());
     }
@@ -197,12 +204,14 @@ void build_modal_overlays(ClientState& cs, const Options& options, Frame& f) {
     dim.axis_y = {0, static_cast<float>(height)};
     dim.kind = 2;
     dim.multiply = {21 / 255.F, 21 / 255.F, 21 / 255.F, .6F};
+    realm::fade_quad(dim, opacity);
     overlay_storage[overlay.size()] = dim;
     overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
     const auto& image = cs.dialog.image();
     auto frame_quad = cs.dialog_texture.quad(
         cs.dialog.canvas_position(), {image.width * cs.dialog.scale() / image.pixel_scale, 0},
         {0, image.height * cs.dialog.scale() / image.pixel_scale});
+    realm::fade_quad(frame_quad, opacity);
     overlay_storage[overlay.size()] = frame_quad;
     overlay = std::span<const realm::Quad>(overlay_storage).first(overlay.size() + 1);
   }

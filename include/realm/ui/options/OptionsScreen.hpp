@@ -23,9 +23,9 @@ class OptionsScreen {
   // The cursor sheet (4x4 cursors of 32 px) the Mouse Cursor row previews; without one the row
   // is a dropdown.
   void set_cursors(Image sheet);
-  // Once per frame before the host updates. The document shows while the menu is visible
-  // and `showable` (no startup screen covers the game).
-  void update(bool showable);
+  // Once per frame before the host updates. The document shows while `showable` (no startup screen
+  // covers the game) and `opacity` is above 0; a closed menu keeps its last rows while it fades.
+  void update(bool showable, double opacity);
   // The search field has keyboard focus.
   [[nodiscard]] bool wants_text() const;
   // Escape in the search field: clears the query, or with no query leaves the field.

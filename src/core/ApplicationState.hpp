@@ -26,6 +26,7 @@
 #include "realm/tutorial/Tutorial.hpp"
 #include "realm/tutorial/TutorialView.hpp"
 #include "realm/hud/KeysView.hpp"
+#include "realm/lib/ui/ModalFade.hpp"
 #include "realm/ui/options/OptionsMenu.hpp"
 #include "realm/ui/options/OptionsScreen.hpp"
 #include "realm/fame/FameContentPopup.hpp"
@@ -233,6 +234,11 @@ struct ClientState {
   std::unique_ptr<realm::FameContentPopup> fame_popup;
   // A slider drag changes values on every move; they are saved once the pointer lets go.
   bool options_unsaved{};
+  // Each closing menu keeps drawing for a moment (see ModalFade); the blur behind Settings and the
+  // fame overview follows them.
+  realm::ui::ModalFade options_fade;
+  realm::ui::ModalFade fame_fade;
+  realm::ui::ModalFade dialog_fade;
   realm::platform::CursorSet cursors;
   realm::InteractionDialog interaction;
   realm::ui::RetainedSurface interaction_texture;

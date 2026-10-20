@@ -107,9 +107,11 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     effects =
         realm::screen_effects(local, o.effect_time >= 0 ? o.effect_time : time, height / 600.0);
   }
-  // The Settings screen tints the game and blurs all of it, world and HUD.
-  if (cs.options_menu.visible() && !f.menus) {
-    effects.blur = std::max(effects.blur, static_cast<float>(12 * height / 600.0));
+  // The Settings screen tints the game and blurs all of it, world and HUD. The fame overview does
+  // the same behind its popup. Both blurs fade out with their menu (see ModalFade).
+  const double menu_fade = std::max(cs.options_fade.opacity(), cs.fame_fade.opacity());
+  if (menu_fade > 0 && !f.menus) {
+    effects.blur = std::max(effects.blur, static_cast<float>(12 * height / 600.0 * menu_fade));
     effects.whole = true;
   }
   // Test hook (REALM_TEST_WORLD_ONLY=1): the world alone, without the HUD, the minimap or RmlUi, so
@@ -122,8 +124,10 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   std::vector<realm::Quad> native_ui;
   if (cs.production_ui && !world_only) {
     REALM_ZONE("ui.documents.update");
-    // The renderer's box blur of width 12 dp is close to a Gaussian of sigma 12 / sqrt(12).
-    cs.production_ui->set_blur(effects.whole ? 3.5 : 0);
+    // The renderer's box blur of width 12 dp is close to a Gaussian of sigma 12 / sqrt(12). The
+    // UI's blur ramps with the menu fade too, in quarter-dp steps; a blur left at full strength
+    // until the last frame would drop off in one step, and so would the world's blur.
+    cs.production_ui->set_blur(effects.whole ? std::round(3.5 * menu_fade * 4) / 4 : 0);
     native_ui = cs.production_ui->compose(overlay, time, cs.ui_viewport);
     overlay = native_ui;
   }

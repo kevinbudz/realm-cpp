@@ -31,8 +31,8 @@ class FameContentPopup {
   void close();
   [[nodiscard]] bool visible() const;
   // Once per frame before the host updates: takes a finished request and shows the document while
-  // visible and `showable`.
-  void update(bool showable);
+  // `showable` and `opacity` is above 0. A closed popup keeps drawing at its fade's opacity.
+  void update(bool showable, double opacity);
   [[nodiscard]] Rml::ElementDocument* document() const;
 
  private:

@@ -436,9 +436,9 @@ struct FameContentPopup::Impl {
     }
   }
 
-  void update(bool showable) {
+  void update(bool showable, double opacity) {
     poll();
-    if (!visible_ || !showable) {
+    if (!showable || opacity <= 0) {
       if (shown) {
         hide_tip();
         host.hide(*document);
@@ -449,6 +449,11 @@ struct FameContentPopup::Impl {
     if (!shown) {
       host.show(*document, true, false);
       shown = true;
+    }
+    // The document holds the scrim and the popup, so one opacity fades both.
+    if (opacity != drawn_opacity) {
+      drawn_opacity = opacity;
+      document->SetProperty("opacity", std::to_string(opacity));
     }
   }
 
@@ -477,6 +482,7 @@ struct FameContentPopup::Impl {
   int tab{};
   bool visible_{};
   bool shown{};
+  double drawn_opacity{1};
 };
 
 FameContentPopup::FameContentPopup(ui::RmlHost& host, const Catalog& catalog, const HudArt& art)
@@ -497,8 +503,8 @@ bool FameContentPopup::visible() const {
   return impl_->visible_;
 }
 
-void FameContentPopup::update(bool showable) {
-  impl_->update(showable);
+void FameContentPopup::update(bool showable, double opacity) {
+  impl_->update(showable, opacity);
 }
 
 Rml::ElementDocument* FameContentPopup::document() const {

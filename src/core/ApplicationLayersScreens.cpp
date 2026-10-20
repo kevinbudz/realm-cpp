@@ -40,7 +40,10 @@ void configure_fame_button_layer(ClientState& cs, ClientLayers& layers) {
 // FameContentPopup is modal: the RmlUi host takes its pointer and wheel events, Escape closes it.
 void configure_fame_layer(ClientState& cs, ClientLayers& layers) {
   auto& layer = layers.fame_layer;
-  layer.is_active = [&] { return cs.fame_popup && cs.fame_popup->visible(); };
+  // While the popup fades out it stays modal, so the world does not take the pointer under it.
+  layer.is_active = [&] {
+    return cs.fame_popup && (cs.fame_popup->visible() || cs.fame_fade.active());
+  };
   layer.is_modal = [] { return true; };
   layer.on_cancel = [&] {
     if (cs.production_ui) {
@@ -53,6 +56,9 @@ void configure_fame_layer(ClientState& cs, ClientLayers& layers) {
     }
   };
   layer.on_event = [&](const UiEvent& e) -> UiResult {
+    if (!cs.fame_popup || !cs.fame_popup->visible()) {
+      return UiResult::consumed;
+    }
     if (e.kind == UiKind::key_down) {
       if (!e.repeat &&
           realm::sdl_keys::flash_code(static_cast<SDL_Keycode>(e.key)) == realm::key_escape) {
@@ -107,7 +113,7 @@ void configure_skins_layer(ClientState& cs, ClientLayers& layers) {
 
 void configure_options_layer(ClientState& cs, ClientLayers& layers) {
   auto& options_layer = layers.options_layer;
-  options_layer.is_active = [&] { return cs.options_menu.visible(); };
+  options_layer.is_active = [&] { return cs.options_menu.visible() || cs.options_fade.active(); };
   options_layer.is_modal = [] { return true; };
   options_layer.is_text = [&] { return cs.options_screen && cs.options_screen->wants_text(); };
   options_layer.on_cancel = [&] {
@@ -117,6 +123,10 @@ void configure_options_layer(ClientState& cs, ClientLayers& layers) {
   };
   options_layer.on_reset = [&](UiReset) { cs.options_menu.close(); };
   options_layer.on_event = [&](const UiEvent& e) -> UiResult {
+    // Closed but still fading: the menu takes input without acting on it.
+    if (!cs.options_menu.visible()) {
+      return UiResult::consumed;
+    }
     auto* host = cs.production_ui ? &cs.production_ui->host().layer() : nullptr;
     const bool typing = cs.options_screen && cs.options_screen->wants_text();
     const bool capturing = cs.options_menu.capturing();
@@ -165,10 +175,14 @@ void configure_options_layer(ClientState& cs, ClientLayers& layers) {
 // layer.
 void configure_dialog_layer(ClientState& cs, ClientLayers& layers) {
   auto& dialog_layer = layers.dialog_layer;
-  dialog_layer.is_active = [&] { return cs.dialog.visible(); };
+  dialog_layer.is_active = [&] { return cs.dialog.visible() || cs.dialog_fade.active(); };
   dialog_layer.is_modal = [] { return true; };
   dialog_layer.on_reset = [&](UiReset) { cs.dialog.close(); };
   dialog_layer.on_event = [&](const UiEvent& e) -> UiResult {
+    // Closed but still fading: the dialog takes input without acting on it.
+    if (!cs.dialog.visible()) {
+      return UiResult::consumed;
+    }
     if (e.kind == UiKind::pointer_move) {
       cs.dialog.pointer_move(e.point);
     } else if (left_button(e)) {

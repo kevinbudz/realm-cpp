@@ -143,18 +143,22 @@ std::size_t mesh_block_end(std::span<const QuadMeta> meta, std::size_t first) {
 SpriteRun sprite_run(std::span<const QuadMeta> meta, std::size_t first) {
   const auto texture = meta[first].texture;
   SpriteRun run;
-  run.end = first + 1;
-  while (run.end < meta.size() && meta[run.end].texture == texture && meta[run.end].kind != 9 &&
-         meta[run.end].kind != 10 && meta[run.end].kind != 14) {
-    ++run.end;
-  }
-  for (std::size_t i = first; i < run.end; ++i) {
+  // One pass over the run: each quad is counted as its kind is read, so the walls are not
+  // scanned a second time.
+  const auto count_walls = [&run, &meta](std::size_t i) {
     if (meta[i].kind == 17) {
       const auto count = static_cast<std::int32_t>(meta[i].walls);
       ++run.walls;
       run.max_vertices = std::max(run.max_vertices, count);
       run.wall_triangles += static_cast<std::uint64_t>(count) / 3;
     }
+  };
+  count_walls(first);
+  run.end = first + 1;
+  while (run.end < meta.size() && meta[run.end].texture == texture && meta[run.end].kind != 9 &&
+         meta[run.end].kind != 10 && meta[run.end].kind != 14) {
+    count_walls(run.end);
+    ++run.end;
   }
   return run;
 }

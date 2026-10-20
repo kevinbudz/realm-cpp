@@ -729,6 +729,50 @@ UI Quality (Options › Video › Display, after Renderer; live, no restart). Hi
 
 Identity: the S1 and S3 quad, state and packet checksums match the oracle in How to test. 120-frame GL captures at zoom 1 are byte-identical base and final. New md5s (plain `--capture`, 120 frames): churn `e4b13f5d0fa6161f6906f8f5d26d289d`, S1-mixed-dense `7b427977854a1df0ab9b3769310a4026`, S3-combat-cluster `5cf3f88e7d3bbd6ce983e597e9edad91`.
 
+### Quad stream and Combat CPU (2026-10-20)
+
+Base is HEAD 740f09c. The results arms are Release builds without `-g` (the same flags, LTO on); the stage 0 profile used a HEAD build with `-g` (debug info only). The stress scene is S3-combat-cluster, world only (`REALM_TEST_WORLD_ONLY=1`), at 1920×1024.
+
+Stage 0 profile (before any change; callgrind per-frame deltas, 300 minus 100 frames, GL; telemetry medians of 3 reps, telemetry on):
+
+| Item | Measure |
+|---|---|
+| Total instructions | 85.6 M Ir/frame (GL); 86.1 M (Vulkan, same quad code) |
+| `Combat::update` | about 28 M Ir/frame inclusive (about a third of the total); `combat.update` median 1.57 ms, mean 3.5 ms, p99 22.8 ms |
+| Live projectiles | about 20 000 in steady state, 19.5 k target queries per frame, 62 grid candidates examined per query (1000 frames: 1.20 G examined) |
+| Quad path | `pack_quads` 2.7 M Ir, `sprite_run` 1.9 M, `Quad` moves in `emplace_back` about 2 M (plus 0.3 M in `shared_ptr`), projectile sin/cos in `Scene::build` about 2 M; `render.submit` 0.83 ms of which `render.quad_upload` 0.62 ms |
+| Harness | the stress step (`fixture.timeline`, 2.1 ms median) runs its own `Combat` (`StressTimeline.cpp:506`); live play runs the same class from `Session.cpp:114` |
+
+Decisions:
+
+| Change | Decision | Evidence |
+|---|---|---|
+| Projectile trig: one `sincos` (1a) | rejected | glibc `sincos` is bit-identical to `sin`/`cos` (27.2 M angles), but the libm total is unchanged (4.916 M Ir/frame both) and `Scene::build` grew 0.22 M, so net Ir rose |
+| `sprite_run` counts walls in its run-end scan (one pass) | kept | `sprite_run` 1.92 → 1.64 M Ir/frame; checksums identical |
+| Avoid `Quad` moves in `Scene` (1c) | not implemented | upper bound about 2.2 M Ir/frame (2.6%); needs out-parameter producers across about 20 sites; below telemetry noise |
+| Run table written by `pack_quads` | not implemented | each quad is already read once by the packer and once by the run scan; a table needs a per-quad field |
+| Owner table (1b) and GPU instance compaction (stage 2) | deferred / dropped | per the lead |
+| Combat: rank grid candidates by index distance before the entity lookup | kept | `World::entity` 6.2 → 1.2 M Ir/frame; `Combat::update` self 38.3 → 14.0 M (with the grid change below); candidate order does not affect the nearest-target rule (ties keep dense order) |
+| Combat grid: quarter-tile cells, cap 64 per enemy (was one tile, cap 4) | kept | examined 1.20 G → 0.38 G; cell count stays O(enemies) |
+
+Results (telemetry off; `CPU event/build/submit` mean and p95 from `--benchmark`, 1000 frames, 3 interleaved reps, medians; 1-minute load 0.5–2.5 with other desktop apps running):
+
+| Scene | HEAD mean → final | HEAD p95 → final |
+|---|---|---|
+| S3-combat-cluster, world only | 7.68 → 6.46 ms | 18.7 → 10.5 ms |
+| S3, reorder only (one-tile cells) | 7.68 → 7.31 ms | 18.7 → 14.9 ms |
+| S1-mixed-dense, full UI | 2.62 → 2.65 ms | 8.6 → 8.6 ms |
+| churn, full UI | 2.39 → 2.36 ms | 8.5 → 8.4 ms |
+| Nexus idle (4000 frames) | 0.050 → 0.051 ms | 0.060 → 0.060 ms |
+
+Telemetry on (S3, medians of 3 reps, HEAD → final): `frame.cpu` 7.27 → 6.91 ms; `combat.update` mean 3.53 → 2.07 ms, p99 22.8 → 7.9 ms; frame-interval p99 30.1 → 15.1 ms. The `combat.target_query` zone sits inside the per-projectile loop; with telemetry on each call costs a name lookup, so it overstates the query. Telemetry-off numbers above do not have this cost.
+
+Identity (final build against HEAD): the six oracle values (300 frames) match; GL capture md5s churn `e4b13f5d…`, S1 `7b427977…`, S3 `5cf3f88e…` match; Vulkan S1 and S3 captures (120 frames, `REALM_VK_VALIDATION=1`) are byte-identical to HEAD, with 0 validation errors and 0 warnings; S3 at 1000 frames has identical packet (`7845810838433830383`), state (`13769363233032697754`) and quad (`1469598103934665603`) checksums.
+
+ctest (full `-j4`): 89 of 91 pass; the two failures are the baseline `appearance_compose` and `options_gpu`. `-L gpu -j1`: 20 of 21 under GL and 20 of 21 with `REALM_RENDERER=vulkan`, the failure again `options_gpu`.
+
+Open: the next Combat cost is the fixed per-projectile work (two `projectile_position` calls with `travel_angle`'s `atan2`, tile and cover lookups, particle trails), about 1 ms of the mean at this load; the 1c move removal is a separate decision.
+
 ## How to test
 
 Checksum oracle (GL identity), from `realm-cpp`, **300 frames** (tests/README.md says 120, which gives

@@ -243,8 +243,10 @@ void Combat::build_target_index() {
     return;
   }
 
-  const double cap = static_cast<double>(std::max<std::size_t>(1024, gathered_.size() * 4));
-  double cell = 1;
+  // Cells start at a quarter tile: a crowd of enemies in one tile is then split among several
+  // cells, so a query examines fewer of them. The cap keeps the cell count O(enemy count).
+  const double cap = static_cast<double>(std::max<std::size_t>(1024, gathered_.size() * 64));
+  double cell = .25;
   double columns = 0;
   double rows = 0;
   for (;;) {
@@ -323,9 +325,7 @@ void Combat::query_target_index(Vec2 position, Visit&& visit) {
           std::abs(candidate.y - position.y) > .5) {
         continue;
       }
-      if (auto* entity = world_.entity(candidate.id)) {
-        visit(*entity);
-      }
+      visit(candidate);
     }
   }
 }
@@ -411,7 +411,19 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
             }
           }
         } else {
-          query_target_index(position, consider);
+          // The index keeps each enemy's position as update() began it, and nothing moves an enemy
+          // before update() returns. A candidate whose distance already exceeds the best so far
+          // cannot be the target, so the entity is looked up only for the ones that can.
+          query_target_index(position, [&](const Candidate& candidate) {
+            const double dx = std::abs(candidate.x - position.x);
+            const double dy = std::abs(candidate.y - position.y);
+            if (dx * dx + dy * dy > distance) {
+              return;
+            }
+            if (auto* entity = world_.entity(candidate.id)) {
+              consider(*entity);
+            }
+          });
         }
       }
 

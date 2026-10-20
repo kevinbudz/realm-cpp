@@ -224,6 +224,11 @@ std::vector<OptionDef> build() {
                           {"Vulkan", static_cast<int>(gfx::Api::vulkan)}});
   renderer.restart = true;
   add(std::move(renderer));
+  // World text at the camera zoom (names, signs, damage text, speech balloons). Live: no restart.
+  add(choice(at, "uiQuality", "UI Quality",
+             "Sharpness of names, signs, damage and balloons when zoomed. High redraws them "
+             "at each zoom step; Low scales one bitmap, so zoom steps cost nothing.",
+             1, {{"Low", 0}, {"High", 1}}));
   add(slider(at, "maxFPS", "Max FPS",
              "Caps the frame rate. Unlimited renders as fast as possible (up to your display "
              "refresh with VSync on).",
@@ -578,6 +583,7 @@ void Settings::reset_all() {
 Preferences Settings::preferences() const {
   Preferences p;
   p.hp_bars = flag("hpBars");
+  p.ui_quality = get("uiQuality") == 0 ? UiQuality::low : UiQuality::high;
   p.particles = flag("particles");
   p.draw_shadows = flag("drawShadows");
   p.proj_outline = flag("projOutline");

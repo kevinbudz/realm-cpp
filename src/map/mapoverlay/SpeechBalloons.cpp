@@ -70,21 +70,30 @@ void SpeechBalloons::add(const World& world, const net::incoming::Text& message)
   balloons_.push_back(std::move(balloon));
 }
 
-void SpeechBalloons::update(const World& world, const FontBook& fonts, std::int32_t time) {
+void SpeechBalloons::update(const World& world, FontBook& fonts, std::int32_t time) {
   std::erase_if(balloons_, [&](const Balloon& b) {
     return !world.entity(b.object_id) || (b.start >= 0 && time - b.start > b.lifetime);
   });
+  const double density = world_text_density(world.preferences().ui_quality);
+  const double scale = density > 0 ? density : fonts.pixel_scale();
   for (auto& balloon : balloons_) {
     if (balloon.start < 0) {
       balloon.start = time;
     }
-    if (balloon.image.pixels.empty() || balloon.image.pixel_scale != fonts.pixel_scale()) {
-      render(balloon, fonts);
+    if (balloon.image.pixels.empty() || balloon.image.pixel_scale != scale) {
+      render(balloon, fonts, scale);
     }
   }
 }
 
-void SpeechBalloons::render(Balloon& balloon, const FontBook& fonts) {
+void SpeechBalloons::drop_images() {
+  for (auto& balloon : balloons_) {
+    balloon.image = {};
+  }
+}
+
+void SpeechBalloons::render(Balloon& balloon, FontBook& fonts, double scale) {
+  const FontBook::DensityScope at(fonts, scale);
   // A 150-pixel wordWrap TextField with autoSize LEFT, regular 14-pixel text.
   std::string joined;
   const auto lines = fonts.wrap(balloon.text, 14, false, 150);

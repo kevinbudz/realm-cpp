@@ -43,9 +43,12 @@ class SpeechBalloons {
 
   void clear() { balloons_.clear(); }
 
-  // Rasterizes new balloons at the font's current density and drops expired
-  // ones or those whose object left the map.
-  void update(const World& world, const FontBook& fonts, std::int32_t time);
+  // Rasterizes new balloons at the UI Quality's density (the font's current density under High) and
+  // drops expired ones or those whose object left the map.
+  void update(const World& world, FontBook& fonts, std::int32_t time);
+
+  // Drops every balloon's bitmap, so each is made again on the next update (a UI Quality change).
+  void drop_images();
 
   [[nodiscard]] const std::vector<Balloon>& balloons() const { return balloons_; }
 
@@ -56,7 +59,7 @@ class SpeechBalloons {
   static constexpr double margin = 17;
 
  private:
-  void render(Balloon& balloon, const FontBook& fonts);
+  void render(Balloon& balloon, FontBook& fonts, double scale);
   std::vector<Balloon> balloons_;
   std::uint64_t revisions_{};
 };

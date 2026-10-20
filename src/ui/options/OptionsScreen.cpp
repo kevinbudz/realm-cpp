@@ -5,6 +5,7 @@
 #include <RmlUi/Core/Elements/ElementFormControlSelect.h>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 
@@ -18,6 +19,27 @@ constexpr double choice_padding = 16 + 34;
 // The cursor sheet: a 4x4 grid of 32 px cursors (CursorSet).
 constexpr int cursor_size = 32;
 constexpr std::string_view default_hint = "Hover over a setting to see what it does.";
+// The Renderer hint shows a fallback reason no longer than this, cut at a word. The tooltip, the
+// "Using ..." clause and the reason must fit two lines at 800x600; the full reason stays in the log.
+constexpr std::size_t reason_limit = 32;
+
+// The first clause of a fallback reason ("Vulkan loader" for an SDL loader error), shortened to
+// reason_limit.
+std::string short_reason(std::string_view reason) {
+  auto clause = reason.substr(0, reason.find(':'));
+  while (!clause.empty() && clause.back() == ' ') {
+    clause.remove_suffix(1);
+  }
+  if (clause.empty()) {
+    clause = reason;
+  }
+  if (clause.size() <= reason_limit) {
+    return std::string(clause);
+  }
+  clause = clause.substr(0, reason_limit);
+  clause = clause.substr(0, clause.find_last_of(' '));
+  return std::string(clause) + "...";
+}
 
 std::string escaped(std::string_view value) {
   std::string result;
@@ -239,7 +261,7 @@ struct OptionsScreen::Impl {
       if (const auto& fallback = realm::gfx::fallback()) {
         text += " Using " + std::string(realm::gfx::api_name(active)) + ": " +
                 std::string(realm::gfx::api_name(fallback->requested)) + " unavailable (" +
-                fallback->reason + ").";
+                short_reason(fallback->reason) + ").";
       } else if (const auto flag = realm::gfx::command_line_api()) {
         text += " This run uses " + std::string(realm::gfx::api_name(*flag)) +
                 " from --renderer; the saved " + std::string(realm::gfx::api_name(saved)) +

@@ -213,7 +213,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   // Option table shape: every row in a section, no section split across the table.
   check(category_options(OptionsCategory::keybinds).size() == 35 &&
             category_options(OptionsCategory::gameplay).size() == 10 &&
-            category_options(OptionsCategory::video).size() == 21 &&
+            category_options(OptionsCategory::video).size() == 22 &&
             category_options(OptionsCategory::audio).size() == 5,
         "category sizes");
   check(category_sections(OptionsCategory::video) ==
@@ -630,7 +630,7 @@ void menu_behavior() {
   // Categories and reset.
   revision = menu.layout_revision();
   menu.set_category(OptionsCategory::video);
-  check(menu.category() == OptionsCategory::video && menu.rows().size() == 21 &&
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 22 &&
             menu.layout_revision() != revision && listed(menu, "maxFPS"),
         "category switches the rows");
   menu.set_value("particles", 0);
@@ -646,7 +646,7 @@ void menu_behavior() {
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
         "search lists matches from every category");
   menu.set_query("  ");
-  check(menu.rows().size() == 21, "a blank query lists the open category");
+  check(menu.rows().size() == 22, "a blank query lists the open category");
   menu.set_query("chat scroll");
   check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
         "every query word must match (label, section or category)");

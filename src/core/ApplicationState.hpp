@@ -304,6 +304,8 @@ struct ClientState {
   int applied_resolution{-1};
   bool autofire{};
   bool perf_stats{};
+  // The UI Quality the world text caches were last made for (a change drops them).
+  realm::UiQuality text_quality{realm::UiQuality::high};
   int perf_frames{};
   double perf_clock{};
   std::string perf_text;

@@ -105,9 +105,24 @@ inline constexpr int key_enter = 13;
 // and flashes.
 enum class AllyParticles : std::uint8_t { off, minimal, all };
 
+// UI Quality: how world text (names, signs, damage text, speech balloons) is rasterized under a
+// camera zoom.
+// High makes each bitmap at the zoom, so it stays crisp; Low makes one bitmap and scales it.
+enum class UiQuality : std::uint8_t { low, high };
+
+// The density world text is rasterized at for a UI Quality: 1 for Low, and 0 for High, which means
+// the
+// font book's current density (the camera zoom while the scene builds). StatusArt and
+// SpeechBalloons
+// read 0 that way.
+[[nodiscard]] constexpr double world_text_density(UiQuality quality) {
+  return quality == UiQuality::low ? 1.0 : 0.0;
+}
+
 // Settings the game systems read each frame.
 struct Preferences {
   bool hp_bars{true};
+  UiQuality ui_quality{UiQuality::high};
   bool particles{true};
   bool draw_shadows{true};
   bool proj_outline{true};

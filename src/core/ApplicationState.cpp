@@ -340,6 +340,15 @@ std::string ClientState::own_name() {
 void ClientState::apply_settings() {
   world.set_preferences(settings.preferences());
   audio_bridge.set_preferences(settings.preferences());
+  // UI Quality: names, signs, status text and balloons are rasterized at its density (the zoom
+  // under High), so a change drops those bitmaps; each is made again when next drawn.
+  if (const auto quality = world.preferences().ui_quality; quality != text_quality) {
+    text_quality = quality;
+    status_art.clear_labels();
+    status_texts.drop_labels();
+    balloons.drop_images();
+    scene.reset_text_labels();
+  }
   // Performance Stats: the overlay starts from the saved showStatistics value.
   if (const bool stats = settings.flag("showStatistics"); stats != perf_stats) {
     perf_stats = stats;

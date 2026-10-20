@@ -1,15 +1,27 @@
-// RmlUi on Vulkan (phase 3, milestone 1): geometry, scissor and textures. Compiled geometry is kept on
-// the host and copied into the frame's ring when drawn. Clip masks, layers, filters and shaders
-// (gradients) are not implemented yet: each logs once and draws without its effect.
+// RmlUi on Vulkan (phase 3): geometry, scissor, textures, clip masks, layers and blur. Compiled geometry is kept on
+// the host and copied into the frame's ring when drawn. Shaders (gradients) are not implemented yet: they log once
+// and draw without their effect.
+//
+// Frame cache (milestone M4, as RmlUi_Renderer_GL3). Between BeginFrame and EndFrame the draws are queued, not
+// recorded. A frame whose draws were all queued is replayed from the renderer's recording of the same draw list,
+// or recorded once. A clip mask, a layer or a composite flushes the queue and makes the frame ineligible (its draws
+// then run at once), and so does a write to a texture that queued draws may sample (they must see the old pixels).
+// "generation" moves on every compile, release, upload, texture creation and viewport change: the queue is only
+// replayed when the draw list and the generation match the recording's. Releases during a recorded frame wait for
+// EndFrame, because queued draws may still name the object. REALM_VK_UI_CACHE=0 runs every draw at once (the
+// pre-M4 path, for comparison).
 #include "RmlGpu.hpp"
 #include "realm/stage3D/vk/VkUi.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/FileInterface.h>
+#include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -92,22 +104,83 @@ std::optional<Image> load_targa(const Rml::String& source) {
   return image;
 }
 
+// REALM_VK_UI_CACHE=0 runs every draw at once (the pre-M4 path).
+bool ui_cache_enabled() {
+  const char* value = std::getenv("REALM_VK_UI_CACHE");
+  return !(value && std::string_view(value) == "0");
+}
+
 // RmlUi's render interface on the Vulkan UI pass. HUD art ("item:" and "art:" sources) is nearest
 // sampled, as on GL.
 class VkRenderInterface final : public Rml::RenderInterface {
- public:
-  explicit VkRenderInterface(const HudArt* art) : art_(art) {}
+  // A draw as queued: the geometry by handle (it stays alive until EndFrame), with the state the draw takes.
+  struct Command {
+    Rml::CompiledGeometryHandle geometry = 0;
+    std::uint32_t texture = 0;
+    bool textured = false;
+    gfx::vk::ui::Clip clip = gfx::vk::ui::Clip::none;
+    std::uint32_t stencil_reference = 0;
+    float transform[16] = {};
+    float translate[2] = {0, 0};
+    bool scissor = false;
+    int region[4] = {0, 0, 0, 0};
 
-  void set_viewport(int width, int height) {
+    bool operator==(const Command& other) const {
+      return geometry == other.geometry && texture == other.texture && textured == other.textured &&
+             clip == other.clip && stencil_reference == other.stencil_reference &&
+             std::equal(transform, transform + 16, other.transform) &&
+             std::equal(translate, translate + 2, other.translate) && scissor == other.scissor &&
+             std::equal(region, region + 4, other.region);
+    }
+  };
+
+ public:
+  explicit VkRenderInterface(const HudArt* art) : art_(art), cache_enabled_(ui_cache_enabled()) {}
+
+  // BeginFrame: the window size, and the queue opens (when the cache is on).
+  void begin_frame(int width, int height) {
+    if (width != width_ || height != height_) {
+      ++generation_;
+    }
     width_ = width;
     height_ = height;
     draws = 0;
+    recording_ = cache_enabled_;
+    ineligible_ = false;
+    frame_reused_ = false;
+    queue_.clear();
+    gfx::vk::ui::begin_frame(width, height);
   }
 
-  std::size_t draws{};
+  // EndFrame: replays or records the frame's queued draws, closes the UI pass, then performs the releases that
+  // waited for the frame.
+  void end_frame() {
+    if (recording_) {
+      if (!queue_.empty()) {
+        submit_queue();
+      }
+      recording_ = false;
+      queue_.clear();
+    }
+    gfx::vk::ui::end_frame();
+    for (const auto handle : deferred_geometry_) {
+      geometries_[handle - 1] = Geometry{};
+    }
+    deferred_geometry_.clear();
+    for (const auto texture : deferred_textures_) {
+      gfx::vk::ui::release_texture(texture);
+    }
+    deferred_textures_.clear();
+  }
+
+  [[nodiscard]] bool frame_reused() const { return frame_reused_; }
+
+  // Resource state the recorded draws depend on changed: the next frame that draws them is recorded again.
+  void content_changed() { ++generation_; }
 
   Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> vertices,
                                               Rml::Span<const int> indices) override {
+    ++generation_;
     Geometry geometry;
     geometry.vertices.resize(vertices.size());
     std::memcpy(geometry.vertices.data(), vertices.data(), vertices.size() * sizeof(Rml::Vertex));
@@ -138,6 +211,7 @@ class VkRenderInterface final : public Rml::RenderInterface {
   // draws must match.
   void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry,
                         Rml::Vector2f translation) override {
+    end_recording();
     gfx::vk::ui::Clip clip = gfx::vk::ui::Clip::mask_set;
     switch (operation) {
       case Rml::ClipMaskOperation::Set:
@@ -159,9 +233,16 @@ class VkRenderInterface final : public Rml::RenderInterface {
   void EnableClipMask(bool enable) override { clip_ = enable; }
 
   void ReleaseGeometry(Rml::CompiledGeometryHandle handle) override {
-    if (handle && handle <= geometries_.size()) {
-      geometries_[handle - 1] = Geometry{};
+    if (!handle || handle > geometries_.size()) {
+      return;
     }
+    ++generation_;
+    if (recording_) {
+      geometries_[handle - 1].released = true;  // queued draws may still name it
+      deferred_geometry_.push_back(handle);
+      return;
+    }
+    geometries_[handle - 1] = Geometry{};
   }
 
   Rml::TextureHandle LoadTexture(Rml::Vector2i& dimensions, const Rml::String& source) override {
@@ -192,6 +273,11 @@ class VkRenderInterface final : public Rml::RenderInterface {
   }
 
   void ReleaseTexture(Rml::TextureHandle texture) override {
+    ++generation_;
+    if (recording_) {
+      deferred_textures_.push_back(static_cast<std::uint32_t>(texture));  // queued draws may still sample it
+      return;
+    }
     gfx::vk::ui::release_texture(static_cast<std::uint32_t>(texture));
   }
 
@@ -210,6 +296,7 @@ class VkRenderInterface final : public Rml::RenderInterface {
 
   // RmlUi's layers: a new layer is cleared and becomes the target of the draws that follow.
   Rml::LayerHandle PushLayer() override {
+    end_recording();
     const auto layer = gfx::vk::ui::push_layer();
     if (!layer) {
       log_once("no UI layer could be made on Vulkan");
@@ -217,11 +304,15 @@ class VkRenderInterface final : public Rml::RenderInterface {
     return layer;
   }
 
-  void PopLayer() override { gfx::vk::ui::pop_layer(); }
+  void PopLayer() override {
+    end_recording();
+    gfx::vk::ui::pop_layer();
+  }
 
   // Composites a layer through its filters (blur) into the destination, as RenderInterface_GL3 does.
   void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode,
                        Rml::Span<const Rml::CompiledFilterHandle> filter_handles) override {
+    end_recording();
     std::vector<gfx::vk::ui::Filter> filters;
     for (const auto handle : filter_handles) {
       if (handle && handle <= filters_.size()) {
@@ -257,31 +348,33 @@ class VkRenderInterface final : public Rml::RenderInterface {
 
   void ReleaseFilter(Rml::CompiledFilterHandle /*filter*/) override {}
 
-  // Draws compiled geometry (a clip mask's geometry draws into the stencil with no texture).
+  // Draws compiled geometry (a clip mask's geometry draws into the stencil with no texture). Queued while the
+  // frame is recorded, otherwise drawn now.
   void draw_geometry(Rml::CompiledGeometryHandle handle, Rml::Vector2f translation, Rml::TextureHandle texture,
                      gfx::vk::ui::Clip clip) {
-    if (!handle || handle > geometries_.size() || !geometries_[handle - 1].live) {
+    if (!handle || handle > geometries_.size() || !geometries_[handle - 1].live ||
+        geometries_[handle - 1].released) {
       return;
     }
-    const auto& geometry = geometries_[handle - 1];
-    gfx::vk::ui::Draw draw;
-    draw.geometry.vertices = geometry.vertices.data();
-    draw.geometry.vertex_count = geometry.vertices.size();
-    draw.geometry.indices = geometry.indices.data();
-    draw.geometry.index_count = geometry.indices.size();
-    draw.texture = static_cast<std::uint32_t>(texture);
-    draw.textured = texture != 0;
-    draw.clip = clip;
-    draw.stencil_reference = stencil_reference_;
-    draw.translate[0] = translation.x;
-    draw.translate[1] = translation.y;
-    projection(draw.transform);
-    draw.scissor = scissor_;
+    Command command;
+    command.geometry = handle;
+    command.texture = static_cast<std::uint32_t>(texture);
+    command.textured = texture != 0;
+    command.clip = clip;
+    command.stencil_reference = stencil_reference_;
+    command.translate[0] = translation.x;
+    command.translate[1] = translation.y;
+    projection(command.transform);
+    command.scissor = scissor_;
     for (std::size_t i = 0; i < 4; ++i) {
-      draw.region[i] = region_[i];
+      command.region[i] = region_[i];
     }
     ++draws;
-    gfx::vk::ui::draw(draw);
+    if (recording_ && !ineligible_) {
+      queue_.push_back(command);
+      return;
+    }
+    gfx::vk::ui::draw(to_draw(command));
   }
 
   // Nearest sampling at the image's own size: HUD art and items.
@@ -289,11 +382,32 @@ class VkRenderInterface final : public Rml::RenderInterface {
     return upload(pixels, size, dimensions, false);
   }
 
+  // A new texture (the host creates it, then writes it).
+  [[nodiscard]] Rml::TextureHandle create_texture(int width, int height) {
+    ++generation_;
+    return gfx::vk::ui::create_texture(width, height, false);
+  }
+
+  // A write to an existing texture. Queued draws run first: they must see the old pixels, as they would have
+  // when recorded at once.
+  void write_texture(Rml::TextureHandle texture, int x, int y, int width, int height, const Rml::byte* rgba) {
+    // Without queued draws there is nothing to run first: the write's copy is recorded before any later pass.
+    if (!queue_.empty()) {
+      end_recording();
+    }
+    ++generation_;
+    gfx::vk::ui::upload_texture(static_cast<std::uint32_t>(texture), x, y, width, height,
+                                reinterpret_cast<const std::byte*>(rgba));
+  }
+
+  std::size_t draws{};
+
  private:
   struct Geometry {
     std::vector<gfx::vk::ui::Vertex> vertices;
     std::vector<std::uint32_t> indices;
     bool live = false;
+    bool released = false;  // released during the frame: freed at EndFrame
   };
 
   // Upload of premultiplied RGBA at the given size; 0 when it cannot be made.
@@ -308,9 +422,65 @@ class VkRenderInterface final : public Rml::RenderInterface {
       Rml::Log::Message(Rml::Log::LT_ERROR, "Failed to generate texture.");
       return {};
     }
+    ++generation_;
     gfx::vk::ui::upload_texture(texture, 0, 0, dimensions.x, dimensions.y,
                                 reinterpret_cast<const std::byte*>(pixels));
     return texture;
+  }
+
+  // The queued draw as the renderer records it. Its geometry is alive until EndFrame.
+  [[nodiscard]] gfx::vk::ui::Draw to_draw(const Command& command) const {
+    const auto& geometry = geometries_[command.geometry - 1];
+    gfx::vk::ui::Draw draw;
+    draw.geometry.vertices = geometry.vertices.data();
+    draw.geometry.vertex_count = geometry.vertices.size();
+    draw.geometry.indices = geometry.indices.data();
+    draw.geometry.index_count = geometry.indices.size();
+    draw.texture = command.texture;
+    draw.textured = command.textured;
+    draw.clip = command.clip;
+    draw.stencil_reference = command.stencil_reference;
+    std::memcpy(draw.transform, command.transform, sizeof draw.transform);
+    draw.translate[0] = command.translate[0];
+    draw.translate[1] = command.translate[1];
+    draw.scissor = command.scissor;
+    std::copy_n(command.region, 4, draw.region);
+    return draw;
+  }
+
+  // Runs the queued draws now, in order, and makes the frame ineligible for reuse (RenderInterface_GL3's
+  // EndRecording). Clip masks, layers and composites come through here: they change state the queue cannot
+  // express.
+  void end_recording() {
+    if (!recording_) {
+      return;
+    }
+    ineligible_ = true;
+    for (const auto& command : queue_) {
+      gfx::vk::ui::draw(to_draw(command));
+    }
+    queue_.clear();
+  }
+
+  // EndFrame of a frame with queued draws. The serial names the draw list: it moves when the list or the
+  // generation differs from the last one recorded. The renderer replays its recording for the serial when that
+  // recording is current for this frame slot; otherwise the list is recorded for the slot.
+  void submit_queue() {
+    if (!cache_valid_ || generation_ != cached_generation_ || queue_ != cached_queue_) {
+      cached_queue_ = queue_;
+      cached_generation_ = generation_;
+      cache_valid_ = true;
+      ++serial_;
+    }
+    frame_reused_ = gfx::vk::ui::replay_cached(serial_);
+    if (!frame_reused_) {
+      std::vector<gfx::vk::ui::Draw> draws_to_record;
+      draws_to_record.reserve(queue_.size());
+      for (const auto& command : queue_) {
+        draws_to_record.push_back(to_draw(command));
+      }
+      gfx::vk::ui::record_bundle(draws_to_record.data(), draws_to_record.size(), serial_);
+    }
   }
 
   // RmlUi's projection: window pixels (top-left origin) to Vulkan clip space under the negative window
@@ -346,6 +516,7 @@ class VkRenderInterface final : public Rml::RenderInterface {
   }
 
   const HudArt* art_;
+  bool cache_enabled_;
   int width_ = 0;
   int height_ = 0;
   std::vector<Geometry> geometries_;
@@ -357,6 +528,19 @@ class VkRenderInterface final : public Rml::RenderInterface {
   bool has_transform_ = false;
   Rml::Matrix4f transform_;
   std::unordered_set<std::string> logged_;
+
+  // The frame cache (see the file comment).
+  bool recording_ = false;   // between BeginFrame and EndFrame, with the cache on
+  bool ineligible_ = false;  // this frame has run draws at once: no reuse
+  bool frame_reused_ = false;
+  std::vector<Command> queue_;
+  std::vector<Rml::CompiledGeometryHandle> deferred_geometry_;
+  std::vector<std::uint32_t> deferred_textures_;
+  std::uint64_t generation_ = 0;  // resource state: moves on compile, release, upload and viewport changes
+  std::vector<Command> cached_queue_;  // the draw list the renderer's recordings were made from
+  std::uint64_t cached_generation_ = 0;
+  bool cache_valid_ = false;
+  std::uint64_t serial_ = 0;  // names cached_queue_ and generation_ (bumped when either changes)
 };
 
 class VkRmlGpu final : public RmlGpu {
@@ -369,13 +553,12 @@ class VkRmlGpu final : public RmlGpu {
   [[nodiscard]] int max_texture_size() const override { return gfx::vk::ui::max_texture_size(); }
 
   [[nodiscard]] Rml::TextureHandle create_texture(int width, int height) override {
-    return gfx::vk::ui::create_texture(width, height, false);
+    return render_.create_texture(width, height);
   }
 
   void write_texture(Rml::TextureHandle texture, int x, int y, int width, int height,
                      const Rml::byte* rgba) override {
-    gfx::vk::ui::upload_texture(static_cast<std::uint32_t>(texture), x, y, width, height,
-                                reinterpret_cast<const std::byte*>(rgba));
+    render_.write_texture(texture, x, y, width, height, rgba);
   }
 
   [[nodiscard]] Rml::TextureHandle nearest_texture(const Rml::byte* rgba, std::size_t size,
@@ -383,17 +566,16 @@ class VkRmlGpu final : public RmlGpu {
     return render_.nearest_texture(rgba, size, dimensions);
   }
 
-  void content_changed() override {}
+  void content_changed() override { render_.content_changed(); }
 
   void begin_frame(int drawable_width, int drawable_height) override {
-    render_.set_viewport(drawable_width, drawable_height);
-    gfx::vk::ui::begin_frame(drawable_width, drawable_height);
+    render_.begin_frame(drawable_width, drawable_height);
   }
 
-  void end_frame() override { gfx::vk::ui::end_frame(); }
+  void end_frame() override { render_.end_frame(); }
 
   [[nodiscard]] std::size_t draws() const override { return render_.draws; }
-  [[nodiscard]] bool frame_reused() const override { return false; }
+  [[nodiscard]] bool frame_reused() const override { return render_.frame_reused(); }
   [[nodiscard]] bool begin_timer() override { return false; }  // no GPU timers yet
   void end_timer() override {}
   [[nodiscard]] std::optional<double> poll_timers_ms() override { return std::nullopt; }

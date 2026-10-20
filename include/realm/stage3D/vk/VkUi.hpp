@@ -49,6 +49,15 @@ void draw(const Draw& draw);
 // Ends the frame's UI pass, if one is open.
 void end_frame();
 
+// The frame cache (M4). A frame whose draws were queued is recorded once per frame slot into a secondary
+// command buffer, and a later frame with the same draw list replays it. `serial` names the draw list: the
+// caller changes it whenever the list or anything it refers to changes. replay_cached opens the frame's UI
+// pass and executes the slot's recording when that recording is for `serial` and still valid; it returns
+// false (and draws nothing) otherwise, and the caller then calls record_bundle with the draws, which records
+// and executes them in the same pass.
+[[nodiscard]] bool replay_cached(std::uint64_t serial);
+void record_bundle(const Draw* draws, std::size_t count, std::uint64_t serial);
+
 // RmlUi layers. Handle 0 is the window. push_layer clears a new layer and makes it the target of the draws
 // that follow; pop_layer returns to the layer below. push_layer returns 0 when no layer can be made.
 [[nodiscard]] std::uint32_t push_layer();

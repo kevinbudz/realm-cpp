@@ -31,6 +31,19 @@ void draw(const Draw& draw) {
 
 void end_frame() { close_pass(); }
 
+bool replay_cached(std::uint64_t serial) {
+  if (auto* renderer = active_renderer()) {
+    return renderer->ui_replay(serial);
+  }
+  return false;
+}
+
+void record_bundle(const Draw* draws, std::size_t count, std::uint64_t serial) {
+  if (auto* renderer = active_renderer()) {
+    renderer->ui_record_bundle(draws, count, serial);
+  }
+}
+
 std::uint32_t push_layer() {
   if (auto* renderer = active_renderer()) {
     return renderer->ui_push_layer();
@@ -87,6 +100,8 @@ namespace realm::gfx::vk::ui {
 void begin_frame(int /*width*/, int /*height*/) {}
 void draw(const Draw& /*draw*/) {}
 void end_frame() {}
+bool replay_cached(std::uint64_t /*serial*/) { return false; }
+void record_bundle(const Draw* /*draws*/, std::size_t /*count*/, std::uint64_t /*serial*/) {}
 std::uint32_t push_layer() { return 0; }
 void pop_layer() {}
 void composite(const Composite& /*composite*/) {}

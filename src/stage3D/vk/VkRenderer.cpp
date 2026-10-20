@@ -262,6 +262,12 @@ VkRenderer::~VkRenderer() {
   // Frames in flight may still use the pipelines, framebuffers and images.
   device.fn.vkDeviceWaitIdle(device.device);
   pipelines().release_scene();
+  for (auto& bundle : ui_bundles_) {
+    gfx::vk::destroy_buffer(bundle.data);
+  }
+  if (ui_pool_ != VK_NULL_HANDLE) {
+    device.fn.vkDestroyCommandPool(device.device, ui_pool_, nullptr);  // frees the recordings
+  }
   for (auto& [view, framebuffer] : framebuffers_) {
     device.fn.vkDestroyFramebuffer(device.device, framebuffer, nullptr);
   }
@@ -1177,7 +1183,8 @@ VkFramebuffer VkRenderer::ui_framebuffer(VkImageView color, VkImageView stencil,
   return framebuffer;
 }
 
-void VkRenderer::ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain) {
+void VkRenderer::ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain,
+                          bool secondary) {
   auto& frame = frames();
   const auto command = frame.record();
   // Transfers recorded so far (copies cannot run inside a pass) are closed before the pass.
@@ -1191,9 +1198,14 @@ void VkRenderer::ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent
   begin.clearValueCount = static_cast<std::uint32_t>(clears.size());
   begin.pClearValues = clears.data();
   auto& device = context();
-  device.fn.vkCmdBeginRenderPass(command, &begin, VK_SUBPASS_CONTENTS_INLINE);
+  device.fn.vkCmdBeginRenderPass(command, &begin,
+                                 secondary ? VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS
+                                           : VK_SUBPASS_CONTENTS_INLINE);
   swapchain_pass_ = swapchain;
   bound_ = VK_NULL_HANDLE;
+  if (secondary) {
+    return;  // secondary command buffers inherit no bindings or dynamic state: the recording sets its own
+  }
   device.fn.vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines().layout(), 0, 1,
                                     &atlas_set_, 0, nullptr);
   VkViewport viewport{0.0f,
@@ -1324,13 +1336,16 @@ const VkRenderer::UiImage* VkRenderer::ui_blur(const UiImage* first, const UiIma
   return source;
 }
 
-void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
+// A UI draw that has something to draw (the others are skipped, as before the frame cache).
+static bool ui_has_work(const gfx::vk::ui::Draw& draw, int width, int height, VkDescriptorSet atlas) {
   const auto& geometry = draw.geometry;
-  if (!geometry.vertex_count || !geometry.index_count || !geometry.vertices || !geometry.indices ||
-      ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
-    return;  // no frame has bound the atlas yet, or nothing to draw
-  }
-  const auto extent = VkExtent2D{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)};
+  return geometry.vertex_count && geometry.index_count && geometry.vertices && geometry.indices && width > 0 &&
+         height > 0 && atlas != VK_NULL_HANDLE;
+}
+
+template <typename Allocate>
+void VkRenderer::ui_record(VkCommandBuffer command, const gfx::vk::ui::Draw& draw, Allocate&& allocate) {
+  const auto& geometry = draw.geometry;
   // The scissor: RmlUi's region clipped to the window (a Vulkan scissor must lie inside it).
   VkRect2D scissor = rect(ui_width_, ui_height_);
   if (draw.scissor) {
@@ -1342,15 +1357,11 @@ void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
     scissor.extent = {static_cast<std::uint32_t>(std::max(0, right - left)),
                       static_cast<std::uint32_t>(std::max(0, bottom - top))};
   }
-  ui_open(extent);
-  auto& frame = frames();
-  const auto command = frame.record();
-  auto& ring = frame.ring();
   const auto vertex_bytes = geometry.vertex_count * sizeof(gfx::vk::ui::Vertex);
   const auto index_bytes = geometry.index_count * sizeof(std::uint32_t);
-  const auto vertices = ring.allocate(vertex_bytes, 16);
+  const auto vertices = allocate(vertex_bytes, 16);
   std::memcpy(vertices.data, geometry.vertices, vertex_bytes);
-  const auto indices = ring.allocate(index_bytes, 4);
+  const auto indices = allocate(index_bytes, 4);
   std::memcpy(indices.data, geometry.indices, index_bytes);
 
   auto& device = context();
@@ -1400,6 +1411,143 @@ void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
   }
   device.fn.vkCmdDrawIndexed(command, static_cast<std::uint32_t>(geometry.index_count), 1, 0, 0, 0);
   ++draw_calls_;
+}
+
+void VkRenderer::ui_draw(const gfx::vk::ui::Draw& draw) {
+  if (!ui_has_work(draw, ui_width_, ui_height_, atlas_set_)) {
+    return;  // no frame has bound the atlas yet, or nothing to draw
+  }
+  ui_open(VkExtent2D{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)});
+  auto& frame = frames();
+  const auto command = frame.record();
+  auto& ring = frame.ring();
+  ui_record(command, draw, [&ring](VkDeviceSize bytes, VkDeviceSize alignment) {
+    return ring.allocate(bytes, alignment);
+  });
+}
+
+VkRenderer::UiBundle& VkRenderer::ui_bundle() {
+  static_cast<void>(frames().record());  // opens the frame: the slot's previous frame has finished
+  return ui_bundles_[frames().slot()];
+}
+
+void VkRenderer::ui_run_bundle(const UiBundle& bundle, const gfx::vk::Target& target) {
+  auto& slot = ui_slot(target.extent);
+  // The frame's first UI pass clears the stencil, as ui_open does.
+  const bool stencil_clear = !ui_cleared_;
+  ui_cleared_ = true;
+  const auto fb = ui_framebuffer(target.view, slot.stencil.view, target.extent);
+  ui_begin(ui_passes_[0][0][stencil_clear ? 1 : 0], fb, target.extent, true, true);
+  context().fn.vkCmdExecuteCommands(frames().record(), 1, &bundle.command);
+  bound_ = VK_NULL_HANDLE;
+  end_pass();
+  draw_calls_ += bundle.draws;
+}
+
+bool VkRenderer::ui_replay(std::uint64_t serial) {
+  if (ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
+    return false;
+  }
+  const auto window =
+      VkExtent2D{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)};
+  // The target first: acquiring it may rebuild the swapchain, which the recording's key includes.
+  const auto& target = frames().target(window.width, window.height);
+  auto& bundle = ui_bundle();
+  if (!bundle.valid || bundle.serial != serial || bundle.atlas != atlas_set_ ||
+      bundle.frame_generation != frames().generation() || bundle.extent.width != window.width ||
+      bundle.extent.height != window.height) {
+    return false;
+  }
+  if (bundle.draws > 0) {
+    ui_run_bundle(bundle, target);
+  }
+  return true;
+}
+
+void VkRenderer::ui_record_bundle(const gfx::vk::ui::Draw* draws, std::size_t count, std::uint64_t serial) {
+  if (ui_width_ <= 0 || ui_height_ <= 0 || atlas_set_ == VK_NULL_HANDLE) {
+    return;
+  }
+  const auto window =
+      VkExtent2D{static_cast<std::uint32_t>(ui_width_), static_cast<std::uint32_t>(ui_height_)};
+  const auto& target = frames().target(window.width, window.height);
+  auto& bundle = ui_bundle();
+  bundle.valid = false;
+  std::size_t drawable = 0;
+  VkDeviceSize needed = 0;  // the vertex and index bytes, each with its alignment slack
+  for (std::size_t i = 0; i < count; ++i) {
+    if (ui_has_work(draws[i], ui_width_, ui_height_, atlas_set_)) {
+      ++drawable;
+      needed += draws[i].geometry.vertex_count * sizeof(gfx::vk::ui::Vertex) + 16 +
+                draws[i].geometry.index_count * sizeof(std::uint32_t) + 4;
+    }
+  }
+  bundle.serial = serial;
+  bundle.atlas = atlas_set_;
+  bundle.frame_generation = frames().generation();
+  bundle.extent = window;
+  bundle.draws = drawable;
+  if (drawable == 0) {
+    bundle.valid = true;  // nothing to draw: no pass, as ui_draw opens none
+    return;
+  }
+  auto& device = context();
+  if (ui_pool_ == VK_NULL_HANDLE) {
+    auto pool_info = make<VkCommandPoolCreateInfo>(VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pool_info.queueFamilyIndex = device.family;
+    check(device.fn.vkCreateCommandPool(device.device, &pool_info, nullptr, &ui_pool_), "vkCreateCommandPool");
+  }
+  if (bundle.command == VK_NULL_HANDLE) {
+    auto allocate = make<VkCommandBufferAllocateInfo>(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
+    allocate.commandPool = ui_pool_;
+    allocate.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    allocate.commandBufferCount = 1;
+    check(device.fn.vkAllocateCommandBuffers(device.device, &allocate, &bundle.command),
+          "vkAllocateCommandBuffers");
+  }
+  if (bundle.data.size < needed) {
+    // Grows only (doubling): the slot's previous frame has finished, so nothing reads the old bytes.
+    gfx::vk::destroy_buffer(bundle.data);
+    bundle.data = gfx::vk::create_ring_buffer(
+        std::max({needed, bundle.data.size * 2, VkDeviceSize{64} << 10}),
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+  }
+
+  const auto command = bundle.command;
+  auto begin = make<VkCommandBufferBeginInfo>(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
+  begin.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+  auto inheritance = make<VkCommandBufferInheritanceInfo>(VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO);
+  inheritance.renderPass = ui_passes_[0][0][0];  // compatible with every UI pass
+  inheritance.subpass = 0;
+  inheritance.framebuffer = VK_NULL_HANDLE;  // any framebuffer of that pass
+  begin.pInheritanceInfo = &inheritance;
+  check(device.fn.vkResetCommandBuffer(command, 0), "vkResetCommandBuffer");
+  check(device.fn.vkBeginCommandBuffer(command, &begin), "vkBeginCommandBuffer");
+  device.fn.vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines().layout(), 0, 1,
+                                    &atlas_set_, 0, nullptr);
+  VkViewport viewport{0.0f,
+                      static_cast<float>(target.extent.height),
+                      static_cast<float>(target.extent.width),
+                      -static_cast<float>(target.extent.height),
+                      0.0f,
+                      1.0f};
+  device.fn.vkCmdSetViewport(command, 0, 1, &viewport);
+  bound_ = VK_NULL_HANDLE;
+  VkDeviceSize used = 0;
+  auto allocate_in_bundle = [&bundle, &used](VkDeviceSize bytes, VkDeviceSize alignment) {
+    const VkDeviceSize offset = alignment ? (used + alignment - 1) / alignment * alignment : used;
+    used = offset + bytes;
+    return gfx::vk::Ring::Span{bundle.data.buffer, offset, bundle.data.mapped + offset};
+  };
+  for (std::size_t i = 0; i < count; ++i) {
+    if (ui_has_work(draws[i], ui_width_, ui_height_, atlas_set_)) {
+      ui_record(command, draws[i], allocate_in_bundle);
+    }
+  }
+  check(device.fn.vkEndCommandBuffer(command), "vkEndCommandBuffer");
+  bundle.valid = true;
+  ui_run_bundle(bundle, target);
 }
 
 std::uint32_t VkRenderer::ui_push_layer() {

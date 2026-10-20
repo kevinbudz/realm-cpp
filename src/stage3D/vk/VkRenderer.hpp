@@ -70,6 +70,9 @@ class VkRenderer final : public gfx::RendererBackend {
   [[nodiscard]] std::uint32_t ui_push_layer();
   void ui_pop_layer();
   void ui_composite(const gfx::vk::ui::Composite& composite);
+  // The frame cache (see VkUi.hpp): replays the frame slot's recording, or records the draws and runs them.
+  [[nodiscard]] bool ui_replay(std::uint64_t serial);
+  void ui_record_bundle(const gfx::vk::ui::Draw* draws, std::size_t count, std::uint64_t serial);
 
  private:
   // GPU timers: one query pool per slot; a sample comes back from its slot once the slot's fence
@@ -214,8 +217,37 @@ class VkRenderer final : public gfx::RendererBackend {
   void ui_destroy_slot(UiSlot& slot) noexcept;
   [[nodiscard]] VkFramebuffer ui_framebuffer(VkImageView color, VkImageView stencil, VkExtent2D extent);
   void ui_reset_framebuffers() noexcept;
-  // Begins a UI pass on framebuffer (the window when swapchain), and binds its sets.
-  void ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain);
+  // Begins a UI pass on framebuffer (the window when swapchain), and binds its sets. A secondary pass takes
+  // secondary command buffers instead of inline commands and binds nothing (a recording binds its own state).
+  void ui_begin(VkRenderPass pass, VkFramebuffer framebuffer, VkExtent2D extent, bool swapchain,
+                bool secondary = false);
+  // The frame cache (M4). A frame's queued draws are recorded once per frame slot into a secondary command
+  // buffer (SIMULTANEOUS_USE, compatible with every UI pass) with their vertex and index bytes in the slot's own
+  // host buffer. The slot's recording is rewritten only while the slot is being recorded, after its previous
+  // frame has finished, so no frame in flight can read it: no retire is needed. A recording is replayed only for
+  // the same serial (the draw list, bumped by RmlGpuVk), the same atlas set (per slot, rebuilt when its atlas or
+  // walls change), the same swapchain generation and the same window size.
+  struct UiBundle {
+    VkCommandBuffer command = VK_NULL_HANDLE;
+    gfx::vk::Buffer data;  // vertex and index bytes of the recorded draws (host-visible, grows only)
+    bool valid = false;
+    std::uint64_t serial = 0;
+    VkDescriptorSet atlas = VK_NULL_HANDLE;
+    std::uint64_t frame_generation = 0;
+    VkExtent2D extent{};
+    std::size_t draws = 0;  // draws recorded (those with geometry)
+  };
+  std::array<UiBundle, gfx::vk::frames_in_flight> ui_bundles_{};
+  VkCommandPool ui_pool_ = VK_NULL_HANDLE;  // resettable pool of the slots' secondary command buffers
+
+  // The frame slot's recording (the frame is opened).
+  [[nodiscard]] UiBundle& ui_bundle();
+  // Records one UI draw (the scissor, the stencil clip, the pipeline and the draw) into command. allocate
+  // gives host memory for the vertex and index data (a ring span, or the recording's buffer).
+  template <typename Allocate>
+  void ui_record(VkCommandBuffer command, const gfx::vk::ui::Draw& draw, Allocate&& allocate);
+  // Opens the stencil-clearing UI pass of the frame (or a later one), executes the recording, and ends the pass.
+  void ui_run_bundle(const UiBundle& bundle, const gfx::vk::Target& target);
   // Opens the pass for the top target (the window or the top layer) if none is open.
   void ui_open(VkExtent2D extent);
   // One full resample: fills the target's rectangle from the source's, with the blur or a copy.

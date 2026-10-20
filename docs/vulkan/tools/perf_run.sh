@@ -8,8 +8,7 @@ mkdir -p "$OUT"
 cd "$SRC" || exit 1
 run() {  # name binary renderer fixture extra-env...
   name=$1; bin=$2; api=$3; fixture=$4; shift 4
-  if [ "$api" = vulkan ]; then api_env="REALM_VULKAN_WIP=1"; else api_env="REALM_VK_UNUSED=1"; fi
-  env REALM_TEST_WORLD_ONLY=1 $api_env "$@" timeout 300 "$bin" --hidden --benchmark \
+  env REALM_TEST_WORLD_ONLY=1 "$@" timeout 300 "$bin" --hidden --benchmark \
     --renderer "$api" --stress "$SRC/tests/fixtures/$fixture.json" --frames 300 \
     --stress-summary "$OUT/$name.summary.json" --telemetry "$OUT/$name.jsonl" \
     > "$OUT/$name.log" 2>&1

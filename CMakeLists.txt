@@ -228,8 +228,7 @@ if(BUILD_TESTING)
         if(REALM_ENABLE_VULKAN)
             # The same checks on the Vulkan renderer (walls, prepared meshes, model instances).
             add_test(NAME model_instances_vulkan COMMAND realm_model_instance_tests vulkan)
-            set_tests_properties(model_instances_vulkan PROPERTIES LABELS gpu
-                ENVIRONMENT "REALM_VULKAN_WIP=1")
+            set_tests_properties(model_instances_vulkan PROPERTIES LABELS gpu)
         endif()
         realm_add_test(NAME dynamic_atlas TARGET realm_dynamic_atlas_tests LABELS gpu
             SOURCES tests/DynamicAtlasTests.cpp

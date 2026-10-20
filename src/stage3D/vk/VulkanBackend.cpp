@@ -9,28 +9,16 @@
 #include "VkPipelines.hpp"
 #include "VkRenderer.hpp"
 #include "VkResources.hpp"
-#include <cstdlib>
-#include <string_view>
 #endif
 
 namespace realm::gfx {
 namespace {
 #if REALM_VULKAN_ENABLED
-// Phase S1 gate: the client cannot run without UI, so a Vulkan request falls back to OpenGL unless
-// the work-in-progress switch is set (testing only).
-void require_wip_switch() {
-  const char* value = std::getenv("REALM_VULKAN_WIP");
-  if (!value || std::string_view(value) != "1") {
-    throw std::runtime_error("Vulkan UI not implemented yet");
-  }
-}
-
 class VulkanBackend final : public Backend {
  public:
   [[nodiscard]] Api api() const override { return Api::vulkan; }
 
   void initialise(const WindowSurface& window) override {
-    require_wip_switch();
     vk::context().initialise(window);
     vk::frames().create();
     vk::resources().create();
@@ -129,6 +117,7 @@ class VulkanBackend final : public Backend {
   [[nodiscard]] Api api() const override { return Api::vulkan; }
   void initialise(const WindowSurface& /*window*/) override { unavailable(); }
   void shutdown() noexcept override {}
+  void set_swap_interval(int /*interval*/) override {}
   [[nodiscard]] GraphicsInfo info() override { unavailable(); }
   void check_frame() override { unavailable(); }
   [[nodiscard]] Limits limits() override { unavailable(); }

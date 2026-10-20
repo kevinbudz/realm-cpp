@@ -103,7 +103,7 @@ class Backend {
       std::size_t capacity, bool persistent_streaming, std::size_t persistent_minimum_bytes) = 0;
 };
 
-// The backend for the active API (gfx::active_api()). The Vulkan backend throws "Vulkan renderer
-// not available in this build" from initialise() and create_renderer() in this phase.
+// The backend for the active API (gfx::active_api()). In a build without Vulkan, the Vulkan backend
+// throws "Vulkan renderer not available in this build" from initialise() and create_renderer().
 [[nodiscard]] Backend& backend();
 }

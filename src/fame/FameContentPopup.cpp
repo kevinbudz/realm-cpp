@@ -450,10 +450,17 @@ struct FameContentPopup::Impl {
       host.show(*document, true, false);
       shown = true;
     }
-    // The document holds the scrim and the popup, so one opacity fades both.
+    // The document holds the scrim and the popup, so one opacity fades both. It is group opacity
+    // (filter), not the opacity property: RmlUi inherits that and applies it per element, so stacked
+    // layers would show through and the last fade frames would drop out at once. No filter while
+    // fully shown, so no layer is made.
     if (opacity != drawn_opacity) {
       drawn_opacity = opacity;
-      document->SetProperty("opacity", std::to_string(opacity));
+      if (opacity < 1) {
+        document->SetProperty("filter", "opacity(" + std::to_string(opacity) + ")");
+      } else {
+        document->RemoveProperty("filter");
+      }
     }
   }
 

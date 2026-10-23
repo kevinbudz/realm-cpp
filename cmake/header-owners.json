@@ -95,6 +95,7 @@
   "include/realm/ui/tooltip/QuestToolTip.hpp": "realm_ui",
   "include/realm/ui/tooltip/PortraitToolTip.hpp": "realm_ui",
   "include/realm/lib/ui/Stack.hpp": "realm_ui",
+  "include/realm/lib/ui/ModalFade.hpp": "realm_ui",
   "include/realm/fixtures/StressTimeline.hpp": "realm_fixtures",
   "include/realm/stage3D/Renderer.hpp": "realm_render",
   "include/realm/stage3D/vk/VkUi.hpp": "realm_render",

@@ -12,7 +12,7 @@ class WorldParticleEffects {
  public:
   void clear() { particles_.clear(); }
 
-  void set_enabled(bool enabled) { particles_.set_enabled(enabled); }
+  void set_quality(ParticleQuality quality) { particles_.set_quality(quality); }
 
   void add_entity(const Entity& entity, const ObjectDef* definition);
 

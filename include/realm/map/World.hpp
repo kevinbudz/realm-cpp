@@ -53,7 +53,7 @@ class World {
   // them also gates the optional particle effects.
   void set_preferences(const Preferences& preferences) {
     preferences_ = preferences;
-    particle_effects_.set_enabled(preferences.particles);
+    particle_effects_.set_quality(preferences.particles);
   }
 
   [[nodiscard]] const Preferences& preferences() const { return preferences_; }

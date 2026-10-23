@@ -105,7 +105,8 @@ void settings_rules(const std::filesystem::path& scratch) {
   s.set_value("particles", 0);
   s.set_value("textBubbles", 0);
   const auto prefs = s.preferences();
-  check(!prefs.ally_notifs && !prefs.particles && !prefs.text_bubbles && prefs.hp_bars,
+  check(!prefs.ally_notifs && prefs.particles == ParticleQuality::off && !prefs.text_bubbles &&
+            prefs.hp_bars,
         "preferences expose gated systems");
   s.set_value("screenShake", 0);
   s.set_value("toggleBarText", 0);
@@ -213,7 +214,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   // Option table shape: every row in a section, no section split across the table.
   check(category_options(OptionsCategory::keybinds).size() == 35 &&
             category_options(OptionsCategory::gameplay).size() == 10 &&
-            category_options(OptionsCategory::video).size() == 17 &&
+            category_options(OptionsCategory::video).size() == 16 &&
             category_options(OptionsCategory::audio).size() == 5,
         "category sizes");
   check(category_sections(OptionsCategory::video) ==
@@ -351,6 +352,41 @@ void shadow_rules(const std::filesystem::path& scratch) {
   }
   check(Settings::load(scratch / "shadows.json").preferences().shadows == ShadowQuality::high,
         "an invalid saved Shadows falls back to High");
+}
+
+// Particles is a choice in Appearance under the saved key particles: 0 Off, 1 All and 2 Minimal.
+// The old toggle wrote 0 and 1, so a saved file keeps its meaning.
+void particle_rules(const std::filesystem::path& scratch) {
+  const auto* particles = find_option("particles");
+  check(particles && particles->kind == OptionDef::Kind::choice &&
+            particles->section == "Appearance" && particles->category == OptionsCategory::video &&
+            particles->fallback == 1 &&
+            particles->choices == ChoiceList{{"Off", 0}, {"Minimal", 2}, {"All", 1}},
+        "Particles is a video choice in Appearance (Off, Minimal, All), defaulting to All");
+  Settings s;
+  check(s.preferences().particles == ParticleQuality::all, "Particles defaults to All");
+  check(s.set_value("particles", 0) && s.preferences().particles == ParticleQuality::off &&
+            s.set_value("particles", 2) && s.preferences().particles == ParticleQuality::minimal &&
+            s.set_value("particles", 1) && s.preferences().particles == ParticleQuality::all,
+        "each Particles value reaches the preferences");
+  check(!s.set_value("particles", 3) && !s.set_value("particles", -1) && s.get("particles") == 1,
+        "Particles rejects values outside its choices");
+  for (const auto [saved, expected] :
+       {std::pair{0, ParticleQuality::off}, std::pair{1, ParticleQuality::all},
+        std::pair{2, ParticleQuality::minimal}}) {
+    {
+      std::ofstream file(scratch / "particles.json");
+      file << R"({"values":{"particles":)" << saved << "}}";
+    }
+    check(Settings::load(scratch / "particles.json").preferences().particles == expected,
+          "a saved Particles value loads (0 Off, 1 All, 2 Minimal)");
+  }
+  {
+    std::ofstream file(scratch / "particles.json");
+    file << R"({"values":{"particles":7}})";
+  }
+  check(Settings::load(scratch / "particles.json").preferences().particles == ParticleQuality::all,
+        "an invalid saved Particles falls back to All");
 }
 
 // Aspect Ratio and Resolution: the size table, its labels and value validation, the offer and
@@ -564,9 +600,9 @@ void hp_bar_key_rules() {
         "binding a key taken by Toggle Health Bars unsets it");
 }
 
-// Health Bars, Projectile Outline and Projectile Direction are Appearance rows after Screen Shake,
-// and Text Bubbles sits under HP/MP Text in Gameplay's Interface. Ctrl-Click Backpack Swap is gone,
-// and a saved file that still names it loads without it.
+// Appearance lists Shadows, Particles, Quality, Screen Shake, Health Bars and one Projectile row
+// (Outlines and Direction boxes). Text Bubbles sits under HP/MP Text in Gameplay's Interface.
+// Ctrl-Click Backpack Swap is gone, and a saved file that still names it loads without it.
 void row_layout_rules(const std::filesystem::path& scratch) {
   const auto video = category_options(OptionsCategory::video);
   const auto gameplay = category_options(OptionsCategory::gameplay);
@@ -580,10 +616,30 @@ void row_layout_rules(const std::filesystem::path& scratch) {
     return params;
   };
   check(section_params(video, "Appearance") ==
-            std::vector<std::string_view>{"uiQuality", "drawShadows", "particles", "screenShake",
-                                          "hpBars", "projOutline", "smartProjectiles"},
-        "Appearance lists UI Quality, Shadows, Particles, Screen Shake, Health Bars, Projectile "
-        "Outline and Projectile Direction in that order");
+            std::vector<std::string_view>{"drawShadows", "particles", "uiQuality", "screenShake",
+                                          "hpBars", "projectileRow"},
+        "Appearance lists Shadows, Particles, Quality, Screen Shake, Health Bars and the "
+        "Projectile row in that order");
+  check(find_option("uiQuality")->label == "Quality" && find_option("uiQuality")->fallback == 1,
+        "the UI Quality row is labelled Quality and still defaults to High");
+  const auto* projectile = find_option("projectileRow");
+  check(projectile && projectile->kind == OptionDef::Kind::checks &&
+            projectile->category == OptionsCategory::video &&
+            projectile->section == "Appearance" && projectile->label == "Projectile.." &&
+            projectile->tooltip ==
+                "Outlines draws an outline around projectiles. Direction turns projectiles to face "
+                "the way they are moving." &&
+            projectile->boxes.size() == 2 && projectile->boxes[0].label == "Outlines" &&
+            projectile->boxes[0].param == "projOutline" &&
+            projectile->boxes[1].label == "Direction" &&
+            projectile->boxes[1].param == "smartProjectiles",
+        "the Projectile row is a checks row in Appearance with Outlines and Direction boxes");
+  check(find_option("projOutline")->kind == OptionDef::Kind::hidden_value &&
+            find_option("projOutline")->fallback == 1 &&
+            find_option("smartProjectiles")->kind == OptionDef::Kind::hidden_value &&
+            find_option("smartProjectiles")->fallback == 0 && Settings().flag("projOutline") &&
+            !Settings().flag("smartProjectiles"),
+        "Projectile Outline stays on and Projectile Direction off, as hidden values");
   check(
       section_params(gameplay, "Interface") ==
           std::vector<std::string_view>{"toggleBarText", "textBubbles", "showTierTag",
@@ -665,7 +721,7 @@ void menu_behavior() {
   // Categories and reset.
   revision = menu.layout_revision();
   menu.set_category(OptionsCategory::video);
-  check(menu.category() == OptionsCategory::video && menu.rows().size() == 17 &&
+  check(menu.category() == OptionsCategory::video && menu.rows().size() == 16 &&
             menu.layout_revision() != revision && listed(menu, "maxFPS"),
         "category switches the rows");
   menu.set_value("particles", 0);
@@ -681,7 +737,7 @@ void menu_behavior() {
   check(menu.searching() && menu.rows().size() == 3 && listed(menu, "weaponVolume"),
         "search lists matches from every category");
   menu.set_query("  ");
-  check(menu.rows().size() == 17, "a blank query lists the open category");
+  check(menu.rows().size() == 16, "a blank query lists the open category");
   menu.set_query("chat scroll");
   check(menu.rows().size() == 2 && listed(menu, "scrollChatUp"),
         "every query word must match (label, section or category)");
@@ -865,6 +921,7 @@ int main(int argc, char** argv) {
     settings_rules(argv[1]);
     ally_particles_rules(argv[1]);
     shadow_rules(argv[1]);
+    particle_rules(argv[1]);
     window_size_rules(argv[1]);
     hp_bar_key_rules();
     row_layout_rules(argv[1]);

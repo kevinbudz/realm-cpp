@@ -310,10 +310,17 @@ struct OptionsScreen::Impl {
       host.show(*document, true, false);
       shown = true;
     }
-    // The document holds the scrim and the screen, so one opacity fades both.
+    // The document holds the scrim and the screen, so one opacity fades both. It is group opacity
+    // (filter), not the opacity property: RmlUi inherits that and applies it per element, so stacked
+    // layers would show through and the last fade frames would drop out at once. No filter while
+    // fully shown, so no layer is made.
     if (opacity != drawn_opacity) {
       drawn_opacity = opacity;
-      document->SetProperty("opacity", std::to_string(opacity));
+      if (opacity < 1) {
+        document->SetProperty("filter", "opacity(" + std::to_string(opacity) + ")");
+      } else {
+        document->RemoveProperty("filter");
+      }
     }
     // A closed menu keeps the rows it last showed while it fades.
     if (!menu.visible()) {
@@ -380,8 +387,8 @@ struct OptionsScreen::Impl {
                 "\"><div class=\"label\">" + escaped(option->label) + "</div>" +
                 gallery_rml(*option) + "</div>";
       } else {
-        // A checks row's boxes need more width than a control's column, so its control sizes to
-        // them.
+        // A checks row's control is at least a control's column, so short rows start where the
+        // other controls do; longer rows grow left to fit their boxes.
         const std::string control =
             option->kind == OptionDef::Kind::checks ? "control wide" : "control";
         html += "<div class=\"row\" data-row=\"" + escaped(option->param) +

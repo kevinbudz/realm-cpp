@@ -49,11 +49,15 @@ void main() {
         float half_width = pc.blur * 0.5;
         int n = min(int(ceil(half_width)), 160);
         sum = vec4(0);
+        // The weights only sum to the blur width from 1 px up; dividing by their total keeps a
+        // sub-pixel blur from brightening.
+        float total = 0.0;
         for (int i = -n; i <= n; ++i) {
-            sum += clamp(half_width - abs(float(i)) + 0.5, 0.0, 1.0) *
-                   fetch(c + ivec2(pc.axis) * i);
+            float w = clamp(half_width - abs(float(i)) + 0.5, 0.0, 1.0);
+            sum += w * fetch(c + ivec2(pc.axis) * i);
+            total += w;
         }
-        sum /= pc.blur;
+        sum /= total;
     }
     vec3 rgb = pc.blind != 0 ? vec3(0.05 * (sum.r + sum.g + sum.b)) : sum.rgb;
     color = vec4(rgb, 1.0);

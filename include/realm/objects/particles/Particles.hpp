@@ -1,6 +1,7 @@
 #pragma once
 #include "realm/objects/Catalog.hpp"
 #include "realm/messaging/Messages.hpp"
+#include "realm/parameters/Settings.hpp"
 #include <array>
 #include <span>
 #include <optional>
@@ -107,9 +108,10 @@ class Particles {
   Particles();
   void clear();
   bool emit(Particle particle);
-  void set_enabled(bool value);
+  // Particles option: stops the effects each quality gates and clears the ones it drops.
+  void set_quality(ParticleQuality quality);
 
-  [[nodiscard]] bool enabled() const { return enabled_; }
+  [[nodiscard]] ParticleQuality quality() const { return quality_; }
 
   void attach(const Entity& entity, const TextureDef& texture);
   void healing(const Entity& entity);
@@ -187,6 +189,6 @@ class Particles {
   std::int64_t jitter_start_{-1};
   std::size_t spawns_{};
   std::size_t dropped_{};
-  bool enabled_{true};
+  ParticleQuality quality_{ParticleQuality::all};
 };
 }

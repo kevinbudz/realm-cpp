@@ -115,6 +115,11 @@ inline constexpr int key_enter = 13;
 // and flashes.
 enum class AllyParticles : std::uint8_t { off, minimal, all };
 
+// Particles: which non-gameplay particle effects render. Off renders none; Minimal keeps the
+// gameplay effects (heals, status, ability areas and telegraphs) at reduced density; All renders
+// everything.
+enum class ParticleQuality : std::uint8_t { off, minimal, all };
+
 // UI Quality: how world text (names, signs, damage text, speech balloons) is rasterized under a
 // camera zoom.
 // High makes each bitmap at the zoom, so it stays crisp; Low makes one bitmap and scales it.
@@ -137,7 +142,7 @@ enum class ShadowQuality : std::uint8_t { off, minimal, high };
 struct Preferences {
   bool hp_bars{true};
   UiQuality ui_quality{UiQuality::high};
-  bool particles{true};
+  ParticleQuality particles{ParticleQuality::all};
   ShadowQuality shadows{ShadowQuality::high};
   bool proj_outline{true};
   bool smart_projectiles{false};

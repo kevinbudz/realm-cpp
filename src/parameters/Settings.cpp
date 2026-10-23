@@ -246,24 +246,33 @@ std::vector<OptionDef> build() {
   // Performance Stats has no row: togglePerformanceStats flips it and the overlay follows.
   add(hidden_value(at, "showStatistics", "Performance Stats", 0));
   at.name = "Appearance";
-  // World text at the camera zoom (names, signs, damage text, speech balloons). Live: no restart.
-  add(choice(at, "uiQuality", "UI Quality",
-             "Sharpness of names, signs, damage and balloons when zoomed. High redraws them "
-             "at each zoom step; Low scales one bitmap, so zoom steps cost nothing.",
-             1, {{"Low", 0}, {"High", 1}}));
   // Live: read each frame. Saved 0 is Off and 1 High, as the old toggle wrote them; Minimal is 2.
   add(choice(at, "drawShadows", "Shadows",
              "Draws shadows under players, enemies and objects. Minimal skips projectile shadows.",
              1, {{"Off", 0}, {"Minimal", 2}, {"High", 1}}));
-  add(toggle(at, "particles", "Particles",
-             "Renders particles that are not needed for gameplay, such as hit and death "
-             "particles."));
+  // Live: read by the particle system. Saved 0 is Off, 1 All and 2 Minimal, so a saved toggle keeps
+  // its meaning (false Off, true All).
+  add(choice(
+      at, "particles", "Particles",
+      "Off renders no particles. Minimal keeps only gameplay effects (heals, status, ability "
+      "areas, grenade and thrown telegraphs) at reduced density. All renders everything.",
+      1, {{"Off", 0}, {"Minimal", 2}, {"All", 1}}));
+  // World text at the camera zoom (names, signs, damage text, speech balloons). Live: no restart.
+  add(choice(at, "uiQuality", "Quality",
+             "Sharpness of names, signs, damage and balloons when zoomed. High redraws them "
+             "at each zoom step; Low scales one bitmap, so zoom steps cost nothing.",
+             1, {{"Low", 0}, {"High", 1}}));
   // Native addition: BetterSkillys has no screen shake option.
   add(toggle(at, "screenShake", "Screen Shake", "Shakes the screen during some effects."));
   add(toggle(at, "hpBars", "Health Bars", "Draws health bars below players and enemies."));
-  add(toggle(at, "projOutline", "Projectile Outline", "Draws an outline around projectiles."));
-  add(toggle(at, "smartProjectiles", "Projectile Direction",
-             "Turns projectiles to face the way they are moving.", false));
+  // Projectile Outline and Projectile Direction share one row of boxes, as the Allies Show row
+  // does. Their saved keys keep their defaults: outline on, direction off.
+  add(hidden_value(at, "projOutline", "Projectile Outline", 1));
+  add(hidden_value(at, "smartProjectiles", "Projectile Direction", 0));
+  add(checks(at, "projectileRow", "Projectile..",
+             "Outlines draws an outline around projectiles. Direction turns projectiles to face "
+             "the way they are moving.",
+             {{"Outlines", "projOutline"}, {"Direction", "smartProjectiles"}}));
   at.name = "Allies";
   // Options.addMiscOptions: Disable Ally Particles, now a choice. Its saved 0 and 1 still mean Off
   // and All.
@@ -616,7 +625,11 @@ Preferences Settings::preferences() const {
   Preferences p;
   p.hp_bars = flag("hpBars");
   p.ui_quality = get("uiQuality") == 0 ? UiQuality::low : UiQuality::high;
-  p.particles = flag("particles");
+  // Particles: 0 is Off, 2 Minimal and 1 All, so a saved Off or All keeps its meaning.
+  const int particles = get("particles");
+  p.particles = particles == 0   ? ParticleQuality::off
+                : particles == 2 ? ParticleQuality::minimal
+                                 : ParticleQuality::all;
   // Shadows: 0 is Off, 2 Minimal and 1 High, so a saved Off or High keeps its meaning.
   const int shadows = get("drawShadows");
   p.shadows = shadows == 0   ? ShadowQuality::off

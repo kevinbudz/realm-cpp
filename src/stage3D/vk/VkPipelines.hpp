@@ -73,7 +73,8 @@ struct UiPush {
 static_assert(sizeof(UiPush) == 76);
 
 // RmlUi layer composites (ui_post.vert/frag): a target rectangle filled from a source rectangle, and for the
-// blur the tap step, the clamp region and the weights. Scalar arrays, so the std430 layout is 84 bytes.
+// blur the tap step, the clamp region and the weights, and the opacity every output is multiplied by (1 except
+// on the final draw of a composite with opacity filters). Scalar arrays, so the std430 layout is 88 bytes.
 struct UiPostPush {
   float dst[4] = {};       // x0 y0 x1 y1, window pixels
   float src[4] = {};       // u0 v0 u1 v1
@@ -82,8 +83,9 @@ struct UiPostPush {
   float weights[4] = {};   // blur weights for tap distance 0..3
   float window[2] = {};    // window size in pixels
   std::int32_t blur = 0;   // 0 copy, 1 blur
+  float opacity = 1;       // group opacity of the composite (premultiplied output is multiplied by it)
 };
-static_assert(sizeof(UiPostPush) == 84);
+static_assert(sizeof(UiPostPush) == 88);
 
 class Pipelines {
  public:

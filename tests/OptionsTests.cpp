@@ -76,6 +76,35 @@ void shadow_rules(const std::filesystem::path& scratch) {
         "an invalid saved Shadows falls back to High");
 }
 
+// Particles is a choice under the saved key particles: a saved 0 is Off and 1 On (All), the values
+// the old toggle wrote, and Minimal is 2.
+void particle_rules(const std::filesystem::path& scratch) {
+  const auto* particles = find_option("particles");
+  check(particles && particles->kind == OptionDef::Kind::choice &&
+            particles->tab == OptionsTab::graphics && particles->fallback == 1 &&
+            particles->choices ==
+                std::vector<std::pair<std::string_view, int>>{{"On", 1}, {"Minimal", 2}, {"Off", 0}},
+        "Particles is a graphics choice (On, Minimal, Off), defaulting to On");
+  Settings s;
+  check(s.preferences().particles == ParticleQuality::all, "Particles defaults to All");
+  check(s.set_choice("particles", 0) && s.preferences().particles == ParticleQuality::off &&
+            s.set_choice("particles", 2) && s.preferences().particles == ParticleQuality::minimal &&
+            s.set_choice("particles", 1) && s.preferences().particles == ParticleQuality::all,
+        "each Particles value reaches the preferences");
+  check(!s.set_choice("particles", 3) && !s.set_choice("particles", -1) && s.get("particles") == 1,
+        "Particles rejects values outside its choices");
+  for (const auto [saved, expected] :
+       {std::pair{0, ParticleQuality::off}, std::pair{1, ParticleQuality::all},
+        std::pair{2, ParticleQuality::minimal}}) {
+    {
+      std::ofstream file(scratch / "particles.json");
+      file << R"({"values":{"particles":)" << saved << "}}";
+    }
+    check(Settings::load(scratch / "particles.json").preferences().particles == expected,
+          "a saved Particles value loads (0 Off, 1 All, 2 Minimal)");
+  }
+}
+
 void settings_rules(const std::filesystem::path& scratch) {
   Settings s;
   check(s.get("moveUp") == 87 && s.get("moveLeft") == 65 && s.get("moveDown") == 83 &&
@@ -156,7 +185,7 @@ void settings_rules(const std::filesystem::path& scratch) {
   s.set_choice("particles", 0);
   s.set_choice("textBubbles", 0);
   const auto prefs = s.preferences();
-  check(!prefs.ally_notifs && !prefs.particles && !prefs.text_bubbles && prefs.hp_bars,
+  check(!prefs.ally_notifs && prefs.particles == ParticleQuality::off && !prefs.text_bubbles && prefs.hp_bars,
         "preferences expose gated systems");
   // Persistence.
   const auto path = scratch / "settings.json";
@@ -405,7 +434,7 @@ void screen_behavior(const FontBook& fonts_in) {
         "wider window centers the 800 unit content");
   const auto wide = center(screen, screen.box_rect(find(screen, "particles")));
   click(screen, wide);
-  check(!settings.flag("particles"), "hit testing follows the centered layout");
+  check(settings.get("particles") == 2, "hit testing follows the centered layout");
   // Keys.
   check(screen.key_down(65) && screen.visible(), "unbound keys are swallowed");
   check(screen.key_down(settings.get("options")) && !screen.visible(), "the Options key closes");
@@ -434,6 +463,7 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(argv[1]);
     settings_rules(argv[1]);
     shadow_rules(argv[1]);
+    particle_rules(argv[1]);
     FontBook fonts;
     screen_behavior(fonts);
     std::cout << "Options checks: " << checks << '\n';

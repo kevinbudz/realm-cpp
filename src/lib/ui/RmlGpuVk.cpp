@@ -309,7 +309,7 @@ class VkRenderInterface final : public Rml::RenderInterface {
     gfx::vk::ui::pop_layer();
   }
 
-  // Composites a layer through its filters (blur) into the destination, as RenderInterface_GL3 does.
+  // Composites a layer through its filters (blur, opacity) into the destination, as RenderInterface_GL3 does.
   void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode,
                        Rml::Span<const Rml::CompiledFilterHandle> filter_handles) override {
     end_recording();
@@ -338,11 +338,17 @@ class VkRenderInterface final : public Rml::RenderInterface {
   }
 
   Rml::CompiledFilterHandle CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) override {
-    if (name != "blur") {
-      log_once("this filter is not implemented on Vulkan yet (only blur)");
+    if (name != "blur" && name != "opacity") {
+      log_once("this filter is not implemented on Vulkan yet (only blur and opacity)");
       return {};
     }
-    filters_.push_back({Rml::Get(parameters, "sigma", 1.0f)});
+    gfx::vk::ui::Filter filter;
+    if (name == "blur") {
+      filter.sigma = Rml::Get(parameters, "sigma", 1.0f);
+    } else {
+      filter.opacity = Rml::Get(parameters, "value", 1.0f);
+    }
+    filters_.push_back(filter);
     return filters_.size();
   }
 

@@ -59,6 +59,11 @@ enum class UiQuality : std::uint8_t { low, high };
   return quality == UiQuality::low ? 1.0 : 0.0;
 }
 
+// Particles: which non-gameplay particle effects render. Off renders none; Minimal keeps the
+// gameplay effects (heals, status, ability areas and telegraphs) at reduced density; All renders
+// everything.
+enum class ParticleQuality : std::uint8_t { off, minimal, all };
+
 // Shadows: which ground shadows are drawn. Minimal keeps every shadow but a projectile's, and more
 // kinds can move under it later.
 enum class ShadowQuality : std::uint8_t { off, minimal, high };
@@ -67,7 +72,7 @@ enum class ShadowQuality : std::uint8_t { off, minimal, high };
 struct Preferences {
   bool hp_bars{true};
   UiQuality ui_quality{UiQuality::high};
-  bool particles{true};
+  ParticleQuality particles{ParticleQuality::all};
   ShadowQuality shadows{ShadowQuality::high};
   bool proj_outline{true};
   bool text_bubbles{true};

@@ -10,6 +10,14 @@ namespace realm {
 namespace {
 constexpr double tau = 2 * std::numbers::pi;
 
+// Particles Minimal keeps the gameplay effects: heals (1), throw telegraphs (4), ability areas (5),
+// poison (6), rings (10), collapses (12), cone blasts (13) and the screen shake, flash and thrown
+// object types (14 to 16). Teleports (2), streams (3), lines (7), bursts (8), flows (9) and
+// lightning (11) are dropped.
+bool minimal_shows(int type) {
+  return type != 2 && type != 3 && type != 7 && type != 8 && type != 9 && type != 11;
+}
+
 EmitterKind emitter_kind(const std::string& kind) {
   return kind == "Healing"           ? EmitterKind::healing
          : kind == "Fountain"        ? EmitterKind::fountain
@@ -60,11 +68,28 @@ void Particles::clear() {
   rng_ = 0x12345678U;
 }
 
-// The Particles option stops the optional effects it gates (hit and wall-impact bursts, projectile
-// trails, Healing and the object-texture effects); ShowEffect, AoE and level-up effects are
-// gameplay information and always play.
-void Particles::set_enabled(bool value) {
-  enabled_ = value;
+// The Particles option. Below All, every object-texture effect (each non-Healing emitter) stops and
+// no new one starts. Off also clears the particles and every emitter. Flashes and the jitter state
+// are not particles, so they stay.
+void Particles::set_quality(ParticleQuality quality) {
+  if (quality == quality_) {
+    return;
+  }
+  quality_ = quality;
+  if (quality != ParticleQuality::all) {
+    std::erase_if(emitters_,
+                  [](const auto& emitter) { return emitter.kind != EmitterKind::healing; });
+    emitter_targets_.clear();
+    for (const auto& emitter : emitters_) {
+      emitter_targets_.add(emitter.target);
+    }
+  }
+  if (quality == ParticleQuality::off) {
+    particles_.clear();
+    particle_targets_.clear();
+    emitters_.clear();
+    emitter_targets_.clear();
+  }
 }
 
 double Particles::random() {
@@ -75,6 +100,10 @@ double Particles::random() {
 }
 
 bool Particles::emit(Particle particle) {
+  // Off stops every spawn: the effects' own, update()'s child sparks and any stray emitter's.
+  if (quality_ == ParticleQuality::off) {
+    return false;
+  }
   if (particles_.size() >= maximum_particles || spawns_ >= maximum_spawns) {
     ++dropped_;
     return false;
@@ -148,9 +177,9 @@ void Particles::attach(const Entity& entity, const TextureDef& texture) {
     }
     return;
   }
-  // ParticleEffect.fromProps returns null while the option is off; an existing effect keeps
+  // ParticleEffect.fromProps returns null unless the option is All; an existing effect keeps
   // running.
-  if (!enabled_ && it == emitters_.end()) {
+  if (quality_ != ParticleQuality::all && it == emitters_.end()) {
     return;
   }
 
@@ -191,7 +220,8 @@ void Particles::healing(const Entity& entity) {
     }
     return;
   }
-  if (it == emitters_.end() && enabled_ && emitters_.size() < maximum_emitters) {
+  if (it == emitters_.end() && quality_ != ParticleQuality::off &&
+      emitters_.size() < maximum_emitters) {
     emitters_.push_back({entity.id, &props, static_cast<double>(now_) - 500, 0, EmitterKind::healing});
     emitter_targets_.add(entity.id);
   }
@@ -261,11 +291,15 @@ void Particles::heal(const Entity& target, std::uint32_t color, std::int32_t tim
 }
 
 void Particles::aoe(Vec2 at, double radius, std::uint32_t color, std::int32_t time) {
-  if (!std::isfinite(radius) || radius < 0) {
+  if (quality_ == ParticleQuality::off || !std::isfinite(radius) || radius < 0) {
     return;
   }
   radius = std::min(radius, 128.0);
-  const int num = bounded_count(4 + radius * 2);
+  int num = bounded_count(4 + radius * 2);
+  // Minimal keeps the full radius and shape with a quarter of the sparks.
+  if (quality_ == ParticleQuality::minimal) {
+    num = std::max(4, num / 4);
+  }
   for (int i = 0; i < num; ++i) {
     path(at, {at.x + radius * std::cos(tau * i / num), at.y + radius * std::sin(tau * i / num)}, color,
          200, 200, time);
@@ -273,6 +307,13 @@ void Particles::aoe(Vec2 at, double radius, std::uint32_t color, std::int32_t ti
 }
 
 void Particles::show(const World& world, const net::incoming::ShowEffect& effect, std::int32_t time) {
+  // Off keeps only screen shake (14) and the flash (15), which are not particles.
+  if (quality_ == ParticleQuality::off && effect.type != 14 && effect.type != 15) {
+    return;
+  }
+  if (quality_ == ParticleQuality::minimal && !minimal_shows(effect.type)) {
+    return;
+  }
   const auto* target = world.entity(effect.target_id);
   const Vec2 start{effect.position.x, effect.position.y};
   const Vec2 end{effect.position2.x, effect.position2.y};
@@ -348,7 +389,11 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
     case 10:
     case 12:
     case 13: {
-      const int n = effect.type == 10 ? 12 : effect.type == 13 ? 7 : 24;
+      int n = effect.type == 10 ? 12 : effect.type == 13 ? 7 : 24;
+      // Minimal halves a fan of more than 7 sparks (at least 4); the cone blast's 7 stay.
+      if (quality_ == ParticleQuality::minimal && n > 7) {
+        n = std::max(4, n / 2);
+      }
       const double radius = std::min(128.0, effect.type == 10   ? std::max(0.0, start.x)
                                             : effect.type == 13 ? std::max(0.0, end.x)
                                                            : distance(start, end));
@@ -425,14 +470,15 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
 
 void Particles::hit(const World& world, const Entity& target, int amount, std::int32_t time,
                     double angle, double speed, bool directional, int count) {
-  if (!enabled_ || static_cast<std::int64_t>(target.combat.hp) - amount <= 0) {
+  if (quality_ != ParticleQuality::all ||
+      static_cast<std::int64_t>(target.combat.hp) - amount <= 0) {
     return;
   }
   burst(world, target, time, count, directional, angle, speed);
 }
 
 void Particles::explode(const World& world, const Entity& target, std::int32_t time) {
-  if (enabled_) {
+  if (quality_ == ParticleQuality::all) {
     burst(world, target, time, 30, false, 0, 0);
   }
 }
@@ -465,7 +511,7 @@ void Particles::burst(const World& world, const Entity& target, std::int32_t tim
 
 void Particles::impact(const TextureDef& texture, Vec2 at, double angle, double speed,
                        std::int32_t time) {
-  if (!enabled_) {
+  if (quality_ != ParticleQuality::all) {
     return;
   }
   for (int i = 0; i < 3; ++i) {
@@ -483,7 +529,7 @@ void Particles::impact(const TextureDef& texture, Vec2 at, double angle, double 
 }
 
 void Particles::trail(Vec2 at, std::int32_t time, int count) {
-  if (!enabled_) {
+  if (quality_ != ParticleQuality::all) {
     return;
   }
   for (int i = 0; i < count; ++i) {
@@ -492,6 +538,9 @@ void Particles::trail(Vec2 at, std::int32_t time, int count) {
 }
 
 void Particles::level_up(std::int32_t target, std::int32_t time) {
+  if (quality_ != ParticleQuality::all) {
+    return;
+  }
   for (int j = 0; j < 2; ++j) {
     for (int i = 0; i < 20; ++i) {
       Particle particle;

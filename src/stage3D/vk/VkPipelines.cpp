@@ -115,7 +115,8 @@ void Pipelines::create() {
   VkPushConstantRange push{};
   push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   push.offset = 0;
-  push.size = sizeof(QuadPush);
+  // The UI post composites push the larger UiPostPush through this layout too.
+  push.size = std::max(sizeof(QuadPush), sizeof(UiPostPush));
   auto layout_info = make<VkPipelineLayoutCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
   layout_info.setLayoutCount = static_cast<std::uint32_t>(set_layouts.size());
   layout_info.pSetLayouts = set_layouts.data();

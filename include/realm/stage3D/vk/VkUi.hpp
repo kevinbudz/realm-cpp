@@ -62,9 +62,11 @@ void record_bundle(const Draw* draws, std::size_t count, std::uint64_t serial);
 // that follow; pop_layer returns to the layer below. push_layer returns 0 when no layer can be made.
 [[nodiscard]] std::uint32_t push_layer();
 void pop_layer();
-// A compiled filter of RmlUi (only the blur, sigma in pixels, is implemented).
+// A compiled filter of RmlUi: a blur (sigma in pixels) or an opacity (group opacity). A composite multiplies
+// its opacities and applies the product once to the output; a blur leaves it at 1.
 struct Filter {
   float sigma = 0;
+  float opacity = 1;
 };
 // Composites a layer into a destination (0: the window) through the filters, inside the region (window
 // pixels, top-left origin) when scissor is set. replace: no blending (RmlUi BlendMode::Replace).

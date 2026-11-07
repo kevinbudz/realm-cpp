@@ -1,7 +1,7 @@
 #version 450
 // RmlUi layer composites: a rectangle of the target (window pixels, top-left origin) filled from a
 // rectangle of the source texture (uv). Positions are computed from the vertex index (a strip of four).
-// The push block is std430 with scalar arrays, matching UiPostPush (84 bytes).
+// The push block is std430 with scalar arrays, matching UiPostPush (88 bytes).
 layout(push_constant) uniform Post {
     float dst[4];      // x0 y0 x1 y1, pixels
     float src[4];      // u0 v0 u1 v1
@@ -10,6 +10,7 @@ layout(push_constant) uniform Post {
     float weights[4];  // blur weights for tap distance 0..3
     float window[2];   // window size in pixels
     int blur;          // 0 copy, 1 blur
+    float opacity;     // used by the fragment stage only
 } pc;
 
 layout(location = 0) out vec2 fragUv;

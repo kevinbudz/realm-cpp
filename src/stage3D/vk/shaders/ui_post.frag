@@ -1,6 +1,7 @@
 #version 450
 // RmlUi's blur (RenderInterface_GL3 blur program): seven taps along offset, each inside the clamp
-// region, with the symmetric weights. Copies sample the source once.
+// region, with the symmetric weights. Copies sample the source once. Every output is multiplied by opacity
+// (RmlUi's opacity filter, premultiplied so all four channels scale; 1 for the passes that are not the last).
 layout(set = 2, binding = 0) uniform sampler2D scene;
 
 layout(push_constant) uniform Post {
@@ -11,6 +12,7 @@ layout(push_constant) uniform Post {
     float weights[4];
     float window[2];
     int blur;
+    float opacity;
 } pc;
 
 layout(location = 0) in vec2 fragUv;
@@ -18,7 +20,7 @@ layout(location = 0) out vec4 finalColor;
 
 void main() {
     if (pc.blur == 0) {
-        finalColor = texture(scene, fragUv);
+        finalColor = texture(scene, fragUv) * pc.opacity;
         return;
     }
     vec2 clampMin = vec2(pc.clampUv[0], pc.clampUv[1]);
@@ -31,5 +33,5 @@ void main() {
         vec2 inRegion = step(clampMin, uv) * step(uv, clampMax);
         color += texture(scene, uv) * inRegion.x * inRegion.y * pc.weights[abs(distance)];
     }
-    finalColor = color;
+    finalColor = color * pc.opacity;
 }

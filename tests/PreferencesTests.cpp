@@ -162,30 +162,110 @@ void shots() {
   check(f.combat.projectiles().size() > 1, "ALLYSHOOT returns with the option on");
 }
 
+// Particles: Off, Minimal and All. Off plays no particle, but a flash (not a particle) still adds.
+// Minimal keeps the gameplay effects at reduced density, and lowering the option drops what it
+// gates.
 void particles() {
   Fixture f;
   auto& p = f.world.particles();
+  net::incoming::ShowEffect effect;
+  effect.position = {2, 2};
+  effect.color = 0xff0000;
+  // Shows one effect of a type sourced from the player and returns the particles it made.
+  const auto shown = [&](std::uint8_t type, net::incoming::ShowEffect base) {
+    p.clear();
+    base.type = type;
+    base.target_id = 1;
+    p.show(f.world, base, 0);
+    return p.particles().size();
+  };
+  net::incoming::ShowEffect ring;  // type 10: start.x is the radius
+  ring.position = {3, 0};
+  net::incoming::ShowEffect collapse;  // type 12: distance(start, end) is the radius
+  collapse.position = {2.5, 2.5};
+  collapse.position2 = {4.5, 2.5};
+  net::incoming::ShowEffect cone;  // type 13: end.x is the radius
+  cone.position = {3.5, 2.5};
+  cone.position2 = {3, 0};
+  check(f.world.preferences().particles == ParticleQuality::all &&
+            p.quality() == ParticleQuality::all,
+        "Particles is All by default");
+  check(shown(10, ring) == 12 && shown(12, collapse) == 24 && shown(13, cone) == 7,
+        "All plays the full ring, collapse and cone counts");
+  p.clear();
   p.trail({1, 1}, 0);
   check(!p.particles().empty(), "trail particles by default");
   p.clear();
+  p.aoe({2, 2}, 128, 0xff0000, 0);
+  const auto all_aoe = p.particles().size();
+  check(all_aoe == 256, "All AoE at radius 128 has 256 sparks");
+
+  // Off: no particles from any source, but a flash still adds.
   f.apply([](Settings& s) { s.set_choice("particles", 0); });
-  check(!p.enabled(), "the option reaches the particle system");
+  check(p.quality() == ParticleQuality::off, "Off reaches the particle system");
+  p.clear();
   p.trail({1, 1}, 0);
   p.hit(f.world, *f.world.entity(2), 5, 0);
   p.impact(f.catalog.object("Wizard")->texture, {1, 1}, 0, 0, 0);
-  check(p.particles().empty(), "hit, impact and trail effects stop");
-  net::incoming::ShowEffect effect;
-  effect.type = 2;
-  effect.position = {2, 2};
-  effect.color = 0xff0000;
+  p.aoe({2, 2}, 128, 0xff0000, 0);
+  check(p.particles().empty(), "Off: hit, impact, trail and AoE create nothing");
+  check(shown(1, effect) == 0 && shown(10, ring) == 0, "Off: heal and ring create nothing");
+  p.clear();
+  net::incoming::ShowEffect flash_effect;
+  flash_effect.type = 15;
+  flash_effect.target_id = 1;
+  flash_effect.position = {.5F, 3};
+  flash_effect.color = 0xff0000;
+  p.show(f.world, flash_effect, 0);
+  check(p.particles().empty() && p.flashes().size() == 1, "Off still adds a flash");
+
+  // Minimal: heals, rings and collapses at reduced density; teleports and lines are dropped.
+  f.apply([](Settings& s) { s.set_choice("particles", 2); });
+  check(f.world.preferences().particles == ParticleQuality::minimal &&
+            p.quality() == ParticleQuality::minimal,
+        "Minimal reaches the particle system");
+  check(shown(2, effect) == 0 && shown(7, effect) == 0, "Minimal drops teleports and lines");
+  check(shown(1, effect) == 10, "Minimal keeps a heal at 10 sparks");
+  check(shown(10, ring) == 6 && shown(12, collapse) == 12 && shown(13, cone) == 7,
+        "Minimal halves the ring and collapse fans and keeps the cone blast at 7");
+  p.clear();
+  p.aoe({2, 2}, 128, 0xff0000, 0);
+  check(p.particles().size() == all_aoe / 4,
+        "Minimal AoE at radius 128 keeps the shape with a quarter of the sparks");
+  p.clear();
+  p.trail({1, 1}, 0);
+  p.hit(f.world, *f.world.entity(2), 5, 0);
+  p.impact(f.catalog.object("Wizard")->texture, {1, 1}, 0, 0, 0);
+  p.explode(f.world, *f.world.entity(2), 0);
+  p.level_up(1, 0);
+  check(p.particles().empty(),
+        "Minimal: hit, impact, trail, death burst and level-up create nothing");
+
+  // Lowering the option: Minimal stops the object-texture emitters and keeps the heal emitter;
+  // Off clears every particle and emitter. Raising it again does not bring them back.
+  f.apply([](Settings& s) { s.set_choice("particles", 1); });
+  p.clear();
+  TextureDef mist;
+  mist.effect.kind = "XMLEffect";
+  mist.effect.particle = "SwirlingMist";
+  mist.effect.cooldown = .1;
+  p.attach(*f.world.entity(2), mist);
+  f.world.entity(1)->combat.condition = 1U << 15U;
+  p.healing(*f.world.entity(1));
+  effect.type = 1;
+  effect.target_id = 1;
   p.show(f.world, effect, 0);
-  check(p.particles().size() > 0, "ShowEffect is gameplay information and always plays");
-  p.clear();
-  p.aoe({2, 2}, 2, 0xff0000, 0);
-  check(p.particles().size() > 0, "AoE rings always play");
-  p.clear();
-  f.world.particles().level_up(1, 0);
-  check(!p.particles().empty(), "level-up effect always plays");
+  check(p.emitter_count() == 2 && !p.particles().empty(),
+        "All keeps the object emitter and the heal emitter");
+  f.apply([](Settings& s) { s.set_choice("particles", 2); });
+  check(p.emitter_count() == 1 && !p.particles().empty(),
+        "Minimal stops object-texture emitters and keeps the heal emitter");
+  f.apply([](Settings& s) { s.set_choice("particles", 0); });
+  check(p.particles().empty() && p.emitter_count() == 0,
+        "Off clears the particles and every emitter");
+  f.apply([](Settings& s) { s.set_choice("particles", 1); });
+  check(p.emitter_count() == 0, "raising the option does not restore stopped emitters");
+  f.world.entity(1)->combat.condition = 0;
 }
 
 void tiers() {

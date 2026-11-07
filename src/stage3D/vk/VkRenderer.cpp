@@ -1590,6 +1590,9 @@ void VkRenderer::ui_composite(const gfx::vk::ui::Composite& composite) {
     return;
   }
   const UiImage* current = &slot.layers[composite.source - 1];
+  // Group opacity: the opacity filters multiply, and the final draw applies the product once. The copy and
+  // blur passes run at 1; blur is linear, so applying the product last matches applying it in filter order.
+  float opacity = 1;
   if (composite.filter_count > 0) {
     // The copy into post target 0 is the filters' working image (GL's PostprocessPrimary).
     gfx::vk::UiPostPush copy;
@@ -1603,6 +1606,7 @@ void VkRenderer::ui_composite(const gfx::vk::ui::Composite& composite) {
     current = &slot.post[0];
     for (std::size_t i = 0; i < composite.filter_count; ++i) {
       const auto& filter = composite.filters[i];
+      opacity *= filter.opacity;
       if (filter.sigma > 0) {
         const UiImage* other = current == &slot.post[0] ? &slot.post[1] : &slot.post[0];
         current = ui_blur(current, other, extent, region, filter.sigma);
@@ -1627,6 +1631,7 @@ void VkRenderer::ui_composite(const gfx::vk::ui::Composite& composite) {
   draw.src[3] = region[3] / static_cast<float>(ui_height_);
   draw.window[0] = static_cast<float>(ui_width_);
   draw.window[1] = static_cast<float>(ui_height_);
+  draw.opacity = opacity;
   ui_resample(destination, destination_layer, true, !destination_layer, extent, current->view, draw,
               !composite.replace);
 }

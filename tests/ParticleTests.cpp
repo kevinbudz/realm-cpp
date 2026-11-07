@@ -122,11 +122,15 @@ int main() {
     exploding.drops = {{98, true}};
     world.apply(exploding);
     check(particles.particles().empty(), "exploding non-character drop has no death burst");
-    particles.set_enabled(false);
+    particles.set_quality(ParticleQuality::off);
     world.add(98, catalog.object("Wizard")->type, {40, 40});
     world.apply(exploding);
     check(particles.particles().empty(), "particle preference suppresses death burst");
-    particles.set_enabled(true);
+    particles.set_quality(ParticleQuality::minimal);
+    world.add(98, catalog.object("Wizard")->type, {40, 40});
+    world.apply(exploding);
+    check(particles.particles().empty(), "minimal particle preference suppresses death burst");
+    particles.set_quality(ParticleQuality::all);
     particles.clear();
     particles.level_up(99, 0);
     particles.update(world, 1000);
@@ -265,10 +269,13 @@ int main() {
     check(combat.projectiles().empty() && particles.particles().size() == 3,
           "source cover hit removes arrow and creates impact debris");
     world.initialize(20, 20);
-    particles.set_enabled(false);
+    particles.set_quality(ParticleQuality::off);
     particles.trail({1, 1}, 0);
     check(particles.particles().empty(), "particle option respected");
-    particles.set_enabled(true);
+    particles.set_quality(ParticleQuality::minimal);
+    particles.trail({1, 1}, 0);
+    check(particles.particles().empty(), "minimal particle option drops trails");
+    particles.set_quality(ParticleQuality::all);
     net::incoming::ShowEffect invalid;
     invalid.type = 2;
     invalid.position.x = std::numeric_limits<float>::quiet_NaN();

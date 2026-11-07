@@ -146,9 +146,12 @@ std::vector<OptionDef> build() {
   options.push_back(choice(graphics, "drawShadows", "Draw Shadows",
                      "This toggles whether to draw shadows. Minimal skips projectile shadows.", 1,
                      {{"On", 1}, {"Minimal", 2}, {"Off", 0}}));
-  options.push_back(toggle(graphics, "particles", "Particles",
-                     "If enabled, particles which are not necessary for gameplay are rendered "
-                     "(e.g. hit/death particles)."));
+  // Saved 0 is Off and 1 On (All), as the Flash toggle wrote them; Minimal is 2.
+  options.push_back(choice(graphics, "particles", "Particles",
+                     "Off renders no particles. Minimal keeps only gameplay effects (heals, status, "
+                     "ability areas, grenade and thrown telegraphs) at reduced density. On renders "
+                     "everything.",
+                     1, {{"On", 1}, {"Minimal", 2}, {"Off", 0}}));
   options.push_back(toggle(
       graphics, "allyShots", "Ally Shots",
       "This toggles whether to show and render ally shots. Disable this to improve performance."));
@@ -396,7 +399,11 @@ Preferences Settings::preferences() const {
   Preferences p;
   p.hp_bars = flag("hpBars");
   p.ui_quality = get("quality") == 0 ? UiQuality::low : UiQuality::high;
-  p.particles = flag("particles");
+  // Particles: 0 is Off, 2 Minimal and 1 On (All), so a saved Off or On keeps its meaning.
+  const int particles = get("particles");
+  p.particles = particles == 0   ? ParticleQuality::off
+                : particles == 2 ? ParticleQuality::minimal
+                                 : ParticleQuality::all;
   // Shadows: 0 is Off, 2 Minimal and 1 On (High), so a saved Off or On keeps its meaning.
   const int shadows = get("drawShadows");
   p.shadows = shadows == 0   ? ShadowQuality::off

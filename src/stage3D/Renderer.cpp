@@ -334,8 +334,9 @@ void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, texture_);
   if (created) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    const GLint filter = linear_filter_ ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   }
@@ -403,6 +404,22 @@ void SurfaceTexture::update_region(const Image& image, int x, int y, int w, int 
     premultiply_flash_bitmap(pixels);
   }
   glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.pixels.data());
+  glActiveTexture(GL_TEXTURE0);
+}
+
+void SurfaceTexture::set_linear_filter(bool linear) {
+  if (linear_filter_ == linear) {
+    return;
+  }
+  linear_filter_ = linear;
+  if (!texture_) {
+    return;
+  }
+  const GLint filter = linear ? GL_LINEAR : GL_NEAREST;
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, texture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
   glActiveTexture(GL_TEXTURE0);
 }
 

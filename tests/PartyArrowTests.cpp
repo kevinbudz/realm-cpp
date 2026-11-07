@@ -64,6 +64,22 @@ int main() {
     camera.configure({50, 50}, 0, 800, 600, 2);
     p = PartyArrows::project(camera, {90, 50});
     check(p && near(p->position.x, 600), "zoom keeps edge on playfield");
+    // The playfield is anchored at the camera origin, so an arrow off screen at zoom 2 sits where
+    // it does at zoom 1. The 5 pixel margin is screen pixels at both: this left-edge hit sits 8
+    // pixels above the bottom, outside 5 but inside a zoom-scaled 10, so it keeps its rotation.
+    for (const auto target : {Vec2{40, 58.9}, Vec2{90, 50}, Vec2{50, 10}}) {
+      camera.configure({50, 50}, 0, 800, 600, 1);
+      const auto at_one = PartyArrows::project(camera, target);
+      camera.configure({50, 50}, 0, 800, 600, 2);
+      const auto at_two = PartyArrows::project(camera, target);
+      check(at_one && at_two && near(at_one->position.x, at_two->position.x) &&
+                near(at_one->position.y, at_two->position.y) &&
+                near(at_one->rotation, at_two->rotation),
+            "zoom keeps off screen placement and rotation");
+    }
+    p = PartyArrows::project(camera, {40, 58.9});
+    check(p && near(p->position.y, 592) && near(p->rotation, -0.7272626879966904),
+          "edge margin stays five screen pixels at zoom 2");
     camera.configure({50, 50}, 0, 800, 600);
     Party party;
     PartyArrows arrows;
@@ -153,6 +169,27 @@ int main() {
           "wide camera expands source draw radius");
     arrows.reset();
     check(!arrows.hit(hit) && !arrows.hovered(), "teardown clears groups");
+    {
+      // Arrows draw at zoom 1, so at zoom 2 their triangles and the 8 pixel grouping stay in screen
+      // pixels. The two members project 10.5 pixels apart on the right edge.
+      World zoomed(catalog);
+      zoomed.initialize(100, 100);
+      zoomed.add(99, type, {50, 50});
+      zoomed.set_player_id(99);
+      zoomed.add(7, type, {90, 50});
+      zoomed.add(2, type, {90, 51.4});
+      Party zoomed_party;
+      zoomed_party.update(zoomed, 0);
+      Camera zoom_camera;
+      zoom_camera.configure({50, 50}, 0, 800, 600, 2);
+      PartyArrows zoomed_arrows;
+      zoomed_arrows.update(zoomed, zoomed_party, zoom_camera, {}, false, 800, 600);
+      check(zoomed_arrows.arrows()[0].players.size() == 1 &&
+                zoomed_arrows.arrows()[1].players.size() == 1,
+            "arrows 10.5 pixels apart at zoom 2 do not merge");
+      check(!zoomed_arrows.hit({586, 325}) && zoomed_arrows.hit({594, 325}),
+            "triangle hit area stays at zoom 1 size");
+    }
     std::cout << checks << " party arrow checks passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

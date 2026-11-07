@@ -679,6 +679,106 @@ void growth_run(Rig& rig, Atlas& atlas, const std::vector<StatusArt::Label>& tex
 }
 }
 
+// Zoomed bitmaps at a tenth zoom: non-projectile sprites draw their zoomed bitmap once it is ready
+// or the build's budget composes it (never at a zero budget); a zoom change drops the other zoom's
+// variants from the atlas and the Appearances cache; projectiles and continuous zooms stay at scale
+// 10. A zoomed bitmap's pixel scale is its zoom, a scale-10 bitmap's is 1.
+void zoom_variants(const Rig& base) {
+  const auto scales_of = [](const Scene& scene, const Rig& rig, const Atlas& atlas) {
+    std::vector<double> scales;
+    for (const auto& resident : scene.resident_images(&rig.appearances, atlas)) {
+      if (resident.image) {
+        scales.push_back(resident.image->pixel_scale);
+      }
+    }
+    return scales;
+  };
+  const auto count_at = [](const std::vector<double>& scales, double value) {
+    return static_cast<std::size_t>(std::count_if(
+        scales.begin(), scales.end(), [value](double s) { return std::abs(s - value) < 1e-9; }));
+  };
+  const auto build = [](Scene& scene, const World& world, const Rig& rig, Atlas& atlas, double zoom,
+                        std::int32_t time) {
+    Camera camera;
+    camera.configure({47, 45}, 0, width, height, zoom);
+    std::vector<Quad> quads;
+    scene.build(world, camera, atlas, rig.animations, nullptr, nullptr, &rig.appearances, {47, 45},
+                0, zoom, width, height, time, quads);
+  };
+  World sprites(base.catalog);
+  sprites.initialize(96, 96);
+  World shots(base.catalog);
+  shots.initialize(96, 96);
+  std::mt19937 rng(9);
+  populate(sprites, base, rng, 0, 0, 0, 24, 200);
+  // Projectiles carry World::add's projectile flag (populate's projectiles do not).
+  for (std::int32_t i = 0; i < 12; ++i) {
+    const auto* d = base.pools.projectiles[rng() % base.pools.projectiles.size()];
+    shots.add(100 + i, d->type, {40 + .7 * i, 44}, -1, true);
+  }
+
+  // A fresh Appearances per scene, so each scene's cache holds only what that scene composed.
+  const auto fresh = [&base](Appearances& appearances) {
+    return Rig{base.catalog, base.animations, appearances, base.status, base.renderer, base.pools};
+  };
+  {
+    Appearances appearances(flash::source_root, base.animations);
+    const Rig rig = fresh(appearances);
+    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Scene scene;
+    scene.set_zoom_bake_budget(std::chrono::microseconds{0});
+    build(scene, sprites, rig, atlas, 1.5, 1000);
+    const auto scales = scales_of(scene, rig, atlas);
+    check(!scales.empty() && count_at(scales, 1) == scales.size(),
+          "a zero budget draws every sprite from its scale-10 bitmap at zoom 1.5");
+    check(appearances.purge_zoom(10) == 0, "a zero budget composes no zoomed bitmap");
+  }
+  {
+    Appearances appearances(flash::source_root, base.animations);
+    const Rig rig = fresh(appearances);
+    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Scene scene;
+    scene.set_zoom_bake_budget(std::chrono::microseconds{1});
+    build(scene, sprites, rig, atlas, 1.5, 1000);
+    check(count_at(scales_of(scene, rig, atlas), 1.5) >= 1,
+          "a budget spent on the first bake still bakes one zoomed bitmap per build");
+  }
+  {
+    Appearances appearances(flash::source_root, base.animations);
+    const Rig rig = fresh(appearances);
+    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Scene scene;
+    scene.set_zoom_bake_budget(std::chrono::seconds{3600});
+    build(scene, sprites, rig, atlas, 1.5, 1000);
+    auto scales = scales_of(scene, rig, atlas);
+    check(!scales.empty() && count_at(scales, 1.5) == scales.size(),
+          "an unlimited budget draws every sprite from its zoomed bitmap at zoom 1.5");
+    build(scene, sprites, rig, atlas, 1.3, 1130);
+    scales = scales_of(scene, rig, atlas);
+    check(!scales.empty() && count_at(scales, 1.3) == scales.size() && count_at(scales, 1.5) == 0,
+          "a zoom change to 1.3 drops the 1.5 bitmaps and draws 1.3");
+    check(appearances.purge_zoom(13) == 0,
+          "a zoom change to 1.3 drops the 1.5 variants from the cache");
+    build(scene, sprites, rig, atlas, 1.2203, 1260);
+    scales = scales_of(scene, rig, atlas);
+    check(!scales.empty() && count_at(scales, 1) == scales.size(),
+          "a continuous zoom draws scale 10 and drops the tenth-zoom bitmaps");
+    check(appearances.purge_zoom(10) == 0,
+          "a continuous zoom leaves no zoomed variant in the cache");
+  }
+  {
+    Appearances appearances(flash::source_root, base.animations);
+    const Rig rig = fresh(appearances);
+    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Scene scene;
+    scene.set_zoom_bake_budget(std::chrono::seconds{3600});
+    build(scene, shots, rig, atlas, 1.5, 1000);
+    const auto scales = scales_of(scene, rig, atlas);
+    check(!scales.empty() && count_at(scales, 1) == scales.size(),
+          "projectiles keep scale 10 at zoom 1.5");
+  }
+}
+
 int main() {
   try {
     SDL_SetMainReady();
@@ -767,6 +867,7 @@ int main() {
         standalone |= q.texture != 0;
       }
       check(standalone, "...and keeps the SurfaceTexture quads");
+      zoom_variants(rig);
     }
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);

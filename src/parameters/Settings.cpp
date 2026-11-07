@@ -51,7 +51,7 @@ std::vector<OptionDef> build() {
   options.push_back(key(controls, "moveDown", "Move Down", "Key to will move character down", s_));
   options.push_back(key(controls, "moveRight", "Move Right", "Key to will move character to the right", d_));
   options.push_back(choice(controls, "allowRotation", "Allow Camera Rotation",
-                     "Toggles whether to allow for camera rotation", 0, {{"On", 1}, {"Off", 0}}));
+                     "Toggles whether to allow for camera rotation", 1, {{"On", 1}, {"Off", 0}}));
   options.push_back(spacer(controls));
   options.push_back(key(controls, "rotateLeft", "Rotate Left", "Key to will rotate the camera to the left", q_,
                   "allowRotation"));
@@ -61,11 +61,11 @@ std::vector<OptionDef> build() {
                   "This key will activate your special ability", 32));
   options.push_back(key(controls, "autofireToggle", "Autofire Toggle", "This key will toggle autofire", 73));
   options.push_back(key(controls, "resetToDefaultCameraAngle", "Reset To Default Camera Angle",
-                  "This key will reset the camera angle to the default position", 82));
+                  "This key will reset the camera angle to the default position", 90));
   options.push_back(key(controls, "togglePerformanceStats", "Toggle Performance Stats",
-                  "This key will toggle a display of fps and memory usage", 0));
+                  "This key will toggle a display of fps and memory usage", 80));
   options.push_back(key(controls, "toggleCentering", "Toggle Centering of Player",
-                  "This key will toggle the position between centered and offset", 0));
+                  "This key will toggle the position between centered and offset", 88));
   options.push_back(key(controls, "interact", "Interact/Buy",
                   "This key will allow you to enter a portal or buy an item", 48));
   // Options.addHotKeysOptions
@@ -93,11 +93,11 @@ std::vector<OptionDef> build() {
   options.push_back(
       key(hotkeys, "miniMapZoomOut", "Mini-Map Zoom Out", "This key will zoom out the minimap", 189));
   options.push_back(key(hotkeys, "escapeToNexus", "Escape To Nexus",
-                  "This key will instantly escape you to the Nexus", 45));
+                  "This key will instantly escape you to the Nexus", 82));
   options.push_back(key(hotkeys, "options", "Show Options", "This key will bring up the options screen", 79));
   options.push_back(key(hotkeys, "switchTabs", "Switch Tabs", "This key will switch from available tabs", 66));
   options.push_back(key(hotkeys, "toggleFullscreenMode", "Toggle Fullscreen",
-                  "This toggles whether to go fullscreen or not", 0));
+                  "This toggles whether to go fullscreen or not", 122));
   // Options.addChatOptions
   options.push_back(key(chat, "chat", "Activate Chat", "This key will bring up the chat input box", 13));
   options.push_back(key(chat, "chatCommand", "Start Chat Command",
@@ -162,7 +162,7 @@ std::vector<OptionDef> build() {
   options.push_back(choice(graphics, "maxFPS", "Max FPS",
                      "Caps the frame rate. Unlimited renders as fast as possible (up to your "
                      "display refresh with VSync on).",
-                     60,
+                     0,
                      {{"30", 30},
                       {"60", 60},
                       {"120", 120},
@@ -284,7 +284,7 @@ std::string_view key_name(int code) {
   return {};
 }
 
-Settings::Settings() : camera_angle_(default_angle) {
+Settings::Settings() : camera_angle_(default_angle), camera_zoom_(1) {
   for (const auto& option : table()) {
     if (!option.param.empty()) {
       values_.emplace(std::string(option.param), option.fallback);
@@ -369,7 +369,10 @@ void Settings::reset_tab(OptionsTab tab) {
 }
 
 void Settings::reset_all() {
+  // Parameters.cameraZoom is not an option row, so a reset keeps it.
+  const auto zoom = camera_zoom_;
   *this = Settings();
+  camera_zoom_ = zoom;
 }
 
 Preferences Settings::preferences() const {
@@ -389,6 +392,14 @@ Preferences Settings::preferences() const {
   p.play_sfx = flag("playSFX");
   p.play_pew_pew = flag("playPewPew");
   return p;
+}
+
+double step_camera_zoom(double zoom, double steps) {
+  const double current = std::isfinite(zoom) ? zoom : 1;
+  const double notches = std::isfinite(steps) ? steps : 0;
+  // Tenths keep repeated notches on exact values such as 1.1 and 2.
+  const double tenths = std::round(current * 10 + notches);
+  return std::clamp(tenths, min_camera_zoom * 10, max_camera_zoom * 10) / 10;
 }
 
 Settings Settings::load(const std::filesystem::path& path) {
@@ -425,6 +436,13 @@ Settings Settings::load(const std::filesystem::path& path) {
     } else {
       settings.camera_angle_ = settings.default_camera_angle();
     }
+    // A missing, non-numeric or out-of-range zoom keeps the default of 1.
+    if (const auto zoom = json.find("cameraZoom"); zoom != json.end() && zoom->is_number()) {
+      const auto value = zoom->get<double>();
+      if (std::isfinite(value) && value >= min_camera_zoom && value <= max_camera_zoom) {
+        settings.camera_zoom_ = step_camera_zoom(value, 0);
+      }
+    }
   } catch (const std::exception&) {
     return Settings();
   }
@@ -432,8 +450,10 @@ Settings Settings::load(const std::filesystem::path& path) {
 }
 
 bool Settings::save(const std::filesystem::path& path) const {
-  nlohmann::json json{
-      {"version", 1}, {"values", nlohmann::json::object()}, {"cameraAngle", camera_angle_}};
+  nlohmann::json json{{"version", 1},
+                      {"values", nlohmann::json::object()},
+                      {"cameraAngle", camera_angle_},
+                      {"cameraZoom", camera_zoom_}};
   for (const auto& [name, value] : values_) {
     json["values"][name] = value;
   }

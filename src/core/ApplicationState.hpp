@@ -176,14 +176,13 @@ struct ClientState {
 
   // --- Off-screen party and quest arrows ---
   realm::PartyArrows party_arrows;
+  // Arrow textures are unrotated; the quad turns them, so only density and hover key the upload.
   std::array<realm::SurfaceTexture, realm::Party::members_shown> arrow_textures;
-  std::array<double, realm::Party::members_shown> arrow_rotations{};
   std::array<double, realm::Party::members_shown> arrow_densities{};
   std::array<bool, realm::Party::members_shown> arrow_hovers{};
   realm::QuestArrow quest_arrow;
   realm::SurfaceTexture quest_arrow_texture;
   realm::SurfaceTexture quest_tooltip_texture;
-  double quest_arrow_rotation{};
   double quest_arrow_density{};
   realm::QuestArrow::Tooltip quest_tooltip_kind{};
 
@@ -261,6 +260,8 @@ struct ClientState {
   realm::Vec2 position;
   double angle;
   double zoom = 1;
+  // Shift+wheel changed settings.camera_zoom(); the exit save writes it.
+  bool zoom_changed{};
   bool centered;
   bool running = true;
   bool leaving_game{};

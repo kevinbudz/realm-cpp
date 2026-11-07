@@ -10,6 +10,7 @@
 #include "realm/stage3D/WallGeometry.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/TextureResidency.hpp"
+#include <chrono>
 #include <list>
 #include <optional>
 #include <unordered_map>
@@ -96,6 +97,12 @@ class Scene {
     overflow_surface_bytes_ = surface_bytes;
     overflow_status_bytes_ = status_bytes;
   }
+
+  // Wall-clock time a build may spend baking zoomed appearances (Appearances::Key::scale) for
+  // non-projectile sprites. The first bake of a build always runs while the budget is positive, so
+  // a zoom change makes progress; 0 bakes none, and a budget no frame can exhaust is unlimited.
+  // Default 1 ms.
+  void set_zoom_bake_budget(std::chrono::microseconds budget) { zoom_bake_budget_ = budget; }
 
   void set_atlas_protect_frames(std::uint64_t frames) {
     protect_frames_ = frames ? frames : 1;
@@ -351,7 +358,8 @@ class Scene {
       mix(static_cast<std::uint32_t>(key.c) | std::uint64_t{static_cast<std::uint32_t>(key.d)}
                                                   << 32U);
       mix(static_cast<std::uint32_t>(key.size) | std::uint64_t{key.tex1} << 32U);
-      mix(key.tex2 | std::uint64_t{key.kind} << 32U | std::uint64_t{key.pad} << 40U);
+      mix(key.tex2 | std::uint64_t{key.kind} << 32U | std::uint64_t{key.pad} << 40U |
+          std::uint64_t{key.scale} << 48U);
       return static_cast<std::size_t>(h);
     }
   };
@@ -360,7 +368,8 @@ class Scene {
     [[nodiscard]] bool operator()(const Appearances::Key& a,
                                   const Appearances::Key& b) const noexcept {
       return a.a == b.a && a.b == b.b && a.c == b.c && a.d == b.d && a.size == b.size &&
-             a.tex1 == b.tex1 && a.tex2 == b.tex2 && a.kind == b.kind && a.pad == b.pad;
+             a.tex1 == b.tex1 && a.tex2 == b.tex2 && a.kind == b.kind && a.pad == b.pad &&
+             a.scale == b.scale;
     }
   };
 
@@ -383,5 +392,21 @@ class Scene {
                                                             Atlas& atlas);
   [[nodiscard]] std::optional<SpriteRegion> resident_label(
       const std::shared_ptr<const Image>& image, Atlas& atlas);
+
+  // Zoomed appearances. zoom_level_ is the zoom in tenths the caches are kept for (10 unless the
+  // zoom is an exact tenth other than 1.0); the budget is per build, spent on the bakes so far.
+  std::uint8_t zoom_level_{10};
+  std::chrono::microseconds zoom_bake_budget_{1000};
+  std::chrono::nanoseconds zoom_bake_spent_{};
+  std::size_t zoom_bakes_{};
+  // True when `key` is already in the dynamic atlas (its residency slot is live) or the Appearances
+  // cache, so drawing it composes nothing.
+  [[nodiscard]] bool zoomed_ready(const Appearances::Key& key, const Appearances& appearances,
+                                  Atlas& atlas);
+  // Composes `key` into the Appearances cache while the budget allows; false when it does not.
+  [[nodiscard]] bool zoom_bake(const Appearances::Key& key, const Appearances& appearances);
+  // Drops the zoomed variants that are stale for `level` from the residency, and from the
+  // Appearances cache when one is given.
+  void purge_zoom(std::uint8_t level, const Appearances* appearances);
 };
 }

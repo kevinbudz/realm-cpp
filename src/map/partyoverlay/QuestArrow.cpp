@@ -39,7 +39,7 @@ void QuestArrow::update(const World& world, const Quest& quest, const Camera& ca
 }
 
 bool QuestArrow::hit(Vec2 pointer) const {
-  return visible_ && GameObjectArrow::contains(position_, rotation_, size, pointer, scale_);
+  return visible_ && GameObjectArrow::contains(position_, rotation_, size, pointer, 1.0);
 }
 
 void QuestArrow::refresh(const World& world, const Quest& quest, const Camera& camera,

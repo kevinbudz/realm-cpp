@@ -34,7 +34,8 @@ std::optional<ArrowPlacement> GameObjectArrow::project(const Camera& camera, Vec
   ArrowPlacement placement;
   placement.position = {camera_origin.x + t * x, camera_origin.y + t * y};
   double rotation = std::remainder(270 - 180 / std::numbers::pi * std::atan2(x, y), 360.0);
-  const double margin = 5 * camera.scale();
+  // Screen pixels at every zoom, as the arrow itself is drawn at zoom 1.
+  const double margin = 5;
   if (placement.position.x < margin) {
     rotation = std::clamp(rotation, -45.0, 45.0);
   } else if (placement.position.x > camera.playable_width() - margin) {

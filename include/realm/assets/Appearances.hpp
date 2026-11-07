@@ -18,6 +18,8 @@ class Appearances {
   // Content key: which source art (kind 0: sheet/index and mask sheet/index; kind 1: animation
   // image and mask) at which size, padding and dyes. A plain struct, so a cache hit builds no
   // string and crops no source art.
+  // `scale` is the camera zoom in tenths: 10 is the scale-10 bake every key starts as. Any other
+  // value is a zoomed variant, composed at device pixels for that zoom (see `get`).
   struct Key {
     std::int32_t a{};
     std::int32_t b{};
@@ -28,6 +30,12 @@ class Appearances {
     std::uint32_t tex2{};
     std::uint8_t kind{};
     std::uint8_t pad{};
+    std::uint8_t scale{10};
+
+    // A zoomed variant whose zoom is neither scale 10 nor `level`: stale once the zoom is `level`.
+    [[nodiscard]] bool stale_zoom(std::uint8_t level) const {
+      return scale != 10 && scale != level;
+    }
     [[nodiscard]] bool operator==(const Key&) const = default;
   };
 
@@ -49,6 +57,8 @@ class Appearances {
   [[nodiscard]] Key texture_key(const TextureDef& texture, std::uint32_t id, int size, bool pad,
                                 std::uint32_t tex1, std::uint32_t tex2) const;
   [[nodiscard]] std::shared_ptr<const Image> image(const Key& key) const;
+  // The cached image for a key, or nullptr on a miss. Never composes and does not touch the LRU.
+  [[nodiscard]] std::shared_ptr<const Image> find(const Key& key) const;
   [[nodiscard]] std::shared_ptr<const Image> texture(const TextureDef& texture, std::uint32_t id,
                                                      int size, bool pad, std::uint32_t tex1,
                                                      std::uint32_t tex2) const;
@@ -67,11 +77,29 @@ class Appearances {
   // Runtime bounds (defaults: the constants above); shrinking evicts immediately.
   void set_budget(std::size_t entries, std::size_t bytes) const;
   void clear() const;
+  // Drops every zoomed variant `Key::stale_zoom(level)` (bytes and LRU follow). Not an LRU
+  // eviction, so evictions() does not move. Returns the number of entries dropped.
+  std::size_t purge_zoom(std::uint8_t level) const;
   // Pure bitmap operation (TextureRedrawer.redraw), exposed for independent source-reference
   // fixtures and UI art. Without `glow` only the outline is drawn, as GlowRedrawer.outlineGlow with
-  // no glow color.
+  // no glow color. `device_scale` multiplies the texel scale of 5 * size / 100 (HUD density).
+  // `sharp` is opt-in: it resamples with an exact integer nearest upscale followed by an area
+  // reduction, so each texel keeps its exact scale with a one-pixel blended seam. The margins scale
+  // with `device_scale` so the sprite keeps its logical center. The outline and glow are computed
+  // from the final alpha in both modes. The default arguments keep the original output exactly.
   [[nodiscard]] Image compose(const Image& source, const Image* mask, int size, bool pad,
-                              std::uint32_t tex1, std::uint32_t tex2, bool glow = true) const;
+                              std::uint32_t tex1, std::uint32_t tex2, bool glow = true,
+                              double device_scale = 1, bool sharp = false) const;
+  // Zoomed bitmap for a key of `scale` (zoom in tenths) `zoom`: the scale-10 art stage, margins
+  // included, resampled nearest-neighbour to the zoom so the art is what GL_NEAREST drew at scale
+  // 10, and the outline and halo are drawn at the zoom's device resolution (outline width
+  // continuous in the zoom). Density is the scale-10 density times the zoom (fewer device pixels
+  // only past a page).
+  [[nodiscard]] Image compose_zoomed(const Image& source, const Image* mask, int size, bool pad,
+                                     std::uint32_t tex1, std::uint32_t tex2, double zoom,
+                                     bool glow = true) const;
+  // A zoomed bitmap never exceeds an atlas page side (Atlas::page_size).
+  static constexpr int maximum_zoomed_side = 2048;
 
   [[nodiscard]] const AnimationLibrary& animations() const { return animations_; }
 
@@ -87,6 +115,10 @@ class Appearances {
   };
 
   [[nodiscard]] Image sprite(int sheet, int index) const;
+  // The scale-10 art: margins, sizing and the resampled colour and alpha, before any outline.
+  [[nodiscard]] Image art(const Image& source, const Image* mask, int size, bool pad,
+                          std::uint32_t tex1, std::uint32_t tex2, double device_scale,
+                          bool sharp) const;
   // `make` runs only on a miss and returns the source art: `make(source,mask,normalize)` fills in
   // an owned or borrowed image.
   template <class Make>

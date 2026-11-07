@@ -94,13 +94,13 @@ def main():
     check(np.abs(after_d['moved'] - s0['base']).mean() < 1.5, 'the replaced D key no longer moves the player')
     print('rebinding, persistence and reload ok')
 
-    # --- Allow Camera Rotation gates Q/E (off by default), and the Rotate keys are greyed out until it is on.
-    spin, _ = run('spin-off', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'])
+    # --- Allow Camera Rotation gates Q/E (on by default), and the Rotate keys are greyed out while it is off.
+    spin, _ = run('spin-off', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'], settings=dict(values=dict(allowRotation=0)))
     check(np.abs(spin['q'] - s0['base']).mean() < 1.5, 'Q does not rotate with Allow Camera Rotation off')
     spin, _ = run('spin-on', ['300 hold q', '1000 capture q', '1100 release q', '1200 quit'], settings=dict(values=dict(allowRotation=1)))
     check(np.abs(spin['q'] - s0['base']).mean() > 3, 'Q rotates the camera with it on')
     s, _ = run('rotate-rows', ['300 key o', '500 capture off', f'600 click {box(6)}', '700 capture still-off', f'800 click {box(4)}', '900 capture on',
-                               f'1000 click {box(6)}', '1100 capture waiting', '1200 quit'])
+                               f'1000 click {box(6)}', '1100 capture waiting', '1200 quit'], settings=dict(values=dict(allowRotation=0)))
     check(not changed(s['off'], s['still-off']).any(), 'a greyed-out Rotate key ignores clicks')
     check(np.abs(s['on'] - s['off']).mean() > .1 and changed(s['waiting'], s['on']).any(), 'turning rotation on enables the rows')
     print('camera rotation gating ok')

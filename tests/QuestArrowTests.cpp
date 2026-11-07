@@ -109,6 +109,17 @@ int main() {
     arrow.update(world, quest, camera, {}, false, 800, 600, 7000);
     check(arrow.visible() && arrow.hit({590, 325}), "hit tests the visible triangle");
     check(!arrow.hit({596, 333}), "outside the triangle is not a hit");
+    // At zoom 2 the arrow still sits on the playfield edge and its triangle keeps the zoom 1 reach:
+    // a point 16 pixels out misses, where a zoom-scaled triangle would catch it.
+    Camera zoomed;
+    zoomed.configure({50, 50}, 0, 800, 600, 2);
+    QuestArrow zoomed_arrow;
+    zoomed_arrow.update(world, quest, zoomed, {}, false, 800, 600, 7000);
+    check(zoomed_arrow.visible() && near(zoomed_arrow.position().x, 600) &&
+              near(zoomed_arrow.position().y, 325),
+          "zoomed quest arrow stays on the playfield edge");
+    check(zoomed_arrow.hit({590, 325}) && !zoomed_arrow.hit({584, 325}),
+          "zoomed quest arrow triangle keeps its zoom 1 size");
 
     // quest_target snapshots what the tooltips draw; QuestToolTip and PortraitToolTip redraw only
     // on change.

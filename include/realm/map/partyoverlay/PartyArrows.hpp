@@ -50,7 +50,7 @@ class PartyArrows {
  private:
   [[nodiscard]] bool contains(const PartyArrow& arrow, Vec2 pointer) const;
   std::array<PartyArrow, Party::members_shown> arrows_{};
-  double scale_{1};
+  double scale_{1};  // Camera zoom the placements were made at; a change re-projects them.
   int hovered_{-1};
   int width_{};
   int height_{};

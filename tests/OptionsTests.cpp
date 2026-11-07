@@ -1,6 +1,7 @@
 #include "realm/ui/options/OptionsScreen.hpp"
 #include <cmath>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <set>
 
@@ -43,16 +44,16 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("moveUp") == 87 && s.get("moveLeft") == 65 && s.get("moveDown") == 83 &&
             s.get("moveRight") == 68,
         "Flash movement defaults");
-  check(s.get("escapeToNexus") == 45 && s.get("escapeToNexus2") == 116 && s.get("options") == 79 &&
+  check(s.get("escapeToNexus") == 82 && s.get("escapeToNexus2") == 116 && s.get("options") == 79 &&
             s.get("interact") == 48 && s.get("chat") == 13,
         "Flash hot key defaults");
-  check(s.get("togglePerformanceStats") == 0 && s.get("toggleCentering") == 0 &&
-            s.get("toggleFullscreenMode") == 0,
-        "unset by default");
-  check(!s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
+  check(s.get("resetToDefaultCameraAngle") == 90 && s.get("toggleCentering") == 88 &&
+            s.get("togglePerformanceStats") == 80 && s.get("toggleFullscreenMode") == 122,
+        "camera, stats and fullscreen hot key defaults");
+  check(s.flag("allowRotation") && s.flag("hpBars") && s.flag("particles") &&
             s.flag("allyNotifs") && !s.flag("fullscreenMode"),
         "toggle defaults");
-  check(s.get("maxFPS") == 60 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("quality") &&
+  check(s.get("maxFPS") == 0 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("quality") &&
             s.flag("playSFX") && s.flag("showTradePopup"),
         "graphics defaults");
   check(std::fabs(s.camera_angle() - 7 * std::numbers::pi / 4) < 1e-12 &&
@@ -67,12 +68,12 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("useSpecial") == 116 && s.get("escapeToNexus2") == 0,
         "hidden bindings take part in conflicts");
   s.set_key("togglePerformanceStats", 0);
-  check(s.get("toggleCentering") == 0 && s.get("moveUp") == 83,
+  check(s.get("toggleCentering") == 88 && s.get("moveUp") == 83,
         "unsetting a key clears nothing else");
   s.set_key("maxFPS", 60);
   s.set_key("moveLeft", 999);
   s.set_key("nonsense", 65);
-  check(s.get("maxFPS") == 60 && s.get("moveLeft") == 65,
+  check(s.get("maxFPS") == 0 && s.get("moveLeft") == 65,
         "non-key parameters and invalid codes are ignored");
   check(!s.set_choice("hpBars", 7) && s.flag("hpBars") && !s.set_choice("moveUp", 1) &&
             !s.set_choice("hpBars", 1),
@@ -123,6 +124,50 @@ void settings_rules(const std::filesystem::path& scratch) {
         "invalid stored values fall back per option");
   check(odd.camera_angle() == odd.default_camera_angle(),
         "missing camera angle falls back to the default");
+  // Shift+wheel zoom: a notch is 0.1, rounded to the nearest 0.1 and held to 0.8 to 2.
+  check(step_camera_zoom(1.0, 1) == 1.1 && step_camera_zoom(1.0, -1) == 0.9 &&
+            step_camera_zoom(1.26, 0) == 1.3 && step_camera_zoom(1.04, 0) == 1.0 &&
+            step_camera_zoom(2.0, 1) == 2.0 && step_camera_zoom(0.8, -1) == 0.8 &&
+            step_camera_zoom(1.9, 5) == 2.0 && step_camera_zoom(1.0, 0) == 1.0,
+        "camera zoom notches are 0.1 and clamp to 0.8 to 2");
+  check(step_camera_zoom(std::nan(""), 1) == 1.1 && step_camera_zoom(1.0, std::nan("")) == 1.0,
+        "non-finite camera zoom and steps fall back");
+  double zoom = 1.0;
+  for (int i = 0; i < 12; ++i) {
+    zoom = step_camera_zoom(zoom, 1);
+  }
+  check(zoom == 2.0, "repeated notches stop at 2 without drift");
+  for (int i = 0; i < 20; ++i) {
+    zoom = step_camera_zoom(zoom, -1);
+  }
+  check(zoom == 0.8, "repeated notches stop at 0.8 without drift");
+  {
+    Settings z;
+    z.set_camera_zoom(3.0);
+    check(z.camera_zoom() == 2.0, "camera zoom set above the range clamps to 2");
+    z.set_camera_zoom(0.1);
+    check(z.camera_zoom() == 0.8, "camera zoom set below the range clamps to 0.8");
+    z.set_camera_zoom(1.7);
+    check(z.save(scratch / "zoom.json") &&
+              Settings::load(scratch / "zoom.json").camera_zoom() == 1.7,
+          "camera zoom round trip");
+    z.reset_tab(OptionsTab::graphics);
+    check(z.camera_zoom() == 1.7, "reset of a tab keeps the camera zoom");
+    z.reset_all();
+    check(z.camera_zoom() == 1.7 && z.get("moveUp") == 87,
+          "reset of every row keeps the camera zoom");
+  }
+  // A stored cameraZoom that is not a number, is non-finite or is out of range falls back to 1,
+  // and an in-range one rounds to the nearest 0.1.
+  for (const auto& [text, expected] : std::initializer_list<std::pair<const char*, double>>{
+           {"\"NaN\"", 1.0}, {"5", 1.0}, {"0.5", 1.0}, {"1.23", 1.2}, {"1.6", 1.6}}) {
+    {
+      std::ofstream zoom_file(scratch / "zoom.json");
+      zoom_file << R"({"values":{},"cameraZoom":)" << text << "}";
+    }
+    check(Settings::load(scratch / "zoom.json").camera_zoom() == expected,
+          "stored camera zoom is validated");
+  }
   check(Settings::path_beside("/a/b/account.json") == "/a/b/account.settings.json",
         "settings sit beside an explicit account file");
   check(!s.save("/proc/forbidden/settings.json"), "unwritable location reports failure");
@@ -213,7 +258,8 @@ void screen_behavior(const FontBook& fonts_in) {
   screen.key_down(0);
   check(screen.capturing() && screen.visible(), "keys without a Flash code are ignored");
   screen.pointer_down({1, 1});
-  // Rotate keys follow Allow Camera Rotation.
+  // Rotate keys follow Allow Camera Rotation, which is on by default.
+  settings.set_choice("allowRotation", 0);
   const int rotate = find(screen, "rotateLeft"), allow = find(screen, "allowRotation");
   click(screen, center(screen, screen.box_rect(rotate)));
   check(!screen.capturing() && !settings.enabled(screen.option(rotate)),
@@ -255,11 +301,11 @@ void screen_behavior(const FontBook& fonts_in) {
   check(screen.tab() == OptionsTab::graphics && screen.option_count() == 9, "graphics tab");
   const int fps = find(screen, "maxFPS");
   click(screen, center(screen, screen.box_rect(fps)));
-  check(settings.get("maxFPS") == 120, "Max FPS advances through its list");
-  for (int i = 0; i < 5; ++i) {
+  check(settings.get("maxFPS") == 30, "Max FPS wraps from its Unlimited default to 30");
+  for (int i = 0; i < 6; ++i) {
     click(screen, center(screen, screen.box_rect(fps)));
   }
-  check(settings.get("maxFPS") == 30, "and wraps around");
+  check(settings.get("maxFPS") == 0, "and advances through its list back to Unlimited");
   // Press and release must land on the same control.
   const auto hp = center(screen, screen.box_rect(find(screen, "particles")));
   screen.pointer_move(hp);

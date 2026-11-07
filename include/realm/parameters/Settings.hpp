@@ -60,6 +60,13 @@ struct Preferences {
   bool play_pew_pew{true};
 };
 
+// Parameters.cameraZoom bounds. Zoom 1 is the default and a larger zoom draws objects bigger.
+inline constexpr double min_camera_zoom = 0.8;
+inline constexpr double max_camera_zoom = 2.0;
+// One wheel notch is 0.1 (positive zooms in). The result is rounded to the nearest 0.1 and clamped
+// to the range. A non-finite zoom reads as 1 and non-finite steps as none.
+[[nodiscard]] double step_camera_zoom(double zoom, double steps);
+
 class Settings {
  public:
   Settings();
@@ -87,6 +94,12 @@ class Settings {
   void set_camera_angle(double angle) { camera_angle_ = angle; }
 
   [[nodiscard]] double default_camera_angle() const;
+
+  // Parameters.cameraZoom: persisted with the settings and kept by reset_tab and reset_all.
+  [[nodiscard]] double camera_zoom() const { return camera_zoom_; }
+
+  void set_camera_zoom(double zoom) { camera_zoom_ = step_camera_zoom(zoom, 0); }
+
   [[nodiscard]] Preferences preferences() const;
 
   // The key bound to an action, or key_unset.
@@ -106,5 +119,6 @@ class Settings {
   [[nodiscard]] static bool valid(const OptionDef& option, int value);
   std::map<std::string, int, std::less<>> values_;
   double camera_angle_;
+  double camera_zoom_;
 };
 }

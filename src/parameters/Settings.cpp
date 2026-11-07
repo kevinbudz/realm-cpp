@@ -1,5 +1,6 @@
 #include "realm/parameters/Settings.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -172,6 +173,15 @@ std::vector<OptionDef> build() {
                       {"Unlimited", 0}}));
   options.push_back(toggle(graphics, "fullscreenMode", "Fullscreen Mode",
                      "This toggles whether the game is fullscreen or not", false));
+  // The graphics API the window opens with, read once at startup.
+  auto renderer = choice(graphics, "renderer", "Renderer",
+                         "Graphics API for the game window: OpenGL or Vulkan. Takes effect after "
+                         "you restart the client.",
+                         static_cast<int>(gfx::Api::opengl),
+                         {{"OpenGL", static_cast<int>(gfx::Api::opengl)},
+                          {"Vulkan", static_cast<int>(gfx::Api::vulkan)}});
+  renderer.restart = true;
+  options.push_back(std::move(renderer));
   // Options.addSoundOptions
   options.push_back(
       toggle(sound, "playSFX", "Play Sound Effects", "This toggles whether sound effects are played"));

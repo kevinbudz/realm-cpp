@@ -74,6 +74,14 @@ namespace realm::application {
 // construction has side effects (window open, stdout, file and network I/O, stdin, validation
 // throws), the member is initialized by a helper in ApplicationState.cpp that runs at that point of
 // the declaration order.
+// Shuts the graphics API down when the client state ends (see ClientState::graphics_shutdown).
+struct GraphicsShutdown {
+  GraphicsShutdown() = default;
+  GraphicsShutdown(const GraphicsShutdown&) = delete;
+  GraphicsShutdown& operator=(const GraphicsShutdown&) = delete;
+  ~GraphicsShutdown() { realm::shutdown_graphics(); }
+};
+
 struct ClientState {
   using Clock = std::chrono::steady_clock;
   using UiEvent = realm::ui::Event;
@@ -121,6 +129,9 @@ struct ClientState {
   const std::filesystem::path settings_path;
   realm::Settings settings;
   realm::platform::WindowSession session;
+  // Declared right after the session, so it is destroyed after every GPU object below and before the
+  // session (SDL's Vulkan loader goes with it).
+  GraphicsShutdown graphics_shutdown;
   const realm::GraphicsInfo graphics;
   // Every flash PNG, decoded once for the animation library, atlas, terrain, minimap, appearances.
   std::shared_ptr<const realm::FlashImages> flash_images;

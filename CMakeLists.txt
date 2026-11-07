@@ -14,6 +14,20 @@ option(REALM_TRACY "Enable pinned optional Tracy CPU profiler" OFF)
 option(REALM_ALLOCATION_TRACKING "Track main-thread C++ allocation traffic in viewer telemetry" OFF)
 option(REALM_AUDIO "Build the native one-shot SFX output (vendored miniaudio, realm_audio)" ON)
 option(REALM_USE_LLD "Link with LLVM lld when supported; Release keeps GNU ld because its GCC LTO objects need the GCC plugin" ON)
+# The Vulkan backend. Phase 1 compiles only a stub whose creation fails ("Vulkan renderer not
+# available in this build"), so the client falls back to OpenGL. The option defaults to ON when the
+# Vulkan SDK is found.
+find_package(Vulkan QUIET)
+# The Vulkan shaders are compiled with glslc (shaderc) at build time. Without it the option defaults to
+# OFF; an explicit ON without glslc fails in cmake/ClientTargets.cmake.
+find_program(REALM_GLSLC glslc)
+if(Vulkan_FOUND AND REALM_GLSLC)
+    set(REALM_VULKAN_DEFAULT ON)
+else()
+    set(REALM_VULKAN_DEFAULT OFF)
+endif()
+option(REALM_ENABLE_VULKAN
+    "Compile the Vulkan renderer backend (needs the Vulkan headers and glslc)" ${REALM_VULKAN_DEFAULT})
 # Build speed: each block is a no-op when its tool is missing or the cache already sets it.
 if(CMAKE_GENERATOR MATCHES "Ninja")
     # Link steps are memory-heavy (ASan, LTO); keep at most two in flight.
@@ -205,8 +219,13 @@ if(BUILD_TESTING)
             SOURCES tests/FrameCacheTests.cpp LINK realm_ui_gpu realm_platform_sdl)
         realm_add_test(NAME model_instances TARGET realm_model_instance_tests LABELS gpu
             SOURCES tests/ModelInstanceTests.cpp
-            LINK realm_render GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_game
+            LINK realm_render realm_platform_sdl GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_game
             DEFINES SDL_MAIN_HANDLED)
+        if(REALM_ENABLE_VULKAN)
+            # The same checks on the Vulkan renderer (walls, prepared meshes, model instances).
+            add_test(NAME model_instances_vulkan COMMAND realm_model_instance_tests vulkan)
+            set_tests_properties(model_instances_vulkan PROPERTIES LABELS gpu)
+        endif()
         realm_add_test(NAME dynamic_atlas TARGET realm_dynamic_atlas_tests LABELS gpu
             SOURCES tests/DynamicAtlasTests.cpp
             LINK GLEW::GLEW OpenGL::GL SDL2::SDL2 realm_assets realm_render
@@ -217,6 +236,8 @@ if(BUILD_TESTING)
         realm_add_python_test(NAME startup_news_gpu LABELS gpu SCRIPT tests/startup_parity_gpu_tests.py
             ARGS --binary-dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --cases news)
         realm_add_python_test(NAME options_gpu LABELS gpu SCRIPT tests/options_gpu_tests.py)
+        realm_add_python_test(NAME renderer_gpu LABELS gpu SCRIPT tests/renderer_gpu_tests.py
+            ARGS "$<TARGET_FILE:realm_client>")
         # The RmlUi host's retained invalidation, input, clipping and lifetime on real fonts, art and GL.
         realm_add_test(NAME ui_rml_host TARGET realm_ui_rml_host_tests LABELS gpu
             SOURCES tests/UiRmlHostTests.cpp
@@ -353,7 +374,7 @@ if(BUILD_TESTING)
     # Tests that open a window, GL context or GPU (SDL, realm_client, or a *_gpu script). They share one lock so they
     # never overlap; CPU-only tests keep running in parallel. Names missing from this configuration are skipped.
     # delete_character_stale is not listed: it drives Startup headlessly through a Python HTTP mock.
-    set(REALM_GPU_TESTS stress_rendered telemetry_gpu postfx visibility_culling frame_caches model_instances
+    set(REALM_GPU_TESTS stress_rendered telemetry_gpu postfx visibility_culling frame_caches model_instances model_instances_vulkan
         dynamic_atlas status_gpu options_gpu sdl_keys legends_gpu death_fame_gpu flash_gap_gpu delete_character_gpu
         ui_rml_host ui_retained ui_bundle_gpu startup_news_gpu editor_gpu)
     foreach(gpu_test IN LISTS REALM_GPU_TESTS)

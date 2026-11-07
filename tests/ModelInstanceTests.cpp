@@ -1,4 +1,6 @@
 #include <GL/glew.h>
+#include "realm/platform/PlatformSdl.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 // Differential checks of instanced model rendering (model_quad + persistent model_geometry,
 // projected, culled and shaded on the GPU) against the CPU reference path (project_model).
 // CPU part: the instance transform reproduces every reference vertex, the kept-face set and
@@ -176,7 +178,7 @@ void compare_cpu(const std::string& name, const Camera& camera, Vec2 at, double 
 }
 }
 
-int main() {
+int main(int argc, char** argv) {
   try {
     // Index, geometry and range bookkeeping.
     std::size_t vertices{};
@@ -220,28 +222,22 @@ int main() {
               << ", edge-on faces (<0.001 px thick) kept by one side only: " << slivers << "\n";
 
     // GPU differential.
+    // "vulkan" as the first argument runs the GPU section on the Vulkan renderer (the
+    // model_instances_vulkan test); the default is OpenGL.
     SDL_SetMainReady();
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-      throw std::runtime_error(SDL_GetError());
-    }
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    const auto api = argc > 1 && std::string_view(argv[1]) == "vulkan" ? gfx::Api::vulkan
+                                                                       : gfx::Api::opengl;
     constexpr int width = 800, height = 600;
-    auto* window = SDL_CreateWindow("model instances", 0, 0, width, height,
-                                    SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
-    if (!window) {
-      throw std::runtime_error(SDL_GetError());
-    }
-    auto context = SDL_GL_CreateContext(window);
-    if (!context) {
-      throw std::runtime_error(SDL_GetError());
-    }
-    glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
-      throw std::runtime_error("GLEW");
-    }
-    while (glGetError() != GL_NO_ERROR) {
+    platform::WindowSession session;
+    gfx::select_api(api);
+    session.open(api, "model instances", width, height, true, 0);
+    initialise_graphics({[&session] { return session.vulkan_instance_proc(); },
+                         [&session] { return session.vulkan_instance_extensions(); },
+                         [&session](void* instance) { return session.vulkan_surface(instance); }});
+    std::cout << "Renderer " << gfx::api_name(api) << "\n";
+    if (api == gfx::Api::opengl) {
+      while (glGetError() != GL_NO_ERROR) {
+      }
     }
     std::size_t frames{}, drawn{}, differing{}, large{}, instances{};
     // The whole GPU section runs twice: base-instance draws, then the per-run pointer path. Each
@@ -271,6 +267,7 @@ int main() {
       // Every capture is compared across the two draw paths.
       const auto capture_frame = [&]() {
         auto image = renderer.capture(width, height);
+        renderer.finish_frame();  // Vulkan submits and presents; OpenGL does nothing
         same_path(image);
         return image;
       };
@@ -693,7 +690,9 @@ int main() {
         renderer.draw(atlas, wall_list(camera, true), width, height, width);
         compare_captures(reference, capture_frame(), "walls after the store outgrew its buffer");
         GLint texel_limit{};
-        glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &texel_limit);
+        if (api == gfx::Api::opengl) {
+          glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &texel_limit);
+        }
         std::cout << "GPU walls: texture buffer texels " << texel_limit << ", frames "
                   << wall_frames << ", instances " << wall_quads << ", covered pixels "
                   << wall_covered << ", differing " << wall_differing << " ("
@@ -766,7 +765,9 @@ int main() {
               "the limited frame mixes instances and software meshes");
         const auto render = [&](const std::vector<Quad>& quads) {
           renderer.draw(atlas, quads, width, height, width);
-          return renderer.capture(width, height);
+          auto image = renderer.capture(width, height);
+          renderer.finish_frame();
+          return image;
         };
         const auto reference = render(full), overflowed = render(split);
         std::size_t diff{}, covered{};
@@ -972,9 +973,8 @@ int main() {
         }
       }
     }
-    SDL_GL_DeleteContext(context);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    shutdown_graphics();
+    session.close();
     std::cout << "GPU frames " << frames << ", instances " << instances << ", covered pixels "
               << drawn << ", differing " << differing << " (by >16: " << large << ")\n";
     std::cout << "Model instance checks: " << checks << " passed\n";

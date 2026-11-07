@@ -1,5 +1,6 @@
 #include "realm/ui/options/OptionsScreen.hpp"
 #include "realm/ui/tooltip/TextToolTip.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
 #include <array>
@@ -350,7 +351,25 @@ bool OptionsScreen::update(const FontBook& fonts, double width, double height,
   if (hover_ >= label_hit && hover_ < continue_hit && pointer_valid_) {
     const auto& option = *rows_.at(static_cast<std::size_t>(hover_ - label_hit)).def;
     if (!option.tooltip.empty()) {
-      const auto tip = render_text_tooltip(fonts, {}, option.tooltip, 0x272727, 0x828282, 150);
+      // The Renderer row also says what the running client does: the API this run uses when it
+      // is not the saved one, and any fallback.
+      std::string text(option.tooltip);
+      if (option.param == "renderer") {
+        const auto saved = static_cast<gfx::Api>(settings_->get(option.param));
+        const auto active = gfx::active_api();
+        if (const auto& fallback = gfx::fallback()) {
+          text += " Using " + std::string(gfx::api_name(active)) + ": " +
+                  std::string(gfx::api_name(fallback->requested)) + " unavailable (" +
+                  fallback->reason + ").";
+        } else if (const auto flag = gfx::command_line_api()) {
+          text += " This run uses " + std::string(gfx::api_name(*flag)) +
+                  " from --renderer; the saved " + std::string(gfx::api_name(saved)) +
+                  " applies on the next normal start.";
+        } else if (active != saved) {
+          text += " Restart to apply.";
+        }
+      }
+      const auto tip = render_text_tooltip(fonts, {}, text, 0x272727, 0x828282, 150);
       const auto at =
           text_tooltip_position(pointer_, tip.frame_width, tip.frame_height, width, height, scale);
       ui_blit(image_, tip.image, at.x / scale - tip.margin + 0, at.y / scale - tip.margin, false,

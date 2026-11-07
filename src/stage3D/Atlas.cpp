@@ -1,6 +1,6 @@
-#include <GL/glew.h>
 #include "realm/util/Telemetry.hpp"
 #include "realm/stage3D/Atlas.hpp"
+#include "GraphicsBackend.hpp"
 #include "realm/assets/AnimationLibrary.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
@@ -11,7 +11,7 @@
 
 namespace realm {
 bool Atlas::hardware_copy() {
-  return !force_blit_copy && (GLEW_VERSION_4_3 || GLEW_ARB_copy_image);
+  return !force_blit_copy && gfx::backend().copy_images_supported();
 }
 
 Atlas::Atlas(const std::filesystem::path& root, std::span<const Image> additional,
@@ -86,11 +86,8 @@ Atlas::Atlas(const FlashImages& pngs, std::span<const Image> additional, std::si
       free.push_back({rect.page, rect.x, rect.y + height, rect.w, rect.h - height});
     }
   }
-  GLint max_size{};
-  GLint max_layers{};
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
-  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max_layers);
-  if (max_size < page_size || pages_ + dynamic_pages_ > max_layers) {
+  const auto limits = gfx::backend().limits();
+  if (limits.max_texture_size < page_size || pages_ + dynamic_pages_ > limits.max_array_layers) {
     throw std::runtime_error("GPU atlas limits insufficient");
   }
 
@@ -119,39 +116,27 @@ Atlas::Atlas(const FlashImages& pngs, std::span<const Image> additional, std::si
       }
     }
   }
-  glGenTextures(1, &texture_);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, texture_);
-  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, page_size, page_size, pages_ + dynamic_pages_, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
+  texture_ = gfx::backend().create_layers(page_size, pages_ + dynamic_pages_);
   for (int p = 0; p < pages_; ++p) {
-    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, p, page_size, page_size, 1, GL_RGBA,
-                    GL_UNSIGNED_BYTE, data[static_cast<std::size_t>(p)].data());
+    gfx::backend().upload_layer(
+        texture_, p, 0, 0, page_size, page_size,
+        reinterpret_cast<const std::byte*>(data[static_cast<std::size_t>(p)].data()));
   }
   if (dynamic_pages_) {
     // Zero-filled like the static pages, so a texel never written is transparent rather than
     // driver-defined.
     const std::vector<unsigned char> blank(static_cast<std::size_t>(page_size) * page_size * 4);
     for (int p = pages_; p < pages_ + dynamic_pages_; ++p) {
-      glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, p, page_size, page_size, 1, GL_RGBA,
-                      GL_UNSIGNED_BYTE, blank.data());
+      gfx::backend().upload_layer(texture_, p, 0, 0, page_size, page_size,
+                                  reinterpret_cast<const std::byte*>(blank.data()));
     }
   }
-  if (glGetError() != GL_NO_ERROR) {
-    glDeleteTextures(1, &texture_);
-    texture_ = 0;
-    throw std::runtime_error("GPU atlas upload failed");
-  }
+  gfx::backend().verify_layers(texture_);
 }
 
 Atlas::~Atlas() {
   if (texture_) {
-    glDeleteTextures(1, &texture_);
+    gfx::backend().release_texture(texture_);
   }
 }
 
@@ -179,11 +164,9 @@ void Atlas::update_additional(std::size_t index, const Image& image) {
       std::copy_n(bitmap.pixels.data() + src, 4, pixels.data() + dst);
     }
   }
-  glBindTexture(GL_TEXTURE_2D_ARRAY, texture_);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   telemetry::add(telemetry::Counter::texture_upload_bytes, pixels.size());
-  glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, region.x - 1, region.y - 1, region.page, region.width + 2,
-                  region.height + 2, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+  gfx::backend().upload_layer(texture_, region.page, region.x - 1, region.y - 1, region.width + 2,
+                              region.height + 2, reinterpret_cast<const std::byte*>(pixels.data()));
 }
 
 void Atlas::upload_dynamic(int page, int x, int y, const Image& image) {
@@ -198,13 +181,10 @@ void Atlas::upload_dynamic(int page, int x, int y, const Image& image) {
   static thread_local Image bitmap;
   bitmap = image;
   premultiply_flash_bitmap(bitmap);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, texture_);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   telemetry::add(telemetry::Counter::texture_upload_bytes, bitmap.pixels.size());
   telemetry::add(telemetry::Counter::atlas_uploads);
-  glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, x, y, pages_ + page, bitmap.width, bitmap.height, 1,
-                  GL_RGBA, GL_UNSIGNED_BYTE, bitmap.pixels.data());
+  gfx::backend().upload_layer(texture_, pages_ + page, x, y, bitmap.width, bitmap.height,
+                              reinterpret_cast<const std::byte*>(bitmap.pixels.data()));
 }
 
 void Atlas::resize_dynamic(int pages) {
@@ -215,83 +195,18 @@ void Atlas::resize_dynamic(int pages) {
   if (pages == dynamic_pages_) {
     return;
   }
-  GLint max_layers{};
-  glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max_layers);
-  if (pages_ + pages > max_layers) {
+  if (pages_ + pages > gfx::backend().limits().max_array_layers) {
     throw std::runtime_error("GPU atlas limits insufficient");
   }
-  GLint read_binding{};
-  GLint draw_binding{};
-  GLint unit{};
-  GLint bound{};
-  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_binding);
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_binding);
-  glGetIntegerv(GL_ACTIVE_TEXTURE, &unit);
-  glActiveTexture(GL_TEXTURE0);
-  glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
-
-  while (glGetError() != GL_NO_ERROR) {
-  }
-
-  GLuint fresh{};
-  glGenTextures(1, &fresh);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, fresh);
-  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, page_size, page_size, pages_ + pages, 0, GL_RGBA,
-               GL_UNSIGNED_BYTE, nullptr);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // Layers kept: every static layer and the first min(old, new) dynamic layers.
   const int kept = pages_ + std::min(dynamic_pages_, pages);
-  if (hardware_copy()) {
-    glCopyImageSubData(texture_, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, fresh, GL_TEXTURE_2D_ARRAY, 0, 0,
-                       0, 0, page_size, page_size, kept);
-  } else {
-    // Blits are clipped by the scissor test, which the renderer enables while drawing.
-    const bool scissor = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
-    glDisable(GL_SCISSOR_TEST);
-    GLuint fbos[2]{};
-    glGenFramebuffers(2, fbos);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbos[0]);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbos[1]);
-    for (int layer = 0; layer < kept; ++layer) {
-      glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_, 0, layer);
-      glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, fresh, 0, layer);
-      glBlitFramebuffer(0, 0, page_size, page_size, 0, 0, page_size, page_size, GL_COLOR_BUFFER_BIT,
-                        GL_NEAREST);
-    }
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glDeleteFramebuffers(2, fbos);
-    if (scissor) {
-      glEnable(GL_SCISSOR_TEST);
-    }
-  }
-  if (kept < pages_ + pages) {
-    const std::vector<unsigned char> blank(static_cast<std::size_t>(page_size) * page_size * 4);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    for (int layer = kept; layer < pages_ + pages; ++layer) {
-      glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, page_size, page_size, 1, GL_RGBA,
-                      GL_UNSIGNED_BYTE, blank.data());
-    }
-  }
-  const bool failed = glGetError() != GL_NO_ERROR;
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(read_binding));
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(draw_binding));
-  if (failed) {
-    glBindTexture(GL_TEXTURE_2D_ARRAY, static_cast<GLuint>(bound));
-    glActiveTexture(static_cast<GLenum>(unit));
-    glDeleteTextures(1, &fresh);
-    throw std::runtime_error("GPU atlas resize failed");
-  }
+  const auto fresh =
+      gfx::backend().resize_layers(texture_, page_size, pages_ + pages, kept, hardware_copy());
   const auto old_texture = texture_;
   texture_ = fresh;
   dynamic_pages_ = pages;
   ++resizes_;
-  glBindTexture(GL_TEXTURE_2D_ARRAY,
-                static_cast<GLuint>(bound) == old_texture ? fresh : static_cast<GLuint>(bound));
-  glActiveTexture(static_cast<GLenum>(unit));
-  glDeleteTextures(1, &old_texture);
+  gfx::backend().release_texture(old_texture);
   telemetry::add(telemetry::Counter::atlas_resizes);
   telemetry::add(telemetry::Counter::texture_storage_bytes, bytes());
 }
@@ -340,10 +255,9 @@ void Atlas::update_additional_region(std::size_t index, const Image& image, int 
     }
   }
   premultiply_flash_bitmap(pixels);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, texture_);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   telemetry::add(telemetry::Counter::texture_upload_bytes, pixels.pixels.size());
-  glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, region.x + left, region.y + top, region.page,
-                  pixels.width, pixels.height, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.pixels.data());
+  gfx::backend().upload_layer(texture_, region.page, region.x + left, region.y + top, pixels.width,
+                              pixels.height,
+                              reinterpret_cast<const std::byte*>(pixels.pixels.data()));
 }
 }

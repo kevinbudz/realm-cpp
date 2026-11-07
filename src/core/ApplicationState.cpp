@@ -1,5 +1,6 @@
 #include "ApplicationState.hpp"
 #include "ApplicationLoopDetail.hpp"
+#include "realm/lib/ui/RmlHost.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -12,16 +13,50 @@
 
 namespace realm::application {
 namespace {
-// Opens the window, then queries GL and prints the banner. Runs where the session sat in the old
-// setup order.
+// The API a run opens with: the --renderer choice for this run, else the saved Renderer setting.
+realm::gfx::Api requested_api(const Options& o, const realm::Settings& settings) {
+  return o.renderer ? *o.renderer : static_cast<realm::gfx::Api>(settings.get("renderer"));
+}
+
+// The window's Vulkan side, from the session (the platform layer owns SDL).
+realm::gfx::WindowSurface window_surface(realm::platform::WindowSession& session) {
+  return {[&session] { return session.vulkan_instance_proc(); },
+          [&session] { return session.vulkan_instance_extensions(); },
+          [&session](void* instance) { return session.vulkan_surface(instance); }};
+}
+
+// Opens the window, then queries the API and prints the banner. Runs where the session sat in the
+// old setup order. A Vulkan start that fails falls back to OpenGL.
 realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const Options& o,
                                 const realm::Settings& settings) {
-  session.open("Realm of the Mad God", o.width, o.height, o.hidden,
-               o.benchmark              ? 0
-               : settings.flag("vsync") ? 1
-                                        : 0);
+  const auto requested = requested_api(o, settings);
+  const int swap_interval = o.benchmark ? 0 : settings.flag("vsync") ? 1 : 0;
+  if (o.renderer) {
+    realm::gfx::record_command_line_api(*o.renderer);
+  }
+  realm::gfx::select_api(requested);
+  try {
+    session.open(requested, "Realm of the Mad God", o.width, o.height, o.hidden, swap_interval);
+    realm::ui::set_host_window(session.window);
+    realm::initialise_graphics(window_surface(session));
+    realm::set_present_interval(swap_interval);
+  } catch (const std::exception& error) {
+    if (requested == realm::gfx::Api::opengl) {
+      throw;
+    }
+    // A Vulkan start that fails is not fatal: the window is torn down and the run opens OpenGL.
+    std::cerr << "Vulkan renderer unavailable: " << error.what() << "; starting with OpenGL\n";
+    session.close();
+    realm::gfx::select_api(realm::gfx::Api::opengl);
+    realm::gfx::record_fallback({requested, error.what()});
+    session.open(realm::gfx::Api::opengl, "Realm of the Mad God", o.width, o.height, o.hidden,
+                 swap_interval);
+    realm::initialise_graphics(window_surface(session));
+    realm::set_present_interval(swap_interval);
+  }
   const auto graphics = realm::graphics_info();
-  std::cout << "Flash revision " << realm::flash::revision << "\nGPU " << graphics.renderer
+  std::cout << "Flash revision " << realm::flash::revision << "\nRenderer "
+            << realm::gfx::api_name(realm::gfx::active_api()) << "\nGPU " << graphics.renderer
             << "\nGL " << graphics.version << '\n';
   return graphics;
 }
@@ -149,6 +184,10 @@ std::unique_ptr<realm::telemetry::Recorder> make_telemetry(
     telemetry->metadata("GL_vendor", graphics.vendor);
     telemetry->metadata("GL_renderer", graphics.renderer);
     telemetry->metadata("GL_version", graphics.version);
+    telemetry->metadata("renderer", std::string(realm::gfx::api_name(realm::gfx::active_api())));
+    if (const auto& fallback = realm::gfx::fallback()) {
+      telemetry->metadata("renderer_fallback", fallback->reason);
+    }
     telemetry->metadata("workload", !o.map.empty() ? o.map.string()
                                     : o.client     ? "client"
                                     : o.connect    ? "connect"
@@ -247,7 +286,9 @@ ClientState::ClientState(Options options)
 
   if (telemetry) {
     telemetry->metadata("quad_stream",
-                        renderer.persistent_streaming()
+                        realm::gfx::active_api() == realm::gfx::Api::vulkan
+                            ? "Vulkan per-frame host ring"
+                        : renderer.persistent_streaming()
                             ? "persistent coherent ring above 64 KiB; small/busy streams orphan"
                             : "OpenGL 3.3 orphan stream");
   }
@@ -294,7 +335,8 @@ void ClientState::apply_settings() {
   if (o.benchmark) {
     return;
   }
-  SDL_GL_SetSwapInterval(settings.flag("vsync") ? 1 : 0);
+  session.set_swap_interval(settings.flag("vsync") ? 1 : 0);
+  realm::set_present_interval(settings.flag("vsync") ? 1 : 0);
   const bool fullscreen = (SDL_GetWindowFlags(session.window) &
                            (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
   if (!o.hidden && settings.flag("fullscreenMode") != fullscreen) {
@@ -473,7 +515,7 @@ std::optional<realm::Quad> ClientState::perf_quad(int height) {
 realm::ui::Viewport ClientState::window_viewport() {
   realm::ui::Viewport viewport;
   SDL_GetWindowSize(session.window, &viewport.window_width, &viewport.window_height);
-  SDL_GL_GetDrawableSize(session.window, &viewport.drawable_width, &viewport.drawable_height);
+  session.drawable_size(viewport.drawable_width, viewport.drawable_height);
   return viewport;
 }
 

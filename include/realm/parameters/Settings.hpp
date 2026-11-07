@@ -28,6 +28,9 @@ struct OptionDef {
   std::vector<std::pair<std::string_view, int>> choices;
   // KeyMapper disabled state: the rotate keys follow allowRotation.
   std::string_view enabled_by;
+  // The row takes effect when the client next starts. Its tooltip says so, and says when the
+  // running value differs.
+  bool restart{};
 };
 
 // Rows of every tab in add order, plus the parameters registered without a row

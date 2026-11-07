@@ -17,6 +17,11 @@ GRAPHICS = {'realm_render', 'realm_ui_gpu', 'realm_platform_sdl', 'realm_startup
 # The RmlUi host owns RmlUi's GL3 renderer and queries GPU time itself.
 GL_OWNERS = {'realm_render', 'realm_platform_sdl', 'realm_ui_rmlui'}
 SDK = re.compile(r'#\s*include\s*[<"](?:GL/|SDL|SDL2/|EGL/|GLES)')
+# The Vulkan SDK belongs to the Vulkan backend (src/stage3D/vk/) and to the platform adapter that
+# creates its surface (src/platform/). Only the graphics owners may include it there.
+VK_OWNERS = GL_OWNERS
+VK_PATHS = ('src/stage3D/vk/', 'src/platform/', 'src/lib/ui/vk')
+VK_SDK = re.compile(r'#\s*include\s*[<"](?:vulkan/|vk_mem_alloc|VkBootstrap)')
 INCLUDE = re.compile(r'#\s*include\s*[<"]([^">]+)[">]')
 
 def manifest(path):
@@ -50,6 +55,8 @@ def violations(text, path, owner, permitted):
         failures.append(f'{path}: graphics SDK in headless {owner}')
     if owner not in GL_OWNERS and re.search(r'#\s*include\s*[<"](?:GL/|EGL/|GLES)', text):
         failures.append(f'{path}: GL SDK outside the backend/platform adapter')
+    if VK_SDK.search(text) and (owner not in VK_OWNERS or not path.startswith(VK_PATHS)):
+        failures.append(f'{path}: Vulkan SDK outside the Vulkan backend/platform adapter')
     for header in INCLUDE.findall(text):
         name = 'include/' + header if header.startswith('realm/') else os.path.normpath(Path(path).parent / header)
         other = HEADERS.get(name)
@@ -79,6 +86,10 @@ def main():
     for spelling in ['"realm/stage3D/Renderer.hpp"', '<realm/stage3D/Renderer.hpp>']:
         assert violations('#include ' + spelling, 'src/map/World.cpp', 'realm_game', closure(targets, 'realm_game'))
     assert violations('#include <GL/glew.h>', 'src/assets/FontBook.cpp', 'realm_assets', closure(targets, 'realm_assets'))
+    # Vulkan headers: allowed only in the Vulkan backend and platform adapter; rejected elsewhere.
+    assert violations('#include <vulkan/vulkan.h>', 'src/map/Scene.cpp', 'realm_render', closure(targets, 'realm_render'))
+    assert violations('#include <vulkan/vulkan.h>', 'src/stage3D/Atlas.cpp', 'realm_game', closure(targets, 'realm_game'))
+    assert not violations('#include <vulkan/vulkan.h>', 'src/stage3D/vk/VulkanBackend.cpp', 'realm_render', closure(targets, 'realm_render'))
     assert violations('#include "realm/hud/Hud.hpp"', 'include/realm/engine3d/Model3D.hpp', 'realm_assets', closure(targets, 'realm_assets', True))
     assert not failures, '\n'.join(failures)
     print(f'Client boundaries: {len(targets)} libraries, {len(owners)} sources, {len(HEADERS)} public/internal headers; upward and graphics includes rejected')

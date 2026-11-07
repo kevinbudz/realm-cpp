@@ -1,8 +1,10 @@
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
 #include "realm/lib/ui/RmlHost.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
 #include "realm/util/Utf8.hpp"
-#include <GL/glew.h>
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Decorator.h>
 #include <RmlUi/Core/FontEffect.h>
@@ -10,8 +12,9 @@
 #include <RmlUi/Core/MeshUtilities.h>
 #include <RmlUi/Core/RenderManager.h>
 #include "RmlUi_Platform_SDL.h"
-#include "RmlUi_Renderer_GL3.h"
+#include "RmlGpu.hpp"
 #include <SDL.h>
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -76,11 +79,11 @@ struct NativeTexture;
 struct Runtime {
   const FontBook* fonts{};
   const HudArt* art{};
-  class HostRender* render{};
+  RmlGpu* gpu{};
   class PainterCache* painters{};
   RmlStats stats;
   // Queried once at construction: a query per native image update would wait for the driver.
-  GLint max_texture_size{};
+  int max_texture_size{};
   double clock_ms{};
   double dp{1};
   std::size_t pulse_bytes{};
@@ -115,73 +118,6 @@ class HostSystem final : public SystemInterface_SDL {
     }
     return true;
   }
-};
-
-// RmlUi's GL3 renderer with Flash pixel art: item:TYPE and art:KEY sources come from HudArt
-// (premultiplied RGBA) and are sampled nearest so icons stay crisp.
-class HostRender final : public RenderInterface_GL3 {
- public:
-  explicit HostRender(const HudArt* art) : art_(art) {}
-
-  void RenderGeometry(Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation,
-                      Rml::TextureHandle texture) override {
-    ++draws;
-    RenderInterface_GL3::RenderGeometry(geometry, translation, texture);
-  }
-
-  std::size_t draws{};
-
-  Rml::TextureHandle LoadTexture(Rml::Vector2i& dimensions, const Rml::String& source) override {
-    std::string key;
-    if (source.rfind("item:", 0) == 0) {
-      key = "item" + source.substr(5);
-    } else if (source.rfind("art:", 0) == 0) {
-      key = source.substr(4);
-    } else {
-      return RenderInterface_GL3::LoadTexture(dimensions, source);
-    }
-    if (!art_ || !art_->contains(key)) {
-      Rml::Log::Message(Rml::Log::LT_ERROR, "Missing HUD art '%s'.", key.c_str());
-      return {};
-    }
-    const auto& image = art_->image(key);
-    dimensions = {image.width, image.height};
-    return nearest_texture(image.pixels.data(), image.pixels.size(), dimensions);
-  }
-
-  // Premultiplied RGBA at the texture's own resolution: nothing resamples it.
-  Rml::TextureHandle nearest_texture(const Rml::byte* pixels, std::size_t size,
-                                     Rml::Vector2i dimensions) {
-    const auto handle = GenerateTexture(Rml::Span<const Rml::byte>(pixels, size), dimensions);
-    if (handle) {
-      filter(handle, GL_NEAREST);
-    }
-    return handle;
-  }
-
-  static void filter(Rml::TextureHandle handle, GLint mode) {
-    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-  }
-
-  // A texture of fixed capacity that is refilled in place (the pulsing title's one texture, as
-  // native's SurfaceTexture).
-  static Rml::TextureHandle empty_texture(int width, int height) {
-    GLuint id{};
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    filter(id, GL_NEAREST);
-    return id;
-  }
-
- private:
-  const HudArt* art_;
 };
 
 // The font engine over the shared FontBook. A face is one {pixel size, bold, density} triple;
@@ -503,7 +439,7 @@ class PainterCache {
                                                      const Rml::CallbackTextureInterface& texture) {
       // The painter's pixels are already at drawable resolution and are placed on whole pixels:
       // nearest.
-      const auto handle = runtime->render->nearest_texture(data->data(), data->size(), dimensions);
+      const auto handle = runtime->gpu->nearest_texture(data->data(), data->size(), dimensions);
       if (!handle) {
         return false;
       }
@@ -806,29 +742,13 @@ bool valid_native_image(const Image& image) {
   return image.pixels.size() == width * height * 4;
 }
 
-// The GL state of a native image upload, set rather than saved: reading state back would wait for
-// the driver. The UI pass runs on unit 0 with no pixel buffer bound. The renderer's own uploads set
-// their unpack alignment before each use (Renderer.cpp and Atlas.cpp leave it at 1), so 1 is left
-// in place here, and row length is set to the packed rows this file copies. Unit 0's binding is
-// cleared.
-struct NativeGlState {
-  NativeGlState() {
-    glActiveTexture(GL_TEXTURE0);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-  }
-
-  ~NativeGlState() { glBindTexture(GL_TEXTURE_2D, 0); }
-};
-
 struct NativeTexture {
   ~NativeTexture() {
     if (handle && !transferred) {
-      if (runtime && runtime->render) {
-        runtime->render->ReleaseTexture(handle);  // deferred while the frame is recorded
+      if (runtime && runtime->gpu) {
+        runtime->gpu->interface().ReleaseTexture(handle);  // deferred while the frame is recorded
       } else {
-        glDeleteTextures(1, &handle);
+        release_texture_after_teardown(handle);
       }
     }
     if (runtime) {
@@ -842,19 +762,9 @@ struct NativeTexture {
     texture->width = image.width;
     texture->height = image.height;
     texture->revision = revision;
-    {
-      NativeGlState state;
-      glGenTextures(1, &texture->handle);
-      if (!texture->handle) {
-        return {};
-      }
-      glBindTexture(GL_TEXTURE_2D, texture->handle);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.width, image.height, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, nullptr);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    texture->handle = runtime->gpu->create_texture(image.width, image.height);
+    if (!texture->handle) {
+      return {};
     }
     texture->bytes =
         static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4;
@@ -894,9 +804,7 @@ struct NativeTexture {
 
   void upload(const Image& image, std::span<const HudRegion> regions) {
     // The frame cache must not reuse this texture's old pixels.
-    runtime->render->TextureContentChanged();
-    NativeGlState state;
-    glBindTexture(GL_TEXTURE_2D, handle);
+    runtime->gpu->content_changed();
     for (const auto& region : regions) {
       const std::int64_t x0 = std::max<std::int64_t>(0, region.x);
       const std::int64_t y0 = std::max<std::int64_t>(0, region.y);
@@ -932,8 +840,7 @@ struct NativeTexture {
           }
         }
       }
-      glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, columns, rows, GL_RGBA, GL_UNSIGNED_BYTE,
-                      pixels.data());
+      runtime->gpu->write_texture(handle, x, y, columns, rows, pixels.data());
       const auto upload_bytes = pixels.size();
       ++runtime->stats.native_image_uploads;
       runtime->stats.native_image_upload_bytes += upload_bytes;
@@ -942,7 +849,7 @@ struct NativeTexture {
   }
 
   Rml::CallbackTexture callback;
-  GLuint handle{};
+  Rml::TextureHandle handle{};
   int width{};
   int height{};
   std::uint64_t revision{};
@@ -1128,22 +1035,20 @@ class PulseText final : public Rml::Element {
         capacity_h_ = static_cast<int>(std::ceil((box.height + padding * 2) * dp * 1.1)) + 1;
         capacity_w_ = std::max(capacity_w_, w_);
         capacity_h_ = std::max(capacity_h_, h_);
-        const auto handle = HostRender::empty_texture(capacity_w_, capacity_h_);
+        const auto handle = runtime->gpu->create_texture(capacity_w_, capacity_h_);
         const Rml::Vector2i capacity{capacity_w_, capacity_h_};
         texture_ = GetRenderManager()->MakeCallbackTexture(
             [handle, capacity](const Rml::CallbackTextureInterface& texture) {
               texture.SetTextureHandle(handle, capacity);
               return true;
             });
-        handle_ = static_cast<GLuint>(handle);
+        handle_ = handle;
       }
 
       const auto pixels = premultiplied(bitmap.image);
       // The frame cache must not reuse this texture's old pixels.
-      rt.render->TextureContentChanged();
-      glBindTexture(GL_TEXTURE_2D, handle_);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w_, h_, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-      glBindTexture(GL_TEXTURE_2D, 0);
+      rt.gpu->content_changed();
+      rt.gpu->write_texture(handle_, 0, 0, w_, h_, pixels.data());
       uploaded(pixels.size());
       rt.pulse_bytes += pixels.size() - bytes_;
       bytes_ = pixels.size();
@@ -1186,7 +1091,7 @@ class PulseText final : public Rml::Element {
   int mesh_capacity_w_{};
   int mesh_capacity_h_{};
   Rml::ColourbPremultiplied mesh_color_{};
-  GLuint handle_{};
+  Rml::TextureHandle handle_{};
   int capacity_w_{};
   int capacity_h_{};
   int w_{};
@@ -1316,35 +1221,39 @@ class HostLayer final : public Layer {
 };
 }
 
+namespace {
+SDL_Window* host_window = nullptr;  // see set_host_window()
+}  // namespace
+
+void set_host_window(SDL_Window* window) { host_window = window; }
+
 struct RmlHost::Impl {
   Impl(const FontBook& font_book, const HudArt* hud_art)
-      : fonts(font_book), art(hud_art), render(hud_art), files(text_rcss), layer(*this) {
+      : fonts(font_book), art(hud_art), gpu(make_rml_gpu(hud_art)), files(text_rcss), layer(*this) {
+    // OpenGL: the window whose context is current. Vulkan has no current context: the app passes
+    // its window (set_host_window). The drawing itself uses the frame's swapchain image.
     SDL_Window* window = SDL_GL_GetCurrentWindow();
-    if (!window) {
-      throw std::runtime_error("The RmlUi host needs the SDL window's GL context to be current");
+    if (!window && gfx::active_api() == gfx::Api::vulkan) {
+      window = host_window;
     }
-    if (!render) {
+    if (!window) {
+      throw std::runtime_error("The RmlUi host needs the SDL window (GL context current, or the Vulkan window)");
+    }
+    if (!gpu) {
       throw std::runtime_error("RmlUi's GL3 renderer could not be created");
     }
     rt.fonts = &fonts;
     rt.art = art;
-    rt.render = &render;
+    rt.gpu = gpu.get();
     rt.painters = &painters;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &rt.max_texture_size);
+    rt.max_texture_size = gpu->max_texture_size();
     runtime = &rt;
     try {
       probe_fonts();
       system = std::make_unique<HostSystem>(window);
-      if (!RmlGL3::Initialize()) {
-        throw std::runtime_error("RmlUi GL3 initialization failed");
-      }
-      std::array<GLuint, 4> ids{};
-      glGenQueries(static_cast<GLsizei>(ids.size()), ids.data());
-      for (std::size_t i = 0; i < ids.size(); ++i) {
-        queries[i].id = ids[i];
-      }
+      gpu->initialise();
       Rml::SetSystemInterface(system.get());
-      Rml::SetRenderInterface(&render);
+      Rml::SetRenderInterface(&gpu->interface());
       Rml::SetFontEngineInterface(&font_engine);
       Rml::SetFileInterface(&files);
       Rml::SetTextInputHandler(&ime);
@@ -1370,12 +1279,6 @@ struct RmlHost::Impl {
   }
 
   ~Impl() { teardown(); }
-
-  struct Query {
-    GLuint id{};
-    bool pending{};
-    std::uint64_t order{};
-  };
 
   // Every baked size becomes a font-engine candidate and a pair of text classes with the FontBook's
   // own line heights.
@@ -1422,20 +1325,10 @@ struct RmlHost::Impl {
       initialised = false;
     }
 
-    if (queries[0].id) {
-      for (auto& query : queries) {
-        glDeleteQueries(1, &query.id);
-      }
-    }
-
-    // RmlUi leaves its program, VAO and bindings current; hand the GL context back with nothing
-    // bound.
-    glUseProgram(0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    gpu->shutdown();
+    // RmlUi leaves its program, VAO and bindings current; hand the graphics context back with
+    // nothing bound.
+    gpu->reset_bindings();
     runtime = nullptr;
   }
 
@@ -1456,25 +1349,8 @@ struct RmlHost::Impl {
   }
 
   void poll_queries() {
-    for (;;) {
-      Query* oldest = nullptr;
-      for (auto& query : queries) {
-        if (query.pending && (!oldest || query.order < oldest->order)) {
-          oldest = &query;
-        }
-      }
-      if (!oldest) {
-        return;
-      }
-      GLint ready{};
-      glGetQueryObjectiv(oldest->id, GL_QUERY_RESULT_AVAILABLE, &ready);
-      if (!ready) {
-        return;
-      }
-      GLuint64 nanoseconds{};
-      glGetQueryObjectui64v(oldest->id, GL_QUERY_RESULT, &nanoseconds);
-      rt.stats.gpu_ms = static_cast<double>(nanoseconds) / 1e6;
-      oldest->pending = false;
+    while (const auto milliseconds = gpu->poll_timers_ms()) {
+      rt.stats.gpu_ms = *milliseconds;
     }
   }
 
@@ -1495,7 +1371,7 @@ struct RmlHost::Impl {
   Runtime rt;
   std::string text_classes;
   std::string text_rcss;
-  HostRender render;
+  std::unique_ptr<RmlGpu> gpu;
   std::unique_ptr<HostSystem> system;
   HostFonts font_engine;
   HostFiles files;
@@ -1511,8 +1387,6 @@ struct RmlHost::Impl {
   Rml::Context* context{};
   int width{};
   int height{};
-  std::array<Query, 4> queries{};
-  std::uint64_t query_order{};
 };
 
 namespace {
@@ -1663,6 +1537,16 @@ RmlHost::RmlHost(const FontBook& fonts, const HudArt* art) {
     throw std::logic_error("Only one RmlHost can exist at a time");
   }
   impl_ = std::make_unique<Impl>(fonts, art);
+  // Test-only switch (docs/vulkan): REALM_TEST_RML=<file.rml> shows that document over the context, so a
+  // capture can check a feature the client's own screens do not use.
+  if (const char* path = std::getenv("REALM_TEST_RML"); path && *path) {
+    std::ifstream in(path);
+    std::stringstream text;
+    text << in.rdbuf();
+    if (auto* document = impl_->context->LoadDocumentFromMemory(text.str(), path)) {
+      document->Show();
+    }
+  }
 }
 
 RmlHost::~RmlHost() = default;
@@ -1758,30 +1642,15 @@ void RmlHost::render(int drawable_width, int drawable_height) {
 
   // GPU time only feeds telemetry; a timer query stalls the pipeline at both ends, so none is
   // issued without one.
-  Impl::Query* query = nullptr;
-  if (telemetry::active) {
-    for (auto& candidate : impl.queries) {
-      if (!candidate.pending) {
-        query = &candidate;
-        break;
-      }
-    }
-  }
-  if (query) {
-    glBeginQuery(GL_TIME_ELAPSED, query->id);
-  }
-  impl.render.draws = 0;
-  impl.render.SetViewport(drawable_width, drawable_height);
-  impl.render.BeginFrame();
+  const bool timed = telemetry::active && impl.gpu->begin_timer();
+  impl.gpu->begin_frame(drawable_width, drawable_height);
   impl.context->Render();
-  impl.render.EndFrame();
-  if (query) {
-    glEndQuery(GL_TIME_ELAPSED);
-    query->pending = true;
-    query->order = ++impl.query_order;
+  impl.gpu->end_frame();
+  if (timed) {
+    impl.gpu->end_timer();
   }
-  impl.rt.stats.draws = impl.render.draws;
-  if (impl.render.frame_reused()) {
+  impl.rt.stats.draws = impl.gpu->draws();
+  if (impl.gpu->frame_reused()) {
     ++impl.rt.stats.frames_reused;
   }
 }

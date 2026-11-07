@@ -1,29 +1,55 @@
 #include <GL/glew.h>
 #include <SDL.h>
+#if REALM_VULKAN_ENABLED
+#include <vulkan/vulkan.h>  // before SDL_vulkan.h: SDL then uses these handle types
+#endif
+#include <SDL_vulkan.h>
 #include "realm/platform/PlatformSdl.hpp"
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 namespace realm::platform {
 WindowSession::~WindowSession() {
-  if (context) {
-    SDL_GL_DeleteContext(context);
-  }
-
-  if (window) {
-    SDL_DestroyWindow(window);
-  }
-
+  close();
   SDL_Quit();
 }
 
-void WindowSession::open(const char* title, int width, int height, bool hidden, int swap_interval) {
+void WindowSession::close() noexcept {
+  if (context) {
+    SDL_GL_DeleteContext(context);
+    context = nullptr;
+  }
+  if (window) {
+    SDL_DestroyWindow(window);
+    window = nullptr;
+  }
+}
+
+void WindowSession::open(gfx::Api api, const char* title, int width, int height, bool hidden,
+                         int swap_interval) {
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
     throw std::runtime_error(SDL_GetError());
   }
+  api_ = api;
 
+  if (api == gfx::Api::vulkan) {
+    // The window only: the Vulkan backend (not built yet) creates its instance and surface from it.
+    if (SDL_Vulkan_LoadLibrary(nullptr) != 0) {
+      throw std::runtime_error(std::string("Vulkan loader: ") + SDL_GetError());
+    }
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
+                              SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+                                  (hidden ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
+    if (!window) {
+      throw std::runtime_error(std::string("Vulkan window: ") + SDL_GetError());
+    }
+    return;
+  }
+
+  // OpenGL: the 3.3 core context and GLEW, as before the graphics backend seam.
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -63,6 +89,69 @@ void WindowSession::open(const char* title, int width, int height, bool hidden, 
 
   if (SDL_GL_SetSwapInterval(swap_interval) != 0) {
     std::cerr << "Swap interval unavailable: " << SDL_GetError() << '\n';
+  }
+}
+
+#if REALM_VULKAN_ENABLED
+void* WindowSession::vulkan_instance_proc() const {
+  return SDL_Vulkan_GetVkGetInstanceProcAddr();
+}
+
+std::vector<std::string> WindowSession::vulkan_instance_extensions() const {
+  unsigned int count = 0;
+  if (!SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr)) {
+    throw std::runtime_error(std::string("Vulkan extensions: ") + SDL_GetError());
+  }
+  std::vector<const char*> names(count);
+  if (!SDL_Vulkan_GetInstanceExtensions(window, &count, names.data())) {
+    throw std::runtime_error(std::string("Vulkan extensions: ") + SDL_GetError());
+  }
+  return {names.begin(), names.end()};
+}
+
+std::uint64_t WindowSession::vulkan_surface(void* instance) const {
+  VkSurfaceKHR surface = VK_NULL_HANDLE;
+  if (!SDL_Vulkan_CreateSurface(window, static_cast<VkInstance>(instance), &surface)) {
+    return 0;
+  }
+  return static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(surface));
+}
+#else
+void* WindowSession::vulkan_instance_proc() const {
+  return nullptr;
+}
+
+std::vector<std::string> WindowSession::vulkan_instance_extensions() const {
+  return {};
+}
+
+std::uint64_t WindowSession::vulkan_surface(void* /*instance*/) const {
+  return 0;
+}
+#endif
+
+void WindowSession::drawable_size(int& width, int& height) const {
+  if (api_ == gfx::Api::vulkan) {
+    SDL_Vulkan_GetDrawableSize(window, &width, &height);
+  } else {
+    SDL_GL_GetDrawableSize(window, &width, &height);
+  }
+}
+
+void WindowSession::present() {
+  // Vulkan presents through its swapchain, which the Vulkan backend will own.
+  if (api_ == gfx::Api::opengl) {
+    SDL_GL_SwapWindow(window);
+  }
+}
+
+int WindowSession::swap_interval() const {
+  return api_ == gfx::Api::opengl ? SDL_GL_GetSwapInterval() : 0;
+}
+
+void WindowSession::set_swap_interval(int interval) {
+  if (api_ == gfx::Api::opengl) {
+    SDL_GL_SetSwapInterval(interval);
   }
 }
 

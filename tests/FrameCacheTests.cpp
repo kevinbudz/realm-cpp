@@ -34,7 +34,7 @@ int main() {
   try {
     using namespace realm;
     platform::WindowSession window;
-    window.open("frame caches", 800, 600, true, 0);
+    window.open(realm::gfx::Api::opengl, "frame caches", 800, 600, true, 0);
     Catalog catalog(flash::source_root);
     AnimationLibrary animations(flash::source_root);
     World world(catalog);

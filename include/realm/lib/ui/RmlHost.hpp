@@ -34,7 +34,13 @@ class Event;
 //   they replace.
 // RmlUi is a global library: exactly one RmlHost may exist, created and destroyed with the window's
 // GL context current.
+struct SDL_Window;
+
 namespace realm::ui {
+
+// The client window the host's system interface (clipboard, cursor) uses under Vulkan, where no GL
+// context is current. The app sets it once the window opens; the GL host takes the current window.
+void set_host_window(SDL_Window* window);
 
 struct RmlStats {
   // Cumulative since construction or the last reset_stats().

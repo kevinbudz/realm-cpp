@@ -174,6 +174,8 @@ void update_session(ClientState& cs, Frame& f) {
     }
 
     const auto state = cs.game_session->state();
+    // Death happens only while playing: Vulkan keeps the last playing frame for the death screen.
+    cs.renderer.set_presented_capture(state == realm::SessionState::playing);
     if (cs.startup) {
       if (state == realm::SessionState::playing && cs.startup->menus()) {
         cs.startup->entered_game();
@@ -184,7 +186,7 @@ void update_session(ClientState& cs, Frame& f) {
         if (death) {
           int snapshot_width{};
           int snapshot_height{};
-          SDL_GL_GetDrawableSize(cs.session.window, &snapshot_width, &snapshot_height);
+          cs.session.drawable_size(snapshot_width, snapshot_height);
           cs.death_background = std::make_unique<realm::SurfaceTexture>();
           cs.death_background->update(cs.renderer.capture(snapshot_width, snapshot_height, true));
         }

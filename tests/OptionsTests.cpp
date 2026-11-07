@@ -1,4 +1,5 @@
 #include "realm/ui/options/OptionsScreen.hpp"
+#include "realm/stage3D/GraphicsApi.hpp"
 #include <cmath>
 #include <fstream>
 #include <initializer_list>
@@ -56,6 +57,21 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(s.get("maxFPS") == 0 && s.get("cursor") == 4 && s.flag("vsync") && s.flag("quality") &&
             s.flag("playSFX") && s.flag("showTradePopup"),
         "graphics defaults");
+  // Renderer: the graphics API for the next start. OpenGL by default, a restart-required choice.
+  const auto* renderer = find_option("renderer");
+  check(renderer && renderer->kind == OptionDef::Kind::choice &&
+            renderer->tab == OptionsTab::graphics && renderer->restart && renderer->fallback == 0 &&
+            renderer->choices ==
+                std::vector<std::pair<std::string_view, int>>{{"OpenGL", 0}, {"Vulkan", 1}} &&
+            s.get("renderer") == static_cast<int>(gfx::Api::opengl) &&
+            !find_option("vsync")->restart,
+        "Renderer is a restart-required choice (OpenGL, Vulkan), OpenGL by default");
+  {
+    Settings renderer_copy = s;
+    check(renderer_copy.set_choice("renderer", 1) && renderer_copy.get("renderer") == 1 &&
+              !renderer_copy.set_choice("renderer", 2) && renderer_copy.get("renderer") == 1,
+          "Renderer accepts only its two values");
+  }
   check(std::fabs(s.camera_angle() - 7 * std::numbers::pi / 4) < 1e-12 &&
             s.default_camera_angle() == s.camera_angle(),
         "45 degree default camera angle");
@@ -122,6 +138,20 @@ void settings_rules(const std::filesystem::path& scratch) {
   check(odd.flag("hpBars") && odd.get("cursor") == 4 && odd.get("chat") == 13 &&
             !odd.values().contains("nobody"),
         "invalid stored values fall back per option");
+  // The Renderer choice persists with the other settings; a stored value outside the choices falls
+  // back.
+  {
+    Settings chosen;
+    chosen.set_choice("renderer", 1);
+    check(chosen.save(scratch / "renderer.json") &&
+              Settings::load(scratch / "renderer.json").get("renderer") == 1,
+          "Renderer choice persists to the settings file");
+    std::ofstream bad_renderer(scratch / "renderer_bad.json");
+    bad_renderer << R"({"values":{"renderer":7}})";
+    bad_renderer.close();
+    check(Settings::load(scratch / "renderer_bad.json").get("renderer") == 0,
+          "a stored Renderer value outside its choices falls back to OpenGL");
+  }
   check(odd.camera_angle() == odd.default_camera_angle(),
         "missing camera angle falls back to the default");
   // Shift+wheel zoom: a notch is 0.1, rounded to the nearest 0.1 and held to 0.8 to 2.
@@ -177,7 +207,7 @@ void settings_rules(const std::filesystem::path& scratch) {
             tab_options(OptionsTab::hotkeys).size() == 16,
         "tab sizes");
   check(tab_options(OptionsTab::chat).size() == 6 &&
-            tab_options(OptionsTab::graphics).size() == 9 &&
+            tab_options(OptionsTab::graphics).size() == 10 &&
             tab_options(OptionsTab::sound).size() == 3,
         "tab sizes 2");
   std::set<std::string_view> seen;
@@ -298,7 +328,7 @@ void screen_behavior(const FontBook& fonts_in) {
         "reset defaults only the visible tab");
   click(screen, center(screen, screen.tab_rect(4)));
   screen.update(fonts, 800, 600, 1000);
-  check(screen.tab() == OptionsTab::graphics && screen.option_count() == 9, "graphics tab");
+  check(screen.tab() == OptionsTab::graphics && screen.option_count() == 10, "graphics tab");
   const int fps = find(screen, "maxFPS");
   click(screen, center(screen, screen.box_rect(fps)));
   check(settings.get("maxFPS") == 30, "Max FPS wraps from its Unlimited default to 30");

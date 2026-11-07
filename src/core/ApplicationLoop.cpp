@@ -4,11 +4,13 @@
 #include <SDL.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -71,7 +73,7 @@ bool prepare_frame(ClientState& cs, Frame& f) {
   auto& width = f.width;
   auto& height = f.height;
   auto& cpu_zone = f.cpu_zone;
-  SDL_GL_GetDrawableSize(cs.session.window, &width, &height);
+  cs.session.drawable_size(width, height);
   if (width <= 0 || height <= 0) {
     cs.reset_perf();
     cpu_zone->finish();
@@ -105,9 +107,15 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     effects =
         realm::screen_effects(local, o.effect_time >= 0 ? o.effect_time : time, height / 600.0);
   }
+  // Test hook (REALM_TEST_WORLD_ONLY=1): the world alone, without the HUD, the minimap or RmlUi, so
+  // renderers draw the same quads for a comparison.
+  static const bool world_only = [] {
+    const char* value = std::getenv("REALM_TEST_WORLD_ONLY");
+    return value && std::string_view(value) == "1";
+  }();
   ui_zone->finish();
   std::vector<realm::Quad> native_ui;
-  if (cs.production_ui) {
+  if (cs.production_ui && !world_only) {
     REALM_ZONE("ui.documents.update");
     native_ui = cs.production_ui->compose(overlay, time, cs.ui_viewport);
     overlay = native_ui;
@@ -120,9 +128,12 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const bool normal_frame =
       cs.frame >= static_cast<std::uint64_t>(o.telemetry_warmup) && !capture_frame;
   cs.renderer.timing(cs.telemetry.get(), cs.frame, normal_frame);
+  if (world_only) {
+    overlay = {};
+  }
   cs.renderer.draw(cs.atlas, cs.quads, width, height, clip_width, overlay, effects);
 
-  if (cs.production_ui) {
+  if (cs.production_ui && !world_only) {
     REALM_ZONE("ui.documents.render");
     cs.production_ui->render(width, height);
     using C = realm::telemetry::Counter;
@@ -149,7 +160,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     cs.previous_ui_stats = stats;
   }
 
-  if (cs.death_background && cs.startup) {
+  if (cs.death_background && cs.startup && !world_only) {
     const auto alpha = static_cast<float>(cs.startup->death_fade(time));
     if (alpha > 0) {
       auto snapshot = cs.death_background->quad({0, 0}, {static_cast<double>(width), 0},
@@ -183,7 +194,8 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const auto present_start = Clock::now();
   {
     REALM_ZONE("present.swap");
-    SDL_GL_SwapWindow(cs.session.window);
+    cs.renderer.finish_frame();
+    cs.session.present();
   }
   const auto presented = Clock::now();
 
@@ -239,7 +251,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
          milliseconds(submitted - start), milliseconds(presented - present_start),
          milliseconds(Clock::now() - presented),
          input_observed ? std::max(0.0, input_age + milliseconds(submitted - start)) : -1, width,
-         height, SDL_GL_GetSwapInterval(),
+         height, cs.session.swap_interval(),
          o.benchmark || o.hidden ? 0 : cs.settings.get("maxFPS")});
   }
 

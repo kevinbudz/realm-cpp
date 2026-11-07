@@ -22,7 +22,7 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
   if (cs.dialog.visible()) {
     int dw{};
     int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
+    cs.session.drawable_size(dw, dh);
     if (dh > 0) {
       cs.fonts.set_pixel_scale(dh / 600.0);
       if (cs.dialog.update(cs.fonts, dw, dh)) {
@@ -34,7 +34,7 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
   if (cs.members.visible()) {
     int dw{};
     int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
+    cs.session.drawable_size(dw, dh);
     if (dh > 0) {
       cs.fonts.set_pixel_scale(dh / 600.0);
       if (cs.members.update(cs.fonts, dw, dh, dt)) {
@@ -46,7 +46,7 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
   if (cs.skins && cs.skins->visible()) {
     int dw{};
     int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
+    cs.session.drawable_size(dw, dh);
     if (dh > 0) {
       cs.fonts.set_pixel_scale(dh / 600.0);
       if (cs.skins->update(dw, dh, time)) {
@@ -58,7 +58,7 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
   if (cs.options_screen.visible()) {
     int dw{};
     int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
+    cs.session.drawable_size(dw, dh);
     if (dh > 0) {
       cs.fonts.set_pixel_scale(dh / 600.0);
       if (cs.options_screen.update(cs.fonts, dw, dh, time)) {
@@ -70,7 +70,7 @@ void update_panel_pixels(ClientState& cs, Frame& f) {
   if (cs.board.visible()) {
     int dw{};
     int dh{};
-    SDL_GL_GetDrawableSize(cs.session.window, &dw, &dh);
+    cs.session.drawable_size(dw, dh);
     if (dh > 0) {
       cs.fonts.set_pixel_scale(dh / 600.0);
       if (cs.board.update(cs.fonts, dw, dh, dt)) {

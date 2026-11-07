@@ -83,6 +83,10 @@ void Renderer::set_presented_capture(bool enabled) {
   backend_->set_presented_capture(enabled);
 }
 
+std::optional<Image> Renderer::take_capture() {
+  return backend_->take_capture();
+}
+
 void Renderer::set_base_instance_draws(bool enabled) {
   backend_->set_base_instance_draws(enabled);
 }

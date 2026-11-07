@@ -116,7 +116,7 @@ if(REALM_BUILD_VIEWER)
         # The WebGPU backend (web only): the device, resources, pipelines, the renderer and the WGSL programs.
         target_sources(realm_render PRIVATE src/stage3D/wgpu/WgpuContext.cpp src/stage3D/wgpu/WgpuResources.cpp
             src/stage3D/wgpu/WgpuPipelines.cpp src/stage3D/wgpu/WgpuRenderer.cpp src/stage3D/wgpu/WgpuShaders.cpp
-            src/stage3D/wgpu/WgpuUi.cpp)
+            src/stage3D/wgpu/WgpuTimers.cpp src/stage3D/wgpu/WgpuUi.cpp)
     endif()
     if(REALM_ENABLE_VULKAN)
         if(NOT REALM_GLSLC)

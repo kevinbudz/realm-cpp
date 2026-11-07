@@ -163,6 +163,12 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
     cs.previous_ui_stats = stats;
   }
 
+  // WebGPU's presented capture arrives a few frames after the death; the background fills in then.
+  if (cs.death_background) {
+    if (auto image = cs.renderer.take_capture()) {
+      cs.death_background->update(*image);
+    }
+  }
   if (cs.death_background && cs.startup && !world_only) {
     const auto alpha = static_cast<float>(cs.startup->death_fade(time));
     if (alpha > 0) {

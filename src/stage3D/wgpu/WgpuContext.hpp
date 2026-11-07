@@ -53,9 +53,13 @@ class Context {
   // Device limits the atlas checks (maxTextureDimension2D and maxTextureArrayLayers).
   [[nodiscard]] std::uint32_t max_texture_size() const { return max_texture_size_; }
   [[nodiscard]] std::uint32_t max_array_layers() const { return max_array_layers_; }
+  // Whether the device has the timestamp-query feature (GPU frame timing).
+  [[nodiscard]] bool timestamps() const { return timestamps_; }
 
   // The frame's command encoder; opens the frame on first use.
   [[nodiscard]] WGPUCommandEncoder encoder();
+  // The frame's swapchain texture, or null before a target was acquired this frame (presented capture copies it).
+  [[nodiscard]] WGPUTexture frame_texture() const { return frame_texture_; }
   // The frame's swapchain view for a width x height drawable. Acquires the swapchain texture on
   // first use and reconfigures the surface when the size changed. Null when no texture could be
   // acquired (the caller then draws nothing).
@@ -80,6 +84,7 @@ class Context {
   GraphicsInfo info_;
   std::uint32_t max_texture_size_ = 0;
   std::uint32_t max_array_layers_ = 0;
+  bool timestamps_ = false;
 
   WGPUCommandEncoder encoder_ = nullptr;
   WGPUTexture frame_texture_ = nullptr;

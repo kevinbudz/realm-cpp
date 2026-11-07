@@ -44,9 +44,24 @@ Fixes the browser runs found: `RmlHost` takes the SDL window for any non-GL API;
 uniform stream before the bind groups; `release_texture_after_teardown` deletes GL textures only under OpenGL;
 the audio device opens on the first user gesture (`Player::allow_output`, called from `ApplicationAudio`).
 
-Remaining gaps: no RmlUi frame cache and no gradient shaders under WebGPU; no GPU timers on either web
-renderer; `capture()` is blank under WebGPU (the death background); miniaudio's Web Audio backend uses the
-deprecated `ScriptProcessorNode` (a console warning in Chromium).
+Follow-ups, verified the same way:
+
+- **Death background (WebGPU)**: while a session plays, `finish_frame` copies each swapchain texture into a
+  retained texture; the death's `capture(presented)` starts a buffer readback of it and `take_capture()`
+  delivers the image a few frames later, which `ApplicationLoop` puts into `death_background`. Seen in
+  Firefox after `/killplayer`: the death screen fades out of the last Nexus frame.
+- **GPU timers (WebGL2)**: `RendererGpuTimers` uses `EXT_disjoint_timer_query_webgl2` when the browser
+  offers it (Chromium does; Firefox only with `webgl.enable-privileged-extensions`, and not in headless),
+  and drops samples across a disjoint event. Chromium reports the full phase breakdown.
+- **GPU timers (WebGPU)**: `WgpuTimers` uses the `timestamp-query` feature when the adapter has it: empty
+  compute passes at the start and end of the frame write the stamps (both indices defined: Firefox rejects
+  the undefined index as 0xFFFFFFFF), resolved and mapped per slot, polled at the start of the next draw.
+  The whole frame is reported as `total_ms` (no phases). Firefox reports about 1 ms per title frame.
+
+Remaining gaps: no RmlUi frame cache under WebGPU (render bundles cannot set the scissor or stencil
+reference, which the clip masks need; measure before building one); no gradient shaders (no UI file uses
+a gradient); miniaudio's Web Audio backend uses the deprecated `ScriptProcessorNode` (a console warning in
+Chromium; AudioWorklet needs cross-origin isolation headers on the host).
 
 ## Decisions (the contract between pieces)
 
@@ -79,7 +94,7 @@ deprecated `ScriptProcessorNode` (a console warning in Chromium).
   pumps bytes both ways. The HTTP API adds `Access-Control-Allow-Origin: *` on every response.
 - **Renderer selection on web**: `gfx::Api` gains `webgpu`. Web default WebGL2 (the opengl API value);
   `?renderer=webgpu` or the saved setting selects WebGPU; failure falls back to WebGL2 like Vulkan → GL.
-- **Not supported on web**: GPU timer queries (stubbed), synchronous `capture()` of the presented frame
+- **Not supported on web**: GPU timers where the browser lacks the extension or feature, synchronous `capture()` of the presented frame
   (`presented` captures return the back buffer before present or an empty image), file dialogs.
 
 ## WebGPU backend (W5a)
@@ -129,9 +144,8 @@ fallback (reason from the browser) and opens WebGL2, as a failed Vulkan start op
 **Known gaps (W5a).**
 
 - RmlUi: closed by W5b (see below).
-- `capture()` returns a transparent image of the requested size (no synchronous readback), and presented
-  capture is not supported; the death background stays blank under WebGPU.
-- No GPU timers (`gpu_ms` is -1, `timing` ignores its recorder).
+- `capture()` returns a transparent image of the requested size (no synchronous readback); a presented
+  capture arrives later through `take_capture()` (see W6 follow-ups).
 - `Atlas` page count is limited by the device's `maxTextureArrayLayers` (reported through `limits()`).
 
 ## RmlUi WebGPU (W5b)
@@ -175,6 +189,6 @@ choice; a render-bundle cache can follow.
 frame. `WgpuRenderer::finish_frame` now resets both after the submission, which is the point where reuse is safe.
 
 **Known gaps (W5b).**
-- No gradient shaders; no frame cache; no GPU timers (`begin_timer` returns false).
-- The death background and any other `capture()` user stays blank under WebGPU (W5a gap).
+- No gradient shaders; no frame cache; no RmlUi-only GPU timer (`begin_timer` returns false; the frame
+  timer covers the UI).
 

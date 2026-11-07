@@ -33,6 +33,19 @@ bool same_instances(const std::vector<std::byte>& uploaded, const std::vector<st
 WGPUExtent3D extent_of(std::uint32_t width, std::uint32_t height) {
   return WGPUExtent3D{width, height, 1};
 }
+
+// copyTextureToBuffer rows are padded to 256 bytes.
+constexpr std::uint32_t copy_row_alignment = 256;
+
+// The map callback: the holder owns a reference to the result, so the write is safe whatever the
+// renderer's state. The callback runs once per map, even when the buffer is released first.
+void on_readback_mapped(WGPUMapAsyncStatus status, WGPUStringView /*message*/, void* userdata1,
+                        void* /*userdata2*/) {
+  auto* holder = static_cast<std::shared_ptr<ReadbackMap>*>(userdata1);
+  (*holder)->status = status;
+  (*holder)->done = true;
+  delete holder;
+}
 }  // namespace
 
 WgpuRenderer* active_renderer() noexcept {
@@ -61,6 +74,10 @@ WgpuRenderer::~WgpuRenderer() {
     active = nullptr;
   }
   resources().release(model_geometry_);
+  drop_readback();
+  if (last_frame_) {
+    wgpuTextureRelease(last_frame_);
+  }
   if (walls_view_) {
     wgpuTextureViewRelease(walls_view_);
   }
@@ -445,6 +462,8 @@ void WgpuRenderer::draw(const Atlas& atlas, std::span<const Quad> quads, int wid
   validate_dimensions(width, height, clip_width, quads.size() + overlay.size());
   rml_ui_.close();
   draw_calls_ = 0;
+  // Before any pass of the frame, so the start stamp covers the frame's work.
+  timers_.begin_frame();
   prepare_layers(quads);
   prepare_layers(overlay);
   const auto instances = pack(quads, overlay);
@@ -564,22 +583,153 @@ void WgpuRenderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overla
 
 void WgpuRenderer::finish_frame() {
   rml_ui_.close();
+  if (presented_capture_) {
+    copy_presented_frame();
+  }
+  // The end stamp goes after the frame's passes and copies, before the submit.
+  timers_.end_frame();
   context().finish_frame();
+  timers_.submitted();
   // The frame's stream writes were queued ahead of this submission, so the next frame may reuse the chunks.
   // (Without the reset every frame would take new chunks.)
   stream_.reset();
   rml_ui_.frame_submitted();
 }
 
-Image WgpuRenderer::capture(int width, int height, bool /*presented*/) const {
+void WgpuRenderer::set_presented_capture(bool enabled) {
+  presented_capture_ = enabled;
+}
+
+void WgpuRenderer::copy_presented_frame() {
+  auto* frame = context().frame_texture();
+  if (!frame) {
+    return;  // nothing drawn this frame: the last copy stays
+  }
+  const auto width = wgpuTextureGetWidth(frame);
+  const auto height = wgpuTextureGetHeight(frame);
+  if (!last_frame_ || last_frame_width_ != width || last_frame_height_ != height) {
+    if (last_frame_) {
+      wgpuTextureRelease(last_frame_);
+    }
+    WGPUTextureDescriptor descriptor{};
+    descriptor.usage = WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst;
+    descriptor.dimension = WGPUTextureDimension_2D;
+    descriptor.size = extent_of(width, height);
+    descriptor.format = context().format();
+    descriptor.mipLevelCount = 1;
+    descriptor.sampleCount = 1;
+    last_frame_ = wgpuDeviceCreateTexture(context().device(), &descriptor);
+    last_frame_width_ = width;
+    last_frame_height_ = height;
+    if (!last_frame_) {
+      throw std::runtime_error("WebGPU presented capture target failed");
+    }
+  }
+  WGPUTexelCopyTextureInfo source{};
+  source.texture = frame;
+  source.aspect = WGPUTextureAspect_All;
+  WGPUTexelCopyTextureInfo destination{};
+  destination.texture = last_frame_;
+  destination.aspect = WGPUTextureAspect_All;
+  const WGPUExtent3D size{width, height, 1};
+  // Recorded into the frame's encoder, after the frame's passes and before its submit.
+  wgpuCommandEncoderCopyTextureToTexture(context().encoder(), &source, &destination, &size);
+}
+
+void WgpuRenderer::drop_readback() const noexcept {
+  if (readback_) {
+    wgpuBufferRelease(readback_->buffer);
+    readback_.reset();
+  }
+}
+
+void WgpuRenderer::start_readback(int width, int height) const {
+  // A readback is the newest capture: an older one (its result never taken) is dropped.
+  drop_readback();
+  if (!last_frame_ || last_frame_width_ != static_cast<std::uint32_t>(width) ||
+      last_frame_height_ != static_cast<std::uint32_t>(height)) {
+    return;
+  }
+  const auto row_bytes = (static_cast<std::uint32_t>(width) * 4 + copy_row_alignment - 1) / copy_row_alignment *
+                         copy_row_alignment;
+  const auto bytes = static_cast<std::uint64_t>(row_bytes) * static_cast<std::uint64_t>(height);
+  auto* device = context().device();
+  WGPUBufferDescriptor descriptor{};
+  descriptor.usage = WGPUBufferUsage_MapRead | WGPUBufferUsage_CopyDst;
+  descriptor.size = bytes;
+  WGPUBuffer buffer = wgpuDeviceCreateBuffer(device, &descriptor);
+  if (!buffer) {
+    return;
+  }
+  WGPUTexelCopyTextureInfo source{};
+  source.texture = last_frame_;
+  source.aspect = WGPUTextureAspect_All;
+  WGPUTexelCopyBufferInfo destination{};
+  destination.buffer = buffer;
+  destination.layout.bytesPerRow = row_bytes;
+  destination.layout.rowsPerImage = static_cast<std::uint32_t>(height);
+  const WGPUExtent3D size{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1};
+  // Its own submission: the frame's encoder is not open between frames.
+  WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(device, nullptr);
+  wgpuCommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &size);
+  const WGPUCommandBuffer commands = wgpuCommandEncoderFinish(encoder, nullptr);
+  wgpuQueueSubmit(context().queue(), 1, &commands);
+  wgpuCommandBufferRelease(commands);
+  wgpuCommandEncoderRelease(encoder);
+
+  auto map = std::make_shared<ReadbackMap>();
+  WGPUBufferMapCallbackInfo info{};
+  info.mode = WGPUCallbackMode_AllowSpontaneous;
+  info.callback = on_readback_mapped;
+  info.userdata1 = new std::shared_ptr<ReadbackMap>(map);
+  wgpuBufferMapAsync(buffer, WGPUMapMode_Read, 0, static_cast<std::size_t>(bytes), info);
+  readback_ = Readback{buffer, std::move(map), width, height, row_bytes};
+}
+
+Image WgpuRenderer::capture(int width, int height, bool presented) const {
   if (width <= 0 || height <= 0) {
     throw std::invalid_argument("Invalid capture dimensions");
   }
-  if (!capture_warned_) {
+  if (presented) {
+    start_readback(width, height);
+  } else if (!capture_warned_) {
     std::cerr << "WebGPU: capture has no synchronous readback in the browser; returning a blank image\n";
     capture_warned_ = true;
   }
-  // Transparent pixels of the requested size: a consumer that sizes its copy by the capture keeps working.
+  // Transparent pixels of the requested size: a consumer that sizes its copy by the capture keeps working
+  // (a presented capture's frame arrives through take_capture()).
   return Image{width, height, std::vector<unsigned char>(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4, 0)};
+}
+
+std::optional<Image> WgpuRenderer::take_capture() {
+  if (!readback_ || !readback_->map->done) {
+    return std::nullopt;
+  }
+  Readback readback = std::move(*readback_);
+  readback_.reset();
+  std::optional<Image> image;
+  if (readback.map->status == WGPUMapAsyncStatus_Success) {
+    const auto width = static_cast<std::size_t>(readback.width);
+    const auto height = static_cast<std::size_t>(readback.height);
+    const auto stride = static_cast<std::size_t>(readback.row_bytes);
+    const auto* mapped = static_cast<const unsigned char*>(
+        wgpuBufferGetConstMappedRange(readback.buffer, 0, stride * height));
+    if (mapped) {
+      // Rows out of the padded buffer, one copy each.
+      image = Image{readback.width, readback.height, std::vector<unsigned char>(width * height * 4)};
+      for (std::size_t y = 0; y < height; ++y) {
+        std::memcpy(image->pixels.data() + y * width * 4, mapped + y * stride, width * 4);
+      }
+      if (context().format() == WGPUTextureFormat_BGRA8Unorm) {
+        // The swapchain is BGRA; the capture is RGBA like the GL backbuffer read.
+        for (std::size_t i = 0; i + 3 < image->pixels.size(); i += 4) {
+          std::swap(image->pixels[i], image->pixels[i + 2]);
+        }
+      }
+    }
+    wgpuBufferUnmap(readback.buffer);
+  }
+  wgpuBufferRelease(readback.buffer);
+  return image;
 }
 }  // namespace realm::gfx::wgpu

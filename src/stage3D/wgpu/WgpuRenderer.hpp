@@ -12,14 +12,24 @@
 #include "WgpuContext.hpp"
 #include "WgpuPipelines.hpp"
 #include "WgpuResources.hpp"
+#include "WgpuTimers.hpp"
 #include "WgpuUi.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
 namespace realm::gfx::wgpu {
+// A presented capture's map result, written by the map callback (which may run after the renderer is
+// gone, so it writes through a holder that owns a reference to this).
+struct ReadbackMap {
+  bool done = false;
+  WGPUMapAsyncStatus status = WGPUMapAsyncStatus_Error;
+};
+
 class WgpuRenderer final : public RendererBackend {
  public:
   WgpuRenderer(std::size_t capacity, bool persistent_streaming, std::size_t persistent_minimum_bytes);
@@ -35,17 +45,20 @@ class WgpuRenderer final : public RendererBackend {
 
   [[nodiscard]] std::size_t draw_calls() const override { return draw_calls_; }
 
-  // No GPU timer queries in the browser: the recorder is never fed.
-  void timing(telemetry::Recorder* /*recorder*/, std::uint64_t /*frame_id*/, bool /*normal*/) override {}
-  void poll_gpu() override {}
-  [[nodiscard]] std::size_t pending_gpu() const override { return 0; }
-  [[nodiscard]] std::size_t skipped_gpu() const override { return 0; }
-  [[nodiscard]] double gpu_ms() const override { return -1; }
+  // Whole-frame GPU time through timestamp queries, when the device has them (WgpuTimers.hpp).
+  void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) override {
+    timers_.timing(recorder, frame_id, normal);
+  }
+  void poll_gpu() override { timers_.poll(); }
+  [[nodiscard]] std::size_t pending_gpu() const override { return timers_.pending(); }
+  [[nodiscard]] std::size_t skipped_gpu() const override { return timers_.skipped(); }
+  [[nodiscard]] double gpu_ms() const override { return timers_.gpu_ms(); }
   [[nodiscard]] bool persistent_streaming() const override { return true; }
+  // capture(presented) starts an asynchronous readback of the last presented frame and returns a
+  // transparent image of the requested size; take_capture() returns the frame once it is mapped.
   [[nodiscard]] Image capture(int width, int height, bool presented) const override;
-
-  // Presented capture needs a readback of the canvas, which the browser cannot do synchronously.
-  void set_presented_capture(bool /*enabled*/) override {}
+  void set_presented_capture(bool enabled) override;
+  [[nodiscard]] std::optional<Image> take_capture() override;
   void set_base_instance_draws(bool enabled) override { base_instance_ = enabled; }
   [[nodiscard]] bool base_instance_draws() const override { return base_instance_; }
 
@@ -68,6 +81,7 @@ class WgpuRenderer final : public RendererBackend {
 
   Stream stream_;
   WgpuUi rml_ui_;
+  WgpuTimers timers_;
   std::uint32_t model_geometry_ = 0;
   // The frame's walls: a texture of wall corner texels (1024 texels wide), synced like GL's buffer.
   draw_plan::WallSync wall_sync_{};
@@ -78,6 +92,22 @@ class WgpuRenderer final : public RendererBackend {
   std::array<Offscreen, 2> post_{};
   std::uint32_t post_width_ = 0;
   std::uint32_t post_height_ = 0;
+
+  // Presented capture: while enabled, finish_frame copies the frame's swapchain texture into
+  // last_frame_ (kept when disabled, so the death screen can read it).
+  bool presented_capture_ = false;
+  WGPUTexture last_frame_ = nullptr;
+  std::uint32_t last_frame_width_ = 0;
+  std::uint32_t last_frame_height_ = 0;
+  // The readback that capture(presented) started, until take_capture() returns it.
+  struct Readback {
+    WGPUBuffer buffer = nullptr;
+    std::shared_ptr<ReadbackMap> map;
+    int width = 0;
+    int height = 0;
+    std::uint32_t row_bytes = 0;  // bytesPerRow, padded to 256
+  };
+  mutable std::optional<Readback> readback_;
 
   // The submission being drawn: its quads' run data, the meshes, the group-0 bind group, and the
   // stream spans of its instances and mesh vertices.
@@ -118,6 +148,12 @@ class WgpuRenderer final : public RendererBackend {
   void begin_submission(const Atlas& atlas);
   void end_submission() noexcept;
   void ensure_post_targets(std::uint32_t width, std::uint32_t height);
+  // Copies the frame's swapchain texture into last_frame_ (its size is the frame's).
+  void copy_presented_frame();
+  // Starts the readback of last_frame_ into a buffer, when it has the requested size.
+  void start_readback(int width, int height) const;
+  // Releases the readback's buffer (a pending map is cancelled; its callback still runs safely).
+  void drop_readback() const noexcept;
 };
 
 // The renderer that owns the canvas (null before it exists or after it is destroyed).

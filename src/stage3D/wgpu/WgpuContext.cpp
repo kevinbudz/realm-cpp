@@ -47,6 +47,7 @@ void on_device_ready(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStri
   }
   context.device_ = device;
   context.queue_ = wgpuDeviceGetQueue(device);
+  context.timestamps_ = wgpuDeviceHasFeature(device, WGPUFeatureName_TimestampQuery);
   state = DeviceState::ready;
 }
 
@@ -59,6 +60,12 @@ void on_adapter_ready(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPU
   }
   context.adapter_ = adapter;
   WGPUDeviceDescriptor descriptor{};
+  // Frame timing needs timestamp queries; the device gets them only when the adapter offers them.
+  static constexpr WGPUFeatureName timestamp_feature[] = {WGPUFeatureName_TimestampQuery};
+  if (wgpuAdapterHasFeature(adapter, WGPUFeatureName_TimestampQuery)) {
+    descriptor.requiredFeatureCount = 1;
+    descriptor.requiredFeatures = timestamp_feature;
+  }
   descriptor.uncapturedErrorCallbackInfo.callback = on_uncaptured_error;
   descriptor.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
   descriptor.deviceLostCallbackInfo.callback = on_device_lost;
@@ -177,7 +184,8 @@ void Context::configure(std::uint32_t width, std::uint32_t height) {
   WGPUSurfaceConfiguration config{};
   config.device = device_;
   config.format = format_;
-  config.usage = WGPUTextureUsage_RenderAttachment;
+  // CopySrc: presented capture copies the frame's swapchain texture (WgpuRenderer::finish_frame).
+  config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopySrc;
   config.width = width;
   config.height = height;
   config.alphaMode = WGPUCompositeAlphaMode_Opaque;

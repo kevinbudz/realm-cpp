@@ -49,5 +49,9 @@ class RendererGpuTimers {
   std::size_t skipped_{};
   double gpu_ms_{-1};
   Timer* active_{};
+  // Web only: EXT_disjoint_timer_query_webgl2 is probed once; disjoint_ stays set until no timer is pending.
+  bool timer_ext_checked_{};
+  bool timer_ext_{};
+  bool disjoint_{};
 };
 }

@@ -5,7 +5,6 @@
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/net/Http.hpp"
-#include <future>
 #include <cmath>
 #include <utility>
 
@@ -134,7 +133,7 @@ class SkinChooser {
   std::uint16_t port_{};
   net::FormFields credentials_;
   Task task_{Task::none};
-  std::future<std::string> request_;
+  net::HttpTask request_;
   std::uint64_t generation_{};
   std::uint64_t request_generation_{};
   std::optional<int> selection_;

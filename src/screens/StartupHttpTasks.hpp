@@ -4,7 +4,6 @@
 #include "StartupTypes.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <future>
 #include <optional>
 #include <string>
 
@@ -40,6 +39,6 @@ class HttpTaskService {
  private:
   Task task_{Task::none};
   Generations generations_;
-  std::future<std::string> request_;
+  net::HttpTask request_;
 };
 }

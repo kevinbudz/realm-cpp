@@ -67,6 +67,9 @@
 #include <vector>
 
 namespace realm::application {
+// The graphics API a run asks for before its window opens: the --renderer choice, else the saved
+// Renderer setting (read from the settings file, as ClientState reads it).
+realm::gfx::Api startup_api(const Options& o);
 
 // The state one client run holds for its whole life: the locals the setup used to declare in run(),
 // in the same order. Members are constructed in declaration order and destroyed in reverse, so GL

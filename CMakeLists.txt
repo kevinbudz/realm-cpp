@@ -6,6 +6,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+if(EMSCRIPTEN)
+    # The web build produces realm_client only: no CTest, no test or tool executables (docs/web/web-port.md).
+    set(BUILD_TESTING OFF CACHE BOOL "Web build has no test executables" FORCE)
+endif()
 include(CTest)
 include(CheckIPOSupported)
 option(REALM_BUILD_VIEWER "Build the graphical client (realm_client)" ON)
@@ -17,17 +21,34 @@ option(REALM_USE_LLD "Link with LLVM lld when supported; Release keeps GNU ld be
 # The Vulkan backend. Phase 1 compiles only a stub whose creation fails ("Vulkan renderer not
 # available in this build"), so the client falls back to OpenGL. The option defaults to ON when the
 # Vulkan SDK is found.
-find_package(Vulkan QUIET)
+if(NOT EMSCRIPTEN)
+    find_package(Vulkan QUIET)
+endif()
 # The Vulkan shaders are compiled with glslc (shaderc) at build time. Without it the option defaults to
 # OFF; an explicit ON without glslc fails in cmake/ClientTargets.cmake.
 find_program(REALM_GLSLC glslc)
-if(Vulkan_FOUND AND REALM_GLSLC)
+if(Vulkan_FOUND AND REALM_GLSLC AND NOT EMSCRIPTEN)
     set(REALM_VULKAN_DEFAULT ON)
 else()
     set(REALM_VULKAN_DEFAULT OFF)
 endif()
 option(REALM_ENABLE_VULKAN
     "Compile the Vulkan renderer backend (needs the Vulkan headers and glslc)" ${REALM_VULKAN_DEFAULT})
+# The WebGPU backend is web only: emdawnwebgpu (cmake/WebDeps.cmake) supplies webgpu.h and the browser
+# bindings. When ON, REALM_WEBGPU_ENABLED is defined for every target.
+if(EMSCRIPTEN)
+    set(REALM_WEBGPU_DEFAULT ON)
+else()
+    set(REALM_WEBGPU_DEFAULT OFF)
+endif()
+option(REALM_ENABLE_WEBGPU
+    "Compile the WebGPU renderer backend (web builds, through emdawnwebgpu)" ${REALM_WEBGPU_DEFAULT})
+if(REALM_ENABLE_WEBGPU AND NOT EMSCRIPTEN)
+    message(FATAL_ERROR "REALM_ENABLE_WEBGPU needs an Emscripten build (emdawnwebgpu)")
+endif()
+if(REALM_ENABLE_WEBGPU)
+    add_compile_definitions(REALM_WEBGPU_ENABLED=1)
+endif()
 # Build speed: each block is a no-op when its tool is missing or the cache already sets it.
 if(CMAKE_GENERATOR MATCHES "Ninja")
     # Link steps are memory-heavy (ASan, LTO); keep at most two in flight.
@@ -52,6 +73,10 @@ if(REALM_USE_LLD AND NOT CMAKE_LINKER_TYPE AND NOT (CMAKE_BUILD_TYPE STREQUAL "R
         set(CMAKE_LINKER_TYPE LLD)
     endif()
 endif()
+# Web: the dependencies are Emscripten ports and two FetchContent downloads (nlohmann_json, libxml2).
+if(EMSCRIPTEN)
+    include(cmake/WebDeps.cmake)
+endif()
 if(REALM_TRACY)
     include(FetchContent)
     set(TRACY_ENABLE ON CACHE BOOL "" FORCE)
@@ -68,16 +93,29 @@ if(REALM_BUILD_VIEWER)
     add_subdirectory(third_party/rmlui)
 endif()
 set(REALM_FLASH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../realm-client" CACHE PATH "Authoritative Flash source")
+get_filename_component(REALM_FLASH_ROOT_PATH "${REALM_FLASH_ROOT}" ABSOLUTE)
+# The Flash root the generated header names at runtime (flash::source_root). The build-time import always reads
+# REALM_FLASH_ROOT; the web build reads the preloaded copy at /realm-client.
+if(EMSCRIPTEN)
+    set(REALM_FLASH_RUNTIME_ROOT_DEFAULT "/realm-client")
+else()
+    set(REALM_FLASH_RUNTIME_ROOT_DEFAULT "${REALM_FLASH_ROOT}")
+endif()
+set(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT_DEFAULT}" CACHE PATH
+    "Flash source root compiled into the client as flash::source_root (web: /realm-client)")
+get_filename_component(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT}" ABSOLUTE)
+# Changing the runtime root regenerates flash_assets.hpp (the stamp is rewritten only when the value changes).
+set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/flash_runtime_root.txt" CONTENT "${REALM_FLASH_RUNTIME_ROOT}\n")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 file(GLOB_RECURSE FLASH_INPUTS CONFIGURE_DEPENDS "${REALM_FLASH_ROOT}/src/*")
 if(EXISTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
     list(APPEND FLASH_INPUTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
 endif()
-set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_assets.hpp" "${GENERATED_DIR}/source_inventory.json"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/import_flash.py"
-        --flash-root "${REALM_FLASH_ROOT}" --output "${GENERATED_DIR}"
-    DEPENDS ${FLASH_INPUTS} tools/import_flash.py VERBATIM)
+        --flash-root "${REALM_FLASH_ROOT}" --runtime-root "${REALM_FLASH_RUNTIME_ROOT}" --output "${GENERATED_DIR}"
+    DEPENDS ${FLASH_INPUTS} tools/import_flash.py "${CMAKE_CURRENT_BINARY_DIR}/flash_runtime_root.txt" VERBATIM)
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_bitmap_colors.hpp"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_bitmap_colors.py"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/bitmap-colors.bin" "${GENERATED_DIR}/flash_bitmap_colors.hpp"
@@ -98,22 +136,25 @@ add_custom_target(flash_manifest DEPENDS "${GENERATED_DIR}/flash_models.hpp" "${
 
 include(cmake/ClientTargets.cmake)
 
-add_executable(realm_session src/SessionMain.cpp)
-target_link_libraries(realm_session PRIVATE realm_game realm_ui)
+# Native-only tools: the web build links realm_client alone.
+if(NOT EMSCRIPTEN)
+    add_executable(realm_session src/SessionMain.cpp)
+    target_link_libraries(realm_session PRIVATE realm_game realm_ui)
 
-add_executable(realm_stress tools/StressInputs.cpp)
-target_link_libraries(realm_stress PRIVATE nlohmann_json::nlohmann_json realm_assets realm_fixtures realm_game realm_support)
+    add_executable(realm_stress tools/StressInputs.cpp)
+    target_link_libraries(realm_stress PRIVATE nlohmann_json::nlohmann_json realm_assets realm_fixtures realm_game realm_support)
 
-if(REALM_BUILD_VIEWER)
+    add_executable(realm_dye_session_inputs tests/DyeSessionInputs.cpp)
+    target_link_libraries(realm_dye_session_inputs PRIVATE nlohmann_json::nlohmann_json realm_assets realm_game realm_ui)
+endif()
+
+if(REALM_BUILD_VIEWER AND NOT EMSCRIPTEN)
     # Per-frame CPU timing of connected walls (Scene::build and project_object_faces). A benchmark, not a ctest.
     add_executable(realm_wall_bench tools/WallBench.cpp)
     target_link_libraries(realm_wall_bench PRIVATE realm_render realm_assets realm_game SDL2::SDL2 GLEW::GLEW
         OpenGL::GL)
     target_compile_definitions(realm_wall_bench PRIVATE SDL_MAIN_HANDLED)
 endif()
-
-add_executable(realm_dye_session_inputs tests/DyeSessionInputs.cpp)
-target_link_libraries(realm_dye_session_inputs PRIVATE nlohmann_json::nlohmann_json realm_assets realm_game realm_ui)
 
 if(REALM_BUILD_VIEWER)
     # realm_client is the only product binary; it links the coordinator, platform and render implementations.
@@ -126,6 +167,24 @@ if(REALM_BUILD_VIEWER)
     endif()
     if(REALM_IPO_AVAILABLE AND NOT REALM_SANITIZERS)
         set_property(TARGET realm_client PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    endif()
+    if(EMSCRIPTEN)
+        # Web client: one HTML page (shell, wasm, JS glue, preloaded data) served from build-web/ by web/serve.py.
+        # Ports and the WebGL 2 context come from the flags in cmake/WebDeps.cmake; no pthreads, no IPO.
+        set_target_properties(realm_client PROPERTIES SUFFIX ".html")
+        # The preload flags go in a response file: CMake drops the second --preload-file when both are link options.
+        set(REALM_WEB_PRELOAD_RSP "${CMAKE_CURRENT_BINARY_DIR}/web_preload.rsp")
+        set(REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_FLASH_ROOT_PATH}/src@/realm-client/src\n--exclude-file\n*.as\n")
+        if(REALM_AUDIO)
+            string(APPEND REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_SFX_ROOT_PATH}@/sfx\n")
+        endif()
+        file(WRITE "${REALM_WEB_PRELOAD_RSP}" "${REALM_WEB_PRELOAD_TEXT}")
+        target_link_options(realm_client PRIVATE
+            -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=256MB
+            -sSTACK_SIZE=2MB -sFETCH=1 -lwebsocket.js -lidbfs.js
+            "-sEXPORTED_RUNTIME_METHODS=FS,callMain"
+            --shell-file "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+            "@${REALM_WEB_PRELOAD_RSP}")
     endif()
 endif()
 

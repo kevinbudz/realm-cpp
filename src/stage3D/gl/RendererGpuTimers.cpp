@@ -1,8 +1,9 @@
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include "RendererGpuTimers.hpp"
 #include <algorithm>
 
 namespace realm {
+#if !REALM_GLES
 RendererGpuTimers::~RendererGpuTimers() {
   for (auto& timer : timers_) {
     if (timer.ids[0]) {
@@ -10,6 +11,11 @@ RendererGpuTimers::~RendererGpuTimers() {
     }
   }
 }
+#else
+// GL_TIMESTAMP queries are not in GLES 3.0 (WebGL 2): the renderer never measures a frame, so the
+// timers are inert.
+RendererGpuTimers::~RendererGpuTimers() = default;
+#endif
 
 void RendererGpuTimers::timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) {
   recorder_ = recorder;
@@ -23,6 +29,9 @@ bool RendererGpuTimers::begin_frame() {
   if (!recorder_) {
     return false;
   }
+#if REALM_GLES
+  return false;
+#else
   if (active_->pending) {
     ++skipped_;
     return false;
@@ -36,12 +45,17 @@ bool RendererGpuTimers::begin_frame() {
   glQueryCounter(active_->ids[0], GL_TIMESTAMP);
   measuring_ = true;
   return true;
+#endif
 }
 
 void RendererGpuTimers::phase(std::size_t index) {
+#if !REALM_GLES
   if (measuring_) {
     glQueryCounter(active_->ids[index], GL_TIMESTAMP);
   }
+#else
+  (void)index;
+#endif
 }
 
 bool RendererGpuTimers::model_begin(std::size_t instances) {
@@ -50,9 +64,11 @@ bool RendererGpuTimers::model_begin(std::size_t instances) {
   }
   active_->models_total += instances;
   const bool measured = active_->models < model_query_limit;
+#if !REALM_GLES
   if (measured) {
     glQueryCounter(active_->ids[5 + 2 * active_->models], GL_TIMESTAMP);
   }
+#endif
   return measured;
 }
 
@@ -60,7 +76,9 @@ void RendererGpuTimers::model_end(bool measured) {
   if (!measuring_ || !measured) {
     return;
   }
+#if !REALM_GLES
   glQueryCounter(active_->ids[6 + 2 * active_->models], GL_TIMESTAMP);
+#endif
   ++active_->models;
 }
 
@@ -68,7 +86,9 @@ void RendererGpuTimers::finish_sample() {
   if (!measuring_) {
     return;
   }
+#if !REALM_GLES
   glQueryCounter(active_->ids[4], GL_TIMESTAMP);
+#endif
   active_->pending = true;
 }
 
@@ -87,6 +107,7 @@ void RendererGpuTimers::poll() {
   if (!recorder_) {
     return;
   }
+#if !REALM_GLES
   REALM_ZONE("render.gpu_poll");
   for (auto& timer : timers_) {
     if (timer.pending) {
@@ -112,5 +133,6 @@ void RendererGpuTimers::poll() {
       timer.pending = false;
     }
   }
+#endif
 }
 }

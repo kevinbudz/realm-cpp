@@ -1,10 +1,17 @@
+#if defined(__EMSCRIPTEN__)
+#include <GLES3/gl3.h>
+#else
 #include <GL/glew.h>
+#endif
 #include <SDL.h>
 #if REALM_VULKAN_ENABLED
 #include <vulkan/vulkan.h>  // before SDL_vulkan.h: SDL then uses these handle types
 #endif
 #include <SDL_vulkan.h>
 #include "realm/platform/PlatformSdl.hpp"
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/html5.h>
+#endif
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
@@ -28,12 +35,27 @@ void WindowSession::close() noexcept {
 }
 
 void WindowSession::open(gfx::Api api, const char* title, int width, int height, bool hidden,
-                         int swap_interval) {
+                         [[maybe_unused]] int swap_interval) {
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
     throw std::runtime_error(SDL_GetError());
   }
   api_ = api;
+
+  if (api == gfx::Api::webgpu) {
+#if defined(__EMSCRIPTEN__) && REALM_WEBGPU_ENABLED
+    // The canvas only: the WebGPU backend makes its surface from "#canvas" once the device is ready.
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
+                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+                                  (hidden ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
+    if (!window) {
+      throw std::runtime_error(SDL_GetError());
+    }
+    return;
+#else
+    throw std::runtime_error("WebGPU renderer not available in this build");
+#endif
+  }
 
   if (api == gfx::Api::vulkan) {
     // The window only: the Vulkan backend (not built yet) creates its instance and surface from it.
@@ -49,15 +71,27 @@ void WindowSession::open(gfx::Api api, const char* title, int width, int height,
     return;
   }
 
+#if defined(__EMSCRIPTEN__)
+  // WebGL 2 on the page's canvas: a GLES 3.0 context, the one WebGL 2 implements.
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
   // OpenGL: the 3.3 core context and GLEW, as before the graphics backend seam.
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+#if defined(__EMSCRIPTEN__)
+  // RmlUi clips with the stencil buffer; the web build has no depth buffer.
+  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+#endif
 
   window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
                             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
@@ -71,6 +105,9 @@ void WindowSession::open(gfx::Api api, const char* title, int width, int height,
     throw std::runtime_error(SDL_GetError());
   }
 
+#if !defined(__EMSCRIPTEN__)
+  // The web has no GLEW and no swap interval: SDL's swap there is the browser's requestAnimationFrame,
+  // and changing it would replace the main loop's pacing.
   glewExperimental = GL_TRUE;
   const auto glew_status = glewInit();
   // Under EGL (native Wayland, X11 with SDL_VIDEO_FORCE_EGL) GLEW has no current GLX display and
@@ -90,6 +127,7 @@ void WindowSession::open(gfx::Api api, const char* title, int width, int height,
   if (SDL_GL_SetSwapInterval(swap_interval) != 0) {
     std::cerr << "Swap interval unavailable: " << SDL_GetError() << '\n';
   }
+#endif
 }
 
 #if REALM_VULKAN_ENABLED
@@ -133,6 +171,13 @@ std::uint64_t WindowSession::vulkan_surface(void* /*instance*/) const {
 void WindowSession::drawable_size(int& width, int& height) const {
   if (api_ == gfx::Api::vulkan) {
     SDL_Vulkan_GetDrawableSize(window, &width, &height);
+  } else if (api_ == gfx::Api::webgpu) {
+#if defined(__EMSCRIPTEN__) && REALM_WEBGPU_ENABLED
+    // No GL context on the WebGPU canvas: its backing size is the drawable size.
+    emscripten_get_canvas_element_size("#canvas", &width, &height);
+#else
+    SDL_GL_GetDrawableSize(window, &width, &height);
+#endif
   } else {
     SDL_GL_GetDrawableSize(window, &width, &height);
   }
@@ -150,9 +195,14 @@ int WindowSession::swap_interval() const {
 }
 
 void WindowSession::set_swap_interval(int interval) {
+#if !defined(__EMSCRIPTEN__)
   if (api_ == gfx::Api::opengl) {
     SDL_GL_SetSwapInterval(interval);
   }
+#else
+  // Browser pacing: requestAnimationFrame, so the interval is not settable.
+  (void)interval;
+#endif
 }
 
 int WindowSession::refresh_rate() const {

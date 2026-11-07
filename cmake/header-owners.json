@@ -96,6 +96,7 @@
   "include/realm/stage3D/vk/VkUi.hpp": "realm_render",
   "src/stage3D/gl/RendererPostProcess.hpp": "realm_render",
   "src/stage3D/gl/RendererGpuTimers.hpp": "realm_render",
+  "src/stage3D/gl/GlApi.hpp": "realm_render",
   "src/stage3D/gl/RendererShader.hpp": "realm_render",
   "src/stage3D/gl/RendererStream.hpp": "realm_render",
   "include/realm/stage3D/Atlas.hpp": "realm_render",
@@ -139,5 +140,15 @@
   "src/stage3D/vk/VulkanBackend.hpp": "realm_render",
   "src/stage3D/gl/GlBackend.hpp": "realm_render",
   "include/realm/stage3D/GraphicsApi.hpp": "realm_support",
-  "src/lib/ui/RmlGpu.hpp": "realm_ui_rmlui"
+  "src/lib/ui/RmlGpu.hpp": "realm_ui_rmlui",
+  "include/realm/stage3D/WebGpuStart.hpp": "realm_render",
+  "src/stage3D/wgpu/WebGpuBackend.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuContext.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuResources.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuShaders.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuPipelines.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuRenderer.hpp": "realm_render",
+  "src/stage3D/wgpu/WgpuUi.hpp": "realm_render",
+  "include/realm/stage3D/wgpu/WebGpuUi.hpp": "realm_render",
+  "src/lib/ui/RmlTarga.hpp": "realm_ui_rmlui"
 }

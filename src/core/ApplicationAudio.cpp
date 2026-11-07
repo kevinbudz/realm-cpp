@@ -2,6 +2,9 @@
 #include "realm/util/Telemetry.hpp"
 #ifdef REALM_AUDIO
 #include "realm/sound/SoundEffectLibrary.hpp"
+#if defined(__EMSCRIPTEN__)
+#include "realm/platform/Platform.hpp"
+#endif
 #include <array>
 #endif
 #include <vector>
@@ -85,6 +88,11 @@ void AudioBridge::tick() {
     return;
   }
 
+#if defined(__EMSCRIPTEN__)
+  if (platform::user_gesture_seen()) {
+    impl_->player.allow_output();
+  }
+#endif
   impl_->player.tick();
   const auto now = impl_->player.counters();
   const auto& before = impl_->previous;

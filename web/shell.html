@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Realm</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    #canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+    #status {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 8px;
+      margin: 0;
+      padding: 0 8px;
+      color: #ccc;
+      font: 13px/1.4 system-ui, sans-serif;
+      text-align: center;
+      pointer-events: none;
+    }
+    #status:empty { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="-1"></canvas>
+  <p id="status">Loading</p>
+  <script>
+    // Query string -> client flags (see src/core/ApplicationOptions.cpp). Example:
+    // ?server=1.2.3.4&port=2051&appport=7777&renderer=webgpu
+    //   -> --server 1.2.3.4 --port 2051 --app-port 7777 --renderer webgpu
+    // server defaults to the page's host; the other keys are passed only when present.
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var args = [];
+      var server = params.get('server') || location.hostname;
+      if (server) args.push('--server', server);
+      var flags = [['port', '--port'], ['appport', '--app-port'], ['renderer', '--renderer']];
+      flags.forEach(function (flag) {
+        var value = params.get(flag[0]);
+        if (value) args.push(flag[1], value);
+      });
+      window.realmArguments = args;
+    })();
+
+    var statusElement = document.getElementById('status');
+    var canvas = document.getElementById('canvas');
+    canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); });
+
+    var Module = {
+      canvas: canvas,
+      arguments: window.realmArguments,
+      print: function (text) { console.log(text); },
+      printErr: function (text) { console.error(text); },
+      setStatus: function (text) {
+        statusElement.textContent = text;
+      },
+      monitorRunDependencies: function (left) {
+        this.totalDependencies = Math.max(this.totalDependencies || 0, left);
+        Module.setStatus(left ? 'Loading assets (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '');
+      },
+      totalDependencies: 0
+    };
+    window.addEventListener('error', function (event) {
+      statusElement.textContent = 'Error: ' + event.message;
+    });
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

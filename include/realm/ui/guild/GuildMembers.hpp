@@ -5,7 +5,6 @@
 #include "realm/net/Http.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/ui/Scrollbar.hpp"
-#include <future>
 #include <map>
 #include <tuple>
 
@@ -81,7 +80,7 @@ class GuildMembers {
   net::FormFields credentials_;
   std::uint16_t port_{};
   int rank_{};
-  std::future<std::string> worker_;
+  net::HttpTask worker_;
   std::uint64_t generation_{};
   std::uint64_t worker_generation_{};
   bool queued_{};

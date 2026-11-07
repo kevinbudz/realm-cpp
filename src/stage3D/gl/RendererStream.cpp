@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include "RendererStream.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <algorithm>
@@ -6,9 +6,21 @@
 #include <stdexcept>
 
 namespace realm {
+namespace {
+// Persistent coherent mappings are GL 4.4 (ARB_buffer_storage); WebGL 2 has none, so the web always
+// orphans.
+bool persistent_available() {
+#if REALM_GLES
+  return false;
+#else
+  return GLEW_VERSION_4_4 || GLEW_ARB_buffer_storage;
+#endif
+}
+}
+
 RendererStream::RendererStream(std::size_t capacity, bool persistent_streaming,
                                std::size_t persistent_minimum_bytes)
-    : persistent_(persistent_streaming && (GLEW_VERSION_4_4 || GLEW_ARB_buffer_storage)),
+    : persistent_(persistent_streaming && persistent_available()),
       minimum_bytes_(persistent_minimum_bytes),
       capacity_(capacity) {
   try {
@@ -19,6 +31,7 @@ RendererStream::RendererStream(std::size_t capacity, bool persistent_streaming,
       glBindBuffer(GL_ARRAY_BUFFER, buffers_[i]);
       capacities_[i] = capacity_;
       const auto bytes = static_cast<GLsizeiptr>(capacity_ * quad_instance_bytes);
+#if !REALM_GLES
       if (persistent_) {
         constexpr auto flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
         glBufferStorage(GL_ARRAY_BUFFER, bytes, nullptr, flags);
@@ -26,7 +39,9 @@ RendererStream::RendererStream(std::size_t capacity, bool persistent_streaming,
         if (!mapped_[i]) {
           throw std::runtime_error("Persistent quad buffer mapping failed");
         }
-      } else {
+      } else
+#endif
+      {
         glBufferData(GL_ARRAY_BUFFER, bytes, nullptr, GL_STREAM_DRAW);
       }
     }
@@ -45,10 +60,12 @@ void RendererStream::release() {
     if (fences_[i]) {
       glDeleteSync(static_cast<GLsync>(fences_[i]));
     }
+#if !REALM_GLES
     if (mapped_[i] && buffers_[i]) {
       glBindBuffer(GL_ARRAY_BUFFER, buffers_[i]);
       glUnmapBuffer(GL_ARRAY_BUFFER);
     }
+#endif
   }
 
   if (fallback_buffer_) {
@@ -98,6 +115,7 @@ std::span<std::byte> RendererStream::begin_upload(std::size_t bytes) {
   }
   glBindBuffer(GL_ARRAY_BUFFER, buffer);
   pending_buffer_ = buffer;
+#if !REALM_GLES
   if (mapped && available) {
     if (capacities_[slot] < capacity_) {
       glUnmapBuffer(GL_ARRAY_BUFFER);
@@ -119,6 +137,7 @@ std::span<std::byte> RendererStream::begin_upload(std::size_t bytes) {
     pending_orphan_ = false;
     return {static_cast<std::byte*>(mapped_[slot]), bytes};
   }
+#endif
   // Orphaned at this submission's size (end_upload): the driver allocates the bytes drawn, not the
   // whole capacity.
   pending_orphan_ = true;

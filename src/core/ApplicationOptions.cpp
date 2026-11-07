@@ -5,6 +5,18 @@
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
+// webgpu exists only in builds with the WebGPU backend (the browser build).
+#if REALM_WEBGPU_ENABLED
+#define REALM_RENDERER_CHOICES "gl, vulkan or webgpu"
+#define REALM_RENDERER_FLAGS "gl|vulkan|webgpu"
+#else
+#define REALM_RENDERER_CHOICES "gl or vulkan"
+#define REALM_RENDERER_FLAGS "gl|vulkan"
+#endif
 
 namespace realm::application {
 int integer(std::string_view value) {
@@ -18,12 +30,20 @@ int integer(std::string_view value) {
 
 Options parse(int argc, char** argv) {
   Options options;
+#if defined(__EMSCRIPTEN__)
+  // The page is served by the game's host, which also listens for WebSocket on 2051. Command-line
+  // flags (the shell page passes its query parameters as flags) override both.
+  options.session.port = 2051;
+  if (const char* host = emscripten_run_script_string("location.hostname"); host && *host) {
+    options.session.host = host;
+  }
+#endif
   // REALM_RENDERER=gl|vulkan acts as --renderer (which wins), so test drivers that build their own
   // command lines can run on either API.
   if (const char* env = std::getenv("REALM_RENDERER"); env && *env) {
     const auto api = realm::gfx::parse_api_flag(env);
     if (!api) {
-      throw std::invalid_argument("REALM_RENDERER expects gl or vulkan");
+      throw std::invalid_argument("REALM_RENDERER expects " REALM_RENDERER_CHOICES);
     }
     options.renderer = *api;
   }
@@ -141,7 +161,7 @@ Options parse(int argc, char** argv) {
     } else if (arg == "--renderer") {
       const auto api = realm::gfx::parse_api_flag(value());
       if (!api) {
-        throw std::invalid_argument("--renderer expects gl or vulkan");
+        throw std::invalid_argument("--renderer expects " REALM_RENDERER_CHOICES);
       }
       options.renderer = *api;
     } else if (arg == "--hidden") {
@@ -153,7 +173,7 @@ Options parse(int argc, char** argv) {
           << "realm_client [--flash-root PATH] [--server HOST] [--port N] [--app-port N] "
              "[--account-file PATH]\n"
              "  [--settings-file PATH] [--width N] [--height N] [--hidden]\n"
-             "  [--renderer gl|vulkan] (graphics API for this run only; the Options screen saves "
+             "  [--renderer " REALM_RENDERER_FLAGS "] (graphics API for this run only; the Options screen saves "
              "the choice)\n"
              "  [--audio auto|on|off|null] (sound output; auto plays only in the client; "
              "REALM_AUDIO_DEVICE=null also "

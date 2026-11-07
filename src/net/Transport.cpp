@@ -4,6 +4,9 @@
 #include <chrono>
 #include <cstring>
 #include <deque>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/websocket.h>
+#endif
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -16,6 +19,193 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
+#if defined(__EMSCRIPTEN__)
+// Browser transport: one binary WebSocket. Callbacks only record state and bytes; the socket is
+// closed and deleted from poll() or close(), never from inside a callback.
+namespace realm::net {
+struct Transport::Impl {
+  EMSCRIPTEN_WEBSOCKET_T socket{};
+  ConnectionState state{ConnectionState::closed};
+  std::string error;
+  Framer framer;
+  std::deque<Bytes> output;
+  std::size_t queued{};
+  Bytes inbound;
+  std::chrono::steady_clock::time_point deadline;
+
+  static bool on_open(int, const EmscriptenWebSocketOpenEvent*, void* user) {
+    auto& transport = *static_cast<Impl*>(user);
+    if (transport.state == ConnectionState::connecting) {
+      transport.state = ConnectionState::connected;
+      transport.error.clear();
+    }
+    return true;
+  }
+
+  static bool on_message(int, const EmscriptenWebSocketMessageEvent* event, void* user) {
+    auto& transport = *static_cast<Impl*>(user);
+    transport.inbound.insert(transport.inbound.end(), event->data, event->data + event->numBytes);
+    return true;
+  }
+
+  static bool on_error(int, const EmscriptenWebSocketErrorEvent*, void* user) {
+    auto& transport = *static_cast<Impl*>(user);
+    if (transport.state != ConnectionState::closed) {
+      transport.error = transport.state == ConnectionState::connecting
+                            ? "Cannot connect to game server"
+                            : "Game connection failed";
+      transport.state = ConnectionState::closed;
+    }
+    return true;
+  }
+
+  static bool on_close(int, const EmscriptenWebSocketCloseEvent*, void* user) {
+    auto& transport = *static_cast<Impl*>(user);
+    if (transport.state != ConnectionState::closed) {
+      transport.error = transport.state == ConnectionState::connecting
+                            ? "Cannot connect to game server"
+                            : "Game server disconnected";
+      transport.state = ConnectionState::closed;
+    }
+    return true;
+  }
+
+  // Deleting a WebSocket detaches its callbacks, so none can run after this.
+  void release() {
+    if (socket) {
+      emscripten_websocket_close(socket, 1000, "");
+      emscripten_websocket_delete(socket);
+    }
+    socket = 0;
+    state = ConnectionState::closed;
+    output.clear();
+    queued = 0;
+    inbound.clear();
+    framer.reset();
+  }
+
+  void fail(std::string message) {
+    release();
+    error = std::move(message);
+  }
+
+  ~Impl() { release(); }
+};
+
+Transport::Transport() : impl_(std::make_unique<Impl>()) {}
+
+Transport::~Transport() = default;
+
+ConnectionState Transport::state() const {
+  return impl_->state;
+}
+
+const std::string& Transport::error() const {
+  return impl_->error;
+}
+
+std::size_t Transport::queued_bytes() const {
+  return impl_->queued;
+}
+
+std::size_t Transport::pending_bytes() const {
+  return impl_->framer.pending_bytes();
+}
+
+void Transport::close() {
+  impl_->release();
+}
+
+void Transport::connect(std::string_view host, std::uint16_t port) {
+  auto& transport = *impl_;
+  transport.release();
+  transport.error.clear();
+
+  // The browser resolves the host, so DNS failures arrive later as an error state.
+  std::string url = "ws://";
+  if (host.find(':') != std::string_view::npos && host.front() != '[') {
+    url += '[' + std::string(host) + ']';
+  } else {
+    url.append(host);
+  }
+  url += ':' + std::to_string(port) + '/';
+  EmscriptenWebSocketCreateAttributes attributes{url.c_str(), nullptr, true};
+  const auto socket = emscripten_websocket_new(&attributes);
+  if (socket <= 0) {
+    throw std::runtime_error("Cannot connect to game server: WebSocket unavailable");
+  }
+  transport.socket = socket;
+  emscripten_websocket_set_onopen_callback(socket, &transport, Impl::on_open);
+  emscripten_websocket_set_onmessage_callback(socket, &transport, Impl::on_message);
+  emscripten_websocket_set_onerror_callback(socket, &transport, Impl::on_error);
+  emscripten_websocket_set_onclose_callback(socket, &transport, Impl::on_close);
+  transport.state = ConnectionState::connecting;
+  transport.deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+}
+
+void Transport::send(const Packet& packet) {
+  auto& transport = *impl_;
+  if (transport.state == ConnectionState::closed) {
+    throw std::runtime_error("Cannot send on closed connection");
+  }
+  auto bytes = frame(packet.id, packet.body);
+  if (transport.queued + bytes.size() > 4 * max_packet_length) {
+    throw ProtocolError("Outgoing queue exceeds limit");
+  }
+  transport.queued += bytes.size();
+  transport.output.push_back(std::move(bytes));
+}
+
+std::vector<Packet> Transport::poll() {
+  REALM_ZONE("network.poll");
+  auto& transport = *impl_;
+  std::vector<Packet> packets;
+  if (transport.state == ConnectionState::connecting &&
+      std::chrono::steady_clock::now() > transport.deadline) {
+    transport.fail("Game connection timed out");
+  }
+
+  if (transport.state == ConnectionState::connected) {
+    // Frames stay queued here until the browser has drained enough, so the queue cap applies.
+    std::size_t buffered{};
+    emscripten_websocket_get_buffered_amount(transport.socket, &buffered);
+    while (!transport.output.empty() && buffered < max_packet_length) {
+      auto& bytes = transport.output.front();
+      const auto size = bytes.size();
+      if (emscripten_websocket_send_binary(transport.socket, bytes.data(),
+                                           static_cast<std::uint32_t>(size)) !=
+          EMSCRIPTEN_RESULT_SUCCESS) {
+        transport.fail("Game connection send failed");
+        break;
+      }
+      telemetry::add(telemetry::Counter::packet_tx_bytes, size);
+      buffered += size;
+      transport.queued -= size;
+      transport.output.pop_front();
+    }
+  }
+
+  // Bytes received before a close are still delivered.
+  if (!transport.inbound.empty()) {
+    Bytes input;
+    input.swap(transport.inbound);
+    telemetry::add(telemetry::Counter::packet_rx_bytes, input.size());
+    try {
+      packets = transport.framer.feed(input);
+    } catch (const std::exception& e) {
+      transport.fail(e.what());
+      throw;
+    }
+  }
+
+  if (transport.state == ConnectionState::closed) {
+    transport.release();
+  }
+  telemetry::set(telemetry::Counter::outgoing_queue_bytes, transport.queued);
+  return packets;
+}
+}
+#else
 namespace realm::net {
 namespace {
 #ifdef _WIN32
@@ -373,3 +563,4 @@ std::vector<Packet> Transport::poll() {
   return packets;
 }
 }
+#endif

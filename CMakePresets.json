@@ -1,12 +1,72 @@
 {
   "version": 3,
   "configurePresets": [
-    { "name": "release", "generator": "Ninja", "binaryDir": "${sourceDir}/build", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
-    { "name": "sanitize", "generator": "Ninja", "binaryDir": "${sourceDir}/build-sanitize", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "REALM_SANITIZERS": "ON", "REALM_BUILD_VIEWER": "OFF" } }
+    {
+      "name": "release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "sanitize",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-sanitize",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "REALM_SANITIZERS": "ON",
+        "REALM_BUILD_VIEWER": "OFF"
+      }
+    },
+    {
+      "name": "web",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-web",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "REALM_ENABLE_VULKAN": "OFF",
+        "REALM_BUILD_VIEWER": "ON",
+        "REALM_SANITIZERS": "OFF",
+        "BUILD_TESTING": "OFF"
+      }
+    }
   ],
-  "buildPresets": [ { "name": "release", "configurePreset": "release" }, { "name": "sanitize", "configurePreset": "sanitize" } ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize"
+    },
+    {
+      "name": "web",
+      "configurePreset": "web"
+    }
+  ],
   "testPresets": [
-    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true }, "execution": { "jobs": 6 } },
-    { "name": "sanitize", "configurePreset": "sanitize", "output": { "outputOnFailure": true }, "execution": { "jobs": 6 } }
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 6
+      }
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 6
+      }
+    }
   ]
 }

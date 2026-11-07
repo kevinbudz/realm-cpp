@@ -71,7 +71,7 @@ void GuildMembers::close() {
   list_ = {};
   dialog_.close();
   focus_lost();
-  // Keep async future alive: close/map teardown never waits for HTTP.
+  // Keep the request alive: close/map teardown never waits for HTTP.
 }
 
 void GuildMembers::show(GuildMemberList list, std::string own, int rank) {
@@ -129,10 +129,7 @@ void GuildMembers::load() {
   fields.emplace_back("offset", "0");
   worker_generation_ = generation_;
   queued_ = false;
-  worker_ =
-      std::async(std::launch::async, [host = host_, port = port_, fields = std::move(fields)] {
-        return net::http_post(host, port, "/guild/listMembers", fields);
-      });
+  worker_ = net::HttpTask::post(host_, port_, "/guild/listMembers", std::move(fields));
 }
 
 void GuildMembers::fail(std::string text, bool load_error) {
@@ -159,16 +156,21 @@ void GuildMembers::poll(double dt) {
           false);
     }
   }
-  if (!worker_.valid() || worker_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+  if (!worker_.valid() || worker_.poll() == net::HttpStatus::pending) {
     return;
   }
   GuildMemberList result;
   std::string error;
-  try {
-    result = parse_guild_members(worker_.get());
-  } catch (const std::exception& e) {
-    error = e.what();
+  if (worker_.poll() == net::HttpStatus::done) {
+    try {
+      result = parse_guild_members(worker_.body());
+    } catch (const std::exception& e) {
+      error = e.what();
+    }
+  } else {
+    error = worker_.error();
   }
+  worker_ = net::HttpTask();
   if (queued_) {
     load();
     return;

@@ -183,13 +183,26 @@ std::vector<OptionDef> build() {
                       {"Unlimited", 0}}));
   options.push_back(toggle(graphics, "fullscreenMode", "Fullscreen Mode",
                      "This toggles whether the game is fullscreen or not", false));
-  // The graphics API the window opens with, read once at startup.
+  // The graphics API the window opens with, read once at startup. The web build offers WebGL2 (the
+  // OpenGL value) and WebGPU when it is compiled in; the native build offers OpenGL and Vulkan.
+#if defined(__EMSCRIPTEN__)
+  std::vector<std::pair<std::string_view, int>> renderer_choices{
+      {"WebGL2", static_cast<int>(gfx::Api::opengl)}};
+#if REALM_WEBGPU_ENABLED
+  renderer_choices.emplace_back("WebGPU", static_cast<int>(gfx::Api::webgpu));
+#endif
+  auto renderer = choice(graphics, "renderer", "Renderer",
+                         "Graphics API for the game window: WebGL2 or WebGPU. Takes effect after "
+                         "you reload the page.",
+                         static_cast<int>(gfx::Api::opengl), std::move(renderer_choices));
+#else
   auto renderer = choice(graphics, "renderer", "Renderer",
                          "Graphics API for the game window: OpenGL or Vulkan. Takes effect after "
                          "you restart the client.",
                          static_cast<int>(gfx::Api::opengl),
                          {{"OpenGL", static_cast<int>(gfx::Api::opengl)},
                           {"Vulkan", static_cast<int>(gfx::Api::vulkan)}});
+#endif
   renderer.restart = true;
   options.push_back(std::move(renderer));
   // Options.addSoundOptions

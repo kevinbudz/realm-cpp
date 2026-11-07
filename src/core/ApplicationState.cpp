@@ -1,6 +1,7 @@
 #include "ApplicationState.hpp"
 #include "ApplicationLoopDetail.hpp"
 #include "realm/lib/ui/RmlHost.hpp"
+#include "realm/stage3D/WebGpuStart.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -29,10 +30,17 @@ realm::gfx::WindowSurface window_surface(realm::platform::WindowSession& session
 // old setup order. A Vulkan start that fails falls back to OpenGL.
 realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const Options& o,
                                 const realm::Settings& settings) {
-  const auto requested = requested_api(o, settings);
+  auto requested = requested_api(o, settings);
   const int swap_interval = o.benchmark ? 0 : settings.flag("vsync") ? 1 : 0;
   if (o.renderer) {
     realm::gfx::record_command_line_api(*o.renderer);
+  }
+  if (requested == realm::gfx::Api::webgpu &&
+      realm::gfx::webgpu_start_state() != realm::gfx::WebGpuStart::ready) {
+    // WebGPU did not start (no adapter or device in the browser, or no WebGPU in this build): the run
+    // opens OpenGL (WebGL2 on the web), as a failed Vulkan start does, and Options says why.
+    realm::gfx::record_fallback({requested, realm::gfx::webgpu_start_reason()});
+    requested = realm::gfx::Api::opengl;
   }
   realm::gfx::select_api(requested);
   try {
@@ -199,6 +207,15 @@ std::unique_ptr<realm::telemetry::Recorder> make_telemetry(
   return telemetry;
 }
 }  // namespace
+
+realm::gfx::Api startup_api(const Options& o) {
+  if (o.renderer) {
+    return *o.renderer;
+  }
+  const auto path = !o.settings_file.empty() ? o.settings_file : realm::Settings::path_beside(o.account_file);
+  return static_cast<realm::gfx::Api>(realm::Settings::load(path).get("renderer"));
+}
+
 
 ClientState::ClientState(Options options)
     : o(std::move(options)),
@@ -367,6 +384,9 @@ void ClientState::save_settings() {
   if (persist_settings && !settings.save(settings_path)) {
     std::cerr << "Cannot write settings " << settings_path << '\n';
   }
+#if defined(__EMSCRIPTEN__)
+  realm::platform::persist_storage();
+#endif
 }
 
 // The toggle key changes the setting, so apply_settings sees the change.

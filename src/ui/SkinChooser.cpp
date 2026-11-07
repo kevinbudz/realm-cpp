@@ -1,15 +1,10 @@
 #include "realm/ui/SkinChooser.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 
 namespace realm {
-SkinChooser::~SkinChooser() {
-  if (request_.valid()) {
-    request_.wait();
-  }
-}
+SkinChooser::~SkinChooser() = default;
 
 void SkinChooser::endpoint(std::string host, std::uint16_t port, net::FormFields credentials) {
   host_ = std::move(host);
@@ -81,26 +76,23 @@ void SkinChooser::request(Task task, std::string path, net::FormFields fields) {
       request_username_ = field.second;
     }
   }
-  request_ = std::async(std::launch::async, [host = host_, port = port_, path = std::move(path),
-                                             fields = std::move(fields)] {
-    return net::http_post(host, port, path, fields);
-  });
+  request_ = net::HttpTask::post(host_, port_, path, std::move(fields));
 }
 
 void SkinChooser::poll() {
-  if (task_ == Task::none || !request_.valid() ||
-      request_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+  if (task_ == Task::none || !request_.valid() || request_.poll() == net::HttpStatus::pending) {
     return;
   }
   const auto task = std::exchange(task_, Task::none);
   std::string response;
   std::optional<std::string> failure;
-  try {
-    response = request_.get();
+  if (request_.poll() == net::HttpStatus::done) {
+    response = request_.body();
     failure = app_error(response);
-  } catch (const std::exception& e) {
-    failure = e.what();
+  } else {
+    failure = request_.error();
   }
+  request_ = net::HttpTask();
   if (task == Task::buy) {
     purchase_ = Purchase{requested_, request_username_, failure.value_or("")};
   }

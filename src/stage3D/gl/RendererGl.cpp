@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include "RendererGl.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "RendererShader.hpp"
@@ -16,7 +16,21 @@ using draw_plan::MeshBatchVertex;
 using draw_plan::quad_offsets;
 using draw_plan::quad_sizes;
 
-constexpr auto vertex_shader = R"glsl(#version 330 core
+// Wall corners live in a texture (GLES) or a texture buffer (desktop). The web texture is this
+// wide, in texels; the vertex shader's REALM_WALL_WIDTH must match.
+constexpr GLint wall_texture_width = 1024;
+
+// Base instances (glDrawArraysInstancedBaseInstance) are GL 4.2; WebGL 2 has none, so runs use
+// offset pointers.
+bool base_instance_available() {
+#if REALM_GLES
+  return false;
+#else
+  return GLEW_VERSION_4_2 || GLEW_ARB_base_instance;
+#endif
+}
+
+constexpr auto vertex_shader = R"glsl(
 layout(location=0) in vec2 origin;
 layout(location=1) in vec2 axisX;
 layout(location=2) in vec2 axisY;
@@ -33,7 +47,18 @@ uniform float groundTime;
 // Runs holding wall instances draw triangle lists: six vertices per quad, in strip order.
 uniform bool triangleList;
 // Wall corners of a WallGeometryStore: two RGBA32F texels each (x y z u, then v shade flags pad).
+#if REALM_GLES
+// WebGL 2 has no texture buffers: the texels sit row-major in an RGBA32F texture REALM_WALL_WIDTH
+// texels wide (wall_texture_width in RendererGl.cpp).
+#define REALM_WALL_WIDTH 1024
+uniform sampler2D geometry;
+vec4 wall_texel(int i) {
+    return texelFetch(geometry, ivec2(i % REALM_WALL_WIDTH, i / REALM_WALL_WIDTH), 0);
+}
+#else
 uniform samplerBuffer geometry;
+vec4 wall_texel(int i) { return texelFetch(geometry, i); }
+#endif
 const int stripCorner[6] = int[6](0, 1, 2, 2, 1, 3);
 out vec2 local;
 flat out vec4 bounds;
@@ -51,9 +76,9 @@ void main() {
         int vertex = gl_VertexID;
         if (vertex >= int(multiply.y)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
         int first = (int(multiply.x) + vertex / 3 * 3) * 2;
-        vec4 g0 = texelFetch(geometry, first), h0 = texelFetch(geometry, first + 1);
-        vec4 g1 = texelFetch(geometry, first + 2), h1 = texelFetch(geometry, first + 3);
-        vec4 g2 = texelFetch(geometry, first + 4), h2 = texelFetch(geometry, first + 5);
+        vec4 g0 = wall_texel(first), h0 = wall_texel(first + 1);
+        vec4 g1 = wall_texel(first + 2), h1 = wall_texel(first + 3);
+        vec4 g2 = wall_texel(first + 4), h2 = wall_texel(first + 5);
         vec2 p0 = origin + axisX * g0.x + axisY * g0.y + uvOffset * g0.z;
         vec2 p1 = origin + axisX * g1.x + axisY * g1.y + uvOffset * g1.z;
         vec2 p2 = origin + axisX * g2.x + axisY * g2.y + uvOffset * g2.z;
@@ -94,7 +119,7 @@ void main() {
     }
 }
 )glsl";
-constexpr auto fragment_shader = R"glsl(#version 330 core
+constexpr auto fragment_shader = R"glsl(
 in vec2 local;
 flat in vec4 bounds;
 flat in float layer;
@@ -176,7 +201,7 @@ void main() {
 }
 )glsl";
 
-constexpr auto mesh_vertex_shader = R"glsl(#version 330 core
+constexpr auto mesh_vertex_shader = R"glsl(
 layout(location=0) in vec2 position;
 layout(location=1) in vec2 texcoord;
 layout(location=2) in float shade;
@@ -202,7 +227,7 @@ void main() {
 // Reference model program (prepared MeshDraw owners, see project_model): textured groups sample the
 // object sprite (nearest, repeated) times the face shade; Solid* groups are the flat object color
 // times it.
-constexpr auto mesh_fragment_shader = R"glsl(#version 330 core
+constexpr auto mesh_fragment_shader = R"glsl(
 in vec2 uv;
 in float lit;
 flat in vec4 bounds;
@@ -230,7 +255,7 @@ void main() {
 // camera/object transform, flat shade and material choice match project_model;
 // GL back-face culling (front = counter-clockwise in window space) applies the same
 // screen winding rule to the stored fan order.
-constexpr auto model_vertex_shader = R"glsl(#version 330 core
+constexpr auto model_vertex_shader = R"glsl(
 layout(location=0) in vec3 position;
 layout(location=1) in vec3 normal;
 layout(location=2) in vec2 texcoord;
@@ -260,7 +285,7 @@ void main() {
     textured = solid < 0.5 && multiply.a > 0.5 ? 1.0 : 0.0;
 }
 )glsl";
-constexpr auto model_fragment_shader = R"glsl(#version 330 core
+constexpr auto model_fragment_shader = R"glsl(
 in vec2 uv;
 flat in float lit;
 flat in vec4 bounds;
@@ -288,10 +313,12 @@ RendererGl::RendererGl(std::size_t capacity, bool persistent_streaming,
       throw std::invalid_argument("Invalid quad capacity");
     }
 
-    const auto vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, vertex_shader);
+    const auto vs = renderer_detail::compile_shader(GL_VERTEX_SHADER,
+                                                    renderer_detail::shader_source(vertex_shader));
     GLuint fs{};
     try {
-      fs = renderer_detail::compile_shader(GL_FRAGMENT_SHADER, fragment_shader);
+      fs = renderer_detail::compile_shader(GL_FRAGMENT_SHADER,
+                                           renderer_detail::shader_source(fragment_shader));
     } catch (...) {
       glDeleteShader(vs);
       throw;
@@ -311,10 +338,12 @@ RendererGl::RendererGl(std::size_t capacity, bool persistent_streaming,
     }
 
     {
-      const auto mesh_vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, mesh_vertex_shader);
+      const auto mesh_vs = renderer_detail::compile_shader(
+          GL_VERTEX_SHADER, renderer_detail::shader_source(mesh_vertex_shader));
       GLuint mesh_fs{};
       try {
-        mesh_fs = renderer_detail::compile_shader(GL_FRAGMENT_SHADER, mesh_fragment_shader);
+        mesh_fs = renderer_detail::compile_shader(
+            GL_FRAGMENT_SHADER, renderer_detail::shader_source(mesh_fragment_shader));
       } catch (...) {
         glDeleteShader(mesh_vs);
         throw;
@@ -359,10 +388,12 @@ RendererGl::RendererGl(std::size_t capacity, bool persistent_streaming,
     }
 
     {
-      const auto model_vs = renderer_detail::compile_shader(GL_VERTEX_SHADER, model_vertex_shader);
+      const auto model_vs = renderer_detail::compile_shader(
+          GL_VERTEX_SHADER, renderer_detail::shader_source(model_vertex_shader));
       GLuint model_fs{};
       try {
-        model_fs = renderer_detail::compile_shader(GL_FRAGMENT_SHADER, model_fragment_shader);
+        model_fs = renderer_detail::compile_shader(
+            GL_FRAGMENT_SHADER, renderer_detail::shader_source(model_fragment_shader));
       } catch (...) {
         glDeleteShader(model_vs);
         throw;
@@ -411,9 +442,23 @@ RendererGl::RendererGl(std::size_t capacity, bool persistent_streaming,
       glBindVertexArray(0);
     }
 
-    glGenBuffers(1, &wall_geometry_);
     glGenTextures(1, &wall_texture_);
+#if REALM_GLES
+    // Rows of wall_texture_width texels, capped at 4096 (64 MiB of RGBA32F at the cap).
+    GLint max_size{};
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
+    wall_texel_limit_ = wall_texture_width * std::min(max_size, GLint{4096});
+    // The wall texture is RGBA32F, which only NEAREST filters without an extension, and has no mip
+    // levels.
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, wall_texture_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glActiveTexture(GL_TEXTURE0);
+#else
+    glGenBuffers(1, &wall_geometry_);
     glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &wall_texel_limit_);
+#endif
     post_process_ = std::make_unique<RendererPostProcess>();
     gpu_timers_ = std::make_unique<RendererGpuTimers>();
     glUseProgram(program_);
@@ -440,14 +485,16 @@ RendererGl::RendererGl(std::size_t capacity, bool persistent_streaming,
       glEnableVertexAttribArray(i);
       glVertexAttribDivisor(i, 1);
     }
-    base_instance_supported_ = GLEW_VERSION_4_2 || GLEW_ARB_base_instance;
+    base_instance_supported_ = base_instance_available();
     base_instance_ = base_instance_supported_;
 
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
+#if !REALM_GLES
     glDisable(GL_FRAMEBUFFER_SRGB);
+#endif
   } catch (...) {
     release_gl_resources();
     throw;
@@ -519,12 +566,18 @@ void RendererGl::bind_quad_attributes(std::size_t offset) {
 void RendererGl::draw_instanced(std::uint32_t mode, std::int32_t first_vertex,
                                 std::int32_t vertices, std::int32_t instances,
                                 std::size_t first_instance) const {
+#if REALM_GLES
+  // Without base instances the caller has moved the pointers to the run.
+  (void)first_instance;
+  glDrawArraysInstanced(mode, first_vertex, vertices, instances);
+#else
   if (base_instance_) {
     glDrawArraysInstancedBaseInstance(mode, first_vertex, vertices, instances,
                                       static_cast<GLuint>(first_instance));
   } else {
     glDrawArraysInstanced(mode, first_vertex, vertices, instances);
   }
+#endif
 }
 
 void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta> meta,
@@ -799,6 +852,9 @@ void RendererGl::draw(const Atlas& atlas, std::span<const Quad> quads, int width
     gpu_timers_->phase(3);
   }
   if (!overlay.empty()) {
+    // The post passes rebind unit 2 (their scene texture); the overlay's walls need the store
+    // again.
+    bind_walls();
     glScissor(0, 0, width, height);
     draw_batch(overlay, meta_all.subspan(quads.size()), overlay_offset, width, height,
                stream_buffer, measure);
@@ -818,7 +874,11 @@ void RendererGl::draw(const Atlas& atlas, std::span<const Quad> quads, int width
 // program samples it).
 void RendererGl::bind_walls() {
   glActiveTexture(GL_TEXTURE2);
+#if REALM_GLES
+  glBindTexture(GL_TEXTURE_2D, wall_texture_);
+#else
   glBindTexture(GL_TEXTURE_BUFFER, wall_texture_);
+#endif
   glActiveTexture(GL_TEXTURE0);
 }
 
@@ -832,6 +892,33 @@ void RendererGl::upload_walls(const WallGeometryStore& store) {
     return;
   }
   REALM_ZONE("render.wall_upload");
+#if REALM_GLES
+  // Texel t of the store (two per corner) sits at column t % width, row t / width. The upload runs
+  // row by row; the texture is bound on unit 2 here because the post pass leaves its own texture
+  // there.
+  constexpr auto width = static_cast<std::size_t>(wall_texture_width);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, wall_texture_);
+  if (step.reallocate) {
+    const auto texels = step.capacity * 2;
+    const auto rows = static_cast<GLsizei>((texels + width - 1) / width);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, wall_texture_width, rows, 0, GL_RGBA, GL_FLOAT,
+                 nullptr);
+  }
+  const auto* texels = reinterpret_cast<const float*>(store.vertices().data());
+  for (std::size_t texel = step.first * 2; texel < step.end * 2;) {
+    const auto column = texel % width;
+    const auto count = std::min(width - column, step.end * 2 - texel);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(column), static_cast<GLint>(texel / width),
+                    static_cast<GLsizei>(count), 1, GL_RGBA, GL_FLOAT, texels + texel * 4);
+    texel += count;
+  }
+  glActiveTexture(GL_TEXTURE0);
+  if (step.end > step.first) {
+    const auto bytes = (step.end - step.first) * sizeof(WallGpuVertex);
+    telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
+  }
+#else
   glBindBuffer(GL_TEXTURE_BUFFER, wall_geometry_);
   if (step.reallocate) {
     glBufferData(GL_TEXTURE_BUFFER, static_cast<GLsizeiptr>(step.capacity * sizeof(WallGpuVertex)),
@@ -847,6 +934,7 @@ void RendererGl::upload_walls(const WallGeometryStore& store) {
                     static_cast<GLsizeiptr>(bytes), store.vertices().data() + step.first);
     telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
   }
+#endif
 }
 
 // One submission (quads, then overlay, both drawn in that order): the instances and run data are
@@ -907,7 +995,9 @@ void RendererGl::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay,
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
   glDisable(GL_STENCIL_TEST);
+#if !REALM_GLES
   glDisable(GL_FRAMEBUFFER_SRGB);
+#endif
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glEnable(GL_BLEND);
   glBlendEquation(GL_FUNC_ADD);
@@ -974,7 +1064,13 @@ Image RendererGl::capture(int width, int height, bool presented) const {
               std::vector<unsigned char>(static_cast<std::size_t>(width) *
                                          static_cast<std::size_t>(height) * 4)};
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
+#if REALM_GLES
+  // WebGL 2 has no front buffer: a presented capture reads the back buffer as it was last drawn.
+  (void)presented;
+  glReadBuffer(GL_BACK);
+#else
   glReadBuffer(presented ? GL_FRONT : GL_BACK);
+#endif
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels.data());
   const auto stride = static_cast<std::size_t>(width) * 4;
   for (int y = 0; y < height / 2; ++y) {

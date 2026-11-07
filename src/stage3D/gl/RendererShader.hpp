@@ -1,13 +1,35 @@
 #pragma once
 
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace realm::renderer_detail {
-inline GLuint compile_shader(GLenum type, const char* source) {
+// The GLSL source of a program body (the text after its version line): desktop GLSL 3.30 core, or
+// GLSL ES 3.00 for WebGL 2 with the default precisions the body relies on. REALM_GLES is defined in
+// the GLES source so a body can branch on it.
+inline std::string shader_source(std::string_view body) {
+#if REALM_GLES
+  constexpr std::string_view header =
+      "#version 300 es\n"
+      "#define REALM_GLES 1\n"
+      "precision highp float;\n"
+      "precision highp int;\n"
+      "precision highp sampler2D;\n"
+      "precision highp sampler2DArray;\n";
+#else
+  constexpr std::string_view header = "#version 330 core\n";
+#endif
+  std::string source(header);
+  source.append(body);
+  return source;
+}
+
+inline GLuint compile_shader(GLenum type, const std::string& source) {
   const auto id = glCreateShader(type);
-  glShaderSource(id, 1, &source, nullptr);
+  const char* text = source.c_str();
+  glShaderSource(id, 1, &text, nullptr);
   glCompileShader(id);
   GLint ok{};
   glGetShaderiv(id, GL_COMPILE_STATUS, &ok);

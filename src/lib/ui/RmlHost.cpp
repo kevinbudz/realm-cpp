@@ -1230,14 +1230,15 @@ void set_host_window(SDL_Window* window) { host_window = window; }
 struct RmlHost::Impl {
   Impl(const FontBook& font_book, const HudArt* hud_art)
       : fonts(font_book), art(hud_art), gpu(make_rml_gpu(hud_art)), files(text_rcss), layer(*this) {
-    // OpenGL: the window whose context is current. Vulkan has no current context: the app passes
-    // its window (set_host_window). The drawing itself uses the frame's swapchain image.
+    // OpenGL: the window whose context is current. Vulkan and WebGPU have no current context: the
+    // app passes its window (set_host_window). The drawing itself uses the frame's swapchain image.
     SDL_Window* window = SDL_GL_GetCurrentWindow();
-    if (!window && gfx::active_api() == gfx::Api::vulkan) {
+    if (!window && gfx::active_api() != gfx::Api::opengl) {
       window = host_window;
     }
     if (!window) {
-      throw std::runtime_error("The RmlUi host needs the SDL window (GL context current, or the Vulkan window)");
+      throw std::runtime_error(
+          "The RmlUi host needs the SDL window (GL context current, or the Vulkan/WebGPU window)");
     }
     if (!gpu) {
       throw std::runtime_error("RmlUi's GL3 renderer could not be created");

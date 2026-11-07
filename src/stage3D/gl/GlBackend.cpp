@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include "GlBackend.hpp"
 #include "RendererGl.hpp"
 #include <memory>
@@ -39,7 +39,11 @@ class GlBackend final : public Backend {
   }
 
   [[nodiscard]] bool copy_images_supported() override {
+#if REALM_GLES
+    return false;
+#else
     return GLEW_VERSION_4_3 || GLEW_ARB_copy_image;
+#endif
   }
 
   [[nodiscard]] std::uint32_t create_surface(bool linear) override {
@@ -134,10 +138,16 @@ class GlBackend final : public Backend {
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#if !REALM_GLES
     if (copy_images) {
       glCopyImageSubData(from, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, fresh, GL_TEXTURE_2D_ARRAY, 0, 0, 0,
                          0, size, size, kept);
-    } else {
+    } else
+#else
+    // WebGL 2 has no image copy: copy_images_supported() is false, so the blit below always runs.
+    (void)copy_images;
+#endif
+    {
       // Blits are clipped by the scissor test, which the renderer enables while drawing.
       const bool scissor = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
       glDisable(GL_SCISSOR_TEST);

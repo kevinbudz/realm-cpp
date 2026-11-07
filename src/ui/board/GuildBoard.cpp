@@ -71,7 +71,7 @@ void GuildBoard::close() {
   urls_.clear();
   link_.reset();
   focus_lost();
-  // Keep the future until poll drains it. Discarding an async future here
+  // Keep the request until poll drains it. Discarding a native request here
   // would block map teardown for the entire HTTP deadline.
 }
 
@@ -108,27 +108,25 @@ void GuildBoard::start(bool save) {
   }
   request_generation_ = generation_;
   queued_ = false;
-  request_ = std::async(
-      std::launch::async, [host = host_, port = port_, save, fields = std::move(fields)] {
-        return net::http_post(host, port, save ? "/guild/setBoard" : "/guild/getBoard", fields);
-      });
+  request_ = net::HttpTask::post(host_, port_, save ? "/guild/setBoard" : "/guild/getBoard",
+                                 std::move(fields));
 }
 
 void GuildBoard::poll() {
-  if (!request_.valid() ||
-      request_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+  if (!request_.valid() || request_.poll() == net::HttpStatus::pending) {
     return;
   }
   std::string response;
   std::string error;
-  try {
-    response = request_.get();
+  if (request_.poll() == net::HttpStatus::done) {
+    response = request_.body();
     if (auto message = app_error(response)) {
       error = *message;
     }
-  } catch (const std::exception& e) {
-    error = e.what();
+  } else {
+    error = request_.error();
   }
+  request_ = net::HttpTask();
 
   if (queued_) {
     start(request_save_);

@@ -9,10 +9,11 @@
 #include <vector>
 
 namespace realm::gfx {
-enum class Api : int { opengl = 0, vulkan = 1 };
+// webgpu is the browser build's WebGPU backend (emdawnwebgpu); the web build's "OpenGL" is WebGL2.
+enum class Api : int { opengl = 0, vulkan = 1, webgpu = 2 };
 
-[[nodiscard]] std::string_view api_name(Api api);  // "OpenGL" or "Vulkan"
-// The --renderer spelling, "gl" or "vulkan"; nullopt for anything else.
+[[nodiscard]] std::string_view api_name(Api api);  // "OpenGL", "Vulkan" or "WebGPU"
+// The --renderer spelling, "gl", "vulkan" or "webgpu"; nullopt for anything else.
 [[nodiscard]] std::optional<Api> parse_api_flag(std::string_view flag);
 
 // Process-wide selection read by every GPU-facing class (Atlas, SurfaceTexture, TerrainBuffer,

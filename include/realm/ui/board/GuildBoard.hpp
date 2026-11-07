@@ -3,7 +3,6 @@
 #include "realm/ui/dialogs/Dialog.hpp"
 #include "realm/net/Http.hpp"
 #include "realm/ui/Scrollbar.hpp"
-#include <future>
 
 namespace realm {
 class GuildBoard {
@@ -114,7 +113,7 @@ class GuildBoard {
   std::string host_;
   std::uint16_t port_{};
   net::FormFields credentials_;
-  std::future<std::string> request_;
+  net::HttpTask request_;
   std::uint64_t generation_{};
   std::uint64_t request_generation_{};
   std::size_t caret_{};

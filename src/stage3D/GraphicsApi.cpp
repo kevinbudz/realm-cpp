@@ -9,7 +9,15 @@ std::optional<Api> command_line_state;
 }  // namespace
 
 std::string_view api_name(Api api) {
-  return api == Api::vulkan ? "Vulkan" : "OpenGL";
+  switch (api) {
+    case Api::vulkan:
+      return "Vulkan";
+    case Api::webgpu:
+      return "WebGPU";
+    case Api::opengl:
+      break;
+  }
+  return "OpenGL";
 }
 
 std::optional<Api> parse_api_flag(std::string_view flag) {
@@ -19,6 +27,11 @@ std::optional<Api> parse_api_flag(std::string_view flag) {
   if (flag == "vulkan") {
     return Api::vulkan;
   }
+#if REALM_WEBGPU_ENABLED
+  if (flag == "webgpu") {
+    return Api::webgpu;
+  }
+#endif
   return std::nullopt;
 }
 

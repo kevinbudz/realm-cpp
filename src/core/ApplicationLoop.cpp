@@ -78,7 +78,10 @@ bool prepare_frame(ClientState& cs, Frame& f) {
     cs.reset_perf();
     cpu_zone->finish();
     realm::telemetry::active = nullptr;
+#if !defined(__EMSCRIPTEN__)
+    // The browser paces the next callback itself; there is nothing to wait out here.
     SDL_Delay(10);
+#endif
     cs.previous_capture = true;
     return false;
   }
@@ -225,7 +228,9 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
       fps_cap = max_fps > 0 ? std::min(max_fps, refresh) : refresh;
     }
   }
+#if !defined(__EMSCRIPTEN__)
   // Sleep while the deadline is far away; only the final sub-millisecond stretch is a yielding spin.
+  // The web loop is paced by requestAnimationFrame, so it has no cap.
   if (!o.benchmark && !o.hidden && fps_cap > 0) {
     const double target = 1000.0 / fps_cap;
     while (target - milliseconds(Clock::now() - start) > 1.5) {
@@ -235,6 +240,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
       std::this_thread::yield();
     }
   }
+#endif
 
   if (cs.telemetry) {
     using C = realm::telemetry::Counter;
@@ -275,9 +281,11 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
                                 cs.scene.appearance_entries(), cs.scene.appearance_bytes());
   }
 
+#if !defined(__EMSCRIPTEN__)
   if ((cs.stress || o.fixture_step) && o.stress_delay) {
     SDL_Delay(static_cast<Uint32>(o.stress_delay));
   }
+#endif
   cs.previous_capture = capture_frame;
 }
 

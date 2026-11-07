@@ -2,12 +2,14 @@
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
-#include <fcntl.h>
 #include <mutex>
-#include <spawn.h>
 #include <string_view>
+#if !defined(__EMSCRIPTEN__)
+#include <fcntl.h>
+#include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 namespace realm::platform {
 struct FileDialog::Shared {
@@ -28,6 +30,7 @@ std::optional<std::string> override_result() {
   return value ? std::optional<std::string>(value) : std::nullopt;
 }
 
+#if !defined(__EMSCRIPTEN__)
 bool on_path(const std::string& name) {
   const char* path = std::getenv("PATH");
   if (!path) {
@@ -47,9 +50,14 @@ bool on_path(const std::string& name) {
     rest.remove_prefix(end + 1);
   }
 }
+#endif
 
-// KDE desktops get kdialog; elsewhere zenity is preferred, with kdialog as the fallback.
+// KDE desktops get kdialog; elsewhere zenity is preferred, with kdialog as the fallback. The browser
+// has no picker process, so there the tool is empty and the dialog is never available.
 std::string choose_tool() {
+#if defined(__EMSCRIPTEN__)
+  return {};
+#else
   const char* desktop = std::getenv("XDG_CURRENT_DESKTOP");
   const bool kde = desktop && std::string_view(desktop).find("KDE") != std::string_view::npos;
   if (kde && on_path("kdialog")) {
@@ -62,8 +70,10 @@ std::string choose_tool() {
     return "kdialog";
   }
   return {};
+#endif
 }
 
+#if !defined(__EMSCRIPTEN__)
 // Runs the picker with stdout piped back. A non-zero exit status is a cancel, as is empty output.
 FileDialog::Result run_picker(const std::vector<std::string>& command, FileDialog::Shared& shared) {
   int fds[2];
@@ -123,6 +133,7 @@ FileDialog::Result run_picker(const std::vector<std::string>& command, FileDialo
   }
   return std::filesystem::path(output);
 }
+#endif
 }  // namespace
 
 FileDialog::FileDialog() : tool_(choose_tool()) {}
@@ -145,8 +156,9 @@ bool FileDialog::available() const {
   return !tool_.empty() || override_result().has_value();
 }
 
-bool FileDialog::start(Mode mode, std::string title, std::filesystem::path suggested,
-                       std::string filter_label, std::string pattern) {
+bool FileDialog::start([[maybe_unused]] Mode mode, [[maybe_unused]] std::string title,
+                       [[maybe_unused]] std::filesystem::path suggested,
+                       [[maybe_unused]] std::string filter_label, [[maybe_unused]] std::string pattern) {
   if (running_) {
     return false;
   }
@@ -159,6 +171,11 @@ bool FileDialog::start(Mode mode, std::string title, std::filesystem::path sugge
     shared_->finished = true;
     return true;
   }
+#if defined(__EMSCRIPTEN__)
+  // No picker and no threads on the web: a request is a cancel, as a missing tool is on the desktop.
+  shared_->finished = true;
+  return true;
+#else
   const auto command = picker_command(tool_, mode, title, suggested, filter_label, pattern);
   if (command.empty()) {
     // The editor checks available() before starting, so a missing tool here is treated as a cancel.
@@ -172,6 +189,7 @@ bool FileDialog::start(Mode mode, std::string title, std::filesystem::path sugge
     shared->finished = true;
   });
   return true;
+#endif
 }
 
 std::optional<FileDialog::Result> FileDialog::poll() {

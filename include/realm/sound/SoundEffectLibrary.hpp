@@ -17,7 +17,9 @@
 
 // Native one-shot SFX that mirrors SoundEffectLibrary. Threads: the main thread owns Player,
 // Library and the command side of Mixer; one loader thread reads and decodes; the output device
-// thread calls Mixer::mix. The render path never allocates, blocks or frees a clip.
+// thread calls Mixer::mix. The render path never allocates, blocks or frees a clip. The web build has
+// no threads: loads run inline from Library::poll, one per call, and the device opens after a user
+// gesture.
 namespace realm::audio {
 
 // Mixer format. Every clip is decoded to this before it is published.
@@ -167,6 +169,8 @@ class Library {
   };
 
   void run();
+  // Reads and decodes one name, without publishing it.
+  Result load(const std::string& name);
 
   const SourceConfig source_;
   const std::size_t cache_bytes_;
@@ -180,7 +184,9 @@ class Library {
   std::deque<std::string> jobs_;  // guarded by mutex_
   std::vector<Result> results_;   // guarded by mutex_
   std::atomic<bool> stopping_{false};
+#if !defined(__EMSCRIPTEN__)
   std::thread worker_;  // declared last: starts after every other member exists
+#endif
 };
 
 // Test and tuning knobs. The defaults are the SoundEffectLibrary behavior.
@@ -241,6 +247,9 @@ class Player {
   // Once per rendered frame. Clears the dedupe set on every 5th call and services loads and
   // deferred plays.
   void tick();
+  // Browsers start audio only after a user gesture: the web build defers opening the device until
+  // this is called. Native opens it at construction and ignores the call.
+  void allow_output();
   // Drops plays waiting for a load (map change).
   void cancel_pending();
   // Ends every voice and cancels pending plays (leaving the game).

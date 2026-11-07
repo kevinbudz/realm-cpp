@@ -3,7 +3,11 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <stdexcept>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/fetch.h>
+#endif
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -17,6 +21,7 @@
 #include <unistd.h>
 #endif
 namespace realm::net {
+#if !defined(__EMSCRIPTEN__)
 namespace {
 #ifdef _WIN32
 using Socket = SOCKET;
@@ -128,6 +133,7 @@ std::string dechunk(std::string_view body) {
   }
 }
 }
+#endif
 
 std::string url_encode(std::string_view value) {
   constexpr char hex[] = "0123456789ABCDEF";
@@ -146,6 +152,7 @@ std::string url_encode(std::string_view value) {
   return result;
 }
 
+#if !defined(__EMSCRIPTEN__)
 namespace {
 // Status code of a complete raw response, which must start with an HTTP/ status line.
 int response_status(const std::string& response) {
@@ -294,8 +301,10 @@ std::string exchange(const std::string& host, std::uint16_t port, const std::str
 }
 }
 
-std::string http_post(const std::string& host, std::uint16_t port, const std::string& path,
-                      const FormFields& fields, std::chrono::milliseconds timeout) {
+namespace {
+HttpResponse post_exchange(const std::string& host, std::uint16_t port,
+                           const std::string& path, const FormFields& fields,
+                           std::chrono::milliseconds timeout) {
   std::string body;
   for (const auto& [key, value] : fields) {
     if (!body.empty()) {
@@ -315,7 +324,13 @@ std::string http_post(const std::string& host, std::uint16_t port, const std::st
   if (status < 200 || status > 299) {
     throw std::runtime_error("HTTP status " + std::to_string(status) + " from " + path);
   }
-  return response_body(response);
+  return HttpResponse{status, response_body(response)};
+}
+}
+
+std::string http_post(const std::string& host, std::uint16_t port, const std::string& path,
+                      const FormFields& fields, std::chrono::milliseconds timeout) {
+  return post_exchange(host, port, path, fields, timeout).body;
 }
 
 HttpResponse http_get(const std::string& host, std::uint16_t port, const std::string& path,
@@ -330,5 +345,224 @@ HttpResponse http_get(const std::string& host, std::uint16_t port, const std::st
     return HttpResponse{status, {}};
   }
   return HttpResponse{status, response_body(response)};
+}
+
+HttpTask::~HttpTask() = default;
+
+struct HttpTask::State {
+  std::future<HttpResponse> future;
+  HttpStatus status{HttpStatus::pending};
+  HttpResponse response;
+  std::string error;
+};
+
+HttpTask HttpTask::post(const std::string& host, std::uint16_t port, const std::string& path,
+                        FormFields fields, std::chrono::milliseconds timeout) {
+  HttpTask task;
+  task.state_ = std::make_unique<State>();
+  task.state_->future = std::async(std::launch::async, [host, port, path, timeout,
+                                                        fields = std::move(fields)] {
+    return post_exchange(host, port, path, fields, timeout);
+  });
+  return task;
+}
+
+HttpTask HttpTask::get(const std::string& host, std::uint16_t port, const std::string& path,
+                       std::chrono::milliseconds timeout) {
+  HttpTask task;
+  task.state_ = std::make_unique<State>();
+  task.state_->future = std::async(std::launch::async, [host, port, path, timeout] {
+    return http_get(host, port, path, timeout);
+  });
+  return task;
+}
+
+HttpStatus HttpTask::poll() {
+  if (!state_) {
+    return HttpStatus::failed;
+  }
+  auto& state = *state_;
+  if (state.status == HttpStatus::pending &&
+      state.future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    try {
+      state.response = state.future.get();
+      state.status = HttpStatus::done;
+    } catch (const std::exception& e) {
+      state.error = e.what();
+      state.status = HttpStatus::failed;
+    }
+  }
+  return state.status;
+}
+
+#else
+namespace {
+std::string form_body(const FormFields& fields) {
+  std::string body;
+  for (const auto& [key, value] : fields) {
+    if (!body.empty()) {
+      body.push_back('&');
+    }
+    body += url_encode(key) + '=' + url_encode(value);
+  }
+  return body;
+}
+}
+
+std::string http_post(const std::string&, std::uint16_t, const std::string&, const FormFields&,
+                      std::chrono::milliseconds) {
+  throw std::runtime_error("blocking HTTP is unavailable in the browser");
+}
+
+HttpResponse http_get(const std::string&, std::uint16_t, const std::string&,
+                      std::chrono::milliseconds) {
+  throw std::runtime_error("blocking HTTP is unavailable in the browser");
+}
+
+struct HttpTask::State {
+  bool post{};
+  std::string host;
+  std::uint16_t port{};
+  std::string path;
+  std::string request_data;
+  emscripten_fetch_t* fetch{};
+  HttpStatus status{HttpStatus::pending};
+  HttpResponse response;
+  std::string error;
+
+  static void on_success(emscripten_fetch_t* fetch) {
+    auto& state = *static_cast<State*>(fetch->userData);
+    if (state.status != HttpStatus::pending) {
+      return;
+    }
+    state.response.status = fetch->status;
+    state.response.body.assign(fetch->data ? fetch->data : "",
+                               static_cast<std::size_t>(fetch->numBytes));
+    state.status = HttpStatus::done;
+  }
+
+  static void on_error(emscripten_fetch_t* fetch) {
+    auto& state = *static_cast<State*>(fetch->userData);
+    if (state.status != HttpStatus::pending) {
+      return;
+    }
+    constexpr int aborted = 65535;  // emscripten_fetch_close reports -1 as unsigned short
+    constexpr int timed_out = 408;
+    const int status = fetch->status;
+    if (state.post || status == 0 || status == aborted || status == timed_out) {
+      if (status == 0) {
+        state.error = "Cannot connect to app server " + state.host + ':' +
+                      std::to_string(state.port) + ": request failed";
+      } else if (status == timed_out) {
+        state.error = "HTTP request timed out";
+      } else if (status == aborted) {
+        state.error = "HTTP request aborted";
+      } else {
+        state.error = "HTTP status " + std::to_string(status) + " from " + state.path;
+      }
+      state.status = HttpStatus::failed;
+      return;
+    }
+    // A GET returns any status, as http_get does.
+    state.response = HttpResponse{status, {}};
+    state.status = HttpStatus::done;
+  }
+
+  void launch(std::chrono::milliseconds timeout) {
+    static const char* const form_headers[] = {"Content-Type",
+                                               "application/x-www-form-urlencoded", nullptr};
+    emscripten_fetch_attr_t attr;
+    emscripten_fetch_attr_init(&attr);
+    std::strcpy(attr.requestMethod, post ? "POST" : "GET");
+    attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+    attr.timeoutMSecs = static_cast<std::uint32_t>(timeout.count());
+    attr.userData = this;
+    attr.onsuccess = on_success;
+    attr.onerror = on_error;
+    if (post) {
+      attr.requestHeaders = form_headers;
+      attr.requestData = request_data.data();
+      attr.requestDataSize = request_data.size();
+    }
+    const std::string url = "http://" + host + ':' + std::to_string(port) + path;
+    fetch = emscripten_fetch(&attr, url.c_str());
+    if (!fetch) {
+      status = HttpStatus::failed;
+      error = "Cannot start HTTP request to " + url;
+    }
+  }
+};
+
+HttpTask::~HttpTask() {
+  // Aborting a pending fetch runs on_error synchronously, while the state is still alive.
+  if (state_ && state_->fetch) {
+    emscripten_fetch_close(state_->fetch);
+    state_->fetch = nullptr;
+  }
+}
+
+HttpTask HttpTask::post(const std::string& host, std::uint16_t port, const std::string& path,
+                        FormFields fields, std::chrono::milliseconds timeout) {
+  HttpTask task;
+  task.state_ = std::make_unique<State>();
+  auto& state = *task.state_;
+  state.post = true;
+  state.host = host;
+  state.port = port;
+  state.path = path;
+  state.request_data = form_body(fields);
+  state.launch(timeout);
+  return task;
+}
+
+HttpTask HttpTask::get(const std::string& host, std::uint16_t port, const std::string& path,
+                       std::chrono::milliseconds timeout) {
+  HttpTask task;
+  task.state_ = std::make_unique<State>();
+  auto& state = *task.state_;
+  state.host = host;
+  state.port = port;
+  state.path = path;
+  state.launch(timeout);
+  return task;
+}
+
+HttpStatus HttpTask::poll() {
+  if (!state_) {
+    return HttpStatus::failed;
+  }
+  auto& state = *state_;
+  if (state.fetch && state.status != HttpStatus::pending) {
+    emscripten_fetch_close(state.fetch);
+    state.fetch = nullptr;
+  }
+  return state.status;
+}
+#endif
+
+HttpTask::HttpTask() = default;
+HttpTask::HttpTask(HttpTask&&) noexcept = default;
+
+HttpTask& HttpTask::operator=(HttpTask&& other) noexcept {
+  if (this != &other) {
+    // The previous request is released here, so a pending one is cancelled.
+    HttpTask released(std::move(*this));
+    state_ = std::move(other.state_);
+  }
+  return *this;
+}
+
+const HttpResponse& HttpTask::response() const {
+  static const HttpResponse none;
+  return state_ ? state_->response : none;
+}
+
+const std::string& HttpTask::body() const {
+  return response().body;
+}
+
+const std::string& HttpTask::error() const {
+  static const std::string none = "no request";
+  return state_ ? state_->error : none;
 }
 }

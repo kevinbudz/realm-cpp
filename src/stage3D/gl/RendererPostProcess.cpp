@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include "GlApi.hpp"
 #include "RendererPostProcess.hpp"
 #include "RendererShader.hpp"
 #include "realm/util/Telemetry.hpp"
@@ -6,7 +6,7 @@
 
 namespace realm {
 namespace {
-constexpr auto post_vertex_shader = R"glsl(#version 330 core
+constexpr auto post_vertex_shader = R"glsl(
 uniform vec2 viewport;
 uniform vec4 rect;
 void main() {
@@ -15,7 +15,7 @@ void main() {
     gl_Position = vec4(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0, 0.0, 1.0);
 }
 )glsl";
-constexpr auto post_fragment_shader = R"glsl(#version 330 core
+constexpr auto post_fragment_shader = R"glsl(
 uniform sampler2D scene;
 uniform int mode;
 uniform vec2 axis;
@@ -68,8 +68,10 @@ RendererPostProcess::RendererPostProcess() {
   GLuint vertex{};
   GLuint fragment{};
   try {
-    vertex = renderer_detail::compile_shader(GL_VERTEX_SHADER, post_vertex_shader);
-    fragment = renderer_detail::compile_shader(GL_FRAGMENT_SHADER, post_fragment_shader);
+    vertex = renderer_detail::compile_shader(GL_VERTEX_SHADER,
+                                             renderer_detail::shader_source(post_vertex_shader));
+    fragment = renderer_detail::compile_shader(
+        GL_FRAGMENT_SHADER, renderer_detail::shader_source(post_fragment_shader));
     program_ = glCreateProgram();
     glAttachShader(program_, vertex);
     glAttachShader(program_, fragment);

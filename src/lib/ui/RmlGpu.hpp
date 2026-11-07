@@ -3,7 +3,7 @@
 // textures RmlHost writes itself, GPU timing, and the bindings handed back after a pass. RmlHost
 // keeps the context, documents, elements, layers and listeners, and includes no GL header.
 // The OpenGL implementation (RmlGpuGl.cpp) holds HostRender (RenderInterface_GL3), the timer ring
-// and the state resets. A Vulkan implementation would sit beside it later.
+// and the state resets. The Vulkan and WebGPU implementations sit beside it (RmlGpuVk.cpp, RmlGpuWgpu.cpp).
 #include "realm/assets/HudArt.hpp"
 #include <RmlUi/Core/Types.h>
 #include <cstddef>
@@ -59,6 +59,8 @@ class RmlGpu {
 [[nodiscard]] std::unique_ptr<RmlGpu> make_rml_gpu(const HudArt* art);
 // The Vulkan implementation (RmlGpuVk.cpp): RmlUi's geometry and textures on the renderer's UI pass.
 [[nodiscard]] std::unique_ptr<RmlGpu> make_vulkan_rml_gpu(const HudArt* art);
+// The WebGPU implementation (RmlGpuWgpu.cpp, WebGPU builds only): the same seam on the WebGPU UI passes.
+[[nodiscard]] std::unique_ptr<RmlGpu> make_webgpu_rml_gpu(const HudArt* art);
 
 // Releases a texture that outlives the host (its renderer is gone). Only for teardown order.
 void release_texture_after_teardown(Rml::TextureHandle texture) noexcept;

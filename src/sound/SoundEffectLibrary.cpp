@@ -1,5 +1,8 @@
 #include "realm/sound/SoundEffectLibrary.hpp"
+#if !defined(__EMSCRIPTEN__)
 #include "realm/net/Http.hpp"
+#else
+#endif
 #include "miniaudio.h"
 
 #include <algorithm>
@@ -46,7 +49,12 @@ std::optional<std::string> read_disk(const SourceConfig& source, const std::stri
 }
 
 // Fallback fetch. Any transport error, timeout or non-200 status counts as a missing asset.
-std::optional<std::string> read_http(const SourceConfig& source, const std::string& name) {
+std::optional<std::string> read_http([[maybe_unused]] const SourceConfig& source,
+                                     [[maybe_unused]] const std::string& name) {
+#if defined(__EMSCRIPTEN__)
+  // The web build has no blocking HTTP. Its sounds are preloaded under /sfx, the disk root.
+  return std::nullopt;
+#else
   if (source.http_host.empty()) {
     return std::nullopt;
   }
@@ -59,6 +67,7 @@ std::optional<std::string> read_http(const SourceConfig& source, const std::stri
   } catch (const std::exception&) {
   }
   return std::nullopt;
+#endif
 }
 
 // Decodes to interleaved stereo float at the mixer rate, cutting at the clip limit. False for
@@ -192,7 +201,10 @@ bool valid_name(std::string_view name) noexcept {
 }
 
 std::string default_sfx_root() {
-#ifdef REALM_SFX_ROOT_DEFAULT
+#if defined(__EMSCRIPTEN__)
+  // Preloaded by the web build (--preload-file), and only there.
+  return "/sfx";
+#elif defined(REALM_SFX_ROOT_DEFAULT)
   return REALM_SFX_ROOT_DEFAULT;
 #else
   return {};
@@ -314,8 +326,13 @@ void Mixer::mix(float* out, std::size_t frames) noexcept {
 Library::Library(SourceConfig source, std::size_t cache_bytes, std::size_t queue_capacity)
     : source_(std::move(source)),
       cache_bytes_(cache_bytes),
-      queue_capacity_(std::max<std::size_t>(queue_capacity, 1)),
-      worker_([this] { run(); }) {}
+      queue_capacity_(std::max<std::size_t>(queue_capacity, 1))
+#if !defined(__EMSCRIPTEN__)
+      ,
+      worker_([this] { run(); })
+#endif
+{
+}
 
 Library::~Library() {
   {
@@ -324,7 +341,9 @@ Library::~Library() {
     jobs_.clear();
   }
   wake_.notify_all();
+#if !defined(__EMSCRIPTEN__)
   worker_.join();
+#endif
 }
 
 Library::State Library::state(std::string_view name) const {
@@ -362,6 +381,23 @@ std::shared_ptr<Clip> Library::ready(std::string_view name) {
 }
 
 void Library::poll() {
+#if defined(__EMSCRIPTEN__)
+  // No loader thread: one queued load runs inline per call, so a frame decodes at most one sound per
+  // call to poll.
+  std::optional<std::string> job;
+  {
+    std::lock_guard lock(mutex_);
+    if (!jobs_.empty()) {
+      job = std::move(jobs_.front());
+      jobs_.pop_front();
+    }
+  }
+  if (job) {
+    auto result = load(*job);
+    std::lock_guard lock(mutex_);
+    results_.push_back(std::move(result));
+  }
+#endif
   std::vector<Result> done;
   {
     std::lock_guard lock(mutex_);
@@ -415,6 +451,24 @@ std::size_t Library::queued() const {
   return jobs_.size();
 }
 
+Library::Result Library::load(const std::string& name) {
+  if (source_.before_load) {
+    source_.before_load();
+  }
+  Result result{name, nullptr, false};
+  if (!stopping_.load()) {
+    auto clip = std::make_shared<Clip>();
+    // Disk is primary: HTTP is only asked when the file is not on disk.
+    const auto disk = read_disk(source_, name);
+    const auto fetched = disk ? disk : read_http(source_, name);
+    if (fetched && decode(*fetched, stopping_, *clip)) {
+      result.truncated = clip->truncated;
+      result.clip = std::move(clip);
+    }
+  }
+  return result;
+}
+
 void Library::run() {
   for (;;) {
     std::string name;
@@ -427,20 +481,7 @@ void Library::run() {
       name = std::move(jobs_.front());
       jobs_.pop_front();
     }
-    if (source_.before_load) {
-      source_.before_load();
-    }
-    Result result{name, nullptr, false};
-    if (!stopping_.load()) {
-      auto clip = std::make_shared<Clip>();
-      // Disk is primary: HTTP is only asked when the file is not on disk.
-      const auto disk = read_disk(source_, name);
-      const auto fetched = disk ? disk : read_http(source_, name);
-      if (fetched && decode(*fetched, stopping_, *clip)) {
-        result.truncated = clip->truncated;
-        result.clip = std::move(clip);
-      }
-    }
+    Result result = load(name);
     std::lock_guard lock(mutex_);
     if (stopping_.load()) {
       return;
@@ -491,6 +532,14 @@ struct Player::Impl {
       status = "output disabled";
       return;
     }
+#if defined(__EMSCRIPTEN__)
+    // WebAudio stays suspended until the page has a user gesture, so the device opens in Player::tick
+    // once one has happened.
+    null_output = config.null_output;
+    device_pending = true;
+    status = "waiting for a user gesture";
+    return;
+#endif
     device = Device::open(mixer, config.null_output, status);
     if (!device) {
       std::fprintf(stderr, "realm audio: %s; sounds disabled\n", status.c_str());
@@ -553,6 +602,10 @@ struct Player::Impl {
   std::unordered_set<std::string, NameHash, std::equal_to<>> deduped;
   std::vector<Pending> pending;
   Counters counts;
+#if defined(__EMSCRIPTEN__)
+  bool null_output{false};
+  bool device_pending{false};
+#endif
 };
 
 Player::Player(const PlayerConfig& config) : impl_(std::make_unique<Impl>(config)) {}
@@ -608,6 +661,19 @@ void Player::preload(std::string_view name) {
   if (valid_name(name)) {
     impl_->library.request(name);
   }
+}
+
+void Player::allow_output() {
+#if defined(__EMSCRIPTEN__)
+  auto& i = *impl_;
+  if (i.device_pending) {
+    i.device_pending = false;
+    i.device = Device::open(i.mixer, i.null_output, i.status);
+    if (!i.device) {
+      std::fprintf(stderr, "realm audio: %s; sounds disabled\n", i.status.c_str());
+    }
+  }
+#endif
 }
 
 void Player::tick() {

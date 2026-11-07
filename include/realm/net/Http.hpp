@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -28,4 +29,41 @@ struct HttpResponse {
 [[nodiscard]] HttpResponse http_get(const std::string& host, std::uint16_t port,
                                     const std::string& path,
                                     std::chrono::milliseconds timeout = std::chrono::seconds(5));
+
+enum class HttpStatus { pending, done, failed };
+
+// Non-blocking request for interactive code. Natively the blocking call runs on a worker thread;
+// on web it is an emscripten_fetch. poll() never blocks. Destroying a pending task is safe: the
+// native worker is joined as std::future would, the web fetch is aborted.
+class HttpTask {
+ public:
+  HttpTask();
+  HttpTask(HttpTask&&) noexcept;
+  HttpTask& operator=(HttpTask&&) noexcept;
+  HttpTask(const HttpTask&) = delete;
+  HttpTask& operator=(const HttpTask&) = delete;
+  ~HttpTask();
+
+  // Same contract as http_post: done only for 2xx; any other status fails with the http_post text.
+  [[nodiscard]] static HttpTask post(const std::string& host, std::uint16_t port,
+                                     const std::string& path, FormFields fields,
+                                     std::chrono::milliseconds timeout = std::chrono::seconds(10));
+  // Same contract as http_get: done for any status; failed only on connection, timeout or framing.
+  [[nodiscard]] static HttpTask get(const std::string& host, std::uint16_t port,
+                                    const std::string& path,
+                                    std::chrono::milliseconds timeout = std::chrono::seconds(5));
+
+  // False for a default-constructed task. Assigning HttpTask() releases a finished request.
+  [[nodiscard]] bool valid() const { return state_ != nullptr; }
+  [[nodiscard]] HttpStatus poll();
+  // Valid after poll() returns done.
+  [[nodiscard]] const HttpResponse& response() const;
+  [[nodiscard]] const std::string& body() const;
+  // Valid after poll() returns failed.
+  [[nodiscard]] const std::string& error() const;
+
+ private:
+  struct State;
+  std::unique_ptr<State> state_;
+};
 }

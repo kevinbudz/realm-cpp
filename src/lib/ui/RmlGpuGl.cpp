@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include "../../stage3D/gl/GlApi.hpp"
 #include "RmlGpu.hpp"
 #include <RmlUi/Core.h>
 #include "RmlUi_Renderer_GL3.h"
@@ -76,19 +76,23 @@ class GlRmlGpu final : public RmlGpu {
     if (!RmlGL3::Initialize()) {
       throw std::runtime_error("RmlUi GL3 initialization failed");
     }
+#if !REALM_GLES
     std::array<GLuint, 4> ids{};
     glGenQueries(static_cast<GLsizei>(ids.size()), ids.data());
     for (std::size_t i = 0; i < ids.size(); ++i) {
       queries_[i].id = ids[i];
     }
+#endif
   }
 
   void shutdown() noexcept override {
+#if !REALM_GLES
     if (queries_[0].id) {
       for (auto& query : queries_) {
         glDeleteQueries(1, &query.id);
       }
     }
+#endif
   }
 
   [[nodiscard]] int max_texture_size() const override {
@@ -144,7 +148,11 @@ class GlRmlGpu final : public RmlGpu {
 
   [[nodiscard]] bool frame_reused() const override { return render_.frame_reused(); }
 
+  // GL_TIME_ELAPSED is not in GLES 3.0: WebGL 2 reports no RmlUi GPU time, so the timers stay idle.
   [[nodiscard]] bool begin_timer() override {
+#if REALM_GLES
+    return false;
+#else
     for (auto& query : queries_) {
       if (!query.pending) {
         active_ = &query;
@@ -153,15 +161,21 @@ class GlRmlGpu final : public RmlGpu {
       }
     }
     return false;
+#endif
   }
 
   void end_timer() override {
+#if !REALM_GLES
     glEndQuery(GL_TIME_ELAPSED);
     active_->pending = true;
     active_->order = ++query_order_;
+#endif
   }
 
   [[nodiscard]] std::optional<double> poll_timers_ms() override {
+#if REALM_GLES
+    return std::nullopt;
+#else
     Query* oldest = nullptr;
     for (auto& query : queries_) {
       if (query.pending && (!oldest || query.order < oldest->order)) {
@@ -180,6 +194,7 @@ class GlRmlGpu final : public RmlGpu {
     glGetQueryObjectui64v(oldest->id, GL_QUERY_RESULT, &nanoseconds);
     oldest->pending = false;
     return static_cast<double>(nanoseconds) / 1e6;
+#endif
   }
 
   void reset_bindings() noexcept override {
@@ -200,8 +215,8 @@ class GlRmlGpu final : public RmlGpu {
 
   HostRender render_;
   std::array<Query, 4> queries_{};
-  Query* active_{};
-  std::uint64_t query_order_{};
+  [[maybe_unused]] Query* active_{};
+  [[maybe_unused]] std::uint64_t query_order_{};
 };
 }  // namespace
 
@@ -209,12 +224,21 @@ std::unique_ptr<RmlGpu> make_rml_gpu(const HudArt* art) {
   if (gfx::active_api() == gfx::Api::vulkan) {
     return make_vulkan_rml_gpu(art);
   }
+  if (gfx::active_api() == gfx::Api::webgpu) {
+#if REALM_WEBGPU_ENABLED
+    return make_webgpu_rml_gpu(art);
+#else
+    // GL has no context on the WebGPU canvas, so this fails the client's construction instead of drawing through GL.
+    throw std::runtime_error("RmlUi WebGPU backend not available in this build");
+#endif
+  }
   return std::make_unique<GlRmlGpu>(art);
 }
 
 void release_texture_after_teardown(Rml::TextureHandle texture) noexcept {
+  // Vulkan and WebGPU handles are table indices, freed with their device.
   auto id = static_cast<GLuint>(texture);
-  if (id) {
+  if (id && gfx::active_api() == gfx::Api::opengl) {
     glDeleteTextures(1, &id);
   }
 }

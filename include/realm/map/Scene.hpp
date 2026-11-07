@@ -33,6 +33,10 @@ class Scene {
     name_labels_.clear();
   }
 
+  // Drops the bitmaps of names, signs and status text, which are made at the UI Quality's density
+  // (the caller clears the StatusArt labels too). Their residency slots go back to the atlas.
+  void reset_text_labels();
+
   // Differential oracle: with culling off every entity and particle is built, so a test can prove
   // the camera bounds never drop anything that reaches the viewport. Never disabled in the client.
   void set_culling(bool enabled) { cull_ = enabled; }
@@ -235,17 +239,19 @@ class Scene {
   // SpiderWeb.wallFound_: webs stay hidden until a Wall touches them, then keep that rotation.
   std::unordered_map<std::int32_t, double> webs_;
 
-  // The name label of each entity. A name's bitmap depends only on its text (rasterized at density
-  // 1 whatever the zoom), so the label is reused while the text holds.
+  // The name label of each entity. A name's bitmap depends on its text and the density it was made
+  // at
+  // (the zoom under UI Quality High, 1 under Low), so the label is reused while both hold.
   struct NameLabel {
     std::string text;
     StatusArt::Label label;
+    double scale{};        // the density the bitmap was made at
     std::uint64_t seen{};  // the build that last used it
   };
 
   std::unordered_map<std::int32_t, NameLabel> name_labels_;
   std::uint64_t name_build_{};
-  StatusArt::Label name_label(const Entity& e);
+  StatusArt::Label name_label(const Entity& e, double density);
 
   // One catalog lookup and one depth projection per camera-visible entity, reused by every pass
   // below.
@@ -259,8 +265,15 @@ class Scene {
     std::uint8_t draw_class;  // DrawClass of def, as TypeEntry::draw_class
     // The base texture's sprite, once the shadow pass has read it (draw_impl reuses it: same call,
     // same result).
-    SpriteRegion base_sprite{};
     bool base_sprite_known{};
+    // The animation frame of an animated base texture, once the shadow pass has computed it: the
+    // same character, angle and time, so draw_impl's baked path reuses it (AnimationFrame split
+    // into
+    // its fields, to keep Visible at 56 bytes).
+    bool base_frame_known{};
+    SpriteRegion base_sprite{};
+    std::uint32_t base_frame_image{};
+    std::int32_t base_frame_mask{};
   };
 
   // Per object type, filled on first use for one catalog: the definition and its DrawClass, so

@@ -155,8 +155,12 @@ std::vector<OptionDef> build() {
   options.push_back(toggle(graphics, "allyNotifs", "Ally Notifications",
                      "This toggles whether to show notifications targeted at other players. "
                      "Disable this to improve performance."));
+  // Parameters.data_.quality (UI Quality): sharpness of world text (names, signs, damage text,
+  // speech balloons) under a camera zoom. Live: no restart.
   options.push_back(choice(graphics, "quality", "Quality",
-                     "Enabling this will render UI elements at higher/lower quality.", 1,
+                     "Sharpness of names, signs, damage and balloons when zoomed. High redraws "
+                     "them at each zoom step; Low scales one bitmap.",
+                     1,
                      {{"High", 1}, {"Low", 0}}));
   options.push_back(toggle(graphics, "vsync", "VSync",
                      "Synchronizes rendering with the display refresh to prevent screen tearing."));
@@ -388,6 +392,7 @@ void Settings::reset_all() {
 Preferences Settings::preferences() const {
   Preferences p;
   p.hp_bars = flag("hpBars");
+  p.ui_quality = get("quality") == 0 ? UiQuality::low : UiQuality::high;
   p.particles = flag("particles");
   p.draw_shadows = flag("drawShadows");
   p.proj_outline = flag("projOutline");

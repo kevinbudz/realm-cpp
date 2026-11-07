@@ -66,6 +66,15 @@ void settings_rules(const std::filesystem::path& scratch) {
             s.get("renderer") == static_cast<int>(gfx::Api::opengl) &&
             !find_option("vsync")->restart,
         "Renderer is a restart-required choice (OpenGL, Vulkan), OpenGL by default");
+  // Quality (UI Quality) is read: High by default, Low makes world text once at density 1.
+  check(s.preferences().ui_quality == UiQuality::high &&
+            world_text_density(UiQuality::high) == 0 && world_text_density(UiQuality::low) == 1,
+        "Quality defaults to High");
+  {
+    Settings low = s;
+    check(low.set_choice("quality", 0) && low.preferences().ui_quality == UiQuality::low,
+          "Quality Low reaches the preferences");
+  }
   {
     Settings renderer_copy = s;
     check(renderer_copy.set_choice("renderer", 1) && renderer_copy.get("renderer") == 1 &&

@@ -5,24 +5,6 @@
 
 namespace realm {
 namespace {
-// Sets the font book's density for one rasterization and restores the previous one, so a label can
-// be made at a fixed density whatever the frame's density is.
-class DensityScope {
- public:
-  DensityScope(FontBook& fonts, double density) : fonts_(fonts), saved_(fonts.pixel_scale()) {
-    fonts_.set_pixel_scale(density);
-  }
-
-  ~DensityScope() { fonts_.set_pixel_scale(saved_); }
-
-  DensityScope(const DensityScope&) = delete;
-  DensityScope& operator=(const DensityScope&) = delete;
-
- private:
-  FontBook& fonts_;
-  double saved_;
-};
-
 int texture_height(const ObjectDef& definition) {
   const auto& texture = definition.texture;
   if (texture.animated >= 0 &&
@@ -49,7 +31,7 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
     return it->second.label;
   }
   const auto bitmap = [&] {
-    const DensityScope at(fonts_, scale);
+    const FontBook::DensityScope at(fonts_, scale);
     return fonts_.rasterize_glow(text, size, true, color, strength, blur);
   }();
   Label result{std::make_shared<const Image>(bitmap.image), bitmap.width, bitmap.height,
@@ -68,28 +50,31 @@ StatusArt::Label StatusArt::label(std::string key, std::string_view text, int si
   return result;
 }
 
-StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t color) {
+StatusArt::Label StatusArt::status_text(std::string_view text, std::uint32_t color,
+                                        double density) {
   color &= 0xffffffU;
   // CharacterStatusText: GlowFilter(0,1,4,4,2,1), blur 4 and strength 2.
-  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2, 4);
+  return label("t:" + std::to_string(color) + ':' + std::string(text), text, 24, color, 2, 4,
+               density);
 }
 
-StatusArt::Label StatusArt::name(std::string_view text) {
-  // Density 1 whatever the camera zoom: the scene scales the quad, so a zoom change keeps the same
-  // bitmap (nearest-sampled when zoomed).
-  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2, 1.0);
+StatusArt::Label StatusArt::name(std::string_view text, double density) {
+  // GameObject.drawName: GlowFilter(0,1,3,3,2,1).
+  return label("n:" + std::string(text), text, 16, 0xffffffU, 2, 2, density);
 }
 
-StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size) {
+StatusArt::Label StatusArt::sign_text(std::string_view text, int object_size, double density) {
   if (!text_) {
     return {};
   }
+  const double scale = density > 0 ? density : fonts_.pixel_scale();
   const std::string key = "s:" + std::to_string(object_size) + ':' + std::string(text) + ':' +
-                          std::to_string(fonts_.pixel_scale());
+                          std::to_string(scale);
   if (const auto it = labels_.find(key); it != labels_.end()) {
     lru_.splice(lru_.begin(), lru_, it->second.lru);
     return it->second.label;
   }
+  const FontBook::DensityScope at(fonts_, scale);
   std::string multiline(text);
   std::replace(multiline.begin(), multiline.end(), '|', '\n');
   double widest{};
@@ -139,6 +124,19 @@ void StatusArt::clear() {
   bytes_ = 0;
 }
 
+void StatusArt::clear_labels() {
+  labels_.clear();
+  lru_.clear();
+  bytes_ = 0;
+}
+
+void StatusTexts::drop_labels() {
+  for (auto& text : texts_) {
+    text.label = {};
+    text.label_scale = 0;
+  }
+}
+
 void StatusTexts::add(const World& world, StatusEvent event) {
   const auto* object = world.entity(event.object_id);
   if (!object) {
@@ -175,9 +173,13 @@ void StatusTexts::update(const World& world, StatusArt& art, std::int32_t time) 
     if (static_cast<std::int64_t>(time) - text.start > text.lifetime) {
       return true;
     }
-    if (!text.label.image || text.label_scale != art.scale()) {
-      text.label = art.status_text(text.text, text.color);
-      text.label_scale = art.scale();
+    // Made at the UI Quality's density: the zoom under High (made again when it changes), 1 under
+    // Low.
+    const double density = world_text_density(world.preferences().ui_quality);
+    const double scale = density > 0 ? density : art.scale();
+    if (!text.label.image || text.label_scale != scale) {
+      text.label = art.status_text(text.text, text.color, density);
+      text.label_scale = scale;
     }
     return false;
   });

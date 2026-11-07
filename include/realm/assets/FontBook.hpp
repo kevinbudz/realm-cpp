@@ -99,6 +99,24 @@ class FontBook {
 
   [[nodiscard]] double pixel_scale() const { return pixel_scale_; }
 
+  // Sets the density for one scope and restores the previous one, so a label can be made at a fixed
+  // density whatever the frame's density is.
+  class DensityScope {
+   public:
+    DensityScope(FontBook& fonts, double density) : fonts_(fonts), saved_(fonts.pixel_scale()) {
+      fonts_.set_pixel_scale(density);
+    }
+
+    ~DensityScope() { fonts_.set_pixel_scale(saved_); }
+
+    DensityScope(const DensityScope&) = delete;
+    DensityScope& operator=(const DensityScope&) = delete;
+
+   private:
+    FontBook& fonts_;
+    double saved_;
+  };
+
   // Animated text is rasterized at its current physical size, including at 1x.
   [[nodiscard]] TextBitmap rasterize_at_scale(std::string_view text, int size, double scale,
                                               bool bold = false, bool shadow = false,

@@ -792,14 +792,18 @@ void Scene::emit_wall(std::vector<Quad>& out, WallRange& range,
 // named entity keeps its label until its text changes. Names are rasterized at density 1 for every
 // zoom, so the label does not depend on the camera. Cleared at a size bound (rebuilt labels are
 // identical: the bitmap is a function of the text).
-StatusArt::Label Scene::name_label(const Entity& e) {
+StatusArt::Label Scene::name_label(const Entity& e, double density) {
   constexpr std::size_t maximum_name_labels = 8192;
+  // The density the bitmap is made at: the one given, or the font book's (the zoom while the scene
+  // builds).
+  const double scale = density > 0 ? density : status_art_->scale();
   if (const auto found = name_labels_.find(e.id);
-      found != name_labels_.end() && found->second.text == e.profile.name) {
+      found != name_labels_.end() && found->second.text == e.profile.name &&
+      found->second.scale == scale) {
     found->second.seen = name_build_;
     return found->second.label;
   }
-  auto label = status_art_->name(e.profile.name);
+  auto label = status_art_->name(e.profile.name, density);
   if (name_labels_.size() >= maximum_name_labels) {
     // Ids of entities that left are never reused soon: drop the entries no recent build used, and
     // only clear when that frees nothing.
@@ -809,8 +813,20 @@ StatusArt::Label Scene::name_label(const Entity& e) {
       name_labels_.clear();
     }
   }
-  name_labels_[e.id] = NameLabel{e.profile.name, label, name_build_};
+  name_labels_[e.id] = NameLabel{e.profile.name, label, scale, name_build_};
   return label;
+}
+
+void Scene::reset_text_labels() {
+  name_labels_.clear();
+  for (const auto& item : resident_labels_) {
+    residency_.erase(item.second.id);
+    resident_owners_.erase(item.second.id);
+  }
+  resident_labels_.clear();
+  status_list_.clear();
+  status_surfaces_.clear();
+  status_surface_bytes_ = 0;
 }
 
 void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
@@ -1024,6 +1040,9 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     return found;
   }();
   TextureDef hallucinated;
+  // The density of names, signs and status text: 1 under UI Quality Low, the zoom (0 here) under
+  // High.
+  const double text_density = world_text_density(world.preferences().ui_quality);
   auto draw_impl = [&](const Entity& e, const ObjectDef& d, const Visible* visible) {
     const auto kind =
         visible ? static_cast<DrawClass>(visible->draw_class) : draw_class(d.class_name);
@@ -1095,7 +1114,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
       if (!status_art_ || e.profile.name.empty()) {
         return;
       }
-      const auto label = status_art_->sign_text(e.profile.name, e.appearance.size);
+      const auto label = status_art_->sign_text(e.profile.name, e.appearance.size, text_density);
       if (!label.image) {
         return;
       }
@@ -1309,8 +1328,11 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     if (baked) {
       const auto& chosen = tex->select(static_cast<std::uint32_t>(e.id));
       const auto* character = animations.character(chosen.animated, chosen.index);
-      const auto frame =
-          character ? animation_frame(*character, &e, angle, time) : AnimationFrame{};
+      // The shadow pass may have computed this entity's frame for the same base texture.
+      const auto frame = !character ? AnimationFrame{}
+                         : visible && visible->base_frame_known && tex == base_texture
+                             ? AnimationFrame{visible->base_frame_image, visible->base_frame_mask}
+                             : animation_frame(*character, &e, angle, time);
       // The processed-texture key is a string: build it only when a processed set exists and the
       // object is undyed.
       const auto processed_key =
@@ -1384,8 +1406,13 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     const int tile_x = static_cast<int>(std::floor(e.motion.position.x));
     const int tile_y = static_cast<int>(std::floor(e.motion.position.y));
     const auto* square = world.tile(tile_x, tile_y);
+    // Only a ground with the sink property has a terrain sink (Terrain::compose gives 0 otherwise),
+    // so the composition is consulted for those tiles alone.
     if (terrain && square) {
-      sink += terrain->tile(tile_x, tile_y).sink;
+      const auto* ground = world.catalog().ground(square->type);
+      if (ground && square->type != 255 && ground->sink) {
+        sink += terrain->tile(tile_x, tile_y).sink;
+      }
     }
     // Flying, or standing on a protected object, cancels the sink; a zero sink has nothing to
     // cancel.
@@ -1445,7 +1472,7 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     if (status_art_ && !e.profile.name.empty() &&
         (d.show_name || d.nexus_portal || (d.player && e.id != world.player_id()))) {
       // GameObject.drawName: the name bitmap is centered on the object, top at its ground position.
-      const auto label = name_label(e);
+      const auto label = name_label(e, text_density);
       if (label.image) {
         const auto ground = camera.world_to_screen(e.motion.position);
         const double image_w = label.image->width / label.image->pixel_scale,
@@ -1534,9 +1561,24 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
   const auto base_sprite_height = [&](Visible& visible, const ObjectDef& d) {
     if (!visible.base_sprite_known) {
       const auto& e = *visible.entity;
-      visible.base_sprite = texture(
-          e.player ? world.catalog().player_texture(e.type, e.appearance.texture) : d.texture,
-          static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
+      const auto& base =
+          e.player ? world.catalog().player_texture(e.type, e.appearance.texture) : d.texture;
+      // texture() for an animated base: the same selection, frame and atlas entry, with the frame
+      // kept for the baked path.
+      const auto& selected = base.select(static_cast<std::uint32_t>(e.id));
+      const auto* character = selected.animated >= 0
+                                  ? animations.character(selected.animated, selected.index)
+                                  : nullptr;
+      if (character) {
+        const auto frame = animation_frame(*character, &e, angle, time);
+        visible.base_frame_image = static_cast<std::uint32_t>(frame.image);
+        visible.base_frame_mask = frame.mask;
+        visible.base_frame_known = true;
+        visible.base_sprite = atlas.additional(frame.image);
+      } else {
+        visible.base_sprite =
+            texture(base, static_cast<std::uint32_t>(e.id), &e, angle, time, atlas, animations);
+      }
       visible.base_sprite_known = true;
     }
     return visible.base_sprite.height;

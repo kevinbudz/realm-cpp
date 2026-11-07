@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <string>
+#include <string_view>
 
 namespace realm {
 namespace {
@@ -28,6 +31,28 @@ bool inside(const HudRect& r, Vec2 p) {
 // "Option.x/y": two columns, 44 design units apart, spacer sprites count as cells.
 Vec2 cell(std::size_t index) {
   return {index % 2 == 0 ? 20.0 : 415.0, static_cast<double>(index / 2) * 44 + 122};
+}
+
+// The Renderer tooltip shows a fallback reason no longer than this, cut at a word; the full reason
+// stays in the log.
+constexpr std::size_t reason_limit = 32;
+
+// The first clause of a fallback reason ("Vulkan loader" for an SDL loader error), shortened to
+// reason_limit.
+std::string short_reason(std::string_view reason) {
+  auto clause = reason.substr(0, reason.find(':'));
+  while (!clause.empty() && clause.back() == ' ') {
+    clause.remove_suffix(1);
+  }
+  if (clause.empty()) {
+    clause = reason;
+  }
+  if (clause.size() <= reason_limit) {
+    return std::string(clause);
+  }
+  clause = clause.substr(0, reason_limit);
+  clause = clause.substr(0, clause.find_last_of(' '));
+  return std::string(clause) + "...";
 }
 
 std::size_t choice_index(const OptionDef& option, int value) {
@@ -360,7 +385,7 @@ bool OptionsScreen::update(const FontBook& fonts, double width, double height,
         if (const auto& fallback = gfx::fallback()) {
           text += " Using " + std::string(gfx::api_name(active)) + ": " +
                   std::string(gfx::api_name(fallback->requested)) + " unavailable (" +
-                  fallback->reason + ").";
+                  short_reason(fallback->reason) + ").";
         } else if (const auto flag = gfx::command_line_api()) {
           text += " This run uses " + std::string(gfx::api_name(*flag)) +
                   " from --renderer; the saved " + std::string(gfx::api_name(saved)) +

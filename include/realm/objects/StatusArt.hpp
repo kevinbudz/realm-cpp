@@ -32,10 +32,14 @@ class StatusArt {
   StatusArt(FontBook& fonts, const Appearances* appearances, bool text = true)
       : fonts_(fonts), appearances_(appearances), text_(text) {}
 
-  [[nodiscard]] Label status_text(std::string_view text, std::uint32_t color);
-  [[nodiscard]] Label name(std::string_view text);
+  // density: the density the bitmap is made at. 0 means the font book's current density, which is
+  // the
+  // camera zoom while the scene builds (UI Quality High); a positive value is used as it is (Low:
+  // 1).
+  [[nodiscard]] Label status_text(std::string_view text, std::uint32_t color, double density = 0);
+  [[nodiscard]] Label name(std::string_view text, double density = 0);
   // Sign.getTexture: centered 24 px bold white text; `|` starts a new TextField line.
-  [[nodiscard]] Label sign_text(std::string_view text, int object_size);
+  [[nodiscard]] Label sign_text(std::string_view text, int object_size, double density = 0);
   [[nodiscard]] std::shared_ptr<const Image> icon(int frame);
 
   [[nodiscard]] double scale() const { return fonts_.pixel_scale(); }
@@ -47,6 +51,8 @@ class StatusArt {
   [[nodiscard]] std::uint64_t evictions() const { return evictions_; }
 
   void clear();
+  // Drops the text labels only (the icons do not depend on the UI Quality).
+  void clear_labels();
 
  private:
   struct Entry {
@@ -90,6 +96,8 @@ class StatusTexts {
   void add(const World& world, StatusEvent event);
 
   void clear() { texts_.clear(); }
+  // Drops every text's bitmap, so each is made again on the next update (a UI Quality change).
+  void drop_labels();
 
   // Starts new timers, rasterizes visible labels, drops expired texts and those whose object left.
   void update(const World& world, StatusArt& art, std::int32_t time);

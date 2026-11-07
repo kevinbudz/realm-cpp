@@ -436,11 +436,6 @@ std::vector<net::Packet> Combat::update(std::int32_t time) {
           }
           const int damage = damage_with_defense(projectile.damage, target->combat.defense,
                                                  definition.armor_piercing, target->combat.condition);
-          // Projectile.damage plays the target's hit sound even when Ally Damage drops the report
-          // for enemies.
-          if (!world_.preferences().ally_damage && target->id != world_.player_id()) {
-            world_.sound_hit(target->id);
-          }
           world_.report_damage(target->id, damage, time, {}, definition.armor_piercing,
                                projectile.angle, definition.motion.speed);
         }

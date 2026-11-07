@@ -109,6 +109,7 @@ struct ClientState {
   void apply_settings();
   void save_settings();
   void open_options();
+  void set_fullscreen(bool on);
   void reset_perf();
   void sample_perf(Clock::time_point presented);
   std::optional<realm::Quad> perf_quad(int height);
@@ -277,6 +278,8 @@ struct ClientState {
   bool running = true;
   bool leaving_game{};
   bool applied_centering;
+  // The fullscreenMode value apply_settings last applied to the window (unset before the first).
+  std::optional<bool> applied_fullscreen;
   bool autofire{};
   bool perf_stats{};
   // The UI Quality the world text caches were last made for (a change drops them).

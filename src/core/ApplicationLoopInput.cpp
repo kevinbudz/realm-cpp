@@ -460,7 +460,7 @@ void dispatch_events(ClientState& cs, const Options& options, Frame& f) {
       if (fresh && bound("toggleFullscreenMode") && !options.hidden) {
         const bool fullscreen = (SDL_GetWindowFlags(cs.session.window) &
                                  (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
-        SDL_SetWindowFullscreen(cs.session.window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+        cs.set_fullscreen(!fullscreen);
       }
       // C toggles centering outside the startup flow (the test-only modes).
       if (key == SDLK_c && !cs.startup) {

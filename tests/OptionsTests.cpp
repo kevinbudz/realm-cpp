@@ -40,6 +40,42 @@ int find(const OptionsScreen& screen, std::string_view param) {
   return -1;
 }
 
+// Draw Shadows is a choice under the saved key drawShadows: a saved 0 is Off and 1 On (High), the
+// values the old toggle wrote, and Minimal is 2.
+void shadow_rules(const std::filesystem::path& scratch) {
+  const auto* shadows = find_option("drawShadows");
+  check(shadows && shadows->kind == OptionDef::Kind::choice && shadows->tab == OptionsTab::graphics &&
+            shadows->fallback == 1 &&
+            shadows->choices ==
+                std::vector<std::pair<std::string_view, int>>{{"On", 1}, {"Minimal", 2}, {"Off", 0}},
+        "Draw Shadows is a graphics choice (On, Minimal, Off), defaulting to On");
+  Settings s;
+  check(s.preferences().shadows == ShadowQuality::high, "Shadows defaults to High");
+  check(s.set_choice("drawShadows", 0) && s.preferences().shadows == ShadowQuality::off &&
+            s.set_choice("drawShadows", 2) && s.preferences().shadows == ShadowQuality::minimal &&
+            s.set_choice("drawShadows", 1) && s.preferences().shadows == ShadowQuality::high,
+        "each Shadows value reaches the preferences");
+  check(!s.set_choice("drawShadows", 3) && !s.set_choice("drawShadows", -1) &&
+            s.get("drawShadows") == 1,
+        "Shadows rejects values outside its choices");
+  for (const auto [saved, expected] :
+       {std::pair{0, ShadowQuality::off}, std::pair{1, ShadowQuality::high},
+        std::pair{2, ShadowQuality::minimal}}) {
+    {
+      std::ofstream file(scratch / "shadows.json");
+      file << R"({"values":{"drawShadows":)" << saved << "}}";
+    }
+    check(Settings::load(scratch / "shadows.json").preferences().shadows == expected,
+          "a saved Shadows value loads (0 Off, 1 High, 2 Minimal)");
+  }
+  {
+    std::ofstream file(scratch / "shadows.json");
+    file << R"({"values":{"drawShadows":7}})";
+  }
+  check(Settings::load(scratch / "shadows.json").preferences().shadows == ShadowQuality::high,
+        "an invalid saved Shadows falls back to High");
+}
+
 void settings_rules(const std::filesystem::path& scratch) {
   Settings s;
   check(s.get("moveUp") == 87 && s.get("moveLeft") == 65 && s.get("moveDown") == 83 &&
@@ -397,6 +433,7 @@ int main(int argc, char** argv) {
     }
     std::filesystem::create_directories(argv[1]);
     settings_rules(argv[1]);
+    shadow_rules(argv[1]);
     FontBook fonts;
     screen_behavior(fonts);
     std::cout << "Options checks: " << checks << '\n';

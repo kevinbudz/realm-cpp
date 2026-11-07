@@ -348,9 +348,14 @@ void ClientState::apply_settings() {
   realm::set_present_interval(settings.flag("vsync") ? 1 : 0);
   const bool fullscreen = (SDL_GetWindowFlags(session.window) &
                            (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
-  if (!o.hidden && settings.flag("fullscreenMode") != fullscreen) {
-    SDL_SetWindowFullscreen(session.window,
-                            settings.flag("fullscreenMode") ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+  // fullscreenMode is applied when it changes, not on every call: the hotkeys that call this would
+  // otherwise undo a window that was made fullscreen another way, such as by the window manager.
+  if (!o.hidden && settings.flag("fullscreenMode") != applied_fullscreen) {
+    applied_fullscreen = settings.flag("fullscreenMode");
+    if (*applied_fullscreen != fullscreen) {
+      SDL_SetWindowFullscreen(session.window,
+                              *applied_fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    }
   }
   if (!o.hidden && persist_settings) {
     cursors.select(settings.get("cursor"));
@@ -362,6 +367,13 @@ void ClientState::save_settings() {
   if (persist_settings && !settings.save(settings_path)) {
     std::cerr << "Cannot write settings " << settings_path << '\n';
   }
+}
+
+// The toggle key changes the setting, so apply_settings sees the change.
+void ClientState::set_fullscreen(bool on) {
+  settings.set_choice("fullscreenMode", on ? 1 : 0);
+  apply_settings();
+  save_settings();
 }
 
 // MapUserInput.clearInput, then the Options screen (the key, or CharacterDetailsView's button).

@@ -163,9 +163,10 @@ void hit_sounds(const realm::Catalog& catalog) {
   realm::Preferences quiet;
   quiet.ally_damage = false;
   world.set_preferences(quiet);
+  // Ally Damage drops the server's damage packets (Session), not the player's own projectile hits.
   world.report_damage(55, 5, 200);
-  check(world.sounds().size() == 0,
-        "Ally Damage off drops the other object's damage report and its hit sound");
+  check(same(names_of(world.sounds()), {"monster/pirates_hit"}),
+        "own hit on another object plays its HitSound with Ally Damage off");
   world.report_damage(99, 5, 200);
   check(same(names_of(world.sounds()), {"player/wizard_hit"}),
         "own damage still plays with Ally Damage off");
@@ -390,6 +391,36 @@ void playsound_packet(const realm::Catalog& catalog) {
         "PLAYSOUND plays the server's sound name");
 }
 
+// GameServerConnection.onDamage: a server DAMAGE packet for another object is dropped with its sound
+// when Ally Damage is off; one for the player still plays its HitSound.
+void damage_packet_filter(const realm::Catalog& catalog) {
+  realm::World world(catalog);
+  world.initialize(8, 8);
+  const auto* wizard = catalog.object("Wizard");
+  const auto* pirate = catalog.object("Pirate");
+  world.add(99, wizard->type, {2.5, 2.5});
+  world.set_player_id(99);
+  world.add(55, pirate->type, {3.5, 3.5});
+  realm::Preferences quiet;
+  quiet.ally_damage = false;
+  world.set_preferences(quiet);
+  realm::Session session(world, [](const realm::net::Packet&) {}, realm::SessionOptions{});
+  const auto damage_to = [](std::int32_t target) {
+    realm::net::Writer body;
+    body.i32(target);
+    body.u8(0);
+    body.u16(5);
+    return realm::net::Packet{static_cast<std::uint8_t>(realm::flash::PacketId::DAMAGE),
+                              body.bytes()};
+  };
+  session.replay(damage_to(55), 300);
+  check(world.sounds().size() == 0,
+        "a server damage packet for another object plays no sound with Ally Damage off");
+  session.replay(damage_to(99), 300);
+  check(same(names_of(world.sounds()), {"player/wizard_hit"}),
+        "a server damage packet for the player plays its HitSound");
+}
+
 void map_change_cancels(const realm::Catalog& catalog) {
   (void)catalog;
   // A load that cannot succeed keeps the play pending until the next service pass, so the cancel is
@@ -424,12 +455,13 @@ int main() {
     special_key_latch(catalog);
     inventory_failure(catalog);
     playsound_packet(catalog);
+    damage_packet_filter(catalog);
     map_change_cancels(catalog);
     std::cout << "Audio events: " << checks
               << " checks passed (queue cap, catalog Hit/Death/OldSound/Loot, hit with ally "
                  "filter, death, own level-up, "
                  "loot, preload, weapon volley, ability and inventory errors, PLAYSOUND, "
-                 "map-change cancel)\n";
+                 "DAMAGE filter, map-change cancel)\n";
     return 0;
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

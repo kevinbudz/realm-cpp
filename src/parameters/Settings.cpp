@@ -142,7 +142,10 @@ std::vector<OptionDef> build() {
                      std::move(cursors)));
   // Options.addGraphicsOptions. Hardware Acceleration is shown only when the GPU path can
   // fail over; the native renderer is always the GPU path.
-  options.push_back(toggle(graphics, "drawShadows", "Draw Shadows", "This toggles whether to draw shadows"));
+  // Saved 0 is Off and 1 On, as the Flash toggle wrote them; Minimal (2) skips projectile shadows.
+  options.push_back(choice(graphics, "drawShadows", "Draw Shadows",
+                     "This toggles whether to draw shadows. Minimal skips projectile shadows.", 1,
+                     {{"On", 1}, {"Minimal", 2}, {"Off", 0}}));
   options.push_back(toggle(graphics, "particles", "Particles",
                      "If enabled, particles which are not necessary for gameplay are rendered "
                      "(e.g. hit/death particles)."));
@@ -394,7 +397,11 @@ Preferences Settings::preferences() const {
   p.hp_bars = flag("hpBars");
   p.ui_quality = get("quality") == 0 ? UiQuality::low : UiQuality::high;
   p.particles = flag("particles");
-  p.draw_shadows = flag("drawShadows");
+  // Shadows: 0 is Off, 2 Minimal and 1 On (High), so a saved Off or On keeps its meaning.
+  const int shadows = get("drawShadows");
+  p.shadows = shadows == 0   ? ShadowQuality::off
+              : shadows == 2 ? ShadowQuality::minimal
+                             : ShadowQuality::high;
   p.proj_outline = flag("projOutline");
   p.text_bubbles = flag("textBubbles");
   p.ally_shots = flag("allyShots");

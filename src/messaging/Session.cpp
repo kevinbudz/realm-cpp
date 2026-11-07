@@ -233,6 +233,11 @@ void Session::receive(net::Event event, std::int32_t time) {
       break;
     case flash::PacketId::DAMAGE: {
       const auto& damage = std::get<incoming::Damage>(event.data);
+      // GameServerConnection.onDamage: server damage to other objects is dropped when Ally Damage
+      // is off. The player's own projectile hits do not come through here.
+      if (!world_.preferences().ally_damage && damage.target_id != world_.player_id()) {
+        break;
+      }
       world_.report_damage(damage.target_id, damage.damage, time, damage.effects);
       break;
     }

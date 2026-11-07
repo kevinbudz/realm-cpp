@@ -59,12 +59,16 @@ enum class UiQuality : std::uint8_t { low, high };
   return quality == UiQuality::low ? 1.0 : 0.0;
 }
 
+// Shadows: which ground shadows are drawn. Minimal keeps every shadow but a projectile's, and more
+// kinds can move under it later.
+enum class ShadowQuality : std::uint8_t { off, minimal, high };
+
 // Settings the game systems read each frame.
 struct Preferences {
   bool hp_bars{true};
   UiQuality ui_quality{UiQuality::high};
   bool particles{true};
-  bool draw_shadows{true};
+  ShadowQuality shadows{ShadowQuality::high};
   bool proj_outline{true};
   bool text_bubbles{true};
   bool ally_shots{true};

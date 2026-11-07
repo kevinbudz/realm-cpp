@@ -69,9 +69,11 @@ void damage() {
   f.world.report_damage(2, 10, 0);
   check(f.world.take_status_events().size() == 1, "ally damage is shown by default");
   f.apply([](Settings& s) { s.set_choice("allyDamage", 0); });
+  // Ally Damage drops only the server's damage packets for others (Session), so the player's own
+  // hits show.
   f.world.report_damage(2, 10, 0);
-  check(f.world.take_status_events().empty() && f.world.damage_cues().size() == 1,
-        "Ally Damage off drops damage to others");
+  check(f.world.take_status_events().size() == 1,
+        "Ally Damage off still shows the player's own hits on others");
   f.world.report_damage(1, 10, 0);
   check(f.world.take_status_events().size() == 1, "damage to the player is always shown");
 }
@@ -192,7 +194,7 @@ void tiers() {
   f.apply([](Settings& s) { s.set_choice("showTierTag", 0); });
   check(!HudState::player(f.world, *f.world.entity(1)).inventory.tiers,
         "Show Tier Tag off reaches the HUD");
-  check(f.world.preferences().hp_bars && f.world.preferences().draw_shadows &&
+  check(f.world.preferences().hp_bars && f.world.preferences().shadows == ShadowQuality::high &&
             f.world.preferences().text_bubbles,
         "unrelated flags unchanged");
 }

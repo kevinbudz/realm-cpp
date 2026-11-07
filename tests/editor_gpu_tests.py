@@ -3,6 +3,7 @@
 import argparse
 import base64
 import json
+import os
 import select
 import socket
 import struct
@@ -147,34 +148,39 @@ with tempfile.TemporaryDirectory(prefix='realm-editor-gpu-') as temporary, socke
     add(2200, 'up 366 300')
     add(2250, 'move 300 60')
     shot(2500, 'painted')
+    # Each mouse event is one undo step: the press and the move each paint one tile, so the drag takes two.
     add(2600, 'key U')
+    add(2650, 'key U')
     shot(2800, 'undone')
     add(2900, 'key R')
+    add(2950, 'key R')
     shot(3100, 'redone')
+    # REALM_FILE_DIALOG_RESULT answers each system picker with the saved path, so Save and Load need no GUI.
     add(3200, 'key S')
-    for index in range(8):
-        add(3300 + index * 15, 'key Backspace')
-    add(3500, f'text {saved}')
-    add(3700, 'key Return')
     shot(4000, 'saved')
     add(4100, 'key C')
     shot(4400, 'cleared')
     add(4500, 'key L')
-    add(4700, 'key Return')
     shot(5000, 'loaded')
     add(5300, 'key T')
     shot(6500, 'playing')
     shot(8000, 'returned')
     add(8200, 'resize 1600 1200')
     shot(8800, 'resized')
-    add(9000, 'quit')
+    add(8900, 'resize 800 600')
+    # The account header's last link is "back" on the editor screen.
+    add(9200, 'click 765 14')
+    shot(9600, 'exited')
+    add(9800, 'quit')
     script = temp / 'actions.txt'
     script.write_text('\n'.join(actions) + '\n')
+    # Test-only: the file picker returns this path at once instead of opening a system dialog.
+    client_env = {**os.environ, 'REALM_FILE_DIALOG_RESULT': str(saved)}
     result = subprocess.run([str(args.binary_dir.resolve().parent / 'realm_client'), '--hidden', '--server', '127.0.0.1',
                              '--app-port', str(http.server_port), '--port', str(listener.getsockname()[1]),
                              '--account-file', str(account), '--settings-file', str(temp / 'settings.json'),
                              '--audio', 'off', '--script', str(script)], cwd=ROOT, text=True,
-                            capture_output=True, timeout=25)
+                            capture_output=True, timeout=25, env=client_env)
     (OUT / 'client.log').write_text(result.stdout + result.stderr)
     game_thread.join(5)
     http.shutdown()
@@ -196,6 +202,7 @@ assert ImageChops.difference(pixels('empty').crop(box), pixels('painted').crop(b
 assert ImageChops.difference(pixels('empty').crop(box), pixels('undone').crop(box)).getbbox() is None, 'undo did not clear gesture'
 assert ImageChops.difference(pixels('painted').crop(box), pixels('redone').crop(box)).getbbox() is None, 'redo did not restore gesture'
 assert ImageChops.difference(pixels('cleared').crop((360, 300, 440, 370)), pixels('loaded').crop((360, 300, 440, 370))).getbbox(), 'load did not restore the centered map'
-assert ImageChops.difference(pixels('loaded').crop((144, 78, 656, 590)), pixels('returned').crop((144, 78, 656, 590))).getbbox() is None, 'test return lost editor document'
+assert ImageChops.difference(pixels('loaded').crop((144, 78, 656, 590)), pixels('returned').crop((144, 78, 656, 590))).getbbox() is None, 'test return did not restore the editor document cleanly (a leftover error frame also fails this)'
 assert pixels('resized').size == (1600, 1200), 'editor resize was not presented'
+assert ImageChops.difference(pixels('returned').crop((15, 78, 95, 403)), pixels('exited').crop((15, 78, 95, 403))).getbbox(), 'back link did not leave the editor'
 print('Editor startup, actual artwork, paint/undo/redo, file save/load, HELLO/LOAD map test, reconnect return and resize passed')

@@ -699,6 +699,10 @@ void StartupViewModel::account_header(const StartupScreenState& state) {
              {" - ", -1},
              {"log in", login_action}};
   }
+  // Flash's editor has no way back to the title screen; here the last link returns there instead.
+  if (state.screen_ == Screen::editor) {
+    parts.back() = {"back", back_action};
+  }
 
   double x{};
   for (auto part = parts.rbegin(); part != parts.rend(); ++part) {
@@ -1284,7 +1288,15 @@ void StartupViewModel::rebuild(StartupScreenState& state, bool busy) {
       legends_screen(state, busy);
       break;
     case Screen::editor:
-      menu_frame(true);
+      // MenuBackground only: the dim and the SoundIcon, with no MenuFrame glow band or bottom bar.
+      {
+        auto& dim = add_solid(0, 0, 0, 600, 0x2B2B2B, .8);
+        dim.anchor = Anchor::window;
+        dim.full_width = true;
+      }
+      if (art_) {
+        sound_icon();
+      }
       if (state.editor_) {
         add_bitmap(state.editor_->image(), state.editor_->revision(), 0, 0, 800, 600);
       }

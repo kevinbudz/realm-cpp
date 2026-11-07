@@ -200,6 +200,8 @@ if(BUILD_TESTING)
         SOURCES tests/MapDocumentTests.cpp LINK realm_game)
     realm_add_test(NAME editor_screen TARGET realm_editor_screen_tests LABELS unit
         SOURCES tests/EditorScreenTests.cpp LINK realm_ui)
+    realm_add_test(NAME file_dialog TARGET realm_file_dialog_tests LABELS unit
+        SOURCES tests/FileDialogTests.cpp LINK realm_platform)
     realm_add_test(NAME tutorial TARGET realm_tutorial_tests LABELS unit
         SOURCES tests/TutorialTests.cpp LINK realm_ui)
     realm_add_test(NAME particles TARGET realm_particle_tests LABELS unit

@@ -116,6 +116,13 @@ bool number(std::string_view text, int& value) {
   return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
 }
 
+// A sheet index with a backing image. The "invisible" set has none; MEMap draws it with the
+// lofiObj3 replacement instead.
+bool drawable_sheet(int sheet) {
+  return sheet >= 0 && static_cast<std::size_t>(sheet) < flash::sheets.size() &&
+         flash::sheets[static_cast<std::size_t>(sheet)].asset >= 0;
+}
+
 // Parses `prefix` followed by an integer in [low, high].
 bool keyed(std::string_view key, std::string_view prefix, int low, int high, int& value) {
   return key.starts_with(prefix) && number(key.substr(prefix.size()), value) && value >= low &&
@@ -585,6 +592,23 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
     const auto* definition = object(type);
     return definition && definition->class_name == "Equipment" ? definition : nullptr;
   };
+  // Map-editor element tiles use the redrawn object texture, ObjectElement's
+  // getRedrawnTextureFromType(type, 100, true, false).
+  if (keyed(key, "editorelement", 0, 65535, value)) {
+    const auto* definition = catalog.object(static_cast<std::uint16_t>(value));
+    if (!definition) {
+      return std::nullopt;
+    }
+    if (dry) {
+      return Image{};
+    }
+    // The "invisible" set has no backing image; its redrawn texture is fully transparent.
+    if (definition->texture.select(0).animated < 0 &&
+        !drawable_sheet(definition->texture.select(0).sheet)) {
+      return Image{};
+    }
+    return assets.object_texture(value, 100, true);
+  }
   // Map-editor previews use the original unoutlined sprite so tile thumbnails retain their useful
   // area.
   if (keyed(key, "editorground", 0, 65535, value) || keyed(key, "editorobject", 0, 65535, value)) {
@@ -604,8 +628,7 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       image = assets.appearances->animations().images().at(
           character->frame(0, 0, Action::stand, 0).image);
       normalize_flash_png(image);
-    } else if (texture.sheet >= 0 &&
-               static_cast<std::size_t>(texture.sheet) < flash::sheets.size()) {
+    } else if (drawable_sheet(texture.sheet)) {
       image =
           assets.sprite(flash::sheets[static_cast<std::size_t>(texture.sheet)].name, texture.index);
     } else {

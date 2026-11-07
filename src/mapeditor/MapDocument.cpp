@@ -3,6 +3,7 @@
 #include <libxml/parser.h>
 #include <zlib.h>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
@@ -63,6 +64,20 @@ void coordinates(int x, int y) {
     throw std::out_of_range("Map editor tile is outside the 256 by 256 canvas");
   }
 }
+
+// Flash MoreStringUtil.cmp (localeCompare), approximated as case-insensitive then raw order.
+bool id_less(const std::string& left, const std::string& right) {
+  const auto fold = [](std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return text;
+  };
+  const auto folded_left = fold(left), folded_right = fold(right);
+  if (folded_left != folded_right) {
+    return folded_left < folded_right;
+  }
+  return left < right;
+}
 }
 
 MapDocument::MapDocument(const Catalog& catalog, const std::filesystem::path& root) {
@@ -70,8 +85,18 @@ MapDocument::MapDocument(const Catalog& catalog, const std::filesystem::path& ro
     choices_[0].push_back({ground.id, ground.type, 0});
   }
   for (const auto& object : catalog.objects()) {
+    known_objects_.insert(object.id);
+    // ObjectChooser hides items, players and projectiles.
+    if (object.xml.has("Item") || object.xml.has("Player") || object.class_name == "Projectile") {
+      continue;
+    }
     choices_[1].push_back({object.id, object.type, 0});
   }
+  const auto by_id = [](const EditorChoice& left, const EditorChoice& right) {
+    return id_less(left.id, right.id);
+  };
+  std::sort(choices_[0].begin(), choices_[0].end(), by_id);
+  std::sort(choices_[1].begin(), choices_[1].end(), by_id);
   const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_RegionsCXML.dat";
   const auto document = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>(
       xmlReadFile(path.c_str(), nullptr, XML_PARSE_NONET), xmlFreeDoc);
@@ -126,18 +151,15 @@ void MapDocument::paint(int x, int y, EditorLayer layer, std::string id) {
   const bool single = !editing_;
   begin_edit();
   value.ids[index] = std::move(id);
-  if (layer == EditorLayer::object) {
-    value.name.clear();
-  }
   store(x + y * extent, std::move(value));
   if (single) {
     end_edit();
   }
 }
 
-void MapDocument::name(int x, int y, std::string text) {
+void MapDocument::name(int x, int y, std::optional<std::string> text) {
   auto value = tile(x, y);
-  if (value.ids[1].empty() || value.name == text) {
+  if (value.name == text) {
     return;
   }
   const bool single = !editing_;
@@ -147,6 +169,11 @@ void MapDocument::name(int x, int y, std::string text) {
   if (single) {
     end_edit();
   }
+}
+
+bool MapDocument::empty() const {
+  return std::none_of(tiles_.begin(), tiles_.end(),
+                      [](const auto& entry) { return entry.second.has_content(); });
 }
 
 void MapDocument::end_edit() {
@@ -166,9 +193,6 @@ void MapDocument::end_edit() {
   }
   if (!change.before.empty()) {
     undo_.push_back(std::move(change));
-    if (undo_.size() > 100) {
-      undo_.erase(undo_.begin());
-    }
     redo_.clear();
   }
   before_.clear();
@@ -214,16 +238,20 @@ void MapDocument::clear() {
 }
 
 std::optional<Rect> MapDocument::bounds() const {
-  if (tiles_.empty()) {
-    return {};
-  }
   int left = extent, top = extent, right{}, bottom{};
+  bool found{};
   for (const auto& [index, value] : tiles_) {
-    (void)value;
+    if (!value.has_content()) {
+      continue;
+    }
+    found = true;
     left = std::min(left, index % extent);
     right = std::max(right, index % extent);
     top = std::min(top, index / extent);
     bottom = std::max(bottom, index / extent);
+  }
+  if (!found) {
+    return {};
   }
   return Rect{static_cast<double>(left), static_cast<double>(top),
               static_cast<double>(right - left + 1), static_cast<double>(bottom - top + 1)};
@@ -234,7 +262,8 @@ std::string MapDocument::serialize() const {
   if (!area) {
     throw std::runtime_error("Draw at least one tile before saving or testing the map");
   }
-  using Json = nlohmann::json;
+  // Flash writes keys in insertion order; nlohmann::json would sort them.
+  using Json = nlohmann::ordered_json;
   auto dictionary = Json::array();
   std::map<std::string, unsigned> indices;
   std::vector<unsigned char> raw;
@@ -247,8 +276,8 @@ std::string MapDocument::serialize() const {
       }
       if (!value.ids[1].empty()) {
         Json object{{"id", value.ids[1]}};
-        if (!value.name.empty()) {
-          object["name"] = value.name;
+        if (value.name) {
+          object["name"] = *value.name;
         }
         entry["objs"] = Json::array({object});
       }
@@ -304,34 +333,65 @@ void MapDocument::load(std::string_view json) {
       length != raw.size() || consumed != compressed.size()) {
     throw std::runtime_error("Invalid map data length");
   }
+  // Unknown ground and region ids fall back to the type 0 entry; unknown objects are skipped.
+  const auto resolve_choice = [&](EditorLayer layer,
+                                  const std::string& id) -> std::optional<std::string> {
+    for (const auto& choice : choices(layer)) {
+      if (choice.id == id) {
+        return id;
+      }
+    }
+    for (const auto& choice : choices(layer)) {
+      if (choice.type == 0) {
+        return choice.id;
+      }
+    }
+    return std::nullopt;
+  };
+  std::vector<EditorTile> resolved;
+  resolved.reserve(dict.size());
+  for (const auto& entry : dict) {
+    if (!entry.is_object()) {
+      throw std::runtime_error("Invalid map dictionary tile");
+    }
+    EditorTile tile;
+    if (entry.contains("ground")) {
+      const auto ground = entry.at("ground").get<std::string>();
+      if (const auto id = resolve_choice(EditorLayer::ground, ground)) {
+        tile.ids[0] = *id;
+      }
+    }
+    for (const auto& obj : entry.value("objs", nlohmann::json::array())) {
+      const auto id = obj.at("id").get<std::string>();
+      if (!known_objects_.contains(id)) {
+        continue;
+      }
+      tile.ids[1] = id;
+      if (obj.contains("name")) {
+        tile.name = obj.at("name").get<std::string>();
+      } else {
+        tile.name.reset();
+      }
+    }
+    for (const auto& region : entry.value("regions", nlohmann::json::array())) {
+      const auto id = region.at("id").get<std::string>();
+      if (const auto resolved_id = resolve_choice(EditorLayer::region, id)) {
+        tile.ids[2] = *resolved_id;
+      }
+    }
+    resolved.push_back(std::move(tile));
+  }
+  // Flash onFileLoadComplete places the map at int(128 - w / 2); odd sizes round the half up.
   Tiles loaded;
-  const int left = extent / 2 - width / 2, top = extent / 2 - height / 2;
+  const int left = extent / 2 - (width + 1) / 2, top = extent / 2 - (height + 1) / 2;
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const auto at = static_cast<std::size_t>(y * width + x) * 2;
       const auto index =
           static_cast<std::size_t>((static_cast<unsigned>(raw[at]) << 8U) | raw[at + 1]);
-      const auto& entry = dict.at(index);
-      if (!entry.is_object()) {
-        throw std::runtime_error("Invalid map dictionary tile");
-      }
-      EditorTile tile;
-      tile.ids[0] = entry.value("ground", std::string{});
-      for (const auto& obj : entry.value("objs", nlohmann::json::array())) {
-        if (!tile.ids[1].empty()) {
-          throw std::runtime_error("Editor supports one object per tile");
-        }
-        tile.ids[1] = obj.at("id").get<std::string>();
-        tile.name = obj.value("name", std::string{});
-      }
-      for (const auto& region : entry.value("regions", nlohmann::json::array())) {
-        if (!tile.ids[2].empty()) {
-          throw std::runtime_error("Editor supports one region per tile");
-        }
-        tile.ids[2] = region.at("id").get<std::string>();
-      }
+      const auto& tile = resolved.at(index);
       if (!tile.empty()) {
-        loaded[x + left + (y + top) * extent] = std::move(tile);
+        loaded[x + left + (y + top) * extent] = tile;
       }
     }
   }

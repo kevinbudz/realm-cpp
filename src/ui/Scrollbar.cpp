@@ -20,10 +20,11 @@ int Scrollbar::hit(Vec2 point) const {
   if (point.x < 0 || point.x >= width_ || point.y < 0 || point.y >= height_) {
     return -1;
   }
-  if (point.y < 12) {
+  const double arrow = static_cast<int>(width_ * .75);
+  if (point.y < arrow) {
     return 0;
   }
-  if (point.y >= height_ - 12) {
+  if (point.y >= height_ - arrow) {
     return 1;
   }
   if (point.y >= thumb_y() && point.y < thumb_y() + thumb_) {
@@ -70,9 +71,13 @@ void Scrollbar::tick(double seconds) {
 void Scrollbar::draw(Image& image, Vec2 at) const {
   ui_rectangle(image, at.x, at.y + top(), width_, track(), 0x545454, true);
   const auto color = [&](int part) { return hover_ == part ? 0xffdc85U : 0xffffffU; };
-  const std::array<Vec2, 3> up{{{at.x, at.y + 12}, {at.x + 8, at.y}, {at.x + 16, at.y + 12}}};
-  const std::array<Vec2, 3> down{
-      {{at.x, at.y + height_ - 12}, {at.x + 16, at.y + height_ - 12}, {at.x + 8, at.y + height_}}};
+  // drawArrow(arrowHeight, width): a triangle as wide as the bar and int(width * .75) tall.
+  const double arrow = static_cast<int>(width_ * .75);
+  const std::array<Vec2, 3> up{
+      {{at.x, at.y + arrow}, {at.x + width_ / 2, at.y}, {at.x + width_, at.y + arrow}}};
+  const std::array<Vec2, 3> down{{{at.x, at.y + height_ - arrow},
+                                  {at.x + width_, at.y + height_ - arrow},
+                                  {at.x + width_ / 2, at.y + height_}}};
 
   ui_path(image, up, color(0));
   ui_path(image, down, color(1));

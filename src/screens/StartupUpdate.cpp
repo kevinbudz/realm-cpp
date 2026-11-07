@@ -29,6 +29,8 @@ void Startup::Impl::update(std::int32_t time, double dt, double width, double he
   }
   if (state_.editor_) {
     state_.editor_->resize(width, height, fonts_.pixel_scale());
+    // Applies a finished system file picker (Load or Save) before the frame draws.
+    state_.editor_->update();
   }
   if (state_.screen_ == Screen::editor && (resized || scale_changed)) {
     view_model_.invalidate();

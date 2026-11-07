@@ -253,10 +253,8 @@ void Startup::Impl::left_game(const std::string& message) {
   if (from_editor_test) {
     state_.editor_test_ = false;
     state_.screen_ = Screen::editor;
-    if (state_.editor_) {
-      state_.editor_->set_status(message.empty() ? "Map test ended. Edit the map or test it again."
-                                                 : "Map test ended: " + message);
-    }
+    // Flash MapEditor.onMapTestDone re-adds the editing screen without a notice, whether the test
+    // ended by COMPLETE, RECONNECT or DEATH.
     view_model_.invalidate();
     return;
   }
@@ -489,9 +487,6 @@ void Startup::Impl::activate(int action) {
       state_.screen_ = Screen::editor;
       state_.dialog_ = Dialog::none;
       state_.hovered_ = state_.pressed_ = -1;
-      if (state_.editor_) {
-        state_.editor_->set_status("Draw tiles, use the palette, then save or test your map.");
-      }
       view_model_.invalidate();
       return;
     case buy_slot_action:
@@ -544,6 +539,9 @@ void Startup::Impl::activate(int action) {
           state_.skins_->close();
         }
       } else {
+        if (state_.screen_ == Screen::editor && state_.editor_) {
+          state_.editor_->cancel_pointer();
+        }
         state_.screen_ = state_.screen_ == Screen::classes ? Screen::characters : Screen::title;
       }
       return;

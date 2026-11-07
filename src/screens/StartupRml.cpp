@@ -193,19 +193,12 @@ bool same_action(const std::optional<StartupAction>& a, const std::optional<Star
   return a && b && *a == *b;
 }
 
-EditorInputKey editor_key(int key, std::uint16_t modifiers) {
+EditorInputKey editor_key(int key) {
   if (key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
     return EditorInputKey::shift;
   }
   if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
     return EditorInputKey::control;
-  }
-  const bool control = (modifiers & KMOD_CTRL) != 0;
-  if (control && key == SDLK_z) {
-    return EditorInputKey::undo;
-  }
-  if (control && key == SDLK_y) {
-    return EditorInputKey::redo;
   }
   switch (key) {
     case SDLK_ESCAPE:
@@ -215,8 +208,6 @@ EditorInputKey editor_key(int key, std::uint16_t modifiers) {
       return EditorInputKey::enter;
     case SDLK_BACKSPACE:
       return EditorInputKey::backspace;
-    case SDLK_TAB:
-      return EditorInputKey::tab;
     case SDLK_LEFT:
       return EditorInputKey::left;
     case SDLK_RIGHT:
@@ -232,7 +223,7 @@ EditorInputKey editor_key(int key, std::uint16_t modifiers) {
     case SDLK_a:
       return EditorInputKey::sample;
     case SDLK_i:
-      return EditorInputKey::name;
+      return EditorInputKey::edit;
     case SDLK_c:
       return EditorInputKey::clear;
     case SDLK_l:
@@ -241,10 +232,9 @@ EditorInputKey editor_key(int key, std::uint16_t modifiers) {
       return EditorInputKey::save;
     case SDLK_t:
       return EditorInputKey::test;
-    case SDLK_b:
-      return EditorInputKey::back;
     case SDLK_EQUALS:
     case SDLK_PLUS:
+    case SDLK_KP_PLUS:
       return EditorInputKey::zoom_in;
     case SDLK_MINUS:
       return EditorInputKey::zoom_out;
@@ -890,7 +880,7 @@ struct StartupRml::Impl {
           EditorInput input;
           input.kind = event.kind == ui::EventKind::key_down ? EditorInput::Kind::key_down
                                                              : EditorInput::Kind::key_up;
-          input.key = editor_key(event.key, modifiers);
+          input.key = editor_key(event.key);
           input.shift = (modifiers & KMOD_SHIFT) != 0;
           input.control = (modifiers & KMOD_CTRL) != 0;
           input.repeat = event.repeat;

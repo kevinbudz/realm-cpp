@@ -37,7 +37,7 @@ find_package(Freetype REQUIRED)
 realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp
     src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp
     src/stage3D/WallGeometry.cpp src/stage3D/GraphicsApi.cpp)
-realm_library(realm_platform src/platform/Platform.cpp)
+realm_library(realm_platform src/platform/Platform.cpp src/platform/FileDialog.cpp)
 realm_library(realm_network src/messaging/Protocol.cpp src/messaging/Messages.cpp src/net/Transport.cpp src/net/Http.cpp)
 target_link_libraries(realm_network PUBLIC realm_support)
 if(WIN32)
@@ -78,7 +78,7 @@ realm_library(realm_ui src/mapeditor/EditorScreen.cpp src/tutorial/TutorialView.
     src/ui/tooltip/QuestToolTip.cpp src/ui/tooltip/PortraitToolTip.cpp src/ui/Chat.cpp src/map/mapoverlay/SpeechBalloons.cpp src/ui/GraphicsUtil.cpp src/ui/dialogs/Dialog.cpp
     src/ui/Scrollbar.cpp src/ui/board/GuildBoard.cpp src/ui/guild/GuildMembers.cpp src/ui/Trade.cpp src/ui/dialogs/InteractionDialog.cpp src/ui/SkinChooser.cpp
     src/ui/options/OptionsScreen.cpp src/ui/tooltip/TextToolTip.cpp src/lib/ui/Stack.cpp)
-target_link_libraries(realm_ui PUBLIC realm_assets)
+target_link_libraries(realm_ui PUBLIC realm_assets realm_platform)
 realm_library(realm_fixtures src/fixtures/StressTimeline.cpp)
 target_link_libraries(realm_fixtures PUBLIC realm_assets PRIVATE nlohmann_json::nlohmann_json)
 

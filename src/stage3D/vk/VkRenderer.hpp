@@ -45,6 +45,7 @@ class VkRenderer final : public gfx::RendererBackend {
   [[nodiscard]] std::size_t draw_calls() const override { return draw_calls_; }
 
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) override;
+  void set_gpu_timing(bool enabled) override { gpu_timing_ = enabled; }
   void poll_gpu() override;
   [[nodiscard]] std::size_t pending_gpu() const override;
 
@@ -93,6 +94,7 @@ class VkRenderer final : public gfx::RendererBackend {
   std::array<Timer, gfx::vk::frames_in_flight> timers_{};
   Timer* active_timer_ = nullptr;
   telemetry::Recorder* recorder_ = nullptr;
+  bool gpu_timing_ = false;  // timing without a recorder
   std::uint64_t sample_frame_ = 0;
   bool sample_normal_ = false;
   double gpu_ms_ = -1;

@@ -220,10 +220,23 @@ void WgpuUi::destroy() noexcept {
     module_ = nullptr;
   }
   release_targets();
+  for (auto& staging : free_staging_) {
+    wgpuBufferRelease(staging.buffer);
+  }
+  for (auto& staging : busy_staging_) {  // the frame's encoder keeps the copies' sources alive until its submit
+    wgpuBufferRelease(staging.buffer);
+  }
+  free_staging_.clear();
+  busy_staging_.clear();
+  upload_bytes_.clear();
   stream_.destroy();
 }
 
 void WgpuUi::release_targets() noexcept {
+  for (auto& scene : scene_groups_) {
+    wgpuBindGroupRelease(scene.group);
+  }
+  scene_groups_.clear();
   for (auto& target : filter_targets_) {
     if (target.view) {
       wgpuTextureViewRelease(target.view);
@@ -345,6 +358,7 @@ WGPURenderPassEncoder WgpuUi::begin_pass(WGPUTextureView view, bool clear) {
   descriptor.colorAttachmentCount = 1;
   descriptor.colorAttachments = &color;
   descriptor.depthStencilAttachment = &depth;
+  bound_ = Bound{};
   return wgpuCommandEncoderBeginRenderPass(context().encoder(), &descriptor);
 }
 
@@ -369,8 +383,27 @@ void WgpuUi::close() noexcept {
 void WgpuUi::bind_block(WGPURenderPassEncoder pass, WGPUBindGroup surface, const UiBlock& block) {
   const auto uniform = stream_.write(&block, ui_block_bytes, uniform_alignment);
   const auto offset = static_cast<std::uint32_t>(uniform.offset);
-  wgpuRenderPassEncoderSetBindGroup(pass, 0, surface, 0, nullptr);
-  wgpuRenderPassEncoderSetBindGroup(pass, 1, uniform.uniform, 1, &offset);
+  if (bound_.surface != surface) {
+    wgpuRenderPassEncoderSetBindGroup(pass, 0, surface, 0, nullptr);
+    bound_.surface = surface;
+  }
+  // Each block sits at its own dynamic offset, so the uniform group is normally set for every draw.
+  if (bound_.uniform != uniform.uniform || bound_.uniform_offset != offset) {
+    wgpuRenderPassEncoderSetBindGroup(pass, 1, uniform.uniform, 1, &offset);
+    bound_.uniform = uniform.uniform;
+    bound_.uniform_offset = offset;
+  }
+}
+
+WGPUBindGroup WgpuUi::scene_group(WGPUTextureView source) {
+  for (const auto& scene : scene_groups_) {
+    if (scene.view == source) {
+      return scene.group;
+    }
+  }
+  const WGPUBindGroup group = make_scene_group(source);
+  scene_groups_.push_back(SceneGroup{source, group});
+  return group;
 }
 
 void WgpuUi::draw(const ui::Draw& draw) {
@@ -404,7 +437,26 @@ void WgpuUi::draw(const ui::Draw& draw) {
   }
   ensure_pass(view, false);
   const WGPURenderPassEncoder pass = pass_;
-  wgpuRenderPassEncoderSetScissorRect(pass, x, y, width, height);
+  // The open pass's state: a call is made only when its value differs from what the pass has bound.
+  const std::array<std::uint32_t, 4> scissor{x, y, width, height};
+  if (!bound_.scissor_set || bound_.scissor != scissor) {
+    wgpuRenderPassEncoderSetScissorRect(pass, x, y, width, height);
+    bound_.scissor = scissor;
+    bound_.scissor_set = true;
+  }
+  const auto set_pipeline = [&](WGPURenderPipeline next) {
+    if (bound_.pipeline != next) {
+      wgpuRenderPassEncoderSetPipeline(pass, next);
+      bound_.pipeline = next;
+    }
+  };
+  const auto set_stencil = [&](std::uint32_t reference) {
+    if (!bound_.stencil_set || bound_.stencil_reference != reference) {
+      wgpuRenderPassEncoderSetStencilReference(pass, reference);
+      bound_.stencil_reference = reference;
+      bound_.stencil_set = true;
+    }
+  };
 
   const auto vertex_bytes = geometry.vertex_count * sizeof(ui::Vertex);
   const auto index_bytes = geometry.index_count * sizeof(std::uint32_t);
@@ -441,10 +493,10 @@ void WgpuUi::draw(const ui::Draw& draw) {
       const auto clear_vertices = stream_.write(quad.data(), sizeof quad, 4);
       UiBlock clear;
       clear.transform[0] = clear.transform[5] = clear.transform[10] = clear.transform[15] = 1;
-      wgpuRenderPassEncoderSetPipeline(pass, geometry_[2]);
+      set_pipeline(geometry_[2]);
       bind_block(pass, pipelines().surface_group(0), clear);
       wgpuRenderPassEncoderSetVertexBuffer(pass, 0, clear_vertices.buffer, clear_vertices.offset, WGPU_WHOLE_SIZE);
-      wgpuRenderPassEncoderSetStencilReference(pass, inverse ? 1 : 0);
+      set_stencil(inverse ? 1 : 0);
       wgpuRenderPassEncoderDraw(pass, static_cast<std::uint32_t>(quad.size()), 1, 0, 0);
       reference = inverse ? 0 : 1;
       pipeline = geometry_[2];
@@ -455,18 +507,18 @@ void WgpuUi::draw(const ui::Draw& draw) {
       break;
   }
 
-  wgpuRenderPassEncoderSetPipeline(pass, pipeline);
+  set_pipeline(pipeline);
   bind_block(pass, surface, block);
   wgpuRenderPassEncoderSetVertexBuffer(pass, 0, vertices.buffer, vertices.offset, WGPU_WHOLE_SIZE);
   wgpuRenderPassEncoderSetIndexBuffer(pass, indices.buffer, WGPUIndexFormat_Uint32, indices.offset, WGPU_WHOLE_SIZE);
-  wgpuRenderPassEncoderSetStencilReference(pass, reference);
+  set_stencil(reference);
   wgpuRenderPassEncoderDrawIndexed(pass, static_cast<std::uint32_t>(geometry.index_count), 1, 0, 0, 0);
 }
 
 void WgpuUi::resample(WGPUTextureView target, bool clear, WGPUTextureView source, const UiBlock& values,
                       bool premultiplied) {
   close();
-  const WGPUBindGroup scene = make_scene_group(source);
+  const WGPUBindGroup scene = scene_group(source);
   const auto uniform = stream_.write(&values, ui_block_bytes, uniform_alignment);
   const auto offset = static_cast<std::uint32_t>(uniform.offset);
   auto pass = begin_pass(target, clear);
@@ -476,7 +528,6 @@ void WgpuUi::resample(WGPUTextureView target, bool clear, WGPUTextureView source
   wgpuRenderPassEncoderDraw(pass, 4, 1, 0, 0);
   wgpuRenderPassEncoderEnd(pass);
   wgpuRenderPassEncoderRelease(pass);
-  wgpuBindGroupRelease(scene);
 }
 
 std::uint32_t WgpuUi::push_layer() {
@@ -501,7 +552,7 @@ void WgpuUi::pop_layer() {
   }
 }
 
-std::size_t WgpuUi::blur(std::size_t first, std::array<int, 4> region, float sigma) {
+std::size_t WgpuUi::blur(std::size_t first, WGPUTextureView input, std::array<int, 4> region, float sigma) {
   // RenderInterface_GL3's split (SigmaToParameters): a pass level of halvings, and the sigma left for one pass of
   // 7 taps. The downscaled result is then upscaled to the requested region.
   int level = 0;
@@ -551,28 +602,27 @@ std::size_t WgpuUi::blur(std::size_t first, std::array<int, 4> region, float sig
   };
   std::size_t source = first;
   std::size_t target = 1 - first;
+  // Each pass reads the previous one's target; the first reads input (the layer, or the copy it replaces).
+  WGPUTextureView from = input;
+  const auto step = [&](const UiBlock& block) {
+    resample(filter_targets_[target].view, true, from, block, false);
+    from = filter_targets_[target].view;
+    std::swap(source, target);
+  };
   // Downscales: each halves the region (rounding the start up, as GL's scissor does); the content stays at the
   // region's pixels of the target.
   for (int i = 0; i < level; ++i) {
     std::array<int, 4> next{(region[0] + 1) / 2, (region[1] + 1) / 2, 0, 0};
     next[2] = std::max(region[2] / 2, next[0]);
     next[3] = std::max(region[3] / 2, next[1]);
-    resample(filter_targets_[target].view, true, filter_targets_[source].view, block_for(next, region, false, {0, 0}),
-             false);
+    step(block_for(next, region, false, {0, 0}));
     region = next;
-    std::swap(source, target);
   }
   // The vertical and then the horizontal pass over the region, clamped to it.
-  resample(filter_targets_[target].view, true, filter_targets_[source].view,
-           block_for(region, region, true, {0.0f, 1.0f / height}), false);
-  std::swap(source, target);
-  resample(filter_targets_[target].view, true, filter_targets_[source].view,
-           block_for(region, region, true, {1.0f / width, 0.0f}), false);
-  std::swap(source, target);
+  step(block_for(region, region, true, {0.0f, 1.0f / height}));
+  step(block_for(region, region, true, {1.0f / width, 0.0f}));
   // The linear upscale to the requested region.
-  resample(filter_targets_[target].view, true, filter_targets_[source].view,
-           block_for(requested, region, false, {0, 0}), false);
-  std::swap(source, target);
+  step(block_for(requested, region, false, {0, 0}));
   return source;
 }
 
@@ -600,28 +650,21 @@ void WgpuUi::composite(const ui::Composite& composite) {
     return;
   }
   WGPUTextureView current = layers_[composite.source - 1].view;
-  // Group opacity: the opacity filters multiply, and the final draw applies the product once. The copy and blur
+  // Group opacity: the opacity filters multiply, and the final draw applies the product once. The blur
   // passes run at 1; blur is linear, so applying the product last matches applying it in filter order.
   float opacity = 1;
   if (composite.filter_count > 0) {
-    // The copy into the first filter target is the filters' working image (GL's PostprocessPrimary).
-    UiBlock copy;
-    copy.dst_rect[2] = static_cast<float>(w);
-    copy.dst_rect[3] = static_cast<float>(h);
-    copy.src_rect[2] = 1.0f;
-    copy.src_rect[3] = 1.0f;
-    copy.window_size[0] = static_cast<float>(w);
-    copy.window_size[1] = static_cast<float>(h);
-    resample(filter_targets_[0].view, true, current, copy, false);
+    // The filters' working image is the layer itself: the first blur reads it directly, where GL copies it into
+    // PostprocessPrimary first. A copy at full size and full uv is the same pixels, so the output is unchanged.
     std::size_t index = 0;
     for (std::size_t i = 0; i < composite.filter_count; ++i) {
       const auto& filter = composite.filters[i];
       opacity *= filter.opacity;
       if (filter.sigma > 0) {
-        index = blur(index, region, filter.sigma);
+        index = blur(index, current, region, filter.sigma);
+        current = filter_targets_[index].view;
       }
     }
-    current = filter_targets_[index].view;
   }
   UiBlock final_draw;
   for (std::size_t i = 0; i < 4; ++i) {
@@ -637,31 +680,54 @@ void WgpuUi::composite(const ui::Composite& composite) {
   resample(destination, false, current, final_draw, !composite.replace);
 }
 
+WgpuUi::StagingBuffer WgpuUi::acquire_staging(std::uint64_t bytes) {
+  // The smallest free buffer that holds the bytes. Free buffers came from earlier submitted frames, so the queue
+  // writes below run after the submission that read their last copy.
+  auto best = free_staging_.end();
+  for (auto it = free_staging_.begin(); it != free_staging_.end(); ++it) {
+    if (it->size >= bytes && (best == free_staging_.end() || it->size < best->size)) {
+      best = it;
+    }
+  }
+  if (best != free_staging_.end()) {
+    const StagingBuffer staging = *best;
+    free_staging_.erase(best);
+    return staging;
+  }
+  // A new buffer rounds up to a power of two (at least 4 KiB) so that near sizes can reuse it.
+  std::uint64_t size = 4096;
+  while (size < bytes) {
+    size *= 2;
+  }
+  WGPUBufferDescriptor descriptor{};
+  descriptor.usage = WGPUBufferUsage_CopySrc | WGPUBufferUsage_CopyDst;
+  descriptor.size = size;
+  WGPUBuffer buffer = wgpuDeviceCreateBuffer(context().device(), &descriptor);
+  if (!buffer) {
+    throw std::runtime_error("WebGPU UI staging buffer failed");
+  }
+  return StagingBuffer{buffer, size};
+}
+
 void WgpuUi::write_surface(std::uint32_t texture, int x, int y, int width, int height, const std::byte* rgba) {
   const WGPUTexture target = resources().texture(texture);
   if (!target || !rgba || width <= 0 || height <= 0) {
     return;
   }
-  // The copy's rows are padded to WebGPU's 256-byte alignment; the staging buffer is written at creation.
+  // The copy's rows are padded to WebGPU's 256-byte alignment; the rows are packed into the upload bytes first.
   const auto row = static_cast<std::size_t>(width) * 4;
   const auto padded_row = (row + 255) / 256 * 256;
   const auto bytes = padded_row * static_cast<std::size_t>(height);
-  WGPUBufferDescriptor descriptor{};
-  descriptor.usage = WGPUBufferUsage_CopySrc;
-  descriptor.size = bytes;
-  descriptor.mappedAtCreation = 1;
-  WGPUBuffer staging = wgpuDeviceCreateBuffer(context().device(), &descriptor);
-  if (!staging) {
-    throw std::runtime_error("WebGPU UI staging buffer failed");
-  }
-  auto* mapped = static_cast<std::byte*>(wgpuBufferGetMappedRange(staging, 0, bytes));
+  upload_bytes_.resize(bytes);
   for (std::size_t line = 0; line < static_cast<std::size_t>(height); ++line) {
-    std::memcpy(mapped + line * padded_row, rgba + line * row, row);
+    std::memcpy(upload_bytes_.data() + line * padded_row, rgba + line * row, row);
   }
-  wgpuBufferUnmap(staging);
+  const StagingBuffer staging = acquire_staging(bytes);
+  // queue.writeBuffer copies its data at the call, so upload_bytes_ is free again at once.
+  wgpuQueueWriteBuffer(context().queue(), staging.buffer, 0, upload_bytes_.data(), bytes);
 
   WGPUTexelCopyBufferInfo source{};
-  source.buffer = staging;
+  source.buffer = staging.buffer;
   source.layout.bytesPerRow = static_cast<std::uint32_t>(padded_row);
   source.layout.rowsPerImage = static_cast<std::uint32_t>(height);
   WGPUTexelCopyTextureInfo destination{};
@@ -670,7 +736,30 @@ void WgpuUi::write_surface(std::uint32_t texture, int x, int y, int width, int h
   destination.aspect = WGPUTextureAspect_All;
   const WGPUExtent3D size{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1};
   wgpuCommandEncoderCopyBufferToTexture(context().encoder(), &source, &destination, &size);
-  wgpuBufferRelease(staging);  // the encoder keeps the copy's source until submission
+  // The copy reads the buffer at this frame's submit, so it is reused only after frame_submitted.
+  busy_staging_.push_back(staging);
+}
+
+void WgpuUi::frame_submitted() noexcept {
+  stream_.reset();
+  // The frame's encoder was submitted before this call (WgpuRenderer::finish_frame), so the copies that read the
+  // busy buffers have been submitted. They become free for the next frame's writes.
+  for (const auto& staging : busy_staging_) {
+    free_staging_.push_back(staging);
+  }
+  busy_staging_.clear();
+  // Keep a few buffers: beyond the count or total size cap, the excess is released.
+  constexpr std::size_t max_free = 8;
+  constexpr std::uint64_t max_free_bytes = 16ull * 1024 * 1024;
+  std::uint64_t total = 0;
+  for (const auto& staging : free_staging_) {
+    total += staging.size;
+  }
+  while (!free_staging_.empty() && (free_staging_.size() > max_free || total > max_free_bytes)) {
+    total -= free_staging_.front().size;
+    wgpuBufferRelease(free_staging_.front().buffer);
+    free_staging_.erase(free_staging_.begin());
+  }
 }
 }  // namespace realm::gfx::wgpu
 
@@ -731,8 +820,10 @@ void upload_texture(std::uint32_t texture, int x, int y, int width, int height, 
   // The copy is recorded between passes: the open UI pass closes first.
   if (auto* renderer = active_renderer()) {
     renderer->rml_ui().close();
+    renderer->rml_ui().write_surface(texture, x, y, width, height, rgba);
+  } else {
+    WgpuUi().write_surface(texture, x, y, width, height, rgba);  // no renderer: a temporary, released after the copy
   }
-  WgpuUi::write_surface(texture, x, y, width, height, rgba);
 }
 
 void release_texture(std::uint32_t texture) noexcept {

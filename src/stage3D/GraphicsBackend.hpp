@@ -29,6 +29,8 @@ class RendererBackend {
                             int height) = 0;
   [[nodiscard]] virtual std::size_t draw_calls() const = 0;
   virtual void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) = 0;
+  // While enabled, frames are timed without a recorder too (gpu_ms() only).
+  virtual void set_gpu_timing(bool enabled) = 0;
   // Ends the frame: a no-op for OpenGL (the platform swaps); Vulkan submits and presents.
   virtual void finish_frame() = 0;
   virtual void poll_gpu() = 0;

@@ -114,7 +114,8 @@ struct ClientState {
   void open_options();
   void set_fullscreen(bool on);
   void reset_perf();
-  void sample_perf(Clock::time_point presented);
+  // cpu_ms: the frame's work before the swap (no pacing); gpu_ms: the renderer's last GPU time, or < 0.
+  void sample_perf(Clock::time_point presented, double cpu_ms, double gpu_ms);
   std::optional<realm::Quad> perf_quad(int height);
   realm::ui::Viewport window_viewport();
 
@@ -289,6 +290,9 @@ struct ClientState {
   realm::UiQuality text_quality{realm::UiQuality::high};
   int perf_frames{};
   double perf_clock{};
+  double perf_cpu{};
+  double perf_gpu{};
+  int perf_gpu_frames{};
   std::string perf_text;
   bool perf_dirty{};
   realm::Vec2 perf_size{};

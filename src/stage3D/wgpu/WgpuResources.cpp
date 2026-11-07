@@ -1,4 +1,5 @@
 #include "WgpuResources.hpp"
+#include "realm/util/Telemetry.hpp"
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
@@ -242,10 +243,46 @@ std::uint32_t Resources::create_buffer(std::span<const std::byte> bytes) {
   if (!created.buffer) {
     throw std::runtime_error("WebGPU buffer creation failed");
   }
+  created.capacity = descriptor.size;
   if (!copy.empty()) {
     wgpuQueueWriteBuffer(context().queue(), created.buffer, 0, copy.data(), copy.size());
   }
   return add(created);
+}
+
+void Resources::write_buffer(std::uint32_t handle, std::span<const std::byte> bytes, bool in_place) {
+  auto& target = entry(handle);
+  if (target.kind != Kind::buffer) {
+    throw std::logic_error("WebGPU handle is not a buffer");
+  }
+  // Writes are four-byte multiples (the copy below pads), so the object's size and the write fit.
+  const auto need = (static_cast<std::uint64_t>(bytes.size()) + 3) & ~std::uint64_t{3};
+  const bool fits = need <= target.capacity;
+  if (!in_place || !fits) {
+    // Grow geometrically when the bytes outgrow the object; otherwise keep its size.
+    const auto size = fits ? target.capacity : std::max<std::uint64_t>(std::max<std::uint64_t>(need, 4), target.capacity * 2);
+    WGPUBufferDescriptor descriptor{};
+    descriptor.usage = WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst;
+    descriptor.size = size;
+    WGPUBuffer replacement = wgpuDeviceCreateBuffer(context().device(), &descriptor);
+    if (!replacement) {
+      throw std::runtime_error("WebGPU buffer creation failed");
+    }
+    if (target.buffer) {
+      wgpuBufferRelease(target.buffer);
+    }
+    target.buffer = replacement;
+    target.capacity = size;
+  }
+  if (bytes.empty()) {
+    return;
+  }
+  if (bytes.size() % 4 == 0) {
+    wgpuQueueWriteBuffer(context().queue(), target.buffer, 0, bytes.data(), bytes.size());
+  } else {
+    const auto copy = padded(bytes);
+    wgpuQueueWriteBuffer(context().queue(), target.buffer, 0, copy.data(), copy.size());
+  }
 }
 
 void Resources::release(std::uint32_t handle) noexcept {
@@ -280,34 +317,30 @@ void Stream::destroy() noexcept {
     }
   }
   chunks_.clear();
-  current_ = 0;
+  stager_.clear();
 }
 
 void Stream::reset() noexcept {
-  for (auto& chunk : chunks_) {
-    chunk.used = 0;
-  }
-  current_ = 0;
+  stager_.reset();
 }
 
 Stream::Span Stream::write(const void* data, std::size_t bytes, std::uint64_t alignment) {
-  constexpr std::uint64_t chunk_bytes = std::uint64_t{4} << 20;
-  const auto need = static_cast<std::uint64_t>(bytes);
-  // The first chunk (from the current one on) with room after alignment; a new one otherwise.
-  std::size_t index = current_;
-  for (; index < chunks_.size(); ++index) {
-    const auto start = (chunks_[index].used + alignment - 1) / alignment * alignment;
-    if (start + need <= chunks_[index].size) {
-      break;
-    }
+  if (bytes == 0) {
+    return {};
   }
-  if (index == chunks_.size()) {
+  const auto span = stager_.write(data, bytes, alignment);
+  ensure_chunk(span.chunk);
+  telemetry::add(telemetry::Counter::webgpu_stream_allocations);
+  const auto& chunk = chunks_[span.chunk];
+  return Span{chunk.buffer, chunk.uniform, span.offset};
+}
+
+void Stream::ensure_chunk(std::size_t index) {
+  while (chunks_.size() <= index) {
     Chunk chunk;
-    chunk.size = std::max(chunk_bytes, (need + alignment) * 2);
-    chunk.size = (chunk.size + 255) & ~std::uint64_t{255};
     WGPUBufferDescriptor descriptor{};
     descriptor.usage = WGPUBufferUsage_Vertex | WGPUBufferUsage_Index | WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst;
-    descriptor.size = chunk.size;
+    descriptor.size = stager_.chunk_capacity(chunks_.size());
     chunk.buffer = wgpuDeviceCreateBuffer(context().device(), &descriptor);
     if (!chunk.buffer) {
       throw std::runtime_error("WebGPU stream buffer creation failed");
@@ -324,11 +357,24 @@ Stream::Span Stream::write(const void* data, std::size_t bytes, std::uint64_t al
     chunk.uniform = wgpuDeviceCreateBindGroup(context().device(), &group);
     chunks_.push_back(chunk);
   }
-  current_ = index;
-  auto& chunk = chunks_[index];
-  const auto offset = (chunk.used + alignment - 1) / alignment * alignment;
-  chunk.used = offset + need;
-  wgpuQueueWriteBuffer(context().queue(), chunk.buffer, offset, data, bytes);
-  return Span{chunk.buffer, chunk.uniform, offset};
+}
+
+Stream::Reservation Stream::reserve(std::size_t bytes, std::uint64_t alignment) {
+  if (bytes == 0) {
+    return {};
+  }
+  const auto reserved = stager_.reserve(bytes, alignment);
+  ensure_chunk(reserved.span.chunk);
+  telemetry::add(telemetry::Counter::webgpu_stream_allocations);
+  const auto& chunk = chunks_[reserved.span.chunk];
+  return Reservation{Span{chunk.buffer, chunk.uniform, reserved.span.offset}, reserved.data};
+}
+
+void Stream::flush() {
+  stager_.flush([this](std::size_t index, std::uint64_t offset, std::span<const std::byte> bytes) {
+    wgpuQueueWriteBuffer(context().queue(), chunks_[index].buffer, offset, bytes.data(), bytes.size());
+    telemetry::add(telemetry::Counter::webgpu_stream_upload_calls);
+    telemetry::add(telemetry::Counter::webgpu_stream_upload_bytes, bytes.size());
+  });
 }
 }  // namespace realm::gfx::wgpu

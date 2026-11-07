@@ -1,10 +1,11 @@
 #pragma once
 // GPU resources behind the handles of GraphicsBackend.hpp: surfaces (2D RGBA8), layer arrays (the
 // atlas) and static buffers, plus the per-frame Stream the instance and uniform data are written to.
-// A handle is index + 1 into the table; 0 means none. Writes go through queue.writeTexture and
-// queue.writeBuffer, which WebGPU runs before the next submission; a layer resize copies on a
-// submission of its own, so later uploads keep their order.
+// A handle is index + 1 into the table; 0 means none. Resource writes go through queue.writeTexture
+// and queue.writeBuffer. Per-frame stream writes are staged until frame submission; a layer resize
+// copies on a submission of its own.
 #include "WgpuContext.hpp"
+#include "realm/stage3D/wgpu/StreamStager.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -34,6 +35,10 @@ class Resources {
 
   // Static buffers (terrain, model geometry, layers), written once with their bytes.
   [[nodiscard]] std::uint32_t create_buffer(std::span<const std::byte> bytes);
+  // Replaces a buffer's bytes from offset 0. The bytes go into the existing buffer when they fit and
+  // in_place is set; otherwise a new buffer object takes the handle (grown geometrically when the bytes
+  // do not fit), and the old object goes with its last reference, so frames that recorded it are safe.
+  void write_buffer(std::uint32_t handle, std::span<const std::byte> bytes, bool in_place);
   // Releases a handle. The WebGPU objects go with their last reference, so frames in flight are safe.
   void release(std::uint32_t handle) noexcept;
 
@@ -57,6 +62,7 @@ class Resources {
     int height = 0;
     int layers = 0;
     bool linear = false;
+    std::uint64_t capacity = 0;  // buffers: the object's size in bytes
   };
 
   std::vector<Entry> entries_;
@@ -76,9 +82,8 @@ class Resources {
 // The process's resources (the WebGPU backend creates them with its device).
 [[nodiscard]] Resources& resources();
 
-// Per-frame data: a bump allocator over chunk buffers that are reused every frame. Each allocation
-// is written at once with queue.writeBuffer; within a frame no two allocations overlap, and WebGPU
-// orders a frame's writes after the previous frame's submission. Uniform blocks are read through a
+// Per-frame data: a CPU bump allocator stages bytes into reusable chunks. flush() queues one upload
+// per used GPU chunk before the frame command buffer is submitted. Uniform blocks are read through a
 // bind group per chunk with a dynamic offset, so every span also names its chunk's group.
 class Stream {
  public:
@@ -93,19 +98,28 @@ class Stream {
   void destroy() noexcept;
   // Starts a frame: every chunk is free again.
   void reset() noexcept;
+  struct Reservation {
+    Span span;
+    std::byte* data = nullptr;  // valid until the next write() or reserve()
+  };
+  // Reserves bytes at an offset that is a multiple of alignment and returns where to pack them.
+  [[nodiscard]] Reservation reserve(std::size_t bytes, std::uint64_t alignment);
   // Copies bytes into the frame at an offset that is a multiple of alignment.
   [[nodiscard]] Span write(const void* data, std::size_t bytes, std::uint64_t alignment);
+  // Queues all bytes written since reset() or the previous flush().
+  void flush();
 
  private:
   struct Chunk {
     WGPUBuffer buffer = nullptr;
     WGPUBindGroup uniform = nullptr;
-    std::uint64_t size = 0;
-    std::uint64_t used = 0;
   };
 
+  // Creates the GPU buffer and group of chunk index if they do not exist yet.
+  void ensure_chunk(std::size_t index);
+
   std::vector<Chunk> chunks_;
-  std::size_t current_ = 0;
+  StreamStager stager_;
   WGPUBindGroupLayout layout_ = nullptr;
   std::uint64_t uniform_size_ = 0;
 };

@@ -39,6 +39,8 @@ realm::GraphicsInfo open_window(realm::platform::WindowSession& session, const O
       realm::gfx::webgpu_start_state() != realm::gfx::WebGpuStart::ready) {
     // WebGPU did not start (no adapter or device in the browser, or no WebGPU in this build): the run
     // opens OpenGL (WebGL2 on the web), as a failed Vulkan start does, and Options says why.
+    std::cerr << "WebGPU renderer unavailable: " << realm::gfx::webgpu_start_reason()
+              << "; starting with WebGL2\n";
     realm::gfx::record_fallback({requested, realm::gfx::webgpu_start_reason()});
     requested = realm::gfx::Api::opengl;
   }
@@ -420,7 +422,7 @@ void ClientState::reset_perf() {
   perf_dirty = true;
 }
 
-void ClientState::sample_perf(Clock::time_point presented) {
+void ClientState::sample_perf(Clock::time_point presented, double cpu_ms, double gpu_ms) {
   if (!perf_stats) {
     return;
   }
@@ -430,6 +432,11 @@ void ClientState::sample_perf(Clock::time_point presented) {
     const double interval = detail::milliseconds(presented - *perf_previous_present);
     ++perf_frames;
     perf_clock += interval;
+    perf_cpu += cpu_ms;
+    if (gpu_ms >= 0) {
+      perf_gpu += gpu_ms;
+      ++perf_gpu_frames;
+    }
     perf_history.push_back({presented, interval});
     while (detail::milliseconds(presented - perf_history.front().presented) >= perf_history_ms) {
       perf_history.pop_front();
@@ -460,12 +467,20 @@ void ClientState::sample_perf(Clock::time_point presented) {
     if (const double mb = realm::platform::resident_megabytes(); mb > 0) {
       text << '\n' << mb << " MB";
     }
-    text << std::setprecision(3) << "\navg " << perf_clock / perf_frames << " ms\n"
+    // Headroom: the work a frame needs, without the wait for the display or the cap.
+    text << std::setprecision(3) << "\ncpu " << perf_cpu / perf_frames << " ms";
+    if (perf_gpu_frames > 0) {
+      text << "\ngpu " << perf_gpu / perf_gpu_frames << " ms";
+    }
+    text << "\navg " << perf_clock / perf_frames << " ms\n"
          << "p90 " << p90 << " ms\np99 " << p99 << " ms";
     perf_text = text.str();
     perf_dirty = true;
     perf_frames = 0;
     perf_clock = 0;
+    perf_cpu = 0;
+    perf_gpu = 0;
+    perf_gpu_frames = 0;
   }
 }
 
@@ -473,7 +488,8 @@ std::optional<realm::Quad> ClientState::perf_quad(int height) {
   if (!perf_stats) {
     return std::nullopt;
   }
-  // Toggle Performance Stats: recent FPS, rolling frame-time percentiles and resources.
+  // Toggle Performance Stats: recent FPS, rolling frame-time percentiles, CPU/GPU
+  // frame work (headroom), and resources.
   if (perf_dirty && !perf_text.empty()) {
     const double ui = height / 600.0;
     constexpr int value_size = 12;

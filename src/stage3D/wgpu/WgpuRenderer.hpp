@@ -49,6 +49,7 @@ class WgpuRenderer final : public RendererBackend {
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) override {
     timers_.timing(recorder, frame_id, normal);
   }
+  void set_gpu_timing(bool enabled) override { timers_.set_enabled(enabled); }
   void poll_gpu() override { timers_.poll(); }
   [[nodiscard]] std::size_t pending_gpu() const override { return timers_.pending(); }
   [[nodiscard]] std::size_t skipped_gpu() const override { return timers_.skipped(); }
@@ -109,27 +110,49 @@ class WgpuRenderer final : public RendererBackend {
   };
   mutable std::optional<Readback> readback_;
 
-  // The submission being drawn: its quads' run data, the meshes, the group-0 bind group, and the
-  // stream spans of its instances and mesh vertices.
+  // The submission being drawn: its quads' run data and the meshes. The atlas group is cached across
+  // submissions (keyed by the atlas and walls views it names); the stream spans are the frame's.
   std::vector<QuadMeta> meta_;
-  std::vector<std::byte> instance_bytes_;
   draw_plan::MeshBatch meshes_;
   WGPUBindGroup atlas_group_ = nullptr;
+  WGPUTextureView atlas_group_atlas_ = nullptr;
+  WGPUTextureView atlas_group_walls_ = nullptr;
   WGPUTextureView frame_walls_ = nullptr;
   Stream::Span mesh_span_{};
+  // Scene groups of the post targets, by index into post_ (rebuilt with the targets).
+  std::array<WGPUBindGroup, 2> scene_groups_{};
+  // Layer buffers that the frame's encoder already draws from: a change to one of these is written into a
+  // new buffer object, since a queued write would reach the earlier draws of the same frame.
+  std::vector<std::uint32_t> recorded_layers_;
 
-  // Records a submission's pass (on the canvas or an offscreen target).
+  // What the open pass has bound, so a draw skips the calls that would not change it. Reset by begin_pass.
+  struct Slot {
+    WGPUBindGroup group = nullptr;
+    std::uint32_t offset = 0;
+    bool dynamic = false;
+  };
+  WGPURenderPipeline bound_pipeline_ = nullptr;
+  std::array<Slot, 3> bound_slots_{};
+
+  // Records a submission's pass (on the canvas or an offscreen target). A new pass binds nothing.
   [[nodiscard]] WGPURenderPassEncoder begin_pass(WGPUTextureView target, bool clear);
   static void end_pass(WGPURenderPassEncoder pass);
   // Sets the scissor of a pass to a rectangle of its target (top-left origin).
   static void scissor(WGPURenderPassEncoder pass, int x, int y, int width, int height);
+  // Binds a pipeline or a group slot of the open pass, unless it is already bound there.
+  void set_pipeline(WGPURenderPassEncoder pass, WGPURenderPipeline pipeline);
+  void set_group(WGPURenderPassEncoder pass, std::uint32_t slot, WGPUBindGroup group, std::uint32_t offset,
+                 bool dynamic);
   // Binds what a quad-family draw reads and writes its uniform block for this draw.
   void bind_draw(WGPURenderPassEncoder pass, WGPURenderPipeline pipeline, std::uint32_t surface,
                  const QuadUniform& state);
   // Binds a post pass's scene group and writes its uniform block, then draws the screen strip.
   void post_draw(WGPURenderPassEncoder pass, bool blend, WGPUBindGroup scene, const PostUniform& values);
-  // One full-screen post pass from source into target (clear or load), scissored to rect.
-  void post_pass(WGPUTextureView target, bool clear, WGPUTextureView source, int width, int height,
+  // The scene group of post target source (a post_ index), cached until the targets are rebuilt.
+  [[nodiscard]] WGPUBindGroup scene_group(std::size_t source);
+  void release_scene_groups() noexcept;
+  // One full-screen post pass from post_[source] into target (clear or load), scissored to rect.
+  void post_pass(WGPUTextureView target, bool clear, std::size_t source, int width, int height,
                  const PostUniform& values, bool blend);
   // Draws one painter-ordered list whose instances start at base in buffer; the same runs as GL's
   // draw_batch.
@@ -144,9 +167,9 @@ class WgpuRenderer final : public RendererBackend {
   [[nodiscard]] Stream::Span pack(std::span<const Quad> quads, std::span<const Quad> overlay);
   [[nodiscard]] WGPUTextureView upload_walls(const WallGeometryStore& store);
   void write_wall_texels(std::uint64_t first, std::uint64_t count, const std::byte* data);
-  // The atlas group for the frame's walls, for one submission (released with it).
+  // Makes the atlas group current for the frame's walls: reused while the atlas and walls views are the same.
   void begin_submission(const Atlas& atlas);
-  void end_submission() noexcept;
+  void release_atlas_group() noexcept;
   void ensure_post_targets(std::uint32_t width, std::uint32_t height);
   // Copies the frame's swapchain texture into last_frame_ (its size is the frame's).
   void copy_presented_frame();

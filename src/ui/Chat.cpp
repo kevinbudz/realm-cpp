@@ -419,8 +419,11 @@ void ChatView::glow() {
   const int height = image_.height;
   const int radius = std::max(1, static_cast<int>(std::lround(image_.pixel_scale)));
   const unsigned taps = static_cast<unsigned>(2 * radius + 1);
-  std::vector<unsigned> horizontal(static_cast<std::size_t>(width) *
-                                   static_cast<std::size_t>(height));
+  // Reused across rebuilds instead of a fresh zeroed allocation of width * height words each time.
+  // Every entry is written by the horizontal pass before the vertical pass reads it, so the old
+  // contents never matter.
+  static thread_local std::vector<unsigned> horizontal;
+  horizontal.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
   const auto alpha = [&](int x, int y) {
     return static_cast<unsigned>(
         image_.pixels[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +

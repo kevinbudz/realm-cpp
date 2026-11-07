@@ -24,6 +24,23 @@ void fail(std::string reason) {
   state = DeviceState::failed;
 }
 
+std::string adapter_rejection_reason(WGPUAdapter adapter) {
+  WGPUAdapterInfo info{};
+  if (wgpuAdapterGetInfo(adapter, &info) != WGPUStatus_Success) {
+    wgpuAdapterInfoFreeMembers(info);
+    return "WebGPU adapter type unavailable: choose WebGL2 in Renderer options or update browser "
+           "WebGPU support.";
+  }
+  // emdawnwebgpu maps adapter.info.isFallbackAdapter to CPU; ordinary browser adapters are Unknown.
+  const bool software = info.adapterType == WGPUAdapterType_CPU;
+  wgpuAdapterInfoFreeMembers(info);
+  if (software) {
+    return "WebGPU software adapter rejected: choose WebGL2 in Renderer options, or enable a "
+           "hardware graphics adapter and reload.";
+  }
+  return {};
+}
+
 void on_device_lost(WGPUDevice const* /*device*/, WGPUDeviceLostReason reason, WGPUStringView message,
                     void* /*userdata1*/, void* /*userdata2*/) {
   // Only the page reloading or the device being destroyed is expected; anything else is logged.
@@ -42,7 +59,12 @@ void on_device_ready(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStri
                      void* userdata1, void* /*userdata2*/) {
   auto& context = *static_cast<Context*>(userdata1);
   if (status != WGPURequestDeviceStatus_Success || !device) {
-    fail("WebGPU device: " + text(message));
+    const auto detail = text(message);
+    fail(detail.empty() ? "WebGPU device unavailable: choose WebGL2 in Renderer options or check "
+                          "browser WebGPU and graphics drivers."
+                        : "WebGPU device request failed: " + detail +
+                              "; choose WebGL2 in Renderer options or check browser WebGPU and "
+                              "graphics drivers.");
     return;
   }
   context.device_ = device;
@@ -55,7 +77,17 @@ void on_adapter_ready(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPU
                       void* userdata1, void* /*userdata2*/) {
   auto& context = *static_cast<Context*>(userdata1);
   if (status != WGPURequestAdapterStatus_Success || !adapter) {
-    fail("WebGPU adapter: " + text(message));
+    const auto detail = text(message);
+    fail(detail.empty() ? "WebGPU adapter unavailable: choose WebGL2 in Renderer options or check "
+                          "browser WebGPU and graphics drivers."
+                        : "WebGPU adapter request failed: " + detail +
+                              "; choose WebGL2 in Renderer options or check browser WebGPU and "
+                              "graphics drivers.");
+    return;
+  }
+  if (auto reason = adapter_rejection_reason(adapter); !reason.empty()) {
+    wgpuAdapterRelease(adapter);
+    fail(std::move(reason));
     return;
   }
   context.adapter_ = adapter;
@@ -91,7 +123,11 @@ void begin_device_request() {
   info.mode = WGPUCallbackMode_AllowSpontaneous;
   info.callback = on_adapter_ready;
   info.userdata1 = &context;
-  wgpuInstanceRequestAdapter(context.instance_, nullptr, info);
+  // Do not ask the browser to select a software fallback. The WebGPU API can still return one
+  // when that is the only adapter, so on_adapter_ready also checks the adapter's reported type.
+  WGPURequestAdapterOptions options = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
+  options.forceFallbackAdapter = WGPU_FALSE;
+  wgpuInstanceRequestAdapter(context.instance_, &options, info);
 }
 
 DeviceState device_state() {

@@ -69,8 +69,8 @@ class Pipelines {
   [[nodiscard]] WGPURenderPipeline mesh() const;
   [[nodiscard]] WGPURenderPipeline post(bool blend) const;
 
-  // Bind groups. atlas_group and scene_group are new objects: the caller releases them once the
-  // pass that binds them is recorded.
+  // Bind groups. atlas_group and scene_group are new objects the caller owns and releases; the renderer
+  // caches them (per atlas and walls views, and per post target) and releases them when those change.
   [[nodiscard]] WGPUBindGroup atlas_group(WGPUTextureView atlas, WGPUTextureView walls) const;
   [[nodiscard]] WGPUBindGroup scene_group(WGPUTextureView scene) const;
   // Group 1 for a surface handle (0 or an unallocated surface: the dummy). Owned by the cache: valid

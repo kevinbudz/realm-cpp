@@ -14,6 +14,7 @@ class RendererGpuTimers {
   RendererGpuTimers& operator=(const RendererGpuTimers&) = delete;
 
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal);
+  void set_enabled(bool enabled) { enabled_ = enabled; }
   [[nodiscard]] bool begin_frame();
   void phase(std::size_t index);
   [[nodiscard]] bool model_begin(std::size_t instances);
@@ -42,6 +43,7 @@ class RendererGpuTimers {
 
   std::array<Timer, 8> timers_{};
   telemetry::Recorder* recorder_{};
+  bool enabled_{};  // timing without a recorder
   std::uint64_t sample_frame_{};
   bool sample_normal_{};
   bool measuring_{};

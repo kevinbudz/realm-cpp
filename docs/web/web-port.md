@@ -26,6 +26,53 @@ python3 web/serve.py
 Open `realm_client.html?server=HOST&port=2051&appport=7777` (add `&renderer=webgpu` for WebGPU). The server
 must be the `webgpu` branch of realm-server (WebSocket listener on Ports[2], CORS on the app server).
 
+## Browser performance comparisons
+
+The web shell exposes finite, offline stress runs using the existing deterministic fixture clock.
+These synthetic scenes need no account or running game server. With `web/serve.py` running, open each
+URL in the same browser on the same machine, keeping the tab in the foreground:
+
+```
+http://localhost:8080/realm_client.html?bench=mixed&renderer=gl
+http://localhost:8080/realm_client.html?bench=mixed&renderer=webgpu
+```
+
+`bench` also accepts `models` and `ui`. The default run is 600 frames, with 120 warm-up frames excluded
+from telemetry analysis, at a fixed 1280x720 canvas and with audio disabled. `frames` accepts 240 to
+3600. The shell offers telemetry JSONL, fixture-summary JSON and run-environment JSON downloads when
+the run finishes. A renderer mismatch or fallback is shown explicitly and invalidates that run as a
+sample of the requested backend. Check the environment downloads for matching browser and canvas
+dimensions, and repeat runs to assess variation.
+
+Keep each environment download beside its matching telemetry download, preserving their filenames.
+Compare one or more runs from each renderer with:
+
+```
+python3 tools/web_benchmark_report.py \
+  --webgl2 PATH_TO_GL_TELEMETRY.jsonl \
+  --webgpu PATH_TO_WEBGPU_TELEMETRY.jsonl \
+  --output build/web-bench/report.md
+```
+
+The tool writes Markdown and JSON reports, rejects renderer fallback, runtime errors recorded in the
+environment download, and mismatched fixtures, drawable sizes or total/warm-up frame counts. It
+reports per-run distributions. Each renderer's
+summary uses the median of its run medians and run p95s, so one unusually long run does not receive
+extra weight.
+
+Browser runs still use requestAnimationFrame. Compare CPU work in milliseconds (`cpu_ms` plus
+`present_ms`) and available GPU `total_ms`, rather than interpreting a refresh-rate FPS cap as equal
+renderer cost. Stream upload batching moves CPU work into `finish_frame`, which is included in
+`present_ms`; comparing `cpu_ms` alone would miss that work. GPU samples may be unavailable or have an
+unresolved tail at shutdown. WebGPU exposes whole-frame GPU time only; its other phase fields are not
+independent measurements. Its timestamps exclude preceding queue uploads, so the GPU totals alone
+do not compare all transfer and rendering work across backends.
+
+`draw_calls` counts draws, not total browser API calls. The `webgpu_stream_*` counters cover only
+staged stream allocations and their actual buffer uploads; static buffers, textures and other WebGPU
+calls are outside those counters. Fewer calls are a useful optimization target, but do not by
+themselves establish lower frame time or power consumption.
+
 ## Verification (W6)
 
 Against a local realm-server (`webgpu` branch):
@@ -111,7 +158,8 @@ option defines `REALM_WEBGPU_ENABLED=1` for every target; the native build compi
 - `WgpuContext.{hpp,cpp}`: the async start (adapter, then device), the canvas surface (`#canvas`), the
   frame's encoder and swapchain view, `finish_frame`. The header's comment block is the RmlUi hook.
 - `WgpuResources.{hpp,cpp}`: surfaces (RGBA8 2D), atlas layers (RGBA8 2D array), static buffers, and
-  `Stream`, the per-frame bump allocator over reused chunk buffers (`queue.writeBuffer`).
+  `Stream`, the per-frame bump allocator over reused chunk buffers. Allocations are staged on the CPU
+  and uploaded with `queue.writeBuffer` per used chunk before the frame is submitted.
 - `WgpuPipelines.{hpp,cpp}`: bind-group layouts, the two pipeline layouts, the pipelines (quad strip and
   list, model, mesh, post plain and blend), dummies, and the cached surface groups.
 - `WgpuShaders.{hpp,cpp}`: the WGSL ports of `src/stage3D/vk/shaders/{quad,mesh,model,post}`.
@@ -122,6 +170,11 @@ option defines `REALM_WEBGPU_ENABLED=1` for every target; the native build compi
 requested API, then returns each frame while the state is `requesting`; the client is built when the state
 is `ready` or `failed`. `open_window` takes WebGPU only when it is `ready`; otherwise it records the
 fallback (reason from the browser) and opens WebGL2, as a failed Vulkan start opens OpenGL.
+The adapter request does not force a fallback adapter, and the callback checks the returned adapter
+before requesting its device. emdawnwebgpu maps the browser's `adapter.info.isFallbackAdapter` to
+`WGPUAdapterType_CPU`; these adapters are rejected through the same WebGL2 fallback path. Ordinary
+browser adapters report `Unknown`, which is accepted. This avoids relying on vendor-name heuristics;
+it does not guarantee that the browser's WebGL2 fallback is hardware accelerated.
 
 **Design choices.**
 
@@ -188,7 +241,62 @@ choice; a render-bundle cache can follow.
 **Stream reset (W5a fix).** `Stream::reset()` was never called, so the world's and the UI's streams grew every
 frame. `WgpuRenderer::finish_frame` now resets both after the submission, which is the point where reuse is safe.
 
+**Stream upload batching.** World/overlay instances, mesh vertices and per-draw uniforms, along with
+RmlUi vertex/index/uniform allocations, are copied into CPU staging owned by their stream chunks.
+`finish_frame` flushes both streams before submitting the frame encoder, then resets them after
+submission. Uploads scale with used chunks rather than allocations; the world and UI retain separate
+streams, so this is not a promise of one upload for the entire frame. Static-buffer and texture uploads
+keep their existing paths. Atlas-resize and capture-readback submissions do not consume stream data.
+
+The batching trades retained CPU staging memory and uploads of alignment padding for fewer calls.
+It preserves draw order, dynamic uniform offsets, clipping and the existing shader layouts. Measure
+CPU time and uploaded bytes together before changing chunk sizes or moving per-draw state into a
+storage buffer. The no-filter path already skips post-processing; render bundles, async pipeline
+creation and compute work remain separate changes to evaluate with browser measurements.
+
 **Known gaps (W5b).**
 - No gradient shaders; no frame cache; no RmlUi-only GPU timer (`begin_timer` returns false; the frame
   timer covers the UI).
 
+
+## Renderer call reductions (2026-11-07)
+
+Measured with interleaved headless-Firefox A/B runs (4 per cell, 900 frames, active CPU = `cpu_ms + present_ms`):
+WebGPU -4 to -5% in mixed/ui/models; WebGL2 -1.5% (mixed), -2.4% (ui), flat (models). GPU totals unchanged.
+The renderer is a small share of web CPU: in `mixed`, `scene.build`/`scene.draw_stream` dominate.
+
+- **WebGL2** (`RendererGl.cpp`, `GlBackend.cpp`): consecutive model blocks keep the model program, VAO and
+  culling bound (the default `glCullFace`/`glFrontFace` calls are gone); int and viewport uniforms skip unchanged
+  values; unchanged mesh vertices skip `glBufferData`; `GL_UNPACK_ALIGNMENT` is set once; wall texels upload in at
+  most three calls. Web only (`__EMSCRIPTEN__`/`REALM_GLES`): new atlas pages and layers skip the zero-fill upload,
+  since WebGL2 and WebGPU zero-initialize storage.
+- **WebGPU** (`WgpuRenderer.cpp`, `WgpuResources.cpp`): the atlas group is cached per (atlas, walls) view and the
+  post scene groups per target; pipeline and group binds skip unchanged state within a pass; the filtered path's
+  empty clear pass is folded into the canvas pass, which also takes the screen and HUD overlays (two passes fewer);
+  instances pack straight into stream staging (`Stream::reserve`); layer buffers are rewritten in place unless the
+  frame already recorded them; wall texels upload in at most three writes.
+- **WebGPU UI** (`WgpuUi.cpp`): pipeline, group 0, scissor and stencil reference skip unchanged state; scene groups
+  are cached per source view; texture uploads use pooled staging buffers (recycled after submission); the blur reads
+  the layer directly instead of copying it first.
+
+Benchmarking note: with `layout.frame_rate=0` (uncapped), headless Firefox stalls WebGPU presentation into a
+99 ms / 1 ms frame pattern, so the uncapped RAF interval is not a WebGPU metric; at the default 60 Hz both backends
+hold 16.7 ms. Compare active CPU and GPU totals instead.
+
+### Round two (2026-11-07)
+
+A Chromium CPU profile (`--profiling-funcs` build, headless Chromium on ANGLE/Vulkan) put 17% of WebGL2 main-thread
+samples in `getError`, called once per frame by `check_frame`. In Chromium that call is a synchronous round trip to
+the GPU process. Changes:
+
+- **WebGL2** (`GlBackend.cpp`, `REALM_GLES` only): `check_frame` asks `emscripten_is_webgl_context_lost` instead of
+  calling `glGetError`. Native GL keeps the `glGetError` check.
+- **WebGPU** (`StreamStager.hpp`): chunk storage is sized once, so `reserve` no longer zero-fills on every frame;
+  alignment-gap bytes are unspecified.
+- **Shared** (`Chat.cpp`): `ChatView::glow` reuses a scratch buffer instead of allocating a zeroed one per glyph run.
+
+Interleaved Chromium A/B (3 runs each), median frame interval, round one to round two: WebGL2 mixed 6.6 to 5.0 ms,
+ui 1.2 to 0.6 ms, models 1.4 to 1.2 ms; WebGPU unchanged. In-frame CPU for WebGL2 rises by about 0.2 ms because
+the GPU process now runs alongside the next frame instead of being drained, so compare the interval here, not
+active CPU. Firefox is unchanged within noise (its `getError` is cheap and its interval is compositor-bound).
+`-msimd128` was measured and gives no gain in either backend, so the build does not use it.

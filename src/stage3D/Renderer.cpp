@@ -55,6 +55,10 @@ void Renderer::timing(telemetry::Recorder* recorder, std::uint64_t frame_id, boo
   backend_->timing(recorder, frame_id, normal);
 }
 
+void Renderer::set_gpu_timing(bool enabled) {
+  backend_->set_gpu_timing(enabled);
+}
+
 void Renderer::poll_gpu() {
   backend_->poll_gpu();
 }

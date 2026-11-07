@@ -122,15 +122,17 @@ Atlas::Atlas(const FlashImages& pngs, std::span<const Image> additional, std::si
         texture_, p, 0, 0, page_size, page_size,
         reinterpret_cast<const std::byte*>(data[static_cast<std::size_t>(p)].data()));
   }
+  // Zero-filled like the static pages, so a texel never written is transparent rather than
+  // driver-defined. WebGL 2 and WebGPU already zero-initialize new storage, so the web build skips this.
+#ifndef __EMSCRIPTEN__
   if (dynamic_pages_) {
-    // Zero-filled like the static pages, so a texel never written is transparent rather than
-    // driver-defined.
     const std::vector<unsigned char> blank(static_cast<std::size_t>(page_size) * page_size * 4);
     for (int p = pages_; p < pages_ + dynamic_pages_; ++p) {
       gfx::backend().upload_layer(texture_, p, 0, 0, page_size, page_size,
                                   reinterpret_cast<const std::byte*>(blank.data()));
     }
   }
+#endif
   gfx::backend().verify_layers(texture_);
 }
 

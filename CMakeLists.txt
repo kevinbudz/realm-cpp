@@ -178,7 +178,19 @@ if(REALM_BUILD_VIEWER)
         if(REALM_AUDIO)
             string(APPEND REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_SFX_ROOT_PATH}@/sfx\n")
         endif()
+        # A small, offline subset for the opt-in browser benchmark query mode. These workloads use
+        # StressTimeline's generated legal map, so they need no sibling realm-server map or account.
+        foreach(REALM_WEB_BENCH_FIXTURE IN ITEMS S1-mixed-dense models-repeated ui)
+            string(APPEND REALM_WEB_PRELOAD_TEXT
+                "--preload-file\n${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/${REALM_WEB_BENCH_FIXTURE}.json@/realm-bench/${REALM_WEB_BENCH_FIXTURE}.json\n")
+            list(APPEND REALM_WEB_BENCH_FIXTURE_FILES
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/${REALM_WEB_BENCH_FIXTURE}.json")
+        endforeach()
         file(WRITE "${REALM_WEB_PRELOAD_RSP}" "${REALM_WEB_PRELOAD_TEXT}")
+        set_property(TARGET realm_client APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+            "${REALM_WEB_PRELOAD_RSP}"
+            ${REALM_WEB_BENCH_FIXTURE_FILES})
         target_link_options(realm_client PRIVATE
             -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=256MB
             -sSTACK_SIZE=2MB -sFETCH=1 -lwebsocket.js -lidbfs.js
@@ -219,6 +231,10 @@ if(BUILD_TESTING)
     realm_add_test(NAME telemetry TARGET realm_telemetry_tests LABELS unit
         SOURCES tests/TelemetryTests.cpp LINK nlohmann_json::nlohmann_json realm_support
         ARGS "${REALM_TEST_RESULTS}/telemetry-test")
+    realm_add_test(NAME webgpu_stream TARGET realm_wgpu_stream_tests LABELS unit
+        SOURCES tests/WgpuStreamTests.cpp LINK realm_build_options)
+    realm_add_python_test(NAME web_benchmark_report LABELS unit
+        SCRIPT tests/web_benchmark_report_tests.py)
     if(REALM_AUDIO)
         realm_add_test(NAME audio TARGET realm_audio_tests LABELS unit
             SOURCES tests/AudioTests.cpp LINK realm_audio

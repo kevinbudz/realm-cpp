@@ -903,7 +903,7 @@ void VkRenderer::begin_timing() {
       frames().record());  // the slot's fence has passed: its previous sample can be read
   poll_timer(slot);
   active_timer_ = nullptr;
-  if (!recorder_) {
+  if (!recorder_ && !gpu_timing_) {
     return;
   }
   auto& timer = timers_[slot];

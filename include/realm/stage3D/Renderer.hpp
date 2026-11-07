@@ -147,6 +147,8 @@ class Renderer {
 
   // Timing is opt-in. The fixed query ring skips busy slots; never waits.
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal);
+  // Measures GPU time for gpu_ms() without a recorder (the performance stats display).
+  void set_gpu_timing(bool enabled);
   void poll_gpu();
   [[nodiscard]] std::size_t pending_gpu() const;
   [[nodiscard]] std::size_t skipped_gpu() const;

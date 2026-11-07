@@ -30,6 +30,29 @@ bool base_instance_available() {
 #endif
 }
 
+// Whether meta[index] starts a model block in draw_batch: a model instance without a mesh owner.
+bool is_model_block(std::span<const QuadMeta> meta, std::size_t index) {
+  return index < meta.size() && meta[index].kind == 9 && !meta[index].owner;
+}
+
+// Sets an int uniform unless it already holds value. cache is the value last set (-1 when unknown).
+// Uniform values belong to their program, so the cache holds across program switches and frames.
+void set_int_uniform(GLint location, int& cache, int value) {
+  if (cache != value) {
+    glUniform1i(location, value);
+    cache = value;
+  }
+}
+
+// Sets a viewport-size uniform unless it already holds that size; cache starts at {-1, -1}.
+void set_viewport_uniform(GLint location, std::array<float, 2>& cache, int width, int height) {
+  const std::array<float, 2> value{static_cast<float>(width), static_cast<float>(height)};
+  if (cache != value) {
+    glUniform2f(location, value[0], value[1]);
+    cache = value;
+  }
+}
+
 constexpr auto vertex_shader = R"glsl(
 layout(location=0) in vec2 origin;
 layout(location=1) in vec2 axisX;
@@ -586,6 +609,8 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
   const auto standalone = standalone_location_;
   // Whether the quad pointers of vao_ address this list in buffer; terrain and layers rebind them.
   bool quads_bound = false;
+  // Whether the model program, its VAO and culling are bound for the model blocks (see below).
+  bool model_state = false;
   // The standalone flag and the surface on texture unit 1 as this list last left them. Unknown at
   // entry (the caller and earlier passes may have changed them); a nested layer resets both.
   int standalone_value = -1;
@@ -597,9 +622,9 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
       if (!terrain) {
         throw std::logic_error("Missing terrain buffer");
       }
-      glUniform1i(standalone, 0);
+      set_int_uniform(standalone, cache_standalone_, 0);
       standalone_value = 0;
-      glUniform1i(ground_location_, 1);
+      set_int_uniform(ground_location_, cache_ground_, 1);
       glUniform2fv(ground_origin_, 1, command.origin.data());
       glUniform2fv(ground_x_, 1, command.axis_x.data());
       glUniform2fv(ground_y_, 1, command.axis_y.data());
@@ -611,7 +636,7 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
       ++draw_calls_;
       telemetry::add(telemetry::Counter::quads, terrain->count());
       telemetry::add(telemetry::Counter::triangles, terrain->count() * 2);
-      glUniform1i(ground_location_, 0);
+      set_int_uniform(ground_location_, cache_ground_, 0);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
       ++first;
       continue;
@@ -641,14 +666,14 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
       }
       // Every quad of the layer is clipped, walls (kind 17) included: the fragment test runs before
       // the kind branch.
-      glUniform1i(clip_location_, 1);
+      set_int_uniform(clip_location_, cache_clip_, 1);
       glUniform4f(clip_rect_, command.origin[0], command.origin[1], command.axis_x[0],
                   command.axis_y[1]);
       draw_batch(layer->quads, layer->meta, 0, width, height, layer->buffer, false);
       quads_bound = false;
       standalone_value = -1;
       surface_bound = ~std::uint32_t{};
-      glUniform1i(clip_location_, 0);
+      set_int_uniform(clip_location_, cache_clip_, 0);
       glBindBuffer(GL_ARRAY_BUFFER, buffer);
       ++first;
       continue;
@@ -659,13 +684,6 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
       // order).
       REALM_ZONE("render.model_submit");
       const std::size_t end = draw_plan::model_block_end(meta, first);
-      glUseProgram(model_program_);
-      glBindVertexArray(model_vao_);
-      glBindBuffer(GL_ARRAY_BUFFER, buffer);
-      glUniform2f(model_viewport_, static_cast<float>(width), static_cast<float>(height));
-      glEnable(GL_CULL_FACE);
-      glCullFace(GL_BACK);
-      glFrontFace(GL_CCW);
       const std::array<std::pair<GLint, std::size_t>, 8> instance{{{2, offsetof(Quad, origin)},
                                                                    {2, offsetof(Quad, axis_x)},
                                                                    {2, offsetof(Quad, axis_y)},
@@ -674,14 +692,25 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
                                                                    {1, offsetof(Quad, page)},
                                                                    {4, offsetof(Quad, multiply)},
                                                                    {4, offsetof(Quad, offset)}}};
-      // With base instances the pointers address the whole list once and each run starts at its own
-      // quad.
-      if (base_instance_) {
-        for (GLuint i = 0; i < instance.size(); ++i) {
-          glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, quad_instance_bytes,
-                                reinterpret_cast<void*>(offset + instance[i].second));
+      // Consecutive model blocks share the program, VAO, buffer and culling, so they are bound once
+      // here and restored only before a block of another kind (see the end of this block). Culling
+      // keeps the GL defaults (back faces, counter-clockwise front), which nothing in src/ changes.
+      if (!model_state) {
+        glUseProgram(model_program_);
+        glBindVertexArray(model_vao_);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        glEnable(GL_CULL_FACE);
+        // With base instances the pointers address the whole list once and each run starts at its own
+        // quad.
+        if (base_instance_) {
+          for (GLuint i = 0; i < instance.size(); ++i) {
+            glVertexAttribPointer(4 + i, instance[i].first, GL_FLOAT, GL_FALSE, quad_instance_bytes,
+                                  reinterpret_cast<void*>(offset + instance[i].second));
+          }
         }
+        model_state = true;
       }
+      set_viewport_uniform(model_viewport_, cache_model_viewport_, width, height);
       for (std::size_t run = first; run < end;) {
         const float model = meta[run].model;
         const std::size_t next = draw_plan::model_run_end(meta, run, end);
@@ -704,10 +733,13 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
         }
         run = next;
       }
-      glDisable(GL_CULL_FACE);
-      glUseProgram(program_);
-      glBindVertexArray(vao_);
-      glBindBuffer(GL_ARRAY_BUFFER, buffer);
+      if (!is_model_block(meta, end)) {
+        glDisable(GL_CULL_FACE);
+        glUseProgram(program_);
+        glBindVertexArray(vao_);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        model_state = false;
+      }
       first = end;
       continue;
     }
@@ -727,7 +759,7 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
         telemetry::add(telemetry::Counter::triangles, vertices / 3);
         glUseProgram(mesh_program_);
         glBindVertexArray(mesh_vao_);
-        glUniform2f(mesh_viewport_, static_cast<float>(width), static_cast<float>(height));
+        set_viewport_uniform(mesh_viewport_, cache_mesh_viewport_, width, height);
         glDrawArrays(GL_TRIANGLES, static_cast<GLint>(run.front().first),
                      static_cast<GLsizei>(vertices));
         ++draw_calls_;
@@ -755,7 +787,7 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
     const std::uint64_t wall_triangles = sprites.wall_triangles;
     const auto sprites_in_run = end - first - walls;
     if (standalone_value != (texture != 0)) {
-      glUniform1i(standalone, texture != 0);
+      set_int_uniform(standalone, cache_standalone_, texture != 0);
       standalone_value = texture != 0;
     }
     if (texture && texture != surface_bound) {
@@ -775,10 +807,10 @@ void RendererGl::draw_batch(std::span<const Quad> list, std::span<const QuadMeta
     telemetry::add(telemetry::Counter::models, walls);
     telemetry::add(telemetry::Counter::triangles, 2 * sprites_in_run + wall_triangles);
     if (walls) {
-      glUniform1i(triangle_list_location_, 1);
+      set_int_uniform(triangle_list_location_, cache_triangle_list_, 1);
       draw_instanced(GL_TRIANGLES, 0, std::max<GLsizei>(6, max_vertices),
                      static_cast<GLsizei>(end - first), first);
-      glUniform1i(triangle_list_location_, 0);
+      set_int_uniform(triangle_list_location_, cache_triangle_list_, 0);
     } else {
       draw_instanced(GL_TRIANGLE_STRIP, 0, 4, static_cast<GLsizei>(end - first), first);
     }
@@ -805,12 +837,12 @@ void RendererGl::draw(const Atlas& atlas, std::span<const Quad> quads, int width
   glEnable(GL_SCISSOR_TEST);
   glScissor(0, 0, clip_width, height);
   glUseProgram(program_);
-  glUniform2f(viewport_location_, static_cast<float>(width), static_cast<float>(height));
+  set_viewport_uniform(viewport_location_, cache_quad_viewport_, width, height);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);
-  glUniform1i(ground_location_, 0);
-  glUniform1i(clip_location_, 0);
+  set_int_uniform(ground_location_, cache_ground_, 0);
+  set_int_uniform(clip_location_, cache_clip_, 0);
 
   const auto stream_buffer = upload_submission(quads, overlay);
   bind_walls();
@@ -820,7 +852,7 @@ void RendererGl::draw(const Atlas& atlas, std::span<const Quad> quads, int width
     gpu_timers_->phase(1);
   }
 
-  glUniform1i(surface_location_, 1);
+  set_int_uniform(surface_location_, cache_surface_, 1);
   draw_calls_ = 0;
   if (effects.filtered()) {
     // Only the map sprite is filtered: render the world offscreen, then resolve it filtered.
@@ -906,12 +938,27 @@ void RendererGl::upload_walls(const WallGeometryStore& store) {
                  nullptr);
   }
   const auto* texels = reinterpret_cast<const float*>(store.vertices().data());
-  for (std::size_t texel = step.first * 2; texel < step.end * 2;) {
-    const auto column = texel % width;
-    const auto count = std::min(width - column, step.end * 2 - texel);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(column), static_cast<GLint>(texel / width),
-                    static_cast<GLsizei>(count), 1, GL_RGBA, GL_FLOAT, texels + texel * 4);
+  // The uploaded texels are contiguous in the store, so they take at most three uploads: the rest of a
+  // partial head row, a block of whole rows, and a partial tail row.
+  std::size_t texel = step.first * 2;
+  const std::size_t end = step.end * 2;
+  if (texel % width != 0 && texel < end) {
+    const auto count = std::min(width - texel % width, end - texel);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(texel % width),
+                    static_cast<GLint>(texel / width), static_cast<GLsizei>(count), 1, GL_RGBA,
+                    GL_FLOAT, texels + texel * 4);
     texel += count;
+  }
+  const auto rows = (end - texel) / width;
+  if (rows > 0) {
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, static_cast<GLint>(texel / width),
+                    static_cast<GLsizei>(width), static_cast<GLsizei>(rows), GL_RGBA, GL_FLOAT,
+                    texels + texel * 4);
+    texel += rows * width;
+  }
+  if (texel < end) {
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, static_cast<GLint>(texel / width),
+                    static_cast<GLsizei>(end - texel), 1, GL_RGBA, GL_FLOAT, texels + texel * 4);
   }
   glActiveTexture(GL_TEXTURE0);
   if (step.end > step.first) {
@@ -968,12 +1015,19 @@ void RendererGl::upload_mesh_vertices() {
   if (meshes_.vertices.empty()) {
     return;
   }
+  // The buffer holds exactly the last upload, so identical vertices need no new upload.
+  if (meshes_.vertices.size() == uploaded_mesh_vertices_.size() &&
+      std::memcmp(meshes_.vertices.data(), uploaded_mesh_vertices_.data(),
+                  meshes_.vertices.size() * sizeof(MeshBatchVertex)) == 0) {
+    return;
+  }
   REALM_ZONE("render.mesh_upload");
   const auto bytes = meshes_.vertices.size() * sizeof(MeshBatchVertex);
   glBindBuffer(GL_ARRAY_BUFFER, mesh_buffer_);
   glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes), meshes_.vertices.data(),
                GL_STREAM_DRAW);
   telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
+  uploaded_mesh_vertices_ = meshes_.vertices;
 }
 
 // A later pass (RmlUi) leaves arbitrary GL state behind, so everything the quad program depends on
@@ -1003,10 +1057,10 @@ void RendererGl::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay,
   glBlendEquation(GL_FUNC_ADD);
   glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glUseProgram(program_);
-  glUniform2f(viewport_location_, static_cast<float>(width), static_cast<float>(height));
-  glUniform1i(surface_location_, 1);
-  glUniform1i(ground_location_, 0);
-  glUniform1i(clip_location_, 0);
+  set_viewport_uniform(viewport_location_, cache_quad_viewport_, width, height);
+  set_int_uniform(surface_location_, cache_surface_, 1);
+  set_int_uniform(ground_location_, cache_ground_, 0);
+  set_int_uniform(clip_location_, cache_clip_, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, atlas.texture());
   glBindVertexArray(vao_);
@@ -1037,6 +1091,10 @@ void RendererGl::draw_overlay(const Atlas& atlas, std::span<const Quad> overlay,
 
 void RendererGl::timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) {
   gpu_timers_->timing(recorder, frame_id, normal);
+}
+
+void RendererGl::set_gpu_timing(bool enabled) {
+  gpu_timers_->set_enabled(enabled);
 }
 
 void RendererGl::poll_gpu() {

@@ -151,5 +151,6 @@
   "src/stage3D/wgpu/WgpuTimers.hpp": "realm_render",
   "src/stage3D/wgpu/WgpuUi.hpp": "realm_render",
   "include/realm/stage3D/wgpu/WebGpuUi.hpp": "realm_render",
+  "include/realm/stage3D/wgpu/StreamStager.hpp": "realm_render",
   "src/lib/ui/RmlTarga.hpp": "realm_ui_rmlui"
 }

@@ -1,6 +1,9 @@
 #include "GlApi.hpp"
 #include "GlBackend.hpp"
 #include "RendererGl.hpp"
+#if REALM_GLES
+#include <emscripten/html5.h>
+#endif
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -25,9 +28,18 @@ class GlBackend final : public Backend {
   }
 
   void check_frame() override {
+#if REALM_GLES
+    // WebGL's getError is a synchronous round trip that waits for the browser's GPU process to drain
+    // the frame (17% of the main thread in Chromium), and the browser already reports GL errors in the
+    // console. A lost context is the fatal case, and testing for it needs no round trip.
+    if (emscripten_is_webgl_context_lost(emscripten_webgl_get_current_context())) {
+      throw std::runtime_error("WebGL context lost");
+    }
+#else
     if (glGetError() != GL_NO_ERROR) {
       throw std::runtime_error("OpenGL error during frame");
     }
+#endif
   }
 
   [[nodiscard]] Limits limits() override {
@@ -69,7 +81,7 @@ class GlBackend final : public Backend {
                       const std::byte* rgba) override {
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    set_unpack_alignment_one();
     glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
     glActiveTexture(GL_TEXTURE0);
   }
@@ -93,7 +105,7 @@ class GlBackend final : public Backend {
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    set_unpack_alignment_one();
     return texture;
   }
 
@@ -101,7 +113,7 @@ class GlBackend final : public Backend {
                     const std::byte* rgba) override {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    set_unpack_alignment_one();
     glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, x, y, layer, width, height, 1, GL_RGBA,
                     GL_UNSIGNED_BYTE, rgba);
   }
@@ -167,15 +179,19 @@ class GlBackend final : public Backend {
         glEnable(GL_SCISSOR_TEST);
       }
     }
+#if !REALM_GLES
+    // WebGL 2 zero-initializes the new layers (glTexImage3D without data), so the web build skips the
+    // blank uploads.
     if (kept < layers) {
       const std::vector<unsigned char> blank(static_cast<std::size_t>(size) *
                                              static_cast<std::size_t>(size) * 4);
-      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      set_unpack_alignment_one();
       for (int layer = kept; layer < layers; ++layer) {
         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, size, size, 1, GL_RGBA,
                         GL_UNSIGNED_BYTE, blank.data());
       }
     }
+#endif
     const bool failed = glGetError() != GL_NO_ERROR;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(read_binding));
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(draw_binding));
@@ -218,6 +234,17 @@ class GlBackend final : public Backend {
     return std::make_unique<realm::RendererGl>(capacity, persistent_streaming,
                                                persistent_minimum_bytes);
   }
+
+ private:
+  // Every writer of GL_UNPACK_ALIGNMENT sets it to 1 (here and in RmlGpuGl), so it is set once rather
+  // than before each upload.
+  void set_unpack_alignment_one() {
+    if (!unpack_alignment_one_) {
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      unpack_alignment_one_ = true;
+    }
+  }
+  bool unpack_alignment_one_{};
 };
 }  // namespace
 

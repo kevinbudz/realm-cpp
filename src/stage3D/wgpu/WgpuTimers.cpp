@@ -102,7 +102,7 @@ void WgpuTimers::begin_frame() {
   if (active_) {
     return;  // already measuring this frame
   }
-  if (!recorder_ || !context().timestamps() || !ensure()) {
+  if ((!recorder_ && !enabled_) || !context().timestamps() || !ensure()) {
     return;
   }
   const auto index = frame_ % slot_count;

@@ -34,6 +34,7 @@ class RendererGl final : public gfx::RendererBackend {
   [[nodiscard]] std::size_t draw_calls() const override { return draw_calls_; }
 
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal) override;
+  void set_gpu_timing(bool enabled) override;
   void poll_gpu() override;
   [[nodiscard]] std::size_t pending_gpu() const override;
   [[nodiscard]] std::size_t skipped_gpu() const override;
@@ -103,5 +104,19 @@ class RendererGl final : public gfx::RendererBackend {
   int ground_time_{};
   int clip_location_{};
   int clip_rect_{};
+
+  // Uniform values last set on each program (-1, or {-1, -1}, when unknown), so an unchanged uniform
+  // skips its glUniform call. The programs are linked once in the constructor and only this renderer
+  // sets their uniforms, so the caches start empty and are never invalidated.
+  int cache_standalone_{-1};
+  int cache_ground_{-1};
+  int cache_clip_{-1};
+  int cache_surface_{-1};
+  int cache_triangle_list_{-1};
+  std::array<float, 2> cache_quad_viewport_{-1.0f, -1.0f};
+  std::array<float, 2> cache_mesh_viewport_{-1.0f, -1.0f};
+  std::array<float, 2> cache_model_viewport_{-1.0f, -1.0f};
+  // The mesh vertices last uploaded to mesh_buffer_, which holds exactly those.
+  std::vector<draw_plan::MeshBatchVertex> uploaded_mesh_vertices_;
 };
 }  // namespace realm

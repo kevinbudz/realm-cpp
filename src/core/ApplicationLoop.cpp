@@ -131,6 +131,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const bool normal_frame =
       cs.frame >= static_cast<std::uint64_t>(o.telemetry_warmup) && !capture_frame;
   cs.renderer.timing(cs.telemetry.get(), cs.frame, normal_frame);
+  cs.renderer.set_gpu_timing(cs.perf_stats);
   if (world_only) {
     overlay = {};
   }
@@ -220,7 +221,7 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   }
 
   realm::check_graphics_error();
-  cs.sample_perf(presented);
+  cs.sample_perf(presented, milliseconds(submitted - start), cs.renderer.gpu_ms());
 
   // Max FPS: VSync alone does not cap a fast display or an unsynchronized swap. UI screens (menus
   // and Options) gain nothing from more frames than the display shows, so they cap at the

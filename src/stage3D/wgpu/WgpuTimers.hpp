@@ -26,6 +26,7 @@ class WgpuTimers {
   WgpuTimers& operator=(const WgpuTimers&) = delete;
 
   void timing(telemetry::Recorder* recorder, std::uint64_t frame_id, bool normal);
+  void set_enabled(bool enabled) { enabled_ = enabled; }
   // Starts the frame's measurement in the frame's encoder. Does nothing when the frame is not measured.
   void begin_frame();
   // Ends the frame's measurement (before the submit): the end stamp, then the resolve and the copy into
@@ -61,6 +62,7 @@ class WgpuTimers {
   WGPUBuffer resolve_ = nullptr;
   bool failed_{};
   telemetry::Recorder* recorder_{};
+  bool enabled_{};  // timing without a recorder
   std::uint64_t sample_frame_{};
   bool sample_normal_{};
   std::size_t frame_{};

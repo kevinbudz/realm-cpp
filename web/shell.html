@@ -32,40 +32,220 @@
       pointer-events: none;
     }
     #status:empty { display: none; }
+    #benchmark-panel {
+      position: fixed;
+      z-index: 2;
+      top: 12px;
+      left: 12px;
+      max-width: min(620px, calc(100vw - 40px));
+      padding: 12px 14px;
+      border: 1px solid #53606e;
+      border-radius: 8px;
+      background: rgba(12, 17, 23, .94);
+      color: #e8edf2;
+      font: 13px/1.45 system-ui, sans-serif;
+      box-shadow: 0 3px 18px #0008;
+    }
+    #benchmark-panel[hidden] { display: none; }
+    #benchmark-panel p { margin: 4px 0 8px; }
+    #benchmark-downloads { display: flex; gap: 8px; flex-wrap: wrap; }
+    #benchmark-downloads a {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: #253b53;
+      color: #d7eaff;
+      text-decoration: none;
+    }
+    html.benchmark-mode #canvas {
+      inset: 0 auto auto 0;
+      width: 1280px;
+      height: 720px;
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas" tabindex="-1"></canvas>
   <p id="status">Loading</p>
+  <section id="benchmark-panel" hidden aria-live="polite">
+    <strong>Browser renderer benchmark</strong>
+    <p id="benchmark-message"></p>
+    <div id="benchmark-downloads"></div>
+  </section>
   <script>
-    // Query string -> client flags (see src/core/ApplicationOptions.cpp). Example:
+    // Normal query string -> client flags (see src/core/ApplicationOptions.cpp). Example:
     // ?server=1.2.3.4&port=2051&appport=7777&renderer=webgpu
     //   -> --server 1.2.3.4 --port 2051 --app-port 7777 --renderer webgpu
-    // server defaults to the page's host; the other keys are passed only when present.
+    // Opt-in benchmark: ?bench=mixed&renderer=webgpu&frames=600 (also models or ui).
+    // Browser runs remain requestAnimationFrame paced; this only fixes the workload and frame count.
     (function () {
       var params = new URLSearchParams(location.search);
       var args = [];
-      var server = params.get('server') || location.hostname;
-      if (server) args.push('--server', server);
-      var flags = [['port', '--port'], ['appport', '--app-port'], ['renderer', '--renderer']];
-      flags.forEach(function (flag) {
-        var value = params.get(flag[0]);
-        if (value) args.push(flag[1], value);
-      });
+      var benchmark = null;
+      var benchmarkError = '';
+      var scenario = params.get('bench');
+      if (scenario !== null) {
+        var fixtureNames = Object.assign(Object.create(null), {
+          mixed: 'S1-mixed-dense',
+          models: 'models-repeated',
+          ui: 'ui',
+          'S1-mixed-dense': 'S1-mixed-dense',
+          'models-repeated': 'models-repeated'
+        });
+        var fixture = fixtureNames[scenario];
+        var requestedRenderer = params.get('renderer') || 'gl';
+        if (requestedRenderer === 'webgl2') requestedRenderer = 'gl';
+        var requestedFrames = params.has('frames') ? Number(params.get('frames')) : 600;
+        if (!fixture) {
+          benchmarkError = 'Unknown benchmark fixture. Choose mixed, models or ui.';
+        } else if (requestedRenderer !== 'gl' && requestedRenderer !== 'webgpu') {
+          benchmarkError = 'Benchmark renderer must be gl, webgl2 or webgpu.';
+        } else if (!Number.isInteger(requestedFrames) || requestedFrames < 240 || requestedFrames > 3600) {
+          benchmarkError = 'Benchmark frames must be an integer from 240 to 3600.';
+        } else {
+          var telemetryPath = '/realm-bench/telemetry.jsonl';
+          var summaryPath = '/realm-bench/summary.json';
+          var warmupFrames = 120;
+          benchmark = {
+            scenario: fixture,
+            requestedRenderer: requestedRenderer,
+            frames: requestedFrames,
+            warmupFrames: warmupFrames,
+            telemetryPath: telemetryPath,
+            summaryPath: summaryPath,
+            startedAt: new Date().toISOString()
+          };
+          document.documentElement.classList.add('benchmark-mode');
+          args.push('--renderer', requestedRenderer, '--benchmark', '--frames', String(requestedFrames),
+            '--width', '1280', '--height', '720', '--audio', 'off', '--stress', '/realm-bench/' + fixture + '.json',
+            '--stress-summary', summaryPath, '--telemetry', telemetryPath, '--telemetry-warmup', String(warmupFrames));
+        }
+      } else {
+        var server = params.get('server') || location.hostname;
+        if (server) args.push('--server', server);
+        var flags = [['port', '--port'], ['appport', '--app-port'], ['renderer', '--renderer']];
+        flags.forEach(function (flag) {
+          var value = params.get(flag[0]);
+          if (value) args.push(flag[1], value);
+        });
+      }
+      window.realmBenchmark = benchmark;
+      window.realmBenchmarkError = benchmarkError;
       window.realmArguments = args;
     })();
 
     var statusElement = document.getElementById('status');
     var canvas = document.getElementById('canvas');
+    var benchmarkPanel = document.getElementById('benchmark-panel');
+    var benchmarkMessage = document.getElementById('benchmark-message');
+    var benchmarkDownloads = document.getElementById('benchmark-downloads');
     canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); });
+
+    function addDownload(label, filename, contents, mime) {
+      var blob = new Blob([contents], { type: mime });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.textContent = label;
+      benchmarkDownloads.appendChild(link);
+    }
+
+    function readBenchmarkMetadata(text) {
+      var result = {};
+      text.split(/\r?\n/).forEach(function (line) {
+        if (!line) return;
+        var row = JSON.parse(line);
+        if (row.type === 'metadata') result[row.key] = row.value;
+      });
+      return result;
+    }
+
+    function finishBenchmark(Module) {
+      var run = window.realmBenchmark;
+      if (!run || run.finished || !Module.FS || !Module.FS.readFile) return;
+      var telemetry;
+      var summary;
+      try {
+        summary = Module.FS.readFile(run.summaryPath, { encoding: 'utf8' });
+        telemetry = Module.FS.readFile(run.telemetryPath, { encoding: 'utf8' });
+      } catch (error) {
+        return; // Summary is created after the final telemetry flush.
+      }
+      run.finished = true;
+      if (window.realmBenchmarkPoll !== undefined) clearInterval(window.realmBenchmarkPoll);
+      var metadata = readBenchmarkMetadata(telemetry);
+      var expected = run.requestedRenderer === 'webgpu' ? 'WebGPU' : 'OpenGL';
+      var expectedLabel = run.requestedRenderer === 'webgpu' ? 'WebGPU' : 'WebGL2';
+      var actual = metadata.renderer || 'unknown renderer';
+      var fallback = metadata.renderer_fallback;
+      var runtimeErrors = run.runtimeErrors || [];
+      var matched = actual === expected && !fallback && runtimeErrors.length === 0;
+      benchmarkPanel.hidden = false;
+      if (matched) {
+        benchmarkMessage.textContent = 'Completed ' + run.scenario + ' for ' + run.frames +
+          ' requestAnimationFrame-paced frames. Active renderer: ' +
+          (actual === 'OpenGL' ? 'WebGL2 (shared telemetry label: OpenGL)' : actual) +
+          '. CPU frame work is cpu_ms + present_ms; frame intervals include browser pacing.';
+      } else {
+        benchmarkMessage.textContent = 'Requested ' + expectedLabel + ' but telemetry reports ' + actual +
+          (fallback ? ' after fallback: ' + fallback : '') +
+          (runtimeErrors.length ? '. Runtime errors: ' + runtimeErrors.join(' | ') : '') +
+          '. This run is not a valid sample for the requested renderer comparison.';
+      }
+      var tag = 'realm-web-bench-' + run.scenario + '-' + run.requestedRenderer + '-' +
+        new Date().toISOString().replace(/[:.]/g, '-');
+      var environment = {
+        schema: 'realm-web-benchmark-environment-v1',
+        scenario: run.scenario,
+        requested_renderer: run.requestedRenderer === 'gl' ? 'WebGL2' : 'WebGPU',
+        actual_renderer: actual,
+        renderer_fallback: fallback || null,
+        runtime_errors: runtimeErrors,
+        frames: run.frames,
+        warmup_frames: run.warmupFrames,
+        started_at: run.startedAt,
+        completed_at: new Date().toISOString(),
+        browser_user_agent: navigator.userAgent,
+        device_pixel_ratio: window.devicePixelRatio || 1,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        canvas: { width: canvas.width, height: canvas.height }
+      };
+      addDownload('Telemetry JSONL', tag + '-telemetry.jsonl', telemetry, 'application/x-ndjson');
+      addDownload('Fixture summary JSON', tag + '-summary.json', summary, 'application/json');
+      addDownload('Run environment JSON', tag + '-environment.json', JSON.stringify(environment, null, 2) + '\n', 'application/json');
+    }
 
     var Module = {
       canvas: canvas,
       arguments: window.realmArguments,
+      noInitialRun: Boolean(window.realmBenchmarkError),
       print: function (text) { console.log(text); },
-      printErr: function (text) { console.error(text); },
+      printErr: function (text) {
+        console.error(text);
+        if (window.realmBenchmark && /^WebGPU (?:error|device lost)/.test(text)) {
+          window.realmBenchmark.runtimeErrors = window.realmBenchmark.runtimeErrors || [];
+          window.realmBenchmark.runtimeErrors.push(text);
+        }
+        if (window.realmBenchmark && /^realm_client:/.test(text)) {
+          if (window.realmBenchmarkPoll !== undefined) clearInterval(window.realmBenchmarkPoll);
+          benchmarkPanel.hidden = false;
+          benchmarkMessage.textContent = 'Benchmark failed: ' + text;
+        }
+      },
+      onRuntimeInitialized: function () {
+        if (window.realmBenchmarkError) {
+          benchmarkPanel.hidden = false;
+          benchmarkMessage.textContent = window.realmBenchmarkError;
+          return;
+        }
+        if (!window.realmBenchmark) return;
+        benchmarkPanel.hidden = false;
+        benchmarkMessage.textContent = 'Running ' + window.realmBenchmark.scenario + ' for ' +
+          window.realmBenchmark.frames + ' requestAnimationFrame-paced frames…';
+        window.realmBenchmarkPoll = setInterval(function () { finishBenchmark(Module); }, 500);
+      },
       setStatus: function (text) {
-        statusElement.textContent = text;
+        if (!window.realmBenchmarkError) statusElement.textContent = text;
       },
       monitorRunDependencies: function (left) {
         this.totalDependencies = Math.max(this.totalDependencies || 0, left);
@@ -74,7 +254,13 @@
       totalDependencies: 0
     };
     window.addEventListener('error', function (event) {
-      statusElement.textContent = 'Error: ' + event.message;
+      if (window.realmBenchmark) {
+        if (window.realmBenchmarkPoll !== undefined) clearInterval(window.realmBenchmarkPoll);
+        benchmarkPanel.hidden = false;
+        benchmarkMessage.textContent = 'Benchmark error: ' + event.message;
+      } else {
+        statusElement.textContent = 'Error: ' + event.message;
+      }
     });
   </script>
   {{{ SCRIPT }}}

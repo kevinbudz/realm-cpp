@@ -67,9 +67,8 @@ WgpuRenderer::WgpuRenderer(std::size_t capacity, bool /*persistent_streaming*/,
 
 WgpuRenderer::~WgpuRenderer() {
   rml_ui_.destroy();
-  if (atlas_group_) {
-    end_submission();
-  }
+  release_scene_groups();
+  release_atlas_group();
   if (active == this) {
     active = nullptr;
   }
@@ -96,6 +95,9 @@ WgpuRenderer::~WgpuRenderer() {
 }
 
 WGPURenderPassEncoder WgpuRenderer::begin_pass(WGPUTextureView target, bool clear) {
+  // A pass starts with nothing bound, whatever the previous pass left.
+  bound_pipeline_ = nullptr;
+  bound_slots_ = {};
   WGPURenderPassColorAttachment color{};
   color.view = target;
   color.loadOp = clear ? WGPULoadOp_Clear : WGPULoadOp_Load;
@@ -119,14 +121,36 @@ void WgpuRenderer::scissor(WGPURenderPassEncoder pass, int x, int y, int width, 
                                       static_cast<std::uint32_t>(height));
 }
 
+void WgpuRenderer::set_pipeline(WGPURenderPassEncoder pass, WGPURenderPipeline pipeline) {
+  if (bound_pipeline_ != pipeline) {
+    wgpuRenderPassEncoderSetPipeline(pass, pipeline);
+    bound_pipeline_ = pipeline;
+  }
+}
+
+void WgpuRenderer::set_group(WGPURenderPassEncoder pass, std::uint32_t slot, WGPUBindGroup group,
+                             std::uint32_t offset, bool dynamic) {
+  auto& bound = bound_slots_[slot];
+  // Groups bound in a pass stay bound across pipeline changes, so a slot's group is valid until replaced.
+  if (bound.group == group && bound.offset == offset && bound.dynamic == dynamic) {
+    return;
+  }
+  if (dynamic) {
+    wgpuRenderPassEncoderSetBindGroup(pass, slot, group, 1, &offset);
+  } else {
+    wgpuRenderPassEncoderSetBindGroup(pass, slot, group, 0, nullptr);
+  }
+  bound = Slot{group, offset, dynamic};
+}
+
 void WgpuRenderer::bind_draw(WGPURenderPassEncoder pass, WGPURenderPipeline pipeline, std::uint32_t surface,
                              const QuadUniform& state) {
   const auto uniform = stream_.write(&state, uniform_bytes, uniform_alignment);
   const auto offset = static_cast<std::uint32_t>(uniform.offset);
-  wgpuRenderPassEncoderSetPipeline(pass, pipeline);
-  wgpuRenderPassEncoderSetBindGroup(pass, 0, atlas_group_, 0, nullptr);
-  wgpuRenderPassEncoderSetBindGroup(pass, 1, pipelines().surface_group(surface), 0, nullptr);
-  wgpuRenderPassEncoderSetBindGroup(pass, 2, uniform.uniform, 1, &offset);
+  set_pipeline(pass, pipeline);
+  set_group(pass, 0, atlas_group_, 0, false);
+  set_group(pass, 1, pipelines().surface_group(surface), 0, false);
+  set_group(pass, 2, uniform.uniform, offset, true);
   ++draw_calls_;
 }
 
@@ -134,21 +158,37 @@ void WgpuRenderer::post_draw(WGPURenderPassEncoder pass, bool blend, WGPUBindGro
                              const PostUniform& values) {
   const auto uniform = stream_.write(&values, uniform_bytes, uniform_alignment);
   const auto offset = static_cast<std::uint32_t>(uniform.offset);
-  wgpuRenderPassEncoderSetPipeline(pass, pipelines().post(blend));
-  wgpuRenderPassEncoderSetBindGroup(pass, 0, scene, 0, nullptr);
-  wgpuRenderPassEncoderSetBindGroup(pass, 1, uniform.uniform, 1, &offset);
+  set_pipeline(pass, pipelines().post(blend));
+  set_group(pass, 0, scene, 0, false);
+  set_group(pass, 1, uniform.uniform, offset, true);
   wgpuRenderPassEncoderDraw(pass, 4, 1, 0, 0);
   ++draw_calls_;
 }
 
-void WgpuRenderer::post_pass(WGPUTextureView target, bool clear, WGPUTextureView source, int width,
-                             int height, const PostUniform& values, bool blend) {
-  const WGPUBindGroup scene = pipelines().scene_group(source);
+WGPUBindGroup WgpuRenderer::scene_group(std::size_t source) {
+  auto& cached = scene_groups_[source];
+  if (!cached) {
+    cached = pipelines().scene_group(post_[source].view);
+  }
+  return cached;
+}
+
+void WgpuRenderer::release_scene_groups() noexcept {
+  for (auto& group : scene_groups_) {
+    if (group) {
+      wgpuBindGroupRelease(group);
+      group = nullptr;
+    }
+  }
+}
+
+void WgpuRenderer::post_pass(WGPUTextureView target, bool clear, std::size_t source, int width, int height,
+                             const PostUniform& values, bool blend) {
+  const WGPUBindGroup scene = scene_group(source);
   auto pass = begin_pass(target, clear);
   scissor(pass, 0, 0, width, height);
   post_draw(pass, blend, scene, values);
   end_pass(pass);
-  wgpuBindGroupRelease(scene);
 }
 
 void WgpuRenderer::prepare_layers(std::span<const Quad> list) {
@@ -167,11 +207,14 @@ void WgpuRenderer::prepare_layers(std::span<const Quad> list) {
     draw_plan::pack_quads(layer->quads, layer->packed.data(), layer->meta.data(), unused_walls, false,
                           unused_meshes);
     if (!same_instances(layer->uploaded, layer->packed)) {
-      // A new buffer per change; the old one goes with its last reference.
+      // The layer's buffer is rewritten in place unless the frame's encoder already draws from it.
       if (layer->buffer) {
-        resources().release(layer->buffer);
+        const bool in_place = std::find(recorded_layers_.begin(), recorded_layers_.end(), layer->buffer) ==
+                              recorded_layers_.end();
+        resources().write_buffer(layer->buffer, layer->packed, in_place);
+      } else {
+        layer->buffer = resources().create_buffer(layer->packed);
       }
-      layer->buffer = resources().create_buffer(layer->packed);
       telemetry::add(telemetry::Counter::quad_upload_bytes, layer->packed.size());
       layer->uploaded.swap(layer->packed);
     }
@@ -181,22 +224,42 @@ void WgpuRenderer::prepare_layers(std::span<const Quad> list) {
 
 void WgpuRenderer::write_wall_texels(std::uint64_t first, std::uint64_t count, const std::byte* data) {
   auto* queue = context().queue();
-  while (count > 0) {
-    const auto column = first % wall_row_texels;
-    const auto row = first / wall_row_texels;
-    const auto run = std::min(count, wall_row_texels - column);
+  // One copy of a rectangle of the wall texture: width texels per row, rows rows, from data.
+  const auto upload = [&](std::uint64_t x, std::uint64_t y, std::uint64_t width, std::uint64_t rows,
+                          const std::byte* source) {
     WGPUTexelCopyTextureInfo destination{};
     destination.texture = walls_texture_;
-    destination.origin = {static_cast<std::uint32_t>(column), static_cast<std::uint32_t>(row), 0};
+    destination.origin = {static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y), 0};
     destination.aspect = WGPUTextureAspect_All;
     WGPUTexelCopyBufferLayout layout{};
-    layout.bytesPerRow = static_cast<std::uint32_t>(run * texel_bytes);
-    layout.rowsPerImage = 1;
-    const WGPUExtent3D size{static_cast<std::uint32_t>(run), 1, 1};
-    wgpuQueueWriteTexture(queue, &destination, data, static_cast<std::size_t>(run * texel_bytes), &layout, &size);
-    data += run * texel_bytes;
-    first += run;
-    count -= run;
+    layout.bytesPerRow = static_cast<std::uint32_t>(width * texel_bytes);
+    layout.rowsPerImage = static_cast<std::uint32_t>(rows);
+    const WGPUExtent3D size{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(rows), 1};
+    wgpuQueueWriteTexture(queue, &destination, source, static_cast<std::size_t>(width * rows * texel_bytes),
+                          &layout, &size);
+  };
+  // The texels run row by row: the head fills the rest of the first row, whole rows follow as one block,
+  // and the tail is the start of the last row. At most three writes.
+  const std::uint64_t column = first % wall_row_texels;
+  std::uint64_t row = first / wall_row_texels;
+  const std::uint64_t head = column == 0 ? 0 : std::min(count, wall_row_texels - column);
+  const std::uint64_t rest = count - head;
+  const std::uint64_t full_rows = rest / wall_row_texels;
+  const std::uint64_t tail = rest % wall_row_texels;
+  const std::byte* cursor = data;
+  if (head > 0) {
+    upload(column, row, head, 1, cursor);
+    cursor += head * texel_bytes;
+    // The head reaches the row's end whenever anything follows it.
+    row += 1;
+  }
+  if (full_rows > 0) {
+    upload(0, row, wall_row_texels, full_rows, cursor);
+    cursor += full_rows * wall_row_texels * texel_bytes;
+    row += full_rows;
+  }
+  if (tail > 0) {
+    upload(0, row, tail, 1, cursor);
   }
 }
 
@@ -252,11 +315,18 @@ Stream::Span WgpuRenderer::pack(std::span<const Quad> quads, std::span<const Qua
   meta_.resize(total);
   // The same count as GL's instance upload of the submission.
   telemetry::add(telemetry::Counter::quad_upload_bytes, total * quad_bytes);
-  instance_bytes_.resize(total * quad_bytes);
+  if (total == 0) {
+    frame_walls_ = pipelines().dummy_walls();
+    mesh_span_ = {};
+    return {};
+  }
+  // The instances are packed straight into the stream's staging. No other stream write happens until
+  // the packing below is done, so the reserved pointer stays valid through it.
+  const auto instances = stream_.reserve(total * quad_bytes, 16);
   const WallGeometryStore* walls{};
-  draw_plan::pack_quads(quads, instance_bytes_.data(), meta_.data(), walls, true, meshes_);
-  draw_plan::pack_quads(overlay, instance_bytes_.data() + quads.size() * quad_bytes, meta_.data() + quads.size(),
-                        walls, true, meshes_);
+  draw_plan::pack_quads(quads, instances.data, meta_.data(), walls, true, meshes_);
+  draw_plan::pack_quads(overlay, instances.data + quads.size() * quad_bytes, meta_.data() + quads.size(), walls,
+                        true, meshes_);
   frame_walls_ = walls ? upload_walls(*walls) : pipelines().dummy_walls();
   mesh_span_ = {};
   if (!meshes_.vertices.empty()) {
@@ -264,21 +334,29 @@ Stream::Span WgpuRenderer::pack(std::span<const Quad> quads, std::span<const Qua
     mesh_span_ = stream_.write(meshes_.vertices.data(), bytes, 16);
     telemetry::add(telemetry::Counter::mesh_upload_bytes, bytes);
   }
-  if (total == 0) {
-    return {};
-  }
-  return stream_.write(instance_bytes_.data(), total * quad_bytes, 16);
+  return instances.span;
 }
 
 void WgpuRenderer::begin_submission(const Atlas& atlas) {
-  atlas_group_ = pipelines().atlas_group(resources().view(atlas.texture()), frame_walls_);
+  // The group is reused while the atlas and walls views it names are unchanged. It holds a reference to
+  // both views, so a view's address cannot be reused while the cached group still names it.
+  const WGPUTextureView atlas_view = resources().view(atlas.texture());
+  if (atlas_group_ && atlas_group_atlas_ == atlas_view && atlas_group_walls_ == frame_walls_) {
+    return;
+  }
+  release_atlas_group();
+  atlas_group_ = pipelines().atlas_group(atlas_view, frame_walls_);
+  atlas_group_atlas_ = atlas_view;
+  atlas_group_walls_ = frame_walls_;
 }
 
-void WgpuRenderer::end_submission() noexcept {
+void WgpuRenderer::release_atlas_group() noexcept {
   if (atlas_group_) {
     wgpuBindGroupRelease(atlas_group_);
-    atlas_group_ = nullptr;
   }
+  atlas_group_ = nullptr;
+  atlas_group_atlas_ = nullptr;
+  atlas_group_walls_ = nullptr;
 }
 
 void WgpuRenderer::draw_list(WGPURenderPassEncoder pass, std::span<const Quad> list,
@@ -315,6 +393,9 @@ void WgpuRenderer::draw_list(WGPURenderPassEncoder pass, std::span<const Quad> l
         throw std::logic_error("Invalid quad layer");
       }
       if (!layer->quads.empty()) {
+        if (std::find(recorded_layers_.begin(), recorded_layers_.end(), layer->buffer) == recorded_layers_.end()) {
+          recorded_layers_.push_back(layer->buffer);
+        }
         QuadUniform clipped = state;
         clipped.clipped = 1;
         clipped.clip_rect[0] = command_quad.origin[0];
@@ -423,6 +504,8 @@ void WgpuRenderer::ensure_post_targets(std::uint32_t width, std::uint32_t height
   if (post_[0].texture && post_width_ == width && post_height_ == height) {
     return;
   }
+  // The scene groups name the old targets.
+  release_scene_groups();
   for (auto& target : post_) {
     if (target.view) {
       wgpuTextureViewRelease(target.view);
@@ -482,7 +565,6 @@ void WgpuRenderer::draw(const Atlas& atlas, std::span<const Quad> quads, int wid
   const bool screen = effects.vignette > 0 || effects.sidebar > 0;
   const WGPUTextureView view = context().target(w, h);
   if (!view) {
-    end_submission();
     return;
   }
   if (!filtered) {
@@ -498,18 +580,12 @@ void WgpuRenderer::draw(const Atlas& atlas, std::span<const Quad> quads, int wid
       draw_list(pass, overlay, overlay_meta, instances.buffer, overlay_base, state);
     }
     end_pass(pass);
-    end_submission();
     telemetry::add(telemetry::Counter::draw_calls, draw_calls_);
     return;
   }
 
   // A filter: the world renders offscreen, then the post passes resolve it into the canvas.
   ensure_post_targets(w, h);
-  {
-    // GL clears the canvas first; the post passes only write the clip region.
-    auto pass = begin_pass(view, true);
-    end_pass(pass);
-  }
   {
     auto pass = begin_pass(post_[0].view, true);
     scissor(pass, 0, 0, clip_width, height);
@@ -524,34 +600,37 @@ void WgpuRenderer::draw(const Atlas& atlas, std::span<const Quad> quads, int wid
   base.rect[2] = static_cast<float>(clip_width);
   base.rect[3] = static_cast<float>(height);
   if (effects.blur > 0) {
-    // Horizontal blur into offscreen 1, vertical into the canvas.
+    // Horizontal blur into offscreen 1; the vertical pass below reads it into the canvas.
     PostUniform horizontal = base;
     horizontal.axis[0] = 1;
     horizontal.blur = effects.blur;
-    post_pass(post_[1].view, true, post_[0].view, clip_width, height, horizontal, false);
+    post_pass(post_[1].view, true, 0, clip_width, height, horizontal, false);
+  }
+  // The canvas: GL clears it first and the post pass writes only the clip region. The offscreen passes above
+  // touch other targets, so this pass is the canvas's first, and it carries the clear. The post pass, the
+  // screen overlays and the HUD overlay all record into this one pass, in the same order.
+  auto pass = begin_pass(view, true);
+  scissor(pass, 0, 0, clip_width, height);
+  if (effects.blur > 0) {
     PostUniform vertical = base;
     vertical.axis[1] = 1;
     vertical.blur = effects.blur;
     vertical.blind = effects.blind ? 1 : 0;
-    post_pass(view, false, post_[1].view, clip_width, height, vertical, false);
+    post_draw(pass, false, scene_group(1), vertical);
   } else {
     PostUniform plain = base;
     plain.blind = effects.blind ? 1 : 0;
-    post_pass(view, false, post_[0].view, clip_width, height, plain, false);
+    post_draw(pass, false, scene_group(0), plain);
   }
   if (screen) {
-    auto pass = begin_pass(view, false);
     scissor(pass, 0, 0, clip_width, height);
     record_screen_overlays(pass, width, height, clip_width, effects);
-    end_pass(pass);
   }
   if (!overlay.empty()) {
-    auto pass = begin_pass(view, false);
     scissor(pass, 0, 0, width, height);
     draw_list(pass, overlay, overlay_meta, instances.buffer, overlay_base, state);
-    end_pass(pass);
   }
-  end_submission();
+  end_pass(pass);
   telemetry::add(telemetry::Counter::draw_calls, draw_calls_);
 }
 
@@ -577,7 +656,6 @@ void WgpuRenderer::draw_overlay(const Atlas& atlas, std::span<const Quad> overla
     draw_list(pass, overlay, std::span<const QuadMeta>(meta_), instances.buffer, instances.offset, state);
     end_pass(pass);
   }
-  end_submission();
   telemetry::add(telemetry::Counter::draw_calls, draw_calls_);
 }
 
@@ -588,11 +666,16 @@ void WgpuRenderer::finish_frame() {
   }
   // The end stamp goes after the frame's passes and copies, before the submit.
   timers_.end_frame();
+  // Both streams are referenced only by commands in this frame encoder. Queue their staged bytes
+  // immediately before the one submission that consumes them.
+  stream_.flush();
+  rml_ui_.flush_stream();
   context().finish_frame();
   timers_.submitted();
   // The frame's stream writes were queued ahead of this submission, so the next frame may reuse the chunks.
   // (Without the reset every frame would take new chunks.)
   stream_.reset();
+  recorded_layers_.clear();
   rml_ui_.frame_submitted();
 }
 

@@ -58,7 +58,7 @@ void RendererGpuTimers::timing(telemetry::Recorder* recorder, std::uint64_t fram
 bool RendererGpuTimers::begin_frame() {
   active_ = &timers_[frame_ % timers_.size()];
   measuring_ = false;
-  if (!recorder_) {
+  if (!recorder_ && !enabled_) {
     return false;
   }
 #if REALM_GLES
@@ -132,7 +132,7 @@ std::size_t RendererGpuTimers::pending() const {
 }
 
 void RendererGpuTimers::poll() {
-  if (!recorder_) {
+  if (!recorder_ && !enabled_) {
     return;
   }
   REALM_ZONE("render.gpu_poll");
@@ -169,8 +169,10 @@ void RendererGpuTimers::poll() {
         models += elapsed(5 + 2 * i, 6 + 2 * i);
       }
       gpu_ms_ = elapsed(0, 4);
-      recorder_->gpu({timer.frame_id, timer.normal, gpu_ms_, elapsed(0, 1), elapsed(1, 2),
-                      elapsed(2, 3), elapsed(3, 4), models, timer.models, timer.models_total});
+      if (recorder_) {
+        recorder_->gpu({timer.frame_id, timer.normal, gpu_ms_, elapsed(0, 1), elapsed(1, 2),
+                        elapsed(2, 3), elapsed(3, 4), models, timer.models, timer.models_total});
+      }
       timer.pending = false;
     }
   }

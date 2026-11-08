@@ -3,6 +3,7 @@
 #include "realm/lib/ui/RmlHost.hpp"
 #include "realm/stage3D/WebGpuStart.hpp"
 #include "flash_assets.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -147,7 +148,7 @@ realm::Atlas make_atlas(const realm::FlashImages& flash_images,
 realm::platform::CursorSet make_cursor_set(const std::filesystem::path& root) {
   const auto cursor_path = root / "src/kabam/rotmg/assets/EmbeddedAssets_cursorsEmbed_.png";
   auto cursor_sheet =
-      std::filesystem::exists(cursor_path) ? realm::load_png(cursor_path) : realm::Image{};
+      realm::assets::asset_exists(cursor_path) ? realm::load_png(cursor_path) : realm::Image{};
   return realm::platform::CursorSet(std::move(cursor_sheet.pixels), cursor_sheet.width,
                                     cursor_sheet.height);
 }

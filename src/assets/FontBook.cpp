@@ -1,9 +1,12 @@
 #include "realm/util/Telemetry.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "realm/assets/FontBook.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <fstream>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 #include <bit>
 #include <cmath>
 #include <ft2build.h>
@@ -268,6 +271,8 @@ std::uint32_t character(std::string_view input, std::size_t& at) {
 struct FontBook::NativeFonts {
   FT_Library library{};
   std::array<FT_Face, 2> faces{};
+  // FreeType reads a memory face in place, so each font file stays alive as long as its face does.
+  std::array<std::vector<unsigned char>, 2> font_files;
 
   ~NativeFonts() {
     for (auto face : faces) {
@@ -290,7 +295,14 @@ FontBook::FontBook(const std::filesystem::path& root) : native_(std::make_unique
   for (std::size_t i = 0; i < 2; ++i) {
     const auto path =
         root / "src/com/company/ui/fonts" / (i ? "MyriadProBold.otf" : "MyriadPro.otf");
-    if (FT_New_Face(native_->library, path.string().c_str(), 0, &native_->faces[i])) {
+    auto file = assets::read_asset(path);
+    if (!file) {
+      throw std::runtime_error("Cannot load original Myriad font: " + path.string());
+    }
+    native_->font_files[i] = std::move(*file);
+    const auto& bytes = native_->font_files[i];
+    if (FT_New_Memory_Face(native_->library, bytes.data(), static_cast<FT_Long>(bytes.size()), 0,
+                           &native_->faces[i])) {
       throw std::runtime_error("Cannot load original Myriad font: " + path.string());
     }
     if (!FT_Get_Sfnt_Table(native_->faces[i], FT_SFNT_OS2)) {

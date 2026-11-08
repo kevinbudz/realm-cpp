@@ -51,8 +51,7 @@ int main(int argc, char** argv) {
       check(catalog.ground(ground.type) == &ground, "ground lookup");
     }
     realm::World world(catalog);
-    world.load_jm(std::filesystem::path(realm::flash::source_root).parent_path() /
-                  "realm-server/Resources/Worlds/Nexus/0.jm");
+    world.load_jm(REALM_NEXUS_MAP);
     check(world.width() == 142 && world.height() == 130, "Nexus dimensions");
     check(world.entities().size() > 100, "Nexus population");
     check(world.walkable(world.spawn_position().x, world.spawn_position().y),

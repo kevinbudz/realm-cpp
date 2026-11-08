@@ -1,4 +1,5 @@
 #include "realm/sound/SoundEffectLibrary.hpp"
+#include "realm/assets/AssetStore.hpp"
 #if !defined(__EMSCRIPTEN__)
 #include "realm/net/Http.hpp"
 #else
@@ -25,34 +26,25 @@ constexpr std::size_t decode_chunk_frames = 4096;
 constexpr std::size_t max_clip_frames = max_clip_seconds * sample_rate;
 constexpr std::size_t max_name_length = 128;
 
-// Reads the asset from the disk root. Empty when the root is unset, the file is missing, or it
-// cannot be read.
+// Reads the asset from the disk root: the embedded copy for the virtual root, a file otherwise.
+// Empty when the root is unset, the file is missing, or it cannot be read.
 std::optional<std::string> read_disk(const SourceConfig& source, const std::string& name) {
   if (source.disk_root.empty()) {
     return std::nullopt;
   }
   const auto path = std::filesystem::path(source.disk_root) / (name + ".mp3");
-  std::error_code error;
-  if (!std::filesystem::is_regular_file(path, error)) {
+  const auto bytes = assets::read_asset(path, max_source_bytes);
+  if (!bytes) {
     return std::nullopt;
   }
-  const auto size = std::filesystem::file_size(path, error);
-  if (error || size > static_cast<std::uintmax_t>(max_source_bytes)) {
-    return std::nullopt;
-  }
-  std::string bytes(static_cast<std::size_t>(size), '\0');
-  std::ifstream file(path, std::ios::binary);
-  if (!file || !file.read(bytes.data(), static_cast<std::streamsize>(bytes.size()))) {
-    return std::nullopt;
-  }
-  return bytes;
+  return std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
 }
 
 // Fallback fetch. Any transport error, timeout or non-200 status counts as a missing asset.
 std::optional<std::string> read_http([[maybe_unused]] const SourceConfig& source,
                                      [[maybe_unused]] const std::string& name) {
 #if defined(__EMSCRIPTEN__)
-  // The web build has no blocking HTTP. Its sounds are preloaded under /sfx, the disk root.
+  // The web build has no blocking HTTP. Its sounds are embedded in the wasm, the default root.
   return std::nullopt;
 #else
   if (source.http_host.empty()) {
@@ -200,15 +192,10 @@ bool valid_name(std::string_view name) noexcept {
   return true;
 }
 
+// The SFX compiled into the executable (realm_embedded_assets). REALM_SFX_ROOT replaces it with a
+// disk root.
 std::string default_sfx_root() {
-#if defined(__EMSCRIPTEN__)
-  // Preloaded by the web build (--preload-file), and only there.
-  return "/sfx";
-#elif defined(REALM_SFX_ROOT_DEFAULT)
-  return REALM_SFX_ROOT_DEFAULT;
-#else
-  return {};
-#endif
+  return std::string(assets::embedded_sfx_root);
 }
 
 // ---- Mixer

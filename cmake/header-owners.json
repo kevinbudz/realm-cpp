@@ -6,6 +6,7 @@
   "include/realm/game/IdleWatcher.hpp": "realm_game",
   "include/realm/hud/KeysView.hpp": "realm_ui",
   "include/realm/ui/panels/GuildInvite.hpp": "realm_ui",
+  "include/realm/assets/AssetStore.hpp": "realm_support",
   "include/realm/map/Camera.hpp": "realm_support",
   "include/realm/objects/ProjectileProperties.hpp": "realm_support",
   "include/realm/util/Random.hpp": "realm_support",

@@ -1,4 +1,5 @@
 #include "realm/mapeditor/MapDocument.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include <nlohmann/json.hpp>
 #include <libxml/parser.h>
 #include <zlib.h>
@@ -98,8 +99,13 @@ MapDocument::MapDocument(const Catalog& catalog, const std::filesystem::path& ro
   std::sort(choices_[0].begin(), choices_[0].end(), by_id);
   std::sort(choices_[1].begin(), choices_[1].end(), by_id);
   const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_RegionsCXML.dat";
+  const auto bytes = assets::read_asset(path);
   const auto document = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>(
-      xmlReadFile(path.c_str(), nullptr, XML_PARSE_NONET), xmlFreeDoc);
+      bytes ? xmlReadMemory(reinterpret_cast<const char*>(bytes->data()),
+                            static_cast<int>(bytes->size()), path.string().c_str(), nullptr,
+                            XML_PARSE_NONET)
+            : nullptr,
+      xmlFreeDoc);
   if (!document) {
     throw std::runtime_error("Cannot load map editor regions");
   }

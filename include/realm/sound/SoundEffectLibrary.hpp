@@ -205,7 +205,7 @@ struct PlayerConfig {
 
 // Defaults with the environment applied: REALM_AUDIO=0 disables output, REALM_AUDIO_DEVICE=null
 // selects the null backend, REALM_AUDIO_CACHE_MB sets the decoded budget (1-4096 MiB),
-// REALM_SFX_ROOT overrides the disk root.
+// REALM_SFX_ROOT replaces the embedded SFX with a disk root.
 [[nodiscard]] PlayerConfig config_from_environment();
 
 // Monotonic counts since construction, except the gauges pending_now, voices_active and

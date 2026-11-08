@@ -1,3 +1,4 @@
+#include "realm/assets/AssetStore.hpp"
 #include "realm/assets/Image.hpp"
 #include "realm/util/PortableMath.hpp"
 #include <png.h>
@@ -380,9 +381,14 @@ Image finish_png(png_image& png) {
 }
 
 Image load_png(const std::filesystem::path& path) {
+  // Game art comes from the embedded copy or the disk override (realm/assets/AssetStore.hpp).
+  const auto bytes = assets::read_asset(path);
+  if (!bytes) {
+    throw std::runtime_error("Cannot read PNG " + path.string());
+  }
   png_image png{};
   png.version = PNG_IMAGE_VERSION;
-  if (!png_image_begin_read_from_file(&png, path.string().c_str())) {
+  if (!png_image_begin_read_from_memory(&png, bytes->data(), bytes->size())) {
     throw std::runtime_error("Cannot read PNG " + path.string() + ": " + png.message);
   }
   return finish_png(png);

@@ -1,4 +1,5 @@
 #include "StartupImpl.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "realm/assets/FlashDraw.hpp"
 #include "realm/net/Http.hpp"
 #include "realm/appengine/SavedCharactersList.hpp"
@@ -17,11 +18,11 @@ namespace {
 using namespace startup_detail;
 
 std::string read_file(const std::filesystem::path& path) {
-  std::ifstream file(path, std::ios::binary);
-  if (!file) {
+  const auto bytes = assets::read_asset(path);
+  if (!bytes) {
     throw std::runtime_error("Cannot read " + path.string());
   }
-  return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+  return {reinterpret_cast<const char*>(bytes->data()), bytes->size()};
 }
 
 std::int64_t now_ms() {

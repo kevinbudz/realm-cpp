@@ -40,9 +40,27 @@ if(NOT EMSCRIPTEN)
     find_package(Freetype REQUIRED)
 endif()
 
+# The runtime game assets are compiled into realm_embedded_assets: every non-.as file under the Flash src/ and every
+# .mp3 under the SFX root, as byte arrays (tools/embed_game_assets.py). The client reads them through
+# realm::assets::read_asset (src/assets/AssetStore.cpp), so the executable does not need the asset directories at run
+# time. A plain static library, not realm_library: its arrays stay out of LTO.
+file(GLOB_RECURSE REALM_EMBED_FLASH_FILES CONFIGURE_DEPENDS "${REALM_FLASH_ROOT_PATH}/src/*")
+list(FILTER REALM_EMBED_FLASH_FILES EXCLUDE REGEX "\\.as$")
+file(GLOB_RECURSE REALM_EMBED_SFX_FILES CONFIGURE_DEPENDS "${REALM_SFX_ROOT_PATH}/*.mp3")
+set(REALM_EMBEDDED_ASSETS_CPP "${GENERATED_DIR}/embedded_assets.cpp")
+add_custom_command(OUTPUT "${REALM_EMBEDDED_ASSETS_CPP}"
+    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_game_assets.py"
+        --flash-root "${REALM_FLASH_ROOT_PATH}" --sfx-root "${REALM_SFX_ROOT_PATH}" --output "${REALM_EMBEDDED_ASSETS_CPP}"
+    DEPENDS ${REALM_EMBED_FLASH_FILES} ${REALM_EMBED_SFX_FILES} "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_game_assets.py"
+    VERBATIM)
+add_library(realm_embedded_assets STATIC "${REALM_EMBEDDED_ASSETS_CPP}")
+target_link_libraries(realm_embedded_assets PUBLIC realm_build_options)
+
 realm_library(realm_support src/util/Telemetry.cpp src/util/PortableMath.cpp src/map/Camera.cpp
     src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp
-    src/stage3D/WallGeometry.cpp src/stage3D/GraphicsApi.cpp)
+    src/stage3D/WallGeometry.cpp src/stage3D/GraphicsApi.cpp src/assets/AssetStore.cpp)
+# Every target that reads game assets through realm/assets/AssetStore.hpp links the embedded copy through realm_support.
+target_link_libraries(realm_support PUBLIC realm_embedded_assets)
 # realm::math (util/PortableMath.cpp) must produce the same bits everywhere: no fused multiply-add, whatever the
 # target's FMA support or the optimizer's contraction default. MSVC does not contract by default and has no flag.
 if(NOT MSVC)
@@ -61,16 +79,6 @@ if(REALM_AUDIO)
     if(NOT EMSCRIPTEN)
         find_package(Threads REQUIRED)
     endif()
-    # Default asset root for the player; the REALM_SFX_ROOT environment variable overrides it at runtime.
-    set(REALM_SFX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../realm-server/Resources/Web/sfx" CACHE PATH
-        "Default SFX asset root (NAME.mp3 files below it)")
-    get_filename_component(REALM_SFX_ROOT_PATH "${REALM_SFX_ROOT}" ABSOLUTE)
-    # Web: the sfx directory is preloaded to /sfx (realm_client's --preload-file in CMakeLists.txt).
-    if(EMSCRIPTEN)
-        set(REALM_SFX_RUNTIME_ROOT "/sfx")
-    else()
-        set(REALM_SFX_RUNTIME_ROOT "${REALM_SFX_ROOT_PATH}")
-    endif()
     add_library(realm_miniaudio STATIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio/miniaudio.c")
     target_include_directories(realm_miniaudio SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio")
     target_compile_definitions(realm_miniaudio PRIVATE MA_NO_ENGINE MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH
@@ -84,7 +92,6 @@ if(REALM_AUDIO)
     target_link_libraries(realm_miniaudio PUBLIC realm_build_options PRIVATE ${CMAKE_DL_LIBS})
     realm_library(realm_audio src/sound/SoundEffectLibrary.cpp)
     target_link_libraries(realm_audio PRIVATE realm_network realm_miniaudio Threads::Threads)
-    target_compile_definitions(realm_audio PRIVATE "REALM_SFX_ROOT_DEFAULT=\"${REALM_SFX_RUNTIME_ROOT}\"")
 endif()
 realm_library(realm_game src/mapeditor/MapDocument.cpp src/tutorial/Tutorial.cpp src/game/IdleWatcher.cpp src/objects/Catalog.cpp src/objects/ObjectProperties.cpp src/util/Xml.cpp src/objects/particles/Particles.cpp src/map/WorldFeedback.cpp src/map/WorldParticleEffects.cpp
     src/map/WorldSoundEvents.cpp src/map/World.cpp src/map/Quest.cpp src/messaging/Session.cpp src/objects/Movement.cpp

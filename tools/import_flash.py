@@ -19,6 +19,27 @@ def git(root, *args):
     return result.stdout.strip() if result.returncode == 0 else "unavailable"
 
 
+def tree_identity(root):
+    """Revision, dirty flag, digest and .as count of a Flash checkout: its git metadata and every file under src/."""
+    source_files = sorted(p for p in (root / "src").rglob("*") if p.is_file())
+    digest = hashlib.sha256()
+    for p in source_files:
+        digest.update(p.relative_to(root).as_posix().encode())
+        digest.update(b'\0')
+        digest.update(hashlib.sha256(p.read_bytes()).digest())
+    return dict(revision=git(root, "rev-parse", "HEAD"), dirty=git(root, "status", "--porcelain") != "",
+                source_sha256=digest.hexdigest(), actionscript_files=sum(p.suffix == ".as" for p in source_files))
+
+
+def source_identity(root):
+    """The identity of a Flash tree. A vendored copy carries SOURCE.json (written by tools/sync_game_assets.py from the
+    full realm-client checkout), so its revision and digest stay those of the authoritative source."""
+    marker = root / "SOURCE.json"
+    if marker.is_file():
+        return json.loads(marker.read_text())
+    return tree_identity(root)
+
+
 def scan(root):
     src = root / "src"
     asset_dir = src / "kabam/rotmg/assets"
@@ -93,15 +114,10 @@ def scan(root):
             if not embed:
                 raise ValueError(f'Missing data embed: {wrapper}')
             registered_data.append(dict(kind=kind, path=(wrapper.parent / embed[1]).relative_to(root).as_posix()))
-    source_files = sorted(p for p in src.rglob("*") if p.is_file())
-    digest = hashlib.sha256()
-    for p in source_files:
-        digest.update(p.relative_to(root).as_posix().encode())
-        digest.update(b'\0')
-        digest.update(hashlib.sha256(p.read_bytes()).digest())
-    return dict(revision=git(root, "rev-parse", "HEAD"), dirty=git(root, "status", "--porcelain") != "",
-                source_sha256=digest.hexdigest(), source_root=str(root),
-                actionscript_files=sum(p.suffix == ".as" for p in source_files), assets=assets,
+    identity = source_identity(root)
+    return dict(revision=identity["revision"], dirty=identity["dirty"],
+                source_sha256=identity["source_sha256"], source_root=str(root),
+                actionscript_files=identity["actionscript_files"], assets=assets,
                 sheets=sheets, animated=animated, packets=packets, stats=stats,
                 string_stats=string_stats, definitions=definitions, registered_data=registered_data)
 

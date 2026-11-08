@@ -1,4 +1,5 @@
 #include "realm/tutorial/Tutorial.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "realm/util/PortableMath.hpp"
 #include <libxml/parser.h>
 #include <algorithm>
@@ -10,8 +11,13 @@
 namespace realm {
 Tutorial::Tutorial(const Catalog& catalog, const std::filesystem::path& root) {
   const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_TutorialScriptCXML.dat";
+  const auto bytes = assets::read_asset(path);
   const auto document = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>(
-      xmlReadFile(path.c_str(), nullptr, XML_PARSE_NONET), xmlFreeDoc);
+      bytes ? xmlReadMemory(reinterpret_cast<const char*>(bytes->data()),
+                            static_cast<int>(bytes->size()), path.string().c_str(), nullptr,
+                            XML_PARSE_NONET)
+            : nullptr,
+      xmlFreeDoc);
   if (!document) {
     throw std::runtime_error("Cannot read tutorial script: " + path.string());
   }

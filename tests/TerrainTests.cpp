@@ -20,8 +20,7 @@ int main() {
   try {
     realm::Catalog catalog(realm::flash::source_root);
     realm::World world(catalog);
-    world.load_jm(std::filesystem::path(realm::flash::source_root).parent_path() /
-                  "realm-server/Resources/Worlds/Nexus/0.jm");
+    world.load_jm(REALM_NEXUS_MAP);
     realm::Terrain reference(world, realm::flash::source_root, 0, 0),
         live(world, realm::flash::source_root, 0, 0, true);
     live.begin_frame();

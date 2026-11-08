@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Vendored game assets are embedded byte for byte; never normalize their line endings.
+assets/flash/** -text
+assets/sfx/** -text

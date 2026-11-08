@@ -1,4 +1,5 @@
 #include "realm/objects/Catalog.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "flash_assets.hpp"
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -11,6 +12,18 @@
 
 namespace realm {
 namespace {
+// The XML asset at path, parsed from the embedded copy or the disk override
+// (realm/assets/AssetStore.hpp). Null when the asset is missing or malformed; the caller frees it
+// with xmlFreeDoc.
+xmlDocPtr parse_xml_asset(const std::filesystem::path& path, int options) {
+  const auto bytes = assets::read_asset(path);
+  if (!bytes) {
+    return nullptr;
+  }
+  return xmlReadMemory(reinterpret_cast<const char*>(bytes->data()),
+                       static_cast<int>(bytes->size()), path.string().c_str(), nullptr, options);
+}
+
 // Remaining com.company.assembleegameclient.objects classes that implement
 // IInteractiveObject directly or through SellableObject.
 constexpr std::array<std::string_view, 12> interactive_class_names{
@@ -172,7 +185,7 @@ Catalog::Catalog(const std::filesystem::path& root)
       continue;
     }
     const auto path = root / file.path;
-    auto* doc = xmlReadFile(path.string().c_str(), nullptr, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
+    auto* doc = parse_xml_asset(path, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
     if (!doc) {
       throw std::runtime_error("Cannot load definition XML: " + path.string());
     }
@@ -369,8 +382,7 @@ Catalog::Catalog(const std::filesystem::path& root)
     }
   }
   const auto particle_path = root / "src/kabam/rotmg/assets/EmbeddedAssets_particlesEmbed.dat";
-  auto* particles_doc =
-      xmlReadFile(particle_path.string().c_str(), nullptr, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
+  auto* particles_doc = parse_xml_asset(particle_path, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
   if (!particles_doc) {
     throw std::runtime_error("Cannot load particle definitions");
   }
@@ -393,7 +405,7 @@ Catalog::Catalog(const std::filesystem::path& root)
     particles_.push_back(std::move(particle));
   }
   const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_SkinsCXML.dat";
-  auto* doc = xmlReadFile(path.string().c_str(), nullptr, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
+  auto* doc = parse_xml_asset(path, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
   if (!doc) {
     throw std::runtime_error("Cannot load skin definitions");
   }

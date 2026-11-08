@@ -1,7 +1,8 @@
 # Fail configuration for invalid library links, before any source is compiled.
 set(REALM_BOUNDARY_TARGETS realm_support realm_platform realm_network realm_audio realm_game realm_assets realm_ui realm_fixtures
     realm_render realm_ui_gpu realm_platform_sdl realm_startup realm_ui_rmlui realm_ui_views realm_application)
-set(REALM_ALLOWED_realm_support realm_build_options)
+# realm_embedded_assets: the generated game-asset arrays (realm/assets/AssetStore.hpp).
+set(REALM_ALLOWED_realm_support realm_build_options realm_embedded_assets)
 set(REALM_ALLOWED_realm_platform realm_build_options)
 set(REALM_ALLOWED_realm_network realm_build_options realm_support ws2_32)
 # Native SFX: decodes through the vendored miniaudio (realm_miniaudio) and fetches the HTTP fallback via realm_network.

@@ -38,8 +38,7 @@ int main() {
     Catalog catalog(flash::source_root);
     AnimationLibrary animations(flash::source_root);
     World world(catalog);
-    world.load_jm(std::filesystem::path(flash::source_root).parent_path() /
-                  "realm-server/Resources/Worlds/Nexus/0.jm");
+    world.load_jm(REALM_NEXUS_MAP);
     const auto first = animations.images().size();
     Terrain terrain(world, flash::source_root, first, 0, true);
     auto images = animations.images();

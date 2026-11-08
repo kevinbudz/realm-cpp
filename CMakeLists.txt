@@ -92,18 +92,24 @@ if(REALM_BUILD_VIEWER)
     # Vendored, pinned RmlUi 6.3 core (third_party/rmlui/VENDORED.md); no download at configure time.
     add_subdirectory(third_party/rmlui)
 endif()
-set(REALM_FLASH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../realm-client" CACHE PATH "Authoritative Flash source")
+# The Flash source. The build-time import reads it, and cmake/ClientTargets.cmake embeds its runtime files (every
+# non-.as file under src/) in realm_client. The default is the copy vendored under assets/flash by
+# tools/sync_game_assets.py, so the build does not need a sibling realm-client checkout.
+set(REALM_FLASH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/assets/flash" CACHE PATH
+    "Flash source: import input and embedded art and XML (vendored copy by default)")
 get_filename_component(REALM_FLASH_ROOT_PATH "${REALM_FLASH_ROOT}" ABSOLUTE)
-# The Flash root the generated header names at runtime (flash::source_root). The build-time import always reads
-# REALM_FLASH_ROOT; the web build reads the preloaded copy at /realm-client.
-if(EMSCRIPTEN)
-    set(REALM_FLASH_RUNTIME_ROOT_DEFAULT "/realm-client")
-else()
-    set(REALM_FLASH_RUNTIME_ROOT_DEFAULT "${REALM_FLASH_ROOT}")
+# The Flash root the generated header names at runtime (flash::source_root). embedded:/flash is served from the
+# executable; a disk path makes the client read that tree instead.
+set(REALM_FLASH_RUNTIME_ROOT "embedded:/flash" CACHE PATH
+    "Flash root the client reads at runtime: embedded:/flash (compiled in) or a disk path")
+if(NOT REALM_FLASH_RUNTIME_ROOT MATCHES "^embedded:")
+    get_filename_component(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT}" ABSOLUTE)
 endif()
-set(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT_DEFAULT}" CACHE PATH
-    "Flash source root compiled into the client as flash::source_root (web: /realm-client)")
-get_filename_component(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT}" ABSOLUTE)
+# The SFX source. Every .mp3 below it is embedded in realm_client (cmake/ClientTargets.cmake). The client plays the
+# embedded copy unless the REALM_SFX_ROOT environment variable names a disk root at runtime.
+set(REALM_SFX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/assets/sfx" CACHE PATH
+    "SFX source: every .mp3 below it is embedded in realm_client (vendored copy by default)")
+get_filename_component(REALM_SFX_ROOT_PATH "${REALM_SFX_ROOT}" ABSOLUTE)
 # Changing the runtime root regenerates flash_assets.hpp (the stamp is rewritten only when the value changes).
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/flash_runtime_root.txt" CONTENT "${REALM_FLASH_RUNTIME_ROOT}\n")
@@ -111,6 +117,10 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 file(GLOB_RECURSE FLASH_INPUTS CONFIGURE_DEPENDS "${REALM_FLASH_ROOT}/src/*")
 if(EXISTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
     list(APPEND FLASH_INPUTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
+endif()
+# A vendored copy records the identity of its realm-client checkout here (see tools/import_flash.py source_identity).
+if(EXISTS "${REALM_FLASH_ROOT}/SOURCE.json")
+    list(APPEND FLASH_INPUTS "${REALM_FLASH_ROOT}/SOURCE.json")
 endif()
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_assets.hpp" "${GENERATED_DIR}/source_inventory.json"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/import_flash.py"
@@ -179,11 +189,10 @@ if(REALM_BUILD_VIEWER)
             COMMENT "Copying web site art")
         add_dependencies(realm_client realm_web_site)
         # The preload flags go in a response file: CMake drops the second --preload-file when both are link options.
+        # The Flash art, XML and SFX are compiled into the wasm (realm_embedded_assets), so only the bench fixtures
+        # are preloaded.
         set(REALM_WEB_PRELOAD_RSP "${CMAKE_CURRENT_BINARY_DIR}/web_preload.rsp")
-        set(REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_FLASH_ROOT_PATH}/src@/realm-client/src\n--exclude-file\n*.as\n")
-        if(REALM_AUDIO)
-            string(APPEND REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_SFX_ROOT_PATH}@/sfx\n")
-        endif()
+        set(REALM_WEB_PRELOAD_TEXT "")
         # A small, offline subset for the opt-in browser benchmark query mode. These workloads use
         # StressTimeline's generated legal map, so they need no sibling realm-server map or account.
         foreach(REALM_WEB_BENCH_FIXTURE IN ITEMS S1-mixed-dense models-repeated ui)
@@ -468,6 +477,13 @@ if(BUILD_TESTING)
     foreach(gpu_test IN LISTS REALM_GPU_TESTS)
         if(TEST ${gpu_test})
             set_tests_properties(${gpu_test} PROPERTIES RESOURCE_LOCK realm_gpu)
+        endif()
+    endforeach()
+    # The Nexus map that three tests load is the realm-server copy beside this checkout, not a Flash asset.
+    foreach(map_test IN ITEMS realm_frame_cache_tests realm_data_tests realm_terrain_tests)
+        if(TARGET ${map_test})
+            target_compile_definitions(${map_test} PRIVATE
+                "REALM_NEXUS_MAP=\"${CMAKE_CURRENT_SOURCE_DIR}/../realm-server/Resources/Worlds/Nexus/0.jm\"")
         endif()
     endforeach()
 endif()

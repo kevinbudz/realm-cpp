@@ -1,4 +1,5 @@
 #include "realm/assets/FlashDraw.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <cmath>
@@ -1075,9 +1076,8 @@ void flatten(const Library& library, int character, const Matrix& m,
 }
 
 Shape load_swf_shape(const std::filesystem::path& path) {
-  std::ifstream input(path, std::ios::binary);
-  std::vector<unsigned char> file((std::istreambuf_iterator<char>(input)),
-                                  std::istreambuf_iterator<char>());
+  // A missing asset reads as an empty file, which fails the signature check below.
+  auto file = assets::read_asset(path).value_or(std::vector<unsigned char>{});
   if (file.size() < 8 || (file[0] != 'F' && file[0] != 'C') || file[1] != 'W' || file[2] != 'S') {
     throw std::runtime_error("Unsupported SWF: " + path.string());
   }

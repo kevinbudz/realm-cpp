@@ -1,4 +1,5 @@
 #include "realm/mapeditor/EditorScreen.hpp"
+#include "realm/assets/AssetStore.hpp"
 #include "realm/assets/HudArt.hpp"
 #include "realm/objects/Catalog.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
@@ -244,7 +245,7 @@ EditorScreen::EditorScreen(const Catalog& catalog, const FontBook& fonts,
   // PNGs.
   const auto checker =
       flash_root / "src/com/company/assembleegameclient/mapeditor/MEMap_transbackgroundEmbed_.png";
-  if (std::filesystem::exists(checker)) {
+  if (assets::asset_exists(checker)) {
     checker_ = load_png(checker);
     normalize_flash_png(checker_);
     premultiply_flash_bitmap(checker_);

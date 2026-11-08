@@ -59,5 +59,8 @@ void build_group_overlays(ClientState& cs, const Options& o, Frame& f);
 void build_modal_overlays(ClientState& cs, const Options& o, Frame& f);
 void present_frame(ClientState& cs, const Options& o, Frame& f);
 void shutdown_report(ClientState& cs, const Options& o);
+// Web only: true when the --capture of the final frame is a presented WebGPU readback, which web_frame
+// writes once it completes. Always false on native builds and for WebGL2 (a synchronous readback).
+bool web_presented_capture(const Options& o);
 
 }  // namespace realm::application

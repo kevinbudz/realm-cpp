@@ -90,7 +90,7 @@ std::unique_ptr<realm::Startup> make_startup(const Options& o, realm::FontBook& 
   auto startup = std::make_unique<realm::Startup>(
       fonts, hud_art, catalog, o.root,
       realm::StartupOptions{o.session.host, o.session.build_version, o.app_port, o.session.port,
-                            o.account_file});
+                            o.account_file, o.fixture_step != 0});
   startup->load_background(world);
   return startup;
 }

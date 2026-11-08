@@ -1,5 +1,6 @@
 #include "ApplicationLoop.hpp"
 #include "ApplicationLoopDetail.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/messaging/Session.hpp"
 #include "realm/objects/Movement.hpp"
@@ -536,8 +537,9 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
       }
     } else {
       cs.angle += rotation * dt * 3;
-      cs.position.x += (input.x * std::cos(cs.angle) - input.y * std::sin(cs.angle)) * dt * 5;
-      cs.position.y += (input.x * std::sin(cs.angle) + input.y * std::cos(cs.angle)) * dt * 5;
+      const realm::math::SinCos heading = realm::math::sincos(cs.angle);
+      cs.position.x += (input.x * heading.cosine - input.y * heading.sine) * dt * 5;
+      cs.position.y += (input.x * heading.sine + input.y * heading.cosine) * dt * 5;
     }
   }
 
@@ -570,8 +572,8 @@ void apply_input(ClientState& cs, const Options& options, Frame& f) {
                             viewport.drawable_height, cs.zoom, cs.centered);
         const auto target = cs.camera.screen_to_world(at);
         if ((buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) || cs.autofire) {
-          cs.game_session->shoot(std::atan2(target.y - cs.position.y, target.x - cs.position.x),
-                                 time);
+          cs.game_session->shoot(
+              realm::math::atan2(target.y - cs.position.y, target.x - cs.position.x), time);
         }
         if (ability_key && cs.special_key.attempts()) {
           cs.special_key.record(cs.game_session->use_ability(target, time));

@@ -1,3 +1,4 @@
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "flash_models.hpp"
@@ -73,8 +74,7 @@ ModelRange model_range(std::uint32_t index) {
 Quad model_quad(std::uint32_t index, const Camera& camera, Vec2 position, double rotation_degrees,
                 std::uint32_t color, const std::optional<SpriteRegion>& sprite) {
   const double radians = rotation_degrees * std::numbers::pi / 180;
-  const double c = std::cos(radians);
-  const double s = std::sin(radians);
+  const auto [s, c] = realm::math::sincos(radians);
   // world_to_screen is affine: its unit steps along world x, y and z give the model-space screen
   // axes.
   const auto origin = camera.world_to_screen(position);
@@ -125,8 +125,8 @@ ModelExtent model_extent(std::string_view name) {
   ModelExtent result{0, -1e300, 1e300};
   for (std::uint32_t i = 0; i < model->vertex_count; ++i) {
     const auto& v = flash::model_vertices[model->first_vertex + i];
-    result.radius =
-        std::max(result.radius, std::hypot(static_cast<double>(v.x), static_cast<double>(v.y)));
+    result.radius = std::max(
+        result.radius, realm::math::hypot(static_cast<double>(v.x), static_cast<double>(v.y)));
     result.top = std::max(result.top, static_cast<double>(v.z));
     result.bottom = std::min(result.bottom, static_cast<double>(v.z));
   }
@@ -158,8 +158,7 @@ std::shared_ptr<const MeshDraw> project_model(std::string_view name, const Camer
     return nullptr;
   }
   const double radians = rotation_degrees * std::numbers::pi / 180;
-  const double c = std::cos(radians);
-  const double s = std::sin(radians);
+  const auto [s, c] = realm::math::sincos(radians);
   // Lighting3D.LIGHT_VECTOR.
   constexpr double light_length = 3.7416573867739413;  // sqrt(14)
   constexpr double lx = 1 / light_length;

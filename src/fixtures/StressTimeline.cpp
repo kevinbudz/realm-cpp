@@ -1,6 +1,7 @@
 #include "realm/fixtures/StressTimeline.hpp"
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/WallGeometry.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -417,8 +418,9 @@ void StressTimeline::step() {
       for (int i = 0; i < count; ++i) {
         auto o = object(i, kind);
         const auto at = placement(i, kind);
-        o.status.position = {static_cast<float>(at.x + .35 * std::sin(now * .001 + i)),
-                             static_cast<float>(at.y + .35 * std::cos(now * .001 + i))};
+        const auto [sine, cosine] = realm::math::sincos(now * .001 + i);
+        o.status.position = {static_cast<float>(at.x + .35 * sine),
+                             static_cast<float>(at.y + .35 * cosine)};
         if (config_.workload != "VARIETY" && config_.workload != "MIXED") {
           o.status.stats.clear();
         }
@@ -536,7 +538,7 @@ void StressTimeline::medusa(std::int32_t now) {
       s.position = {static_cast<float>(e->motion.position.x),
                     static_cast<float>(e->motion.position.y)};
       s.angle = static_cast<float>(
-          std::atan2(target.y - e->motion.position.y, target.x - e->motion.position.x) -
+          realm::math::atan2(target.y - e->motion.position.y, target.x - e->motion.position.x) -
           2 * spread);
       s.damage = 30;
       s.num_shots = 5;
@@ -576,9 +578,11 @@ Vec2 StressTimeline::camera_position() const {
     const double phase = std::fmod(time() * .008, 160.0);
     return {p.x + (phase < 80 ? phase - 40 : 120 - phase), p.y};
   }
-  return config_.camera == "pan"
-             ? Vec2{p.x + 2 * std::sin(time() * .001), p.y + 2 * std::cos(time() * .001)}
-             : p;
+  if (config_.camera == "pan") {
+    const auto [sine, cosine] = realm::math::sincos(time() * .001);
+    return Vec2{p.x + 2 * sine, p.y + 2 * cosine};
+  }
+  return p;
 }
 
 double StressTimeline::camera_angle() const {
@@ -586,7 +590,7 @@ double StressTimeline::camera_angle() const {
 }
 
 double StressTimeline::zoom_factor() const {
-  return config_.camera == "zoom" ? 1 + .15 * std::sin(time() * .002) : 1;
+  return config_.camera == "zoom" ? 1 + .15 * realm::math::sin(time() * .002) : 1;
 }
 
 void StressTimeline::sample_scene(const Camera& camera, int width, int height,

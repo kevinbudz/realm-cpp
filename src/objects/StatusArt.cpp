@@ -1,4 +1,5 @@
 #include "realm/objects/StatusArt.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -201,7 +202,7 @@ std::uint32_t breath_bar_back_color(int breath, std::int32_t time_ms) {
   if (breath > 20) {
     return from;
   }
-  const double progress = std::abs(std::sin(time_ms / 300.0)) * (20 - breath) / 20.0;
+  const double progress = std::abs(realm::math::sin(time_ms / 300.0)) * (20 - breath) / 20.0;
   const double remaining = 1 - progress;
   std::uint32_t result = 0;
   for (int shift = 16; shift >= 0; shift -= 8) {
@@ -213,6 +214,6 @@ std::uint32_t breath_bar_back_color(int breath, std::int32_t time_ms) {
 }
 
 double low_health_pulse(std::int32_t time_ms) {
-  return static_cast<int>(std::abs(std::sin(time_ms / 200.0)) * 10) / 10.0;
+  return static_cast<int>(std::abs(realm::math::sin(time_ms / 200.0)) * 10) / 10.0;
 }
 }

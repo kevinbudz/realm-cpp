@@ -6,6 +6,7 @@
 #include "realm/engine3d/Model3D.hpp"
 #include "realm/stage3D/Atlas.hpp"
 #include "realm/stage3D/Renderer.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include <algorithm>
 #include <chrono>
@@ -1257,17 +1258,18 @@ const VkRenderer::UiImage* VkRenderer::ui_blur(const UiImage* first, const UiIma
   int level = 0;
   const int scaled = static_cast<int>(sigma * (2.0f / 3.0f));
   if (scaled > 0) {
-    level = std::clamp(static_cast<int>(std::log2(static_cast<float>(scaled))), 0, 10);
+    level = std::clamp(static_cast<int>(realm::math::log2(static_cast<float>(scaled))), 0, 10);
   }
   const float pass_sigma = std::clamp(sigma / static_cast<float>(1 << level), 0.0f, 3.0f);
   // SetBlurWeights: the Gaussian for distances 0..3, normalised over both sides.
   std::array<float, 4> weights{};
   float normalisation = 0;
   for (int i = 0; i < 4; ++i) {
-    weights[i] = std::fabs(pass_sigma) < 0.1f
-                     ? (i == 0 ? 1.0f : 0.0f)
-                     : std::exp(-static_cast<float>(i * i) / (2.0f * pass_sigma * pass_sigma)) /
-                           (std::sqrt(2.0f * 3.14159265f) * pass_sigma);
+    weights[i] =
+        std::fabs(pass_sigma) < 0.1f
+            ? (i == 0 ? 1.0f : 0.0f)
+            : realm::math::exp(-static_cast<float>(i * i) / (2.0f * pass_sigma * pass_sigma)) /
+                  (std::sqrt(2.0f * 3.14159265f) * pass_sigma);
     normalisation += (i == 0 ? 1.0f : 2.0f) * weights[i];
   }
   for (auto& weight : weights) {

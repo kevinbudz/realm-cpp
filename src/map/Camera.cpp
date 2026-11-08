@@ -1,4 +1,5 @@
 #include "realm/map/Camera.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <stdexcept>
 
 namespace realm {
@@ -14,8 +15,9 @@ void Camera::configure(Vec2 position, double angle, double width, double height,
   width_ = width;
   height_ = height;
   zoom_ = zoom;
-  c_ = std::cos(angle);
-  s_ = std::sin(angle);
+  const realm::math::SinCos heading = realm::math::sincos(angle);
+  c_ = heading.cosine;
+  s_ = heading.sine;
   // WebMain.hudWidth() = 200 * stageHeight / 600; correctViewingArea(NO_SCALE).
   clip_ = {-(width - height / 3.0) / (2 * zoom),
            -height / zoom * (centered ? 13.0 / 24.0 : 3.0 / 4.0), width / zoom, height / zoom};
@@ -35,8 +37,9 @@ void Camera::configure(Vec2 position, double angle, Rect clip) {
   height_ = clip.height;
   zoom_ = 1;
   clip_ = clip;
-  c_ = std::cos(angle);
-  s_ = std::sin(angle);
+  const realm::math::SinCos heading = realm::math::sincos(angle);
+  c_ = heading.cosine;
+  s_ = heading.sine;
   const double w = clip_.width / 100;
   const double h = clip_.height / 100;
   max_distance_ = std::sqrt(w * w + h * h) + 1;

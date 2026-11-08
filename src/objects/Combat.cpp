@@ -1,3 +1,4 @@
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/objects/Combat.hpp"
 #include "realm/objects/Movement.hpp"
@@ -183,8 +184,8 @@ std::vector<net::Packet> Combat::receive(const net::Event& event, std::int32_t t
       world_.particles().aoe({aoe.position.x, aoe.position.y}, aoe.radius, aoe.color, time);
       if (auto* player = world_.entity(world_.player_id())) {
         if (!(player->combat.condition & (1U << 20U)) &&
-            std::hypot(player->motion.position.x - aoe.position.x,
-                       player->motion.position.y - aoe.position.y) < aoe.radius) {
+            realm::math::hypot(player->motion.position.x - aoe.position.x,
+                               player->motion.position.y - aoe.position.y) < aoe.radius) {
           const std::array<std::uint8_t, 1> effects{aoe.effect};
           world_.report_damage(
               player->id,
@@ -586,10 +587,10 @@ std::vector<net::Packet> Combat::use_ability(Vec2 target, std::int32_t time) {
   std::vector<Packet> output{outgoing::encode(outgoing::UseItem{
       time, {player->id, 1}, {static_cast<float>(target.x), static_cast<float>(target.y)}})};
   if (ability->ability_shoot) {
-    auto shots =
-        fire(*ability, data,
-             std::atan2(target.y - player->motion.position.y, target.x - player->motion.position.x),
-             time, true);
+    auto shots = fire(*ability, data,
+                      realm::math::atan2(target.y - player->motion.position.y,
+                                         target.x - player->motion.position.x),
+                      time, true);
     output.insert(output.end(), std::make_move_iterator(shots.begin()),
                   std::make_move_iterator(shots.end()));
   }

@@ -2,6 +2,7 @@
 
 #include "realm/net/Http.hpp"
 #include "StartupTypes.hpp"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -34,11 +35,14 @@ class HttpTaskService {
   bool start(Task task, const std::string& host, std::uint16_t port, const std::string& path,
              net::FormFields fields, Generations generations);
   [[nodiscard]] std::optional<Completion> poll();
+  // The first poll after a start waits up to settle for the reply; later polls do not wait.
+  [[nodiscard]] std::optional<Completion> poll(std::chrono::milliseconds settle);
   void wait();
 
  private:
   Task task_{Task::none};
   Generations generations_;
   net::HttpTask request_;
+  bool settle_next_{};
 };
 }

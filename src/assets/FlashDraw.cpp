@@ -1,4 +1,5 @@
 #include "realm/assets/FlashDraw.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -501,7 +502,7 @@ void Path::round_rect(double x, double y, double width, double height, double el
   }
   // Each corner is drawn as two quadratic curves through the 45 degree point.
   const double corner_offset = radius * (1 - std::numbers::sqrt2 / 2);
-  const double tangent_offset = radius * (1 - std::tan(std::numbers::pi / 8));
+  const double tangent_offset = radius * (1 - realm::math::tan(std::numbers::pi / 8));
   move(x + radius, y);
   line(x + width - radius, y);
   curve(x + width - tangent_offset, y, x + width - corner_offset, y + corner_offset);
@@ -523,7 +524,8 @@ void Path::circle(double x, double y, double radius) {
   move(x + radius, y);
   for (int i = 1; i <= 64; ++i) {
     const double angle = i * std::numbers::pi / 32;
-    line(x + radius * std::cos(angle), y + radius * std::sin(angle));
+    const auto [sine, cosine] = realm::math::sincos(angle);
+    line(x + radius * cosine, y + radius * sine);
   }
   close();
 }
@@ -577,7 +579,7 @@ void stroke(Image& image, const Path& path, double width, std::uint32_t color, d
   for (const auto& contour : path.contours) {
     for (std::size_t i = 0; i + 1 < contour.size(); ++i) {
       const auto a = contour[i], b = contour[i + 1];
-      const double dx = b.x - a.x, dy = b.y - a.y, length = std::hypot(dx, dy);
+      const double dx = b.x - a.x, dy = b.y - a.y, length = realm::math::hypot(dx, dy);
       if (length <= 0) {
         continue;
       }
@@ -594,8 +596,8 @@ void stroke(Image& image, const Path& path, double width, std::uint32_t color, d
       std::vector<Vec2> disc;
       for (int k = 0; k < 16; ++k) {
         const double angle = k * std::numbers::pi / 8;
-        disc.push_back(
-            {contour[i].x + half * std::cos(angle), contour[i].y + half * std::sin(angle)});
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        disc.push_back({contour[i].x + half * cosine, contour[i].y + half * sine});
       }
       add_oriented(coverage, disc, offset);
     }
@@ -701,9 +703,10 @@ void glow(Image& image, std::uint32_t color, double alpha, double blur_x, double
 void drop_shadow(Image& image, double distance, double angle_degrees, std::uint32_t color,
                  double alpha, double blur_x, double blur_y, double strength, int quality) {
   const double radians = angle_degrees * std::numbers::pi / 180;
+  const auto [sine, cosine] = realm::math::sincos(radians);
   behind(image, blurred_alpha(image, blur_x, blur_y, quality),
-         static_cast<int>(std::lround(distance * std::cos(radians))),
-         static_cast<int>(std::lround(distance * std::sin(radians))), color, alpha, strength);
+         static_cast<int>(std::lround(distance * cosine)),
+         static_cast<int>(std::lround(distance * sine)), color, alpha, strength);
 }
 
 Image padded(const Image& image, int margin) {

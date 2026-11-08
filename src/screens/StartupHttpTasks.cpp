@@ -1,4 +1,5 @@
 #include "StartupHttpTasks.hpp"
+#include <thread>
 #include <utility>
 
 namespace realm::startup_detail {
@@ -17,6 +18,7 @@ bool HttpTaskService::start(Task task, const std::string& host, std::uint16_t po
   generations_ = generations;
 
   request_ = net::HttpTask::post(host, port, path, std::move(fields));
+  settle_next_ = true;
   return true;
 }
 
@@ -38,6 +40,18 @@ std::optional<HttpTaskService::Completion> HttpTaskService::poll() {
   request_ = net::HttpTask();
   generations_ = {};
   return result;
+}
+
+std::optional<HttpTaskService::Completion> HttpTaskService::poll(std::chrono::milliseconds settle) {
+  if (settle > std::chrono::milliseconds{0} && settle_next_) {
+    const auto deadline = std::chrono::steady_clock::now() + settle;
+    while (busy() && request_.valid() && request_.poll() == net::HttpStatus::pending &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+  settle_next_ = false;
+  return poll();
 }
 
 void HttpTaskService::wait() {

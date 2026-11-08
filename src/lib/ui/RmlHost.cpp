@@ -2,6 +2,7 @@
 #include <sstream>
 #include <cstdlib>
 #include "realm/lib/ui/RmlHost.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
 #include "realm/util/Utf8.hpp"
@@ -1002,7 +1003,7 @@ class PulseText final : public Rml::Element {
     const double dp = rt.dp;
     // Quantized to 1/1000 so density, phase and bitmap all describe one pulse exactly. The sine
     // moves at most 0.00025 per ms, so a 7 kHz frame loop re-rasterizes about once per 28 frames.
-    const double pulse_raw = 1.05 + .05 * std::sin(rt.clock_ms / 200.0);
+    const double pulse_raw = 1.05 + .05 * realm::math::sin(rt.clock_ms / 200.0);
     const double pulse = pulsing ? std::round(pulse_raw * 1000) / 1000 : 1.0;
 
     const auto box = rt.fonts->layout(text, size, bold);

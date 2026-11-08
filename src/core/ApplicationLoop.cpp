@@ -37,6 +37,17 @@ void report(std::string_view name, std::vector<double> values) {
 }
 }
 
+bool web_presented_capture(const Options& o) {
+#if defined(__EMSCRIPTEN__)
+  // WebGPU has no synchronous readback in the browser: the final frame is copied in finish_frame and read
+  // back by web_frame. WebGL2 reads its back buffer synchronously, as native GL does.
+  return !o.capture.empty() && o.frames > 0 && realm::gfx::active_api() == realm::gfx::Api::webgpu;
+#else
+  (void)o;
+  return false;
+#endif
+}
+
 void begin_frame(ClientState& cs, const Options& o, Frame& f) {
   auto& start = f.start;
   auto& frame_interval = f.frame_interval;
@@ -132,6 +143,12 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
       cs.frame >= static_cast<std::uint64_t>(o.telemetry_warmup) && !capture_frame;
   cs.renderer.timing(cs.telemetry.get(), cs.frame, normal_frame);
   cs.renderer.set_gpu_timing(cs.perf_stats);
+#if defined(__EMSCRIPTEN__)
+  // The final frame's WebGPU capture is a presented copy: enabled before its draws, so finish_frame records it.
+  if (o.frames && cs.frame + 1 == static_cast<std::uint64_t>(o.frames) && web_presented_capture(o)) {
+    cs.renderer.set_presented_capture(true);
+  }
+#endif
   if (world_only) {
     overlay = {};
   }
@@ -184,8 +201,9 @@ void present_frame(ClientState& cs, const Options& o, Frame& f) {
   const auto submitted = Clock::now();
   cpu_zone->finish();
 
-  // Capture before swap; finite runs always capture their last rendered frame.
-  if (!o.capture.empty() &&
+  // Capture before swap; finite runs always capture their last rendered frame. A web WebGPU capture of
+  // the final frame is written by web_frame once its presented readback completes.
+  if (!o.capture.empty() && !web_presented_capture(o) &&
       (!o.frames ? cs.frame == 0 : cs.frame + 1 == static_cast<std::uint64_t>(o.frames))) {
     realm::save_png(o.capture, cs.renderer.capture(width, height));
   }

@@ -172,6 +172,12 @@ if(REALM_BUILD_VIEWER)
         # Web client: one HTML page (shell, wasm, JS glue, preloaded data) served from build-web/ by web/serve.py.
         # Ports and the WebGL 2 context come from the flags in cmake/WebDeps.cmake; no pthreads, no IPO.
         set_target_properties(realm_client PROPERTIES SUFFIX ".html")
+        # Site art (page background, buttons, social icons) goes next to the page as build-web/site/. A custom
+        # target runs on every build, so a replaced image is copied without relinking the wasm.
+        add_custom_target(realm_web_site ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/web/site" "$<TARGET_FILE_DIR:realm_client>/site"
+            COMMENT "Copying web site art")
+        add_dependencies(realm_client realm_web_site)
         # The preload flags go in a response file: CMake drops the second --preload-file when both are link options.
         set(REALM_WEB_PRELOAD_RSP "${CMAKE_CURRENT_BINARY_DIR}/web_preload.rsp")
         set(REALM_WEB_PRELOAD_TEXT "--preload-file\n${REALM_FLASH_ROOT_PATH}/src@/realm-client/src\n--exclude-file\n*.as\n")
@@ -444,6 +450,11 @@ if(BUILD_TESTING)
         SOURCES tests/PlayerGroupTests.cpp LINK realm_ui)
     realm_add_test(NAME minimap_cache TARGET realm_minimap_cache_tests LABELS unit
         SOURCES tests/MinimapCacheTests.cpp LINK realm_ui)
+    # realm::math against the C library (1 ulp) and golden hashes shared with the Emscripten build (see the test).
+    realm_add_test(NAME portable_math TARGET realm_portable_math_tests LABELS unit
+        SOURCES tests/PortableMathTests.cpp LINK realm_support)
+    set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/tests/PortableMathTests.cpp" PROPERTIES
+        COMPILE_OPTIONS "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-ffp-contract=off>")
     realm_add_python_test(NAME session_loopback LABELS unit
         SCRIPT tests/session_tests.py ARGS "$<TARGET_FILE:realm_session>")
     realm_add_python_test(NAME flash_import LABELS unit

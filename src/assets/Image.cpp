@@ -1,4 +1,5 @@
 #include "realm/assets/Image.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <png.h>
 #include <stdexcept>
 #include <algorithm>
@@ -19,7 +20,8 @@ void ui_rounded_rectangle(Image& dst, double x, double y, double width, double h
       const auto pixel =
           (static_cast<std::size_t>(py) * shape.width + static_cast<std::size_t>(px)) * 4;
       shape.pixels[pixel + 3] = static_cast<unsigned char>(std::lround(
-          std::clamp(.5 + (corner_radius - std::hypot(dx, dy)) * scale, 0.0, 1.0) * opacity * 255));
+          std::clamp(.5 + (corner_radius - realm::math::hypot(dx, dy)) * scale, 0.0, 1.0) *
+          opacity * 255));
       for (unsigned c = 0; c < 3; ++c) {
         shape.pixels[pixel + c] = static_cast<unsigned char>((color >> (16 - c * 8)) & 255U);
       }

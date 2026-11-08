@@ -1,4 +1,5 @@
 #include "realm/hud/HudState.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
@@ -220,7 +221,7 @@ const HudState& HudStateCache::player(const World& world, const Entity& focus, c
     if (shown) {
       const auto* member = world.entity(shown->object_id);
       shown->pulse = member && member->combat.hp < member->combat.max_hp * 0.2
-                         ? static_cast<int>(std::abs(std::sin(time / 200.0)) * 10)
+                         ? static_cast<int>(std::abs(realm::math::sin(time / 200.0)) * 10)
                          : 0;
     }
   }
@@ -251,7 +252,7 @@ void HudState::party_members(const World& world, const Entity& player, const rea
                       : 16572160U;
     shown.dark = !source.starred(member->id);
     if (member->combat.hp < member->combat.max_hp * 0.2) {
-      shown.pulse = static_cast<int>(std::abs(std::sin(time / 200.0)) * 10);
+      shown.pulse = static_cast<int>(std::abs(realm::math::sin(time / 200.0)) * 10);
     }
   }
 }

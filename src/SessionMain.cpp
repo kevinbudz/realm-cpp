@@ -4,6 +4,7 @@
 #include "realm/messaging/Session.hpp"
 #include "flash_assets.hpp"
 #include "realm/objects/Movement.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -277,8 +278,8 @@ int main(int argc, char** argv) {
               if (const auto* def = catalog.object(entity.type);
                   def && def->class_name == "Portal" && def->id == "Vault Portal") {
                 const double distance =
-                    std::hypot(entity.motion.position.x - player->motion.position.x,
-                               entity.motion.position.y - player->motion.position.y);
+                    realm::math::hypot(entity.motion.position.x - player->motion.position.x,
+                                       entity.motion.position.y - player->motion.position.y);
                 if (distance < best) {
                   best = distance;
                   portal_id = entity.id;
@@ -310,7 +311,7 @@ int main(int argc, char** argv) {
               double angle{};
               const double dx = portal->motion.position.x - player->motion.position.x;
               const double dy = portal->motion.position.y - player->motion.position.y;
-              const double length = std::hypot(dx, dy);
+              const double length = realm::math::hypot(dx, dy);
               realm::move_player(world, *player, {dx / length, dy / length}, 0, dt, angle);
             }
           } else if (portal_stage == 2 && world.name() != "Nexus") {

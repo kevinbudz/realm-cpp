@@ -1,4 +1,5 @@
 #include "realm/stage3D/DrawTypes.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <cmath>
 #include <numbers>
 
@@ -25,9 +26,8 @@ Quad projectile_quad(SpriteRegion sprite, Vec2 center, double angle, int size, d
                      bool outline) {
   // Point3D.as: the path is a rotated square; outlined textures retain their
   // pixel scale and are clipped by the square instead of fitting inside it.
-  const double radius = 8.0 * size / 100 / std::sin(24.0 * std::numbers::pi / 180);
-  const double c = std::cos(angle);
-  const double s = std::sin(angle);
+  const double radius = 8.0 * size / 100 / realm::math::sin(24.0 * std::numbers::pi / 180);
+  const auto [s, c] = realm::math::sincos(angle);
   const double extent = radius * zoom;
   auto q = sprite_quad(sprite, {center.x + (s - c) * extent, center.y - (s + c) * extent},
                        {2 * c * extent, 2 * s * extent}, {-2 * s * extent, 2 * c * extent});

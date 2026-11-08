@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include "realm/util/PortableMath.hpp"
 
 namespace realm {
 struct Vec2 {
@@ -29,7 +30,7 @@ class Camera {
 
   [[nodiscard]] double scale() const { return zoom_; }
 
-  [[nodiscard]] double angle() const { return std::atan2(s_, c_); }
+  [[nodiscard]] double angle() const { return realm::math::atan2(s_, c_); }
 
   [[nodiscard]] Vec2 origin() const { return {-clip_.x * zoom_, -clip_.y * zoom_}; }
 

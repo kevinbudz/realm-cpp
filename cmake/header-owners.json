@@ -9,6 +9,7 @@
   "include/realm/map/Camera.hpp": "realm_support",
   "include/realm/objects/ProjectileProperties.hpp": "realm_support",
   "include/realm/util/Random.hpp": "realm_support",
+  "include/realm/util/PortableMath.hpp": "realm_support",
   "include/realm/util/Telemetry.hpp": "realm_support",
   "include/realm/util/Utf8.hpp": "realm_support",
   "include/realm/util/TextFormat.hpp": "realm_support",

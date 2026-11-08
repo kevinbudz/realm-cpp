@@ -1,3 +1,4 @@
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/minimap/Minimap.hpp"
 #include "flash_assets.hpp"
@@ -423,8 +424,7 @@ bool Minimap::render(const World& world, const MinimapView& view) {
   }
   const double px = 96 + view.focus.x * zoom + tx;
   const double py = 96 + view.focus.y * zoom + ty;
-  const double cosine = std::cos(view.angle);
-  const double sine = std::sin(view.angle);
+  const auto [sine, cosine] = realm::math::sincos(view.angle);
   for (int y = std::max(0, static_cast<int>(std::floor((py - 16) * density)));
        y < std::min(image_.height, static_cast<int>(std::ceil((py + 16) * density))); ++y) {
     for (int x = std::max(0, static_cast<int>(std::floor((px - 16) * density)));

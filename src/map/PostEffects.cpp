@@ -1,12 +1,13 @@
 #include "realm/map/PostEffects.hpp"
 #include "realm/map/World.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
 
 namespace realm {
 float drunk_blur_diameter(std::int32_t time_ms) {
-  return static_cast<float>(20 + 10 * std::sin(time_ms / 1000.0));
+  return static_cast<float>(20 + 10 * realm::math::sin(time_ms / 1000.0));
 }
 
 float breath_overlay_alpha(int breath, std::int32_t time_ms) {
@@ -14,7 +15,7 @@ float breath_overlay_alpha(int breath, std::int32_t time_ms) {
     return 0;
   }
   const double factor = static_cast<double>(breath_threshold - breath) / breath_threshold;
-  return static_cast<float>(factor * std::abs(std::sin(time_ms / 300.0)) * 0.75);
+  return static_cast<float>(factor * std::abs(realm::math::sin(time_ms / 300.0)) * 0.75);
 }
 
 float vignette_edge_alpha(float radius) {

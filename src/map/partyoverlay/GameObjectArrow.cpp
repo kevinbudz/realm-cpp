@@ -1,5 +1,6 @@
 #include "realm/map/partyoverlay/GameObjectArrow.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -33,7 +34,7 @@ std::optional<ArrowPlacement> GameObjectArrow::project(const Camera& camera, Vec
   }
   ArrowPlacement placement;
   placement.position = {camera_origin.x + t * x, camera_origin.y + t * y};
-  double rotation = std::remainder(270 - 180 / std::numbers::pi * std::atan2(x, y), 360.0);
+  double rotation = std::remainder(270 - 180 / std::numbers::pi * realm::math::atan2(x, y), 360.0);
   // Screen pixels at every zoom, as the arrow itself is drawn at zoom 1.
   const double margin = 5;
   if (placement.position.x < margin) {
@@ -53,8 +54,9 @@ std::optional<ArrowPlacement> GameObjectArrow::project(const Camera& camera, Vec
 bool GameObjectArrow::contains(Vec2 position, double rotation, int size, Vec2 p, double scale) {
   const double dx = (p.x - position.x) / scale;
   const double dy = (p.y - position.y) / scale;
-  const double x = dx * std::cos(rotation) + dy * std::sin(rotation);
-  const double y = -dx * std::sin(rotation) + dy * std::cos(rotation);
+  const realm::math::SinCos turn = realm::math::sincos(rotation);
+  const double x = dx * turn.cosine + dy * turn.sine;
+  const double y = -dx * turn.sine + dy * turn.cosine;
   return x >= 2.5 && x <= size + 3.5 && std::abs(y) <= x - 3 + .71;
 }
 
@@ -64,10 +66,10 @@ Image GameObjectArrow::image(double rotation, int size, std::uint32_t line, std:
   const double length = size;
   std::array<Vec2, 3> points{Vec2{dist, 0}, Vec2{length + dist, length},
                              Vec2{length + dist, -length}};
+  const realm::math::SinCos turn = realm::math::sincos(rotation);
   for (auto& p : points) {
     const double x = p.x;
-    p = {origin + x * std::cos(rotation) - p.y * std::sin(rotation),
-         origin + x * std::sin(rotation) + p.y * std::cos(rotation)};
+    p = {origin + x * turn.cosine - p.y * turn.sine, origin + x * turn.sine + p.y * turn.cosine};
   }
   ui_path(result, points, fill, line);
   ui_shadow(result, 4, canvas_size, canvas_size);
@@ -78,20 +80,21 @@ Vec2 GameObjectArrow::tooltip_position(Vec2 anchor, double rotation, double widt
                                        double arrow_scale) {
   // GameObjectArrow.positionTooltip: DIST + BIG_SIZE + 12 pixels out from the arrow.
   constexpr int reach_pixels = dist + big_size + 12;
-  const double x0 = reach_pixels * arrow_scale * std::cos(rotation);
-  const double y0 = reach_pixels * arrow_scale * std::sin(rotation);
+  const realm::math::SinCos turn = realm::math::sincos(rotation);
+  const double x0 = reach_pixels * arrow_scale * turn.cosine;
+  const double y0 = reach_pixels * arrow_scale * turn.sine;
   const double w = width;
   const double h = height;
   const double degrees = rotation * 180 / std::numbers::pi;
   Vec2 offset;
   if (degrees >= 45 && degrees <= 135) {
-    offset = {x0 + w / (2 * std::tan(rotation)) - w / 2, y0};
+    offset = {x0 + w / (2 * realm::math::tan(rotation)) - w / 2, y0};
   } else if (degrees <= -45 && degrees >= -135) {
-    offset = {x0 - w / (2 * std::tan(rotation)) - w / 2, y0 - h};
+    offset = {x0 - w / (2 * realm::math::tan(rotation)) - w / 2, y0 - h};
   } else if (degrees < 45 && degrees > -45) {
-    offset = {x0, y0 + h * std::tan(rotation) / 2 - h / 2};
+    offset = {x0, y0 + h * realm::math::tan(rotation) / 2 - h / 2};
   } else {
-    offset = {x0 - w, y0 - h * std::tan(rotation) / 2 - h / 2};
+    offset = {x0 - w, y0 - h * realm::math::tan(rotation) / 2 - h / 2};
   }
   return {anchor.x + offset.x, anchor.y + offset.y};
 }

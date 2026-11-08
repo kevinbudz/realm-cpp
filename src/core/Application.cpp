@@ -62,6 +62,7 @@
 #include "ApplicationLoop.hpp"
 #if defined(__EMSCRIPTEN__)
 #include "realm/appengine/SavedCharactersList.hpp"
+#include "realm/assets/Image.hpp"
 #include "realm/stage3D/WebGpuStart.hpp"
 #include <emscripten.h>
 #endif
@@ -165,11 +166,15 @@ struct WebApp {
   std::unique_ptr<ClientLayers> layers;
   std::uint64_t ticks{};
   bool gpu_start_checked{};  // WebGPU's adapter and device were requested (when chosen)
+  bool capture_pending{};  // the final frame's presented WebGPU readback has not been written yet
+  std::uint64_t capture_ticks{};  // web_frame calls since that readback started
 };
 
 // Flushes settings and account writes to IndexedDB about every two seconds: the account file is
 // written by screens that do not reach the client state.
 constexpr std::uint64_t persist_interval_ticks = 120;
+// A readback resolves within a few frames in a foreground tab; past this the capture has failed.
+constexpr std::uint64_t capture_timeout_ticks = 600;
 
 void web_frame(void* argument) {
   auto& app = *static_cast<WebApp*>(argument);
@@ -199,6 +204,17 @@ void web_frame(void* argument) {
     auto& cs = *app.owner;
     const auto& o = cs.o;
     if (!keep_running(cs, o)) {
+      if (app.capture_pending) {
+        // The loop stays up (no frames drawn) until the readback of the final frame is written.
+        if (auto image = cs.renderer.take_capture()) {
+          realm::save_png(o.capture, *image);
+          app.capture_pending = false;
+        } else if (++app.capture_ticks > capture_timeout_ticks) {
+          throw std::runtime_error("WebGPU capture did not complete");
+        } else {
+          return;
+        }
+      }
       emscripten_cancel_main_loop();
       shutdown_report(cs, o);
       app.layers.reset();
@@ -206,6 +222,14 @@ void web_frame(void* argument) {
       return;
     }
     run_frame(cs, o);
+    if (web_presented_capture(o) && cs.frame == static_cast<std::uint64_t>(o.frames)) {
+      // The final frame has been presented, so its copy is recorded: start the readback now.
+      int width{};
+      int height{};
+      cs.session.drawable_size(width, height);
+      static_cast<void>(cs.renderer.capture(width, height, true));
+      app.capture_pending = true;
+    }
     if (++app.ticks % persist_interval_ticks == 0) {
       realm::platform::persist_storage();
     }

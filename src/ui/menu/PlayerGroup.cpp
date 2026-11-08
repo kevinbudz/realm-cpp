@@ -1,6 +1,7 @@
 #include "realm/ui/menu/PlayerGroup.hpp"
 #include "realm/map/partyoverlay/GameObjectArrow.hpp"
 #include "realm/ui/GraphicsUtil.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <cmath>
@@ -263,7 +264,7 @@ bool PlayerGroup::update(Vec2 pointer, bool valid, std::int32_t cooldown, double
     const double dy =
         std::max({top - pointer.y, 0.0, pointer.y - (top + (frame_height_ + 1) * scale_)});
     const bool inside = contains(pointer);
-    if ((entered_ && !inside) || std::hypot(dx, dy) > 40) {
+    if ((entered_ && !inside) || realm::math::hypot(dx, dy) > 40) {
       close();
       return false;
     }

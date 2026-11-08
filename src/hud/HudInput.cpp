@@ -1,4 +1,5 @@
 #include "realm/hud/HudInput.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <cmath>
 
 namespace realm {
@@ -106,7 +107,7 @@ void HudInput::move(Vec2 point, int selected, bool container) {
     down_slot_ = -1;
     return;
   }
-  if (std::hypot(point.x - start_.x, point.y - start_.y) > 3) {
+  if (realm::math::hypot(point.x - start_.x, point.y - start_.y) > 3) {
     dragging_ = true;
     click_slot_ = -1;
   }

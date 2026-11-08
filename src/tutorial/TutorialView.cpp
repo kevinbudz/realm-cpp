@@ -1,5 +1,6 @@
 #include "realm/tutorial/TutorialView.hpp"
 #include "realm/assets/FlashDraw.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -164,7 +165,7 @@ Overlay& overlay_state() {
 TutorialRegion render_tutorial_overlay(std::span<const TutorialStroke> strokes, std::int32_t time) {
   auto& state = overlay_state();
   const TutorialRegion previous = state.shown;
-  const double blur = 5 + std::abs(std::sin(time / 300.0)) * 5;
+  const double blur = 5 + std::abs(realm::math::sin(time / 300.0)) * 5;
   const int reach = std::max(0, static_cast<int>(std::ceil(blur / 2 - .5)));
 
   if (!same_strokes(strokes, state.stroked_strokes)) {

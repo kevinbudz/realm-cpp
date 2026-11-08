@@ -1,4 +1,5 @@
 #include "realm/background/BackdropData.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "flash_assets.hpp"
 #include <algorithm>
 #include <array>
@@ -48,7 +49,8 @@ double octave(double x, double y, int cells, std::uint32_t seed, int level) {
         hash(seed, static_cast<std::uint32_t>(level), static_cast<std::uint32_t>(ix % cells),
              static_cast<std::uint32_t>(iy % cells)) *
         (2 * std::numbers::pi / 4294967296.0);
-    return std::cos(angle) * dx + std::sin(angle) * dy;
+    const auto [s, c] = realm::math::sincos(angle);
+    return c * dx + s * dy;
   };
   const auto fade = [](double t) { return t * t * (3 - 2 * t); };
   const double u = fade(fx);
@@ -71,8 +73,9 @@ std::vector<Star> star_field(std::uint32_t seed) {
     Star next{unit(random) * 1000 - 500, unit(random) * 1000 - 500, 4 * (0.5 + 0.5 * unit(random)),
               0};
     next.image = std::min(images - 1, static_cast<int>(images * unit(random)));
-    const bool crowded = std::ranges::any_of(
-        stars, [&](const Star& star) { return std::hypot(next.x - star.x, next.y - star.y) < 3; });
+    const bool crowded = std::ranges::any_of(stars, [&](const Star& star) {
+      return realm::math::hypot(next.x - star.x, next.y - star.y) < 3;
+    });
     if (!crowded) {
       stars.push_back(next);
     }

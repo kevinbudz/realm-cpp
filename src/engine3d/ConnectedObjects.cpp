@@ -1,5 +1,6 @@
 #include "realm/engine3d/ConnectedObjects.hpp"
 #include "realm/map/World.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <numbers>
 #include <span>
@@ -548,9 +549,12 @@ std::vector<ObjectFaceGeometry> stalagmite_geometry(std::uint32_t seed) {
   const double first = base + step * random.unit();
   const double second = 2 * step + base + step * random.unit();
   const double third = 4 * step + base + step * random.unit();
-  const Point v0 = point(std::cos(first) * .3, std::sin(first) * .3);
-  const Point v1 = point(std::cos(second) * .3, std::sin(second) * .3);
-  const Point v2 = point(std::cos(third) * .3, std::sin(third) * .3);
+  const realm::math::SinCos d0 = realm::math::sincos(first);
+  const realm::math::SinCos d1 = realm::math::sincos(second);
+  const realm::math::SinCos d2 = realm::math::sincos(third);
+  const Point v0 = point(d0.cosine * .3, d0.sine * .3);
+  const Point v1 = point(d1.cosine * .3, d1.sine * .3);
+  const Point v2 = point(d2.cosine * .3, d2.sine * .3);
   const Point v3 = point(0, 0, .6 + .6 * random.unit());
   std::vector<ObjectFaceGeometry> faces(3);
   faces[0].vertices = {vertex(v0, 0, 1), vertex(v1, .5, 1), vertex(v3, .5, 0)};
@@ -682,8 +686,7 @@ bool project_object_faces_into(MeshDraw& draw, const std::vector<ObjectFaceGeome
                                Vec2 position, double z, double rotation_degrees, const World* world,
                                int tile_x, int tile_y, bool connected) {
   const double radians = rotation_degrees * std::numbers::pi / 180;
-  const double cosine = std::cos(radians);
-  const double sine = std::sin(radians);
+  const auto [sine, cosine] = realm::math::sincos(radians);
   constexpr float inv_page = 1.0F / sprite_page_size;
   draw.bounds = {static_cast<float>(sprite.x) * inv_page, static_cast<float>(sprite.y) * inv_page,
                  static_cast<float>(sprite.width) * inv_page,
@@ -735,7 +738,7 @@ bool project_object_faces_into(MeshDraw& draw, const std::vector<ObjectFaceGeome
     double nx = (pb[1] - pa[1]) * (pc[2] - pa[2]) - (pb[2] - pa[2]) * (pc[1] - pa[1]);
     double ny = (pb[2] - pa[2]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[2] - pa[2]);
     double nz = (pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0]);
-    const double length = std::hypot(std::hypot(nx, ny), nz);
+    const double length = realm::math::hypot(realm::math::hypot(nx, ny), nz);
     if (length > 1e-12) {
       nx /= length;
       ny /= length;
@@ -857,8 +860,7 @@ std::shared_ptr<const MeshDraw> project_object_faces(const std::vector<ObjectFac
 void build_wall_gpu_vertices(const std::vector<ObjectFaceGeometry>& faces, std::uint8_t material,
                              double rotation_degrees, std::vector<WallGpuVertex>& out) {
   const double radians = rotation_degrees * std::numbers::pi / 180;
-  const double cosine = std::cos(radians);
-  const double sine = std::sin(radians);
+  const auto [sine, cosine] = realm::math::sincos(radians);
 
   struct Point {
     double x, y, z;
@@ -893,7 +895,7 @@ void build_wall_gpu_vertices(const std::vector<ObjectFaceGeometry>& faces, std::
       double nx = (pb.y - pa.y) * (pc.z - pa.z) - (pb.z - pa.z) * (pc.y - pa.y);
       double ny = (pb.z - pa.z) * (pc.x - pa.x) - (pb.x - pa.x) * (pc.z - pa.z);
       double nz = (pb.x - pa.x) * (pc.y - pa.y) - (pb.y - pa.y) * (pc.x - pa.x);
-      const double length = std::hypot(std::hypot(nx, ny), nz);
+      const double length = realm::math::hypot(realm::math::hypot(nx, ny), nz);
       if (length <= 1e-12) {
         return;
       }
@@ -913,7 +915,8 @@ void build_wall_gpu_vertices(const std::vector<ObjectFaceGeometry>& faces, std::
       const float flags = (face.repeat ? 1.F : 0.F) + 2.F * static_cast<float>(slot);
       // Plane basis: e1 follows the first-to-second edge and e2 = n x e1, so (e1, e2, n) is
       // right-handed.
-      const double edge = std::hypot(std::hypot(pb.x - pa.x, pb.y - pa.y), pb.z - pa.z);
+      const double edge =
+          realm::math::hypot(realm::math::hypot(pb.x - pa.x, pb.y - pa.y), pb.z - pa.z);
       const std::array<double, 3> e1{(pb.x - pa.x) / edge, (pb.y - pa.y) / edge,
                                      (pb.z - pa.z) / edge};
       const std::array<double, 3> e2{ny * e1[2] - nz * e1[1], nz * e1[0] - nx * e1[2],

@@ -1,4 +1,5 @@
 #include "realm/objects/ProjectileProperties.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <numbers>
 #include <stdexcept>
 
@@ -7,10 +8,12 @@ ProjectileAim projectile_aim(double angle) {
   constexpr double pi = std::numbers::pi;
   ProjectileAim aim;
   aim.angle = angle;
-  aim.cos = std::cos(angle);
-  aim.sin = std::sin(angle);
-  aim.perpendicular_cos = std::cos(angle + pi / 2);
-  aim.perpendicular_sin = std::sin(angle + pi / 2);
+  const realm::math::SinCos along = realm::math::sincos(angle);
+  const realm::math::SinCos across = realm::math::sincos(angle + pi / 2);
+  aim.cos = along.cosine;
+  aim.sin = along.sine;
+  aim.perpendicular_cos = across.cosine;
+  aim.perpendicular_sin = across.sine;
   return aim;
 }
 
@@ -37,13 +40,14 @@ Vec2 projectile_position(const ProjectileProperties& properties, Vec2 start,
   double distance = elapsed * (speed / 10000);
   const double phase = id % 2 == 0 ? 0 : pi;
   if (properties.wavy) {
-    const double theta = aim.angle + pi / 64 * std::sin(phase + 6 * pi * elapsed / 1000);
-    start.x += distance * std::cos(theta);
-    start.y += distance * std::sin(theta);
+    const double theta = aim.angle + pi / 64 * realm::math::sin(phase + 6 * pi * elapsed / 1000);
+    const realm::math::SinCos heading = realm::math::sincos(theta);
+    start.x += distance * heading.cosine;
+    start.y += distance * heading.sine;
   } else if (properties.parametric) {
     const double t = elapsed / properties.lifetime_ms * 2 * pi;
-    const double x = std::sin(t) * (id % 2 ? 1 : -1);
-    const double y = std::sin(2 * t) * (id % 4 < 2 ? 1 : -1);
+    const double x = realm::math::sin(t) * (id % 2 ? 1 : -1);
+    const double y = realm::math::sin(2 * t) * (id % 4 < 2 ? 1 : -1);
     const double sine = aim.sin;
     const double cosine = aim.cos;
     start.x += (x * cosine - y * sine) * properties.magnitude;
@@ -59,9 +63,9 @@ Vec2 projectile_position(const ProjectileProperties& properties, Vec2 start,
     start.x += distance * aim.cos;
     start.y += distance * aim.sin;
     if (properties.amplitude != 0) {
-      const double offset = properties.amplitude *
-                            std::sin(phase + elapsed / properties.lifetime_ms * properties.frequency *
-                                                 2 * pi);
+      const double offset =
+          properties.amplitude * realm::math::sin(phase + elapsed / properties.lifetime_ms *
+                                                              properties.frequency * 2 * pi);
       start.x += offset * aim.perpendicular_cos;
       start.y += offset * aim.perpendicular_sin;
     }

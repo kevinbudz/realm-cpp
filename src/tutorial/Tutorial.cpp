@@ -1,4 +1,5 @@
 #include "realm/tutorial/Tutorial.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <libxml/parser.h>
 #include <algorithm>
 #include <cmath>
@@ -62,7 +63,7 @@ std::vector<TutorialStroke> Tutorial::update(const World& world, std::int32_t ti
     reset();
     return strokes;
   }
-  const double pulse = std::abs(std::sin(time / 300.0));
+  const double pulse = std::abs(realm::math::sin(time / 300.0));
   const double thickness = static_cast<int>(5 * pulse);
   for (auto& step : steps_) {
     const bool satisfied = std::all_of(
@@ -71,8 +72,8 @@ std::vector<TutorialStroke> Tutorial::update(const World& world, std::int32_t ti
               world.entities().begin(), world.entities().end(), [&](const auto& entity) {
                 return entity.type == requirement.type &&
                        (requirement.name.empty() || entity.profile.name == requirement.name) &&
-                       std::hypot(entity.motion.position.x - player->motion.position.x,
-                                  entity.motion.position.y - player->motion.position.y) <=
+                       realm::math::hypot(entity.motion.position.x - player->motion.position.x,
+                                          entity.motion.position.y - player->motion.position.y) <=
                            requirement.radius;
               });
         });
@@ -92,9 +93,10 @@ std::vector<TutorialStroke> Tutorial::update(const World& world, std::int32_t ti
       if (drawing.arrow) {
         const Vec2 tip{coordinates[0] + (coordinates[2] - coordinates[0]) * progress,
                        coordinates[1] + (coordinates[3] - coordinates[1]) * progress};
-        const double angle = std::atan2(coordinates[1] - tip.y, coordinates[0] - tip.x);
+        const double angle = realm::math::atan2(coordinates[1] - tip.y, coordinates[0] - tip.x);
         const auto wing = [&](double offset) {
-          return Vec2{tip.x + 30 * std::cos(angle + offset), tip.y + 30 * std::sin(angle + offset)};
+          const auto [sine, cosine] = realm::math::sincos(angle + offset);
+          return Vec2{tip.x + 30 * cosine, tip.y + 30 * sine};
         };
         stroke.points = {{coordinates[0], coordinates[1]},
                          tip,

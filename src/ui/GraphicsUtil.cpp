@@ -1,4 +1,5 @@
 #include "realm/ui/GraphicsUtil.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -135,8 +136,8 @@ void ui_path(Image& image, std::span<const Vec2> path, std::optional<std::uint32
               length > 0
                   ? std::clamp(((p.x - start.x) * dx + (p.y - start.y) * dy) / length, 0.0, 1.0)
                   : 0;
-          distance = std::min(
-              distance, std::hypot(p.x - start.x - fraction * dx, p.y - start.y - fraction * dy));
+          distance = std::min(distance, realm::math::hypot(p.x - start.x - fraction * dx,
+                                                           p.y - start.y - fraction * dy));
         }
       }
 

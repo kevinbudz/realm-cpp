@@ -1,4 +1,5 @@
 #include "ApplicationLoop.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/messaging/Session.hpp"
 #include "realm/hud/Hud.hpp"
@@ -37,8 +38,7 @@ constexpr double arrow_density = 2.0;
 // space, so the quad covers what the rotated image covered.
 realm::Quad rotated_arrow_quad(const realm::SurfaceTexture& texture, realm::Vec2 pivot,
                                double rotation) {
-  const double c = std::cos(rotation);
-  const double s = std::sin(rotation);
+  const auto [s, c] = realm::math::sincos(rotation);
   const double n = realm::GameObjectArrow::canvas_size;
   const double o = realm::GameObjectArrow::origin;
   return texture.quad({pivot.x - o * c + o * s, pivot.y - o * s - o * c}, {n * c, n * s},

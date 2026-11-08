@@ -31,6 +31,9 @@ struct StartupOptions {
   std::uint16_t app_port{7777};
   std::uint16_t game_port{2050};
   std::filesystem::path account_file;
+  // Fixture clock runs (--fixture-step-ms): fixed start-up draws and a bounded wait for HTTP replies, so
+  // captures repeat. Normal play leaves this false.
+  bool fixture_clock{};
 };
 enum class StartupKey { backspace, tab, enter, escape };
 

@@ -1,3 +1,4 @@
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/map/World.hpp"
 #include <nlohmann/json.hpp>
@@ -230,8 +231,9 @@ const Entity* World::interactive_target() const {
       continue;
     }
     const auto& entity = entities_[index];
-    const double distance = std::hypot(entity.motion.position.x - player->motion.position.x,
-                                       entity.motion.position.y - player->motion.position.y);
+    const double distance =
+        realm::math::hypot(entity.motion.position.x - player->motion.position.x,
+                           entity.motion.position.y - player->motion.position.y);
     if (distance < best || (distance == best && closest && index < closest_index)) {
       best = distance;
       closest = &entity;

@@ -1,5 +1,6 @@
 #include "realm/objects/particles/Particles.hpp"
 #include "realm/map/World.hpp"
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "flash_particle_palettes.hpp"
 #include <algorithm>
@@ -39,7 +40,7 @@ Vec2 lerp(Vec2 start, Vec2 end, double t) {
 }
 
 double distance(Vec2 start, Vec2 end) {
-  return std::hypot(start.x - end.x, start.y - end.y);
+  return realm::math::hypot(start.x - end.x, start.y - end.y);
 }
 
 int bounded_count(double value, int limit = 256) {
@@ -276,8 +277,9 @@ void Particles::heal(const Entity& target, std::uint32_t color, std::int32_t tim
     particle.motion = ParticleMotion::heal;
     particle.target = target.id;
     particle.angle = count == 1 ? random() * tau : tau * i / count;
-    particle.angle_cos = std::cos(particle.angle);
-    particle.angle_sin = std::sin(particle.angle);
+    const auto [sine, cosine] = realm::math::sincos(particle.angle);
+    particle.angle_cos = cosine;
+    particle.angle_sin = sine;
     particle.distance = .3 + .4 * random();
     particle.position = {target.motion.position.x + particle.distance * particle.angle_cos,
                   target.motion.position.y + particle.distance * particle.angle_sin};
@@ -301,8 +303,8 @@ void Particles::aoe(Vec2 at, double radius, std::uint32_t color, std::int32_t ti
     num = std::max(4, num / 4);
   }
   for (int i = 0; i < num; ++i) {
-    path(at, {at.x + radius * std::cos(tau * i / num), at.y + radius * std::sin(tau * i / num)}, color,
-         200, 200, time);
+    const auto [sine, cosine] = realm::math::sincos(tau * i / num);
+    path(at, {at.x + radius * cosine, at.y + radius * sine}, color, 200, 200, time);
   }
 }
 
@@ -336,9 +338,9 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
       for (int i = 0; i < 20; ++i) {
         const double angle = random() * tau;
         const double radius = .7 * random();
-        auto particle = spark({start.x + radius * std::cos(angle),
-                               start.y + radius * std::sin(angle)},
-                              255, 50, 500 + bounded_count(random() * 1000, 1000), 0, {}, time);
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        auto particle = spark({start.x + radius * cosine, start.y + radius * sine}, 255, 50,
+                              500 + bounded_count(random() * 1000, 1000), 0, {}, time);
         particle.motion = ParticleMotion::linear;
         particle.vz = .8;
         emit(particle);
@@ -346,8 +348,10 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
       break;
     case 3:
       for (int i = 0; i < 5; ++i) {
-        auto particle = spark(start, color, (3 + static_cast<int>(random() * 5)) * 20,
-                       1500 + bounded_count(random() * 3000, 3000), 1.85, {}, time);
+        // Draws in source order: C++ leaves the order of call arguments unspecified (GCC and Clang differ).
+        const int size = (3 + static_cast<int>(random() * 5)) * 20;
+        const int life = 1500 + bounded_count(random() * 3000, 3000);
+        auto particle = spark(start, color, size, life, 1.85, {}, time);
         particle.motion = ParticleMotion::stream;
         particle.end = end;
         particle.period = .25 + random() * .5;
@@ -400,10 +404,11 @@ void Particles::show(const World& world, const net::incoming::ShowEffect& effect
       const Vec2 center = effect.type == 10 || effect.type == 13 ? origin : start;
       for (int i = 0; i < n; ++i) {
         const double angle = effect.type == 13
-                                 ? std::atan2(start.y - origin.y, start.x - origin.x) -
+                                 ? realm::math::atan2(start.y - origin.y, start.x - origin.x) -
                                        std::numbers::pi / 6 + i * (std::numbers::pi / 3) / n
                                  : tau * i / n;
-        const Vec2 end{center.x + radius * std::cos(angle), center.y + radius * std::sin(angle)};
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        const Vec2 end{center.x + radius * cosine, center.y + radius * sine};
         path(effect.type == 12   ? end
              : effect.type == 10 ? lerp(center, end, .9)
                             : center,
@@ -499,12 +504,19 @@ void Particles::burst(const World& world, const Entity& target, std::int32_t tim
     if (!sample) {
       return;
     }
-    auto particle = spark(target.motion.position, random() < definition->blood_probability ? definition->blood_color : *sample,
-                   target.appearance.size, 200 + bounded_count(random() * 100, 100), .5, {}, time);
+    // Draws in source order (see show): the blood test, then the lifetime.
+    const bool blood = random() < definition->blood_probability;
+    const std::uint32_t tint = blood ? definition->blood_color : *sample;
+    const int life = 200 + bounded_count(random() * 100, 100);
+    auto particle = spark(target.motion.position, tint, target.appearance.size, life, .5, {}, time);
     particle.motion = ParticleMotion::linear;
-    particle.velocity = directional ? Vec2{(-speed / 600 * std::cos(angle) + plus_minus(.2)) * 8,
-                                    (-speed / 600 * std::sin(angle) + plus_minus(.2)) * 8}
-                             : Vec2{plus_minus(.5) * 8, plus_minus(.5) * 8};
+    if (directional) {
+      const auto [sine, cosine] = realm::math::sincos(angle);
+      particle.velocity = Vec2{(-speed / 600 * cosine + plus_minus(.2)) * 8,
+                               (-speed / 600 * sine + plus_minus(.2)) * 8};
+    } else {
+      particle.velocity = Vec2{plus_minus(.5) * 8, plus_minus(.5) * 8};
+    }
     emit(particle);
   }
 }
@@ -519,10 +531,12 @@ void Particles::impact(const TextureDef& texture, Vec2 at, double angle, double 
     if (!sample) {
       return;
     }
-    auto particle = spark(at, *sample, 100, 200 + bounded_count(random() * 100, 100), .5,
-                   {(-speed / 600 * std::cos(angle) + plus_minus(.2)) * 8,
-                    (-speed / 600 * std::sin(angle) + plus_minus(.2)) * 8},
-                   time);
+    const auto [sine, cosine] = realm::math::sincos(angle);
+    // Draws in source order (see show): the lifetime, then the two velocity jitters.
+    const int life = 200 + bounded_count(random() * 100, 100);
+    const Vec2 velocity{(-speed / 600 * cosine + plus_minus(.2)) * 8,
+                        (-speed / 600 * sine + plus_minus(.2)) * 8};
+    auto particle = spark(at, *sample, 100, life, .5, velocity, time);
     particle.motion = ParticleMotion::linear;
     emit(particle);
   }
@@ -564,7 +578,8 @@ Vec2 Particles::camera_offset(std::int32_t time) const {
   const auto elapsed = std::max<std::int64_t>(0, static_cast<std::int64_t>(time) - jitter_start_);
   const double amplitude = std::min(.5, static_cast<double>(elapsed) * .5 / 10000.0);
   // Presentation-only noise, independent of combat's server-seeded RNG.
-  return {std::sin(time * 12.9898) * amplitude, std::sin(time * 78.233) * amplitude};
+  return {realm::math::sin(time * 12.9898) * amplitude,
+          realm::math::sin(time * 78.233) * amplitude};
 }
 
 // Called only for an animated particle (definition set, animation index >= 0).
@@ -647,7 +662,7 @@ void Particles::update(const World& world, std::int32_t time) {
         case ParticleMotion::thrown_sprite:
           particle.position = lerp(particle.start, particle.end, phase);
           if (particle.motion != ParticleMotion::sparker) {
-            particle.z = std::sin(phase * std::numbers::pi) * 2;
+            particle.z = realm::math::sin(phase * std::numbers::pi) * 2;
           }
           if (particle.motion != ParticleMotion::thrown_sprite) {
             const auto steps =
@@ -671,8 +686,9 @@ void Particles::update(const World& world, std::int32_t time) {
           const double length = distance(particle.start, particle.end);
           particle.position = lerp(particle.start, particle.end, phase);
           if (length > 0) {
-            const double v =
-                std::sin(static_cast<double>(particle.lifetime - age) / 1000.0 / particle.period) * .25;
+            const double v = realm::math::sin(static_cast<double>(particle.lifetime - age) /
+                                              1000.0 / particle.period) *
+                             .25;
             particle.position.x += (particle.end.y - particle.start.y) / length * v;
             particle.position.y -= (particle.end.x - particle.start.x) / length * v;
           }
@@ -693,8 +709,9 @@ void Particles::update(const World& world, std::int32_t time) {
         case ParticleMotion::swirl: {
           particle.z = phase * 2 - 1 + particle.distance;
           const double angle = particle.angle + tau * phase;
-          particle.position = {target->motion.position.x + .5 * std::cos(angle),
-                        target->motion.position.y + .5 * std::sin(angle)};
+          const auto [sine, cosine] = realm::math::sincos(angle);
+          particle.position = {target->motion.position.x + .5 * cosine,
+                               target->motion.position.y + .5 * sine};
           break;
         }
         case ParticleMotion::gas: {
@@ -779,7 +796,8 @@ void Particles::update(const World& world, std::int32_t time) {
       if (kind == EmitterKind::fountain) {
         const double angle = random() * tau;
         particle.motion = ParticleMotion::fountain;
-        particle.velocity = {.8 * std::cos(angle), .8 * std::sin(angle)};
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        particle.velocity = {.8 * cosine, .8 * sine};
         particle.z = .75;
         particle.vz = 6.5;
         particle.az = -9.8;
@@ -791,8 +809,9 @@ void Particles::update(const World& world, std::int32_t time) {
         const double radius = random() * .4;
         const double roll = random();
         particle.motion = ParticleMotion::bubble;
-        particle.position = particle.start = {entity->motion.position.x + radius * std::cos(angle),
-                                              entity->motion.position.y + radius * std::sin(angle)};
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        particle.position = particle.start = {entity->motion.position.x + radius * cosine,
+                                              entity->motion.position.y + radius * sine};
         particle.size = 75 + random() * 50;
         particle.z = 0;
         if (kind == EmitterKind::vent) {
@@ -832,7 +851,8 @@ void Particles::update(const World& world, std::int32_t time) {
         particle.bottom_anchor = true;
         particle.lifetime = static_cast<int>(std::clamp(particle_def.duration_ms, 1.0, 10000.0));
         const double angle = random() * tau;
-        particle.velocity = {.5 * std::cos(angle), .5 * std::sin(angle)};
+        const auto [sine, cosine] = realm::math::sincos(angle);
+        particle.velocity = {.5 * cosine, .5 * sine};
         for (std::size_t index = 0; index < particle_def.animations.size(); ++index) {
           if (random() <= particle_def.animations[index].probability) {
             particle.animation = static_cast<int>(index);

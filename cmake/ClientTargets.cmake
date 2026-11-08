@@ -40,9 +40,15 @@ if(NOT EMSCRIPTEN)
     find_package(Freetype REQUIRED)
 endif()
 
-realm_library(realm_support src/util/Telemetry.cpp src/map/Camera.cpp
+realm_library(realm_support src/util/Telemetry.cpp src/util/PortableMath.cpp src/map/Camera.cpp
     src/objects/ProjectileProperties.cpp src/stage3D/TextureResidency.cpp src/stage3D/DrawTypes.cpp
     src/stage3D/WallGeometry.cpp src/stage3D/GraphicsApi.cpp)
+# realm::math (util/PortableMath.cpp) must produce the same bits everywhere: no fused multiply-add, whatever the
+# target's FMA support or the optimizer's contraction default. MSVC does not contract by default and has no flag.
+if(NOT MSVC)
+    set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/util/PortableMath.cpp" PROPERTIES
+        COMPILE_OPTIONS "-ffp-contract=off")
+endif()
 realm_library(realm_platform src/platform/Platform.cpp src/platform/FileDialog.cpp)
 realm_library(realm_network src/messaging/Protocol.cpp src/messaging/Messages.cpp src/net/Transport.cpp src/net/Http.cpp)
 target_link_libraries(realm_network PUBLIC realm_support)

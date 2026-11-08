@@ -43,7 +43,10 @@ void Startup::Impl::update(std::int32_t time, double dt, double width, double he
     }
   }
 
-  if (auto completion = tasks_.poll()) {
+  // Fixture runs give a reply already on its way a bounded time to land, so the frame that applies it
+  // does not depend on thread timing. A reply the test withholds stays pending.
+  const auto settle = std::chrono::milliseconds(options_.fixture_clock ? 200 : 0);
+  if (auto completion = tasks_.poll(settle)) {
     finish_task(std::move(*completion));
   }
 

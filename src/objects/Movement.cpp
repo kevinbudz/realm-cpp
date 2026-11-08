@@ -1,4 +1,5 @@
 #include "realm/objects/Movement.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -201,9 +202,10 @@ void move_player(World& world, Entity& player, Vec2 input, double rotation, doub
   angle += dt * .003 * rotation;
   player.motion.velocity = {};
   if (input.x || input.y) {
-    const double facing = angle + std::atan2(input.y, input.x);
+    const double facing = angle + realm::math::atan2(input.y, input.x);
     const double speed = move_speed(player);
-    player.motion.velocity = {speed * std::cos(facing), speed * std::sin(facing)};
+    const auto [facing_sin, facing_cos] = realm::math::sincos(facing);
+    player.motion.velocity = {speed * facing_cos, speed * facing_sin};
   }
   player.motion.velocity.x -= player.motion.push.x;
   player.motion.velocity.y -= player.motion.push.y;
@@ -212,7 +214,7 @@ void move_player(World& world, Entity& player, Vec2 input, double rotation, doub
                          {player.motion.position.x + dt * player.motion.velocity.x,
                           player.motion.position.y + dt * player.motion.velocity.y});
   if (player.motion.velocity.x || player.motion.velocity.y) {
-    player.motion.facing = std::atan2(player.motion.velocity.y, player.motion.velocity.x);
+    player.motion.facing = realm::math::atan2(player.motion.velocity.y, player.motion.velocity.x);
   }
 }
 

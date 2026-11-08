@@ -239,8 +239,8 @@ Options parse(int argc, char** argv) {
     throw std::invalid_argument(
         "--stress needs finite --frames/--stress-summary and offline fixture mode");
   }
-  if (options.fixture_step && (options.connect || options.frames < 1)) {
-    throw std::invalid_argument("Fixture clock requires finite offline frames");
+  if (options.fixture_step && options.frames < 1) {
+    throw std::invalid_argument("Fixture clock requires finite frames");
   }
   if (options.stress_delay < 0 || options.stress_delay > 100) {
     throw std::invalid_argument("Fixture delay outside bounds");

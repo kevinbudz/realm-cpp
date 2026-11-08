@@ -29,6 +29,28 @@ std::int64_t now_ms() {
              std::chrono::system_clock::now().time_since_epoch())
       .count();
 }
+
+// Start-up choices (the new-character class, the background offset): random_device in normal play, a
+// fixed seed on the fixture clock so the captures repeat.
+constexpr std::uint32_t fixture_start_seed = 0x5EEDU;
+
+std::uint32_t start_bits(bool fixture_clock) {
+  if (fixture_clock) {
+    std::mt19937 random(fixture_start_seed);
+    return static_cast<std::uint32_t>(random());
+  }
+  std::random_device random;
+  return random();
+}
+
+double start_unit(bool fixture_clock) {
+  if (fixture_clock) {
+    std::mt19937 random(fixture_start_seed);
+    return std::uniform_real_distribution<double>(0, 1)(random);
+  }
+  std::random_device random;
+  return std::uniform_real_distribution<double>(0, 1)(random);
+}
 }  // namespace
 
 Startup::Impl::Impl(const FontBook& fonts, const HudArt* art, const Catalog& catalog,
@@ -64,8 +86,8 @@ Startup::Impl::Impl(const FontBook& fonts, const HudArt* art, const Catalog& cat
   if (art_) {
     state_.skins_ = std::make_unique<SkinChooser>(catalog_, fonts_, *art_);
   }
-  std::random_device random;
-  state_.new_character_type_ = state_.player_types_[random() % state_.player_types_.size()];
+  state_.new_character_type_ =
+      state_.player_types_[start_bits(options_.fixture_clock) % state_.player_types_.size()];
 
   // WebLoadAccountTask: verify saved credentials, otherwise continue as a guest.
   state_.saved_ = load_account(options_.account_file);
@@ -87,11 +109,9 @@ void Startup::Impl::load_background(World& world) {
   world.load_jm_text(state_.background_map_, border);
   state_.background_width_ = world.width() - 2 * border;
 
-  std::random_device random;
   state_.background_x_ = border;
   state_.background_y_ =
-      border + static_cast<int>((world.height() - 2 * border) *
-                                std::uniform_real_distribution<double>(0, 1)(random));
+      border + static_cast<int>((world.height() - 2 * border) * start_unit(options_.fixture_clock));
 }
 
 net::FormFields Startup::Impl::credentials() const {

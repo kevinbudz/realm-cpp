@@ -368,7 +368,7 @@ int main() {
         }
         now += 17;
       }
-      constexpr std::uint64_t pool_golden = 0x66cf1f330de9307dULL;
+      constexpr std::uint64_t pool_golden = 0x2d0016a562d9b61eULL;
       check(hash == pool_golden, "pool state matches the recorded golden");
     }
     std::cout << checks

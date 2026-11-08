@@ -1,4 +1,5 @@
 #include "realm/minimap/MinimapGpu.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -79,7 +80,8 @@ Quad MinimapGpu::build(Minimap& minimap, const World& world, const Entity& focus
     auto arrow = arrow_.quad({origin.x + (px - 16) * scale, origin.y + (py - 16) * scale},
                              {32 * scale, 0}, {0, 32 * scale});
     arrow.kind = 16;
-    arrow.uv_offset = {static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle))};
+    const auto [sine, cosine] = realm::math::sincos(angle);
+    arrow.uv_offset = {static_cast<float>(cosine), static_cast<float>(sine)};
     quads.push_back(arrow);
     auto out =
         out_.quad({origin.x + 172 * scale, origin.y + 4 * scale}, {16 * scale, 0}, {0, 16 * scale});

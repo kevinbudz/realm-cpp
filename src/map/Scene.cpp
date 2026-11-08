@@ -1,3 +1,5 @@
+#include <cstdio>
+#include "realm/util/PortableMath.hpp"
 #include "realm/util/Telemetry.hpp"
 #include "realm/map/Scene.hpp"
 #include "realm/engine3d/ConnectedObjects.hpp"
@@ -52,12 +54,13 @@ AnimationFrame animation_frame(const Character& character, const Entity* e, doub
     facing = e->combat.attack_angle;
   } else if (e && (e->motion.velocity.x || e->motion.velocity.y)) {
     action = Action::walk;
-    facing = std::atan2(e->motion.velocity.y, e->motion.velocity.x);
+    facing = realm::math::atan2(e->motion.velocity.y, e->motion.velocity.x);
     int period{};
     if (e->player) {
       period = static_cast<int>(3.5 / move_speed(*e));
     } else {
-      period = static_cast<int>(.5 / (std::hypot(e->motion.velocity.x, e->motion.velocity.y) * 4));
+      period = static_cast<int>(
+          .5 / (realm::math::hypot(e->motion.velocity.x, e->motion.velocity.y) * 4));
       period += 400 - period % 400;
     }
     period = std::max(1, period);
@@ -681,6 +684,7 @@ void Scene::build_terrain(const World& world, const Terrain& terrain, const Came
                                  {1, 0}, {0, 1});
             chunk.slots.push_back(terrain.stamp(visual.image));
             if (ground->animate) {
+              if (ground->animate == 1) { static long dbg_k12 = 0; if (++dbg_k12 % 5000 == 1) std::fprintf(stderr, "DBG_KIND12 %ld\n", dbg_k12); }
               q.kind = ground->animate == 1 ? 12 : 11;
               q.uv_offset = {static_cast<float>(ground->animate_x),
                              static_cast<float>(ground->animate_y)};
@@ -920,10 +924,12 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
         auto offset = terrain ? visual.offset : Vec2{ground->offset_x, ground->offset_y};
         if (ground->animate) {
           const double t = time / 1000.0;
-          offset.x = ground->offset_x + (ground->animate == 1 ? std::sin(ground->animate_x * t)
-                                                              : ground->animate_x * t);
-          offset.y = ground->offset_x + (ground->animate == 1 ? std::sin(ground->animate_y * t)
-                                                              : ground->animate_y * t);
+          offset.x =
+              ground->offset_x + (ground->animate == 1 ? realm::math::sin(ground->animate_x * t)
+                                                       : ground->animate_x * t);
+          offset.y =
+              ground->offset_x + (ground->animate == 1 ? realm::math::sin(ground->animate_y * t)
+                                                       : ground->animate_y * t);
         }
         if (ground->animate || offset.x || offset.y) {
           q.kind = 3;
@@ -1001,8 +1007,10 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
     if (age < 0 || age > static_cast<std::int64_t>(flash.period) * flash.repeats) {
       return;
     }
-    const float intensity = static_cast<float>(
-        std::sin(static_cast<double>(age % flash.period) / flash.period * std::numbers::pi) * .5);
+    const float intensity =
+        static_cast<float>(realm::math::sin(static_cast<double>(age % flash.period) / flash.period *
+                                            std::numbers::pi) *
+                           .5);
     for (int channel = 0; channel < 3; ++channel) {
       q.multiply[static_cast<std::size_t>(channel)] *= 1 - intensity;
       q.offset[static_cast<std::size_t>(channel)] =
@@ -1744,8 +1752,8 @@ void Scene::build(const World& world, const Camera& camera, Atlas& atlas,
               particle.angle +
               static_cast<double>(static_cast<std::int64_t>(time) - particle.born) * .012;
           q.kind = 8;
-          q.uv_offset = {static_cast<float>(std::cos(rotation)),
-                         static_cast<float>(std::sin(rotation))};
+          const auto [sine, cosine] = realm::math::sincos(rotation);
+          q.uv_offset = {static_cast<float>(cosine), static_cast<float>(sine)};
         }
         out.push_back(std::move(q));
         return;

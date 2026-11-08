@@ -5,33 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Realm</title>
   <style>
+    /* Page: tiled background, with the 864x600 site block centred horizontally and pinned to the top edge
+       (y=0). The page never scrolls; narrower viewports crop the block. */
     html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: url(site/backgroundPattern.png) repeat #111;
+      color: #fff;
+      font-family: myriad-pro, sans-serif;
+      font-size: 14px;
+      line-height: 18px;
+    }
+    /* Row: 32px column | 800x600 frame | 32px column. */
+    .site {
+      display: flex;
+      flex: none;
+      width: 864px;
+      height: 600px;
+    }
+    .site-column {
+      display: flex;
+      flex: none;
+      flex-direction: column;
+      width: 32px;
+      height: 600px;
+    }
+    .frame {
+      position: relative;
+      flex: none;
+      width: 800px;
+      height: 600px;
       background: #000;
     }
+    /* The canvas CSS size is 800x600. SDL reads CSS sizing when the window opens and on resize, so the
+       backing store follows this box (times devicePixelRatio) instead of the browser window. */
     #canvas {
       display: block;
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
+      width: 800px;
+      height: 600px;
+      outline: none;
     }
     #status {
-      position: fixed;
+      position: absolute;
       left: 0;
       right: 0;
-      bottom: 8px;
+      top: 50%;
       margin: 0;
       padding: 0 8px;
+      transform: translateY(-50%);
       color: #ccc;
       font: 13px/1.4 system-ui, sans-serif;
       text-align: center;
       pointer-events: none;
     }
     #status:empty { display: none; }
+    /* Square buttons: 23x23 content + 4.5px padding = 32x32, with the 20x20 icon centred. */
+    .site-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: content-box;
+      width: 23px;
+      height: 23px;
+      padding: 4.5px;
+      background-color: #242424;
+      color: #8c8c8c;
+      text-decoration: none;
+      transition: all .25s ease-in;
+    }
+    .site-button img { display: block; width: 20px; height: 20px; }
+    .site-button:hover,
+    .site-button.active {
+      color: #fff;
+      text-shadow: #000 0 0 8px;
+      background-color: #4a4a4a;
+    }
+    /* Tooltips open outward from the block (left column to the left, right column to the right), as on the
+       original page. They are hidden until hover. */
+    .tooltip { position: relative; display: inline-block; }
+    .tooltiptext {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      top: 0;
+      z-index: 1;
+      padding: 7px 10px;
+      background-color: #fff;
+      color: #222;
+      font-size: 14px;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: none;
+      box-shadow: #000 4px 4px -4px;
+      transition: all .2s ease-in-out;
+    }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    .site-column-left .tooltiptext { right: 140%; }
+    .site-column-left .tooltip:hover .tooltiptext { right: 110%; }
+    .site-column-right .tooltiptext { left: 140%; }
+    .site-column-right .tooltip:hover .tooltiptext { left: 110%; }
     #benchmark-panel {
       position: fixed;
       z-index: 2;
@@ -57,32 +136,77 @@
       color: #d7eaff;
       text-decoration: none;
     }
-    html.benchmark-mode #canvas {
-      inset: 0 auto auto 0;
+    /* Benchmark mode: no site chrome or background. The frame (and so the canvas) stays fixed at the
+       top-left at 1280x720, as before. Nothing above display:none touches the canvas, so SDL still sees a
+       CSS-sized canvas when the window opens. */
+    html.benchmark-mode body { background: #000; }
+    html.benchmark-mode .site { display: block; width: auto; height: auto; }
+    html.benchmark-mode .site-column { display: none; }
+    html.benchmark-mode .frame {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 1280px;
       height: 720px;
     }
+    html.benchmark-mode #canvas { width: 1280px; height: 720px; }
   </style>
 </head>
 <body>
-  <canvas id="canvas" tabindex="-1"></canvas>
-  <p id="status">Loading</p>
+  <main class="site">
+    <div class="site-column site-column-left">
+      <div class="tooltip">
+        <a id="link-play" class="site-button active" aria-label="Play"><img src="site/playButton.png" alt=""></a>
+        <span class="tooltiptext">Play</span>
+      </div>
+      <div class="tooltip">
+        <a id="link-download" class="site-button" aria-label="Download"><img src="site/downloadButton.png" alt=""></a>
+        <span class="tooltiptext">Download</span>
+      </div>
+    </div>
+    <div class="frame" id="frame">
+      <canvas id="canvas" tabindex="-1"></canvas>
+      <p id="status">Loading</p>
+    </div>
+    <div class="site-column site-column-right">
+      <div class="tooltip">
+        <a id="link-website" class="site-button" target="_blank" rel="noopener" aria-label="Website"><img src="site/linkButton.png" alt=""></a>
+        <span class="tooltiptext">Website</span>
+      </div>
+    </div>
+  </main>
   <section id="benchmark-panel" hidden aria-live="polite">
     <strong>Browser renderer benchmark</strong>
     <p id="benchmark-message"></p>
+    <p id="benchmark-capture"></p>
     <div id="benchmark-downloads"></div>
   </section>
   <script>
+    // ---- Site links: edit the URLs here. "#" is a placeholder. ----
+    // Each key sets the href of the matching sidebar button (id "link-KEY" in the markup below).
+    // The Website button opens in a new tab (target="_blank" rel="noopener" in the markup).
+    var SITE_LINKS = {
+      play: '#',
+      download: '#',
+      website: '#'
+    };
+    // ---- End of site links ----
+
     // Normal query string -> client flags (see src/core/ApplicationOptions.cpp). Example:
     // ?server=1.2.3.4&port=2051&appport=7777&renderer=webgpu
     //   -> --server 1.2.3.4 --port 2051 --app-port 7777 --renderer webgpu
     // Opt-in benchmark: ?bench=mixed&renderer=webgpu&frames=600 (also models or ui).
     // Browser runs remain requestAnimationFrame paced; this only fixes the workload and frame count.
+    // Pixel capture of the final frame (benchmark runs only): &capture or &capture=NAME (default NAME is
+    // FIXTURE-RENDERER-FRAMES). The PNG is POSTed to web/serve.py (/capture?name=NAME, stored as NAME.png).
+    // window.__realmCapture reports the state {name, done, error, serverPath}; the title becomes
+    // capture-done:NAME or capture-error:NAME once the run ends.
     (function () {
       var params = new URLSearchParams(location.search);
       var args = [];
       var benchmark = null;
       var benchmarkError = '';
+      var capture = null;
       var scenario = params.get('bench');
       if (scenario !== null) {
         var fixtureNames = Object.assign(Object.create(null), {
@@ -119,6 +243,14 @@
           args.push('--renderer', requestedRenderer, '--benchmark', '--frames', String(requestedFrames),
             '--width', '1280', '--height', '720', '--audio', 'off', '--stress', '/realm-bench/' + fixture + '.json',
             '--stress-summary', summaryPath, '--telemetry', telemetryPath, '--telemetry-warmup', String(warmupFrames));
+          if (params.has('capture')) {
+            var captureValue = params.get('capture');
+            var captureName = captureValue && captureValue !== '1' && captureValue !== 'true' ? captureValue :
+              fixture + '-' + requestedRenderer + '-' + requestedFrames;
+            capture = { name: captureName, memfsPath: '/realm-bench/capture.png', done: false, error: null,
+              posting: false, serverPath: null };
+            args.push('--capture', capture.memfsPath);
+          }
         }
       } else {
         var server = params.get('server') || location.hostname;
@@ -129,15 +261,32 @@
           if (value) args.push(flag[1], value);
         });
       }
+      if (params.has('capture') && !benchmark) {
+        // A capture needs a benchmark run: report it through the same completion state.
+        capture = { name: params.get('capture') || 'capture', memfsPath: '', done: false, posting: false,
+          serverPath: null, error: benchmarkError || 'capture needs a bench run (bench=mixed, models or ui)' };
+      }
       window.realmBenchmark = benchmark;
       window.realmBenchmarkError = benchmarkError;
       window.realmArguments = args;
+      window.__realmCapture = capture;
+      // The SDL window sets document.title when it opens, so the title is final only after the run ends.
+      if (capture && capture.error) document.title = 'capture-error:' + capture.name;
     })();
 
     var statusElement = document.getElementById('status');
     var canvas = document.getElementById('canvas');
+    Object.keys(SITE_LINKS).forEach(function (key) {
+      var anchor = document.getElementById('link-' + key);
+      if (anchor) anchor.href = SITE_LINKS[key];
+    });
+    // Clicking the frame focuses the game canvas, so keyboard input goes to the game.
+    document.getElementById('frame').addEventListener('mousedown', function () {
+      canvas.focus({ preventScroll: true });
+    });
     var benchmarkPanel = document.getElementById('benchmark-panel');
     var benchmarkMessage = document.getElementById('benchmark-message');
+    var benchmarkCapture = document.getElementById('benchmark-capture');
     var benchmarkDownloads = document.getElementById('benchmark-downloads');
     canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); });
 
@@ -148,6 +297,59 @@
       link.download = filename;
       link.textContent = label;
       benchmarkDownloads.appendChild(link);
+    }
+
+    function captureFailed(message) {
+      var capture = window.__realmCapture;
+      if (!capture || capture.done || capture.error) return;
+      capture.error = message;
+      capture.posting = false;
+      if (window.realmCapturePoll !== undefined) clearInterval(window.realmCapturePoll);
+      document.title = 'capture-error:' + capture.name;
+      benchmarkPanel.hidden = false;
+      benchmarkCapture.textContent = 'Capture failed: ' + message;
+    }
+
+    // The C++ run writes the final frame's PNG into MEMFS before the summary (the run's last step), so the
+    // file's existence means it is complete: read it and POST it to the dev server.
+    function deliverCapture(Module) {
+      var capture = window.__realmCapture;
+      if (!capture || capture.done || capture.error || capture.posting || !Module.FS) return;
+      if (!Module.FS.analyzePath(capture.memfsPath).exists) {
+        if (window.realmBenchmark && window.realmBenchmark.finished) {
+          captureFailed('the run finished without writing ' + capture.memfsPath);
+        }
+        return;
+      }
+      var bytes;
+      try {
+        bytes = Module.FS.readFile(capture.memfsPath);
+      } catch (error) {
+        captureFailed(String(error));
+        return;
+      }
+      capture.posting = true;
+      benchmarkCapture.textContent = 'Posting ' + capture.name + '.png to the dev server…';
+      fetch('/capture?name=' + encodeURIComponent(capture.name), {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/png' },
+        body: bytes
+      }).then(function (response) {
+        return response.text().then(function (text) {
+          if (!response.ok) throw new Error('HTTP ' + response.status + ' ' + text);
+          return JSON.parse(text);
+        });
+      }).then(function (reply) {
+        capture.posting = false;
+        capture.done = true;
+        capture.serverPath = reply.path;
+        capture.bytes = reply.bytes;
+        if (window.realmCapturePoll !== undefined) clearInterval(window.realmCapturePoll);
+        document.title = 'capture-done:' + capture.name;
+        benchmarkCapture.textContent = 'Capture saved: ' + reply.path;
+      }).catch(function (error) {
+        captureFailed(String(error && error.message ? error.message : error));
+      });
     }
 
     function readBenchmarkMetadata(text) {
@@ -231,6 +433,7 @@
           benchmarkPanel.hidden = false;
           benchmarkMessage.textContent = 'Benchmark failed: ' + text;
         }
+        if (window.__realmCapture && /^realm_client:/.test(text)) captureFailed(text);
       },
       onRuntimeInitialized: function () {
         if (window.realmBenchmarkError) {
@@ -243,6 +446,9 @@
         benchmarkMessage.textContent = 'Running ' + window.realmBenchmark.scenario + ' for ' +
           window.realmBenchmark.frames + ' requestAnimationFrame-paced frames…';
         window.realmBenchmarkPoll = setInterval(function () { finishBenchmark(Module); }, 500);
+        if (window.__realmCapture) {
+          window.realmCapturePoll = setInterval(function () { deliverCapture(Module); }, 250);
+        }
       },
       setStatus: function (text) {
         if (!window.realmBenchmarkError) statusElement.textContent = text;
@@ -254,6 +460,7 @@
       totalDependencies: 0
     };
     window.addEventListener('error', function (event) {
+      if (window.__realmCapture) captureFailed('page error: ' + event.message);
       if (window.realmBenchmark) {
         if (window.realmBenchmarkPoll !== undefined) clearInterval(window.realmBenchmarkPoll);
         benchmarkPanel.hidden = false;

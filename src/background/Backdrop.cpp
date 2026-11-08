@@ -1,4 +1,5 @@
 #include "realm/background/Backdrop.hpp"
+#include "realm/util/PortableMath.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -29,8 +30,7 @@ void Backdrop::build(const Camera& camera, const Atlas& atlas, std::int32_t time
 
   if (kind_ == BackdropKind::stars) {
     // Positions turn by -angle about the camera point; each star stays an upright bitmap.
-    const double c = std::cos(-angle);
-    const double s = std::sin(-angle);
+    const auto [s, c] = realm::math::sincos(-angle);
     const auto sheet = stars_sheet_index();
     for (const auto& star : stars_) {
       const auto region = atlas.sprite(sheet, star.image);
@@ -49,8 +49,7 @@ void Backdrop::build(const Camera& camera, const Atlas& atlas, std::int32_t time
     // Bitmap point b lands at R(-angle) * (b + drift * time) in map space; tile the bitmap over the
     // clip.
     const double drift = water_drift * time;
-    const double c = std::cos(-angle);
-    const double s = std::sin(-angle);
+    const auto [s, c] = realm::math::sincos(-angle);
     const auto place = [&](double bx, double by) {
       const double px = (bx + drift) * c - (by + drift) * s;
       const double py = (bx + drift) * s + (by + drift) * c;

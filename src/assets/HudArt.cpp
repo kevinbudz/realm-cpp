@@ -167,18 +167,27 @@ Raster raster(int width, int height, double scale) {
   return result;
 }
 
-// Moves a premultiplied image sideways by whole pixels; columns shifted past either edge are
-// dropped.
-Image shifted_horizontally(const Image& source, int shift) {
+// Whole-pixel offset of an image in its cell: dx to the right, dy down.
+struct PixelShift {
+  int dx{};
+  int dy{};
+};
+
+// Moves a premultiplied image by whole pixels; pixels shifted past any edge are dropped.
+Image shifted(const Image& source, int dx, int dy) {
   Image result{source.width, source.height, std::vector<unsigned char>(source.pixels.size()),
                source.pixel_scale};
   for (int y = 0; y < source.height; ++y) {
+    const int from_y = y - dy;
+    if (from_y < 0 || from_y >= source.height) {
+      continue;
+    }
     for (int x = 0; x < source.width; ++x) {
-      const int from = x - shift;
-      if (from < 0 || from >= source.width) {
+      const int from_x = x - dx;
+      if (from_x < 0 || from_x >= source.width) {
         continue;
       }
-      const auto src = static_cast<std::size_t>((y * source.width + from) * 4);
+      const auto src = static_cast<std::size_t>((from_y * source.width + from_x) * 4);
       const auto dst = static_cast<std::size_t>((y * source.width + x) * 4);
       std::copy_n(source.pixels.data() + src, 4, result.pixels.data() + dst);
     }
@@ -186,23 +195,48 @@ Image shifted_horizontally(const Image& source, int shift) {
   return result;
 }
 
-// Content center minus cell center across the opaque columns of an 8-pixel cell, in source pixels;
-// 0 when empty.
-double opaque_column_offset(const Image& source) {
-  int left = source.width;
-  int right = 0;
+// Bounds of the pixels with nonzero alpha, as [left, right) x [top, bottom) in source pixels. Empty
+// images return left and top at the size and right and bottom at 0. Unlike opaque_bounds, any
+// alpha counts.
+struct Extent {
+  int left{};
+  int top{};
+  int right{};
+  int bottom{};
+};
+
+Extent opaque_extent(const Image& source) {
+  Extent extent{source.width, source.height, 0, 0};
   for (int y = 0; y < source.height; ++y) {
     for (int x = 0; x < source.width; ++x) {
       if (source.pixels[static_cast<std::size_t>((y * source.width + x) * 4 + 3)]) {
-        left = std::min(left, x);
-        right = std::max(right, x + 1);
+        extent.left = std::min(extent.left, x);
+        extent.top = std::min(extent.top, y);
+        extent.right = std::max(extent.right, x + 1);
+        extent.bottom = std::max(extent.bottom, y + 1);
       }
     }
   }
-  if (right <= left) {
+  return extent;
+}
+
+// Content center minus cell center across the opaque columns of an 8-pixel cell, in source pixels;
+// 0 when empty.
+double opaque_column_offset(const Image& source) {
+  const auto extent = opaque_extent(source);
+  if (extent.right <= extent.left) {
     return 0;
   }
-  return (left + right) / 2.0 - source.width / 2.0;
+  return (extent.left + extent.right) / 2.0 - source.width / 2.0;
+}
+
+// The same across the opaque rows, against the cell height; 0 when empty.
+double opaque_row_offset(const Image& source) {
+  const auto extent = opaque_extent(source);
+  if (extent.bottom <= extent.top) {
+    return 0;
+  }
+  return (extent.top + extent.bottom) / 2.0 - source.height / 2.0;
 }
 
 // SimpleText field metrics: updateMetrics sizes are the truncated line width/height plus the 4
@@ -367,22 +401,31 @@ struct HudArt::Sources {
   }
 
   // Item tiles center the visible columns of their 8-pixel cell, not the cell: a 7-wide sprite
-  // drawn at columns 1-7 sits half a cell right of center. Returns the horizontal shift, in whole
-  // pixels at `size`, that centers it.
-  int item_center_shift(int type, int size) {
+  // drawn at columns 1-7 sits half a cell right of center. Returns the whole-pixel shift, at
+  // `size`, that centers it. Only the items in row_centered_items also center their opaque rows.
+  PixelShift item_center_shift(int type, int size) {
+    // Items that also center their opaque rows, by object id. Add names here as needed.
+    static constexpr std::array<std::string_view, 1> row_centered_items{"Dirk of Cronus"};
     const auto* object = catalog->object(static_cast<std::uint16_t>(type));
     if (!object) {
-      return 0;
+      return {};
     }
     const auto& texture = object->texture.select(0);
     if (appearances->animations().character(texture.animated, texture.index) || texture.sheet < 0 ||
         static_cast<std::size_t>(texture.sheet) >= flash::sheets.size()) {
-      return 0;
+      return {};
     }
     const auto source =
         sprite(flash::sheets[static_cast<std::size_t>(texture.sheet)].name, texture.index);
+    const bool centers_rows = std::find(row_centered_items.begin(), row_centered_items.end(),
+                                        object->id) != row_centered_items.end();
     // compose scales the cell by 5 * size / 100.
-    return static_cast<int>(std::lround(-opaque_column_offset(source) * 5 * size / 100.0));
+    const int dx = static_cast<int>(std::lround(-opaque_column_offset(source) * 5 * size / 100.0));
+    int dy = 0;
+    if (centers_rows) {
+      dy = static_cast<int>(std::lround(-opaque_row_offset(source) * 5 * size / 100.0));
+    }
+    return {dx, dy};
   }
 
   const fd::Shape& star_shape() {
@@ -663,8 +706,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       if (definition->xml.has("Doses")) {
         assets.text(image, definition->xml.child("Doses").text(), 12, false, 16777215, 10, 5);
       }
-      if (const int shift = assets.item_center_shift(value, 80)) {
-        image = shifted_horizontally(image, shift);
+      if (const auto shift = assets.item_center_shift(value, 80); shift.dx || shift.dy) {
+        image = shifted(image, shift.dx, shift.dy);
       }
       if (prefix == "dim") {
         fd::color_matrix(image, {.4, 0, 0, 0, 0, 0, .4, 0, 0, 0, 0, 0, .4, 0, 0, 0, 0, 0, 1, 0});

@@ -89,7 +89,7 @@ std::unique_ptr<realm::Startup> make_startup(const Options& o, realm::FontBook& 
     return nullptr;
   }
   auto startup = std::make_unique<realm::Startup>(
-      fonts, hud_art, catalog, o.root,
+      fonts, hud_art, catalog, o.assets_root,
       realm::StartupOptions{o.session.host, o.session.build_version, o.app_port, o.session.port,
                             o.account_file, o.fixture_step != 0});
   startup->load_background(world);
@@ -146,7 +146,7 @@ realm::Atlas make_atlas(const realm::FlashImages& flash_images,
 }
 
 realm::platform::CursorSet make_cursor_set(const std::filesystem::path& root) {
-  const auto cursor_path = root / "src/kabam/rotmg/assets/EmbeddedAssets_cursorsEmbed_.png";
+  const auto cursor_path = root / "images/cursors.png";
   auto cursor_sheet =
       realm::assets::asset_exists(cursor_path) ? realm::load_png(cursor_path) : realm::Image{};
   return realm::platform::CursorSet(std::move(cursor_sheet.pixels), cursor_sheet.width,
@@ -230,11 +230,11 @@ ClientState::ClientState(Options options)
                                              : realm::Settings::path_beside(o.account_file)),
       settings(persist_settings ? realm::Settings::load(settings_path) : realm::Settings{}),
       graphics(open_window(session, o, settings)),
-      flash_images(std::make_shared<const realm::FlashImages>(o.root)),
+      flash_images(std::make_shared<const realm::FlashImages>(o.assets_root)),
       animations(*flash_images),
-      catalog(o.root),
+      catalog(o.assets_root),
       appearances(flash_images, animations),
-      fonts(o.root),
+      fonts(o.assets_root),
 
       hud_art(make_hud_art(appearances, catalog)),
       production_ui(hud_art && (o.client || o.world)
@@ -265,11 +265,11 @@ ClientState::ClientState(Options options)
                      ? std::make_unique<realm::TradeView>(fonts, *hud_art)
                      : nullptr),
       guild_invite_view(hud ? std::make_unique<realm::GuildInviteView>(fonts) : nullptr),
-      cursors(make_cursor_set(o.root)),
+      cursors(make_cursor_set(o.assets_root)),
       members(hud_art ? *hud_art : members_art),
 
       world(catalog),
-      tutorial(o.world ? std::make_unique<realm::Tutorial>(catalog, o.root) : nullptr),
+      tutorial(o.world ? std::make_unique<realm::Tutorial>(catalog, o.assets_root) : nullptr),
       status_art(fonts, &appearances, true),
       startup(make_startup(o, fonts, hud_art.get(), catalog, world)),
       startup_rml(make_startup_rml(o, startup.get(), production_ui.get())),

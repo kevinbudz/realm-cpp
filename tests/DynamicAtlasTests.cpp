@@ -722,9 +722,9 @@ void zoom_variants(const Rig& base) {
     return Rig{base.catalog, base.animations, appearances, base.status, base.renderer, base.pools};
   };
   {
-    Appearances appearances(flash::source_root, base.animations);
+    Appearances appearances(flash::assets_root, base.animations);
     const Rig rig = fresh(appearances);
-    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Atlas atlas(flash::assets_root, base.animations.images(), base.animations.images().size(), 2);
     Scene scene;
     scene.set_zoom_bake_budget(std::chrono::microseconds{0});
     build(scene, sprites, rig, atlas, 1.5, 1000);
@@ -734,9 +734,9 @@ void zoom_variants(const Rig& base) {
     check(appearances.purge_zoom(10) == 0, "a zero budget composes no zoomed bitmap");
   }
   {
-    Appearances appearances(flash::source_root, base.animations);
+    Appearances appearances(flash::assets_root, base.animations);
     const Rig rig = fresh(appearances);
-    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Atlas atlas(flash::assets_root, base.animations.images(), base.animations.images().size(), 2);
     Scene scene;
     scene.set_zoom_bake_budget(std::chrono::microseconds{1});
     build(scene, sprites, rig, atlas, 1.5, 1000);
@@ -744,9 +744,9 @@ void zoom_variants(const Rig& base) {
           "a budget spent on the first bake still bakes one zoomed bitmap per build");
   }
   {
-    Appearances appearances(flash::source_root, base.animations);
+    Appearances appearances(flash::assets_root, base.animations);
     const Rig rig = fresh(appearances);
-    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Atlas atlas(flash::assets_root, base.animations.images(), base.animations.images().size(), 2);
     Scene scene;
     scene.set_zoom_bake_budget(std::chrono::seconds{3600});
     build(scene, sprites, rig, atlas, 1.5, 1000);
@@ -767,9 +767,9 @@ void zoom_variants(const Rig& base) {
           "a continuous zoom leaves no zoomed variant in the cache");
   }
   {
-    Appearances appearances(flash::source_root, base.animations);
+    Appearances appearances(flash::assets_root, base.animations);
     const Rig rig = fresh(appearances);
-    Atlas atlas(flash::source_root, base.animations.images(), base.animations.images().size(), 2);
+    Atlas atlas(flash::assets_root, base.animations.images(), base.animations.images().size(), 2);
     Scene scene;
     scene.set_zoom_bake_budget(std::chrono::seconds{3600});
     build(scene, shots, rig, atlas, 1.5, 1000);
@@ -805,15 +805,15 @@ int main() {
     }
     Totals roomy_totals, unit_totals, churn_totals[2], persistent_totals[2], growth_totals;
     {
-      Catalog catalog(flash::source_root);
-      AnimationLibrary animations(flash::source_root);
-      Appearances appearances(flash::source_root, animations);
+      Catalog catalog(flash::assets_root);
+      AnimationLibrary animations(flash::assets_root);
+      Appearances appearances(flash::assets_root, animations);
       FontBook fonts;
       fonts.set_pixel_scale(1);
       StatusArt status(fonts, &appearances);
       Renderer renderer(16384);
       Rig rig{catalog, animations, appearances, status, renderer, make_pools(catalog)};
-      Atlas roomy_atlas(flash::source_root, animations.images(), animations.images().size(), 2);
+      Atlas roomy_atlas(flash::assets_root, animations.images(), animations.images().size(), 2);
       check(roomy_atlas.dynamic_pages() == 2 &&
                 roomy_atlas.dynamic_first() + 2 == roomy_atlas.pages() &&
                 roomy_atlas.dynamic_bytes() == 2u * 2048 * 2048 * 4,
@@ -831,7 +831,7 @@ int main() {
       check(roomy_totals.calls_dynamic + unit_totals.calls_dynamic <
                 (roomy_totals.calls_surface + unit_totals.calls_surface) / 10,
             "the dynamic atlas needs a tenth of the draw calls");
-      Atlas one_page(flash::source_root, animations.images(), animations.images().size(), 1);
+      Atlas one_page(flash::assets_root, animations.images(), animations.images().size(), 1);
       for (std::uint64_t frames = 1; frames <= 2; ++frames) {
         churn(rig, one_page, texts, churn_totals[frames - 1], frames);
       }
@@ -840,17 +840,17 @@ int main() {
         persistent.initialize(96, 96);
         persistent_churn(persistent, rig, one_page, texts, persistent_totals[frames - 1], frames);
       }
-      Atlas growing(flash::source_root, animations.images(), animations.images().size(), 1);
+      Atlas growing(flash::assets_root, animations.images(), animations.images().size(), 1);
       growth_run(rig, growing, texts, growth_totals);
       // The same growth through the framebuffer-blit copy (drivers without GL 4.3 /
       // ARB_copy_image).
       Atlas::force_blit_copy = true;
-      Atlas blitting(flash::source_root, animations.images(), animations.images().size(), 1);
+      Atlas blitting(flash::assets_root, animations.images(), animations.images().size(), 1);
       growth_run(rig, blitting, texts, growth_totals);
       Atlas::force_blit_copy = false;
       // No dynamic pages (or the oracle switch): the old path, byte for byte, with no residency at
       // all.
-      Atlas plain(flash::source_root, animations.images(), animations.images().size());
+      Atlas plain(flash::assets_root, animations.images(), animations.images().size());
       Scene legacy;
       legacy.set_status_art(&status);
       std::mt19937 rng(77);

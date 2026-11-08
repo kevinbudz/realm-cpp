@@ -18,7 +18,7 @@ void check(bool ok, const char* why) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const auto grass = catalog.ground("Grass")->type;

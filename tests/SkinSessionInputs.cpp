@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
     std::string password;
     std::getline(std::cin, password);
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog), other(catalog);
     Session actor(world), peer(other);
     const auto data = parse_char_list(

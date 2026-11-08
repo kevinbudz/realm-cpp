@@ -1,0 +1,2096 @@
+{
+  "schema": 1,
+  "source": {
+    "revision": "17bdf079452a1c470b8895eae9cf108599e7addd",
+    "dirty": true,
+    "source_sha256": "002617f16fe1b7b9a6b2329bdd108476b0db45690e6f9e2261cdf137bccf3f5c",
+    "actionscript_files": 960
+  },
+  "images": [
+    {
+      "file": "images/MEMap_transbackground.png",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "images/chars16x16dEncounters2.png",
+      "width": 112,
+      "height": 768
+    },
+    {
+      "file": "images/chars16x16dEncounters.png",
+      "width": 112,
+      "height": 384
+    },
+    {
+      "file": "images/chars16x16dMountains1.png",
+      "width": 112,
+      "height": 384
+    },
+    {
+      "file": "images/chars16x16dMountains2.png",
+      "width": 112,
+      "height": 384
+    },
+    {
+      "file": "images/chars16x16rEncounters.png",
+      "width": 112,
+      "height": 2000
+    },
+    {
+      "file": "images/chars16x8dEncounters.png",
+      "width": 112,
+      "height": 192
+    },
+    {
+      "file": "images/chars16x8rEncounters.png",
+      "width": 112,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8dBeach.png",
+      "width": 56,
+      "height": 128
+    },
+    {
+      "file": "images/chars8x8dEncounters.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8dHero1.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rBeach.png",
+      "width": 56,
+      "height": 128
+    },
+    {
+      "file": "images/chars8x8rEncounters.png",
+      "width": 56,
+      "height": 768
+    },
+    {
+      "file": "images/chars8x8rHero1.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rHero2.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rHigh.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rLow1.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rLow2.png",
+      "width": 56,
+      "height": 192
+    },
+    {
+      "file": "images/chars8x8rMid2.png",
+      "width": 56,
+      "height": 240
+    },
+    {
+      "file": "images/chars8x8rMid.png",
+      "width": 56,
+      "height": 240
+    },
+    {
+      "file": "images/chars8x8rPets1.png",
+      "width": 56,
+      "height": 576
+    },
+    {
+      "file": "images/chars8x8rPets1Mask.png",
+      "width": 56,
+      "height": 576
+    },
+    {
+      "file": "images/chars8x8rPetsKaratePenguin.png",
+      "width": 128,
+      "height": 256
+    },
+    {
+      "file": "images/cursors.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/innerMask.png",
+      "width": 4,
+      "height": 4
+    },
+    {
+      "file": "images/innerP1Mask.png",
+      "width": 4,
+      "height": 4
+    },
+    {
+      "file": "images/innerP2Mask.png",
+      "width": 4,
+      "height": 4
+    },
+    {
+      "file": "images/lofiChar2.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiCharBig.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "file": "images/lofiChar.png",
+      "width": 128,
+      "height": 248
+    },
+    {
+      "file": "images/lofiEnvironment2.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiEnvironment3.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiEnvironment.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiInterface2.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiInterfaceBig.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "file": "images/lofiInterface.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiObj2.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiObj3.png",
+      "width": 128,
+      "height": 512
+    },
+    {
+      "file": "images/lofiObj40x40.png",
+      "width": 40,
+      "height": 200
+    },
+    {
+      "file": "images/lofiObj4.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiObj5.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiObj6.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiObjBig.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "file": "images/lofiObj.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiParts.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/lofiProjsBig.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "file": "images/lofiProjs.png",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "file": "images/outerMask.png",
+      "width": 4,
+      "height": 4
+    },
+    {
+      "file": "images/players.png",
+      "width": 56,
+      "height": 360
+    },
+    {
+      "file": "images/playersMask.png",
+      "width": 56,
+      "height": 360
+    },
+    {
+      "file": "images/playersSkins.png",
+      "width": 56,
+      "height": 456
+    },
+    {
+      "file": "images/playersSkinsMask.png",
+      "width": 56,
+      "height": 456
+    },
+    {
+      "file": "images/redLootBag.png",
+      "width": 128,
+      "height": 256
+    },
+    {
+      "file": "images/sidesMask.png",
+      "width": 12,
+      "height": 4
+    },
+    {
+      "file": "images/stars.png",
+      "width": 25,
+      "height": 10
+    },
+    {
+      "file": "images/textile10x10.png",
+      "width": 160,
+      "height": 160
+    },
+    {
+      "file": "images/textile4x4.png",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "file": "images/textile5x5.png",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "file": "images/textile9x9.png",
+      "width": 144,
+      "height": 144
+    },
+    {
+      "file": "images/KeysView_greenKey.png",
+      "width": 32,
+      "height": 12
+    },
+    {
+      "file": "images/KeysView_keyBackground.png",
+      "width": 176,
+      "height": 36
+    },
+    {
+      "file": "images/KeysView_purpleKey.png",
+      "width": 32,
+      "height": 12
+    },
+    {
+      "file": "images/KeysView_redKey.png",
+      "width": 32,
+      "height": 12
+    },
+    {
+      "file": "images/KeysView_yellowKey.png",
+      "width": 32,
+      "height": 12
+    },
+    {
+      "file": "images/TitleView_Logo.png",
+      "width": 640,
+      "height": 360
+    },
+    {
+      "file": "images/Background.png",
+      "width": 800,
+      "height": 601
+    }
+  ],
+  "sheets": [
+    {
+      "name": "lofiChar8x8",
+      "asset": 29,
+      "width": 8,
+      "height": 8,
+      "count": 496
+    },
+    {
+      "name": "lofiChar16x8",
+      "asset": 29,
+      "width": 16,
+      "height": 8,
+      "count": 248
+    },
+    {
+      "name": "lofiChar16x16",
+      "asset": 29,
+      "width": 16,
+      "height": 16,
+      "count": 120
+    },
+    {
+      "name": "lofiChar28x8",
+      "asset": 27,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiChar216x8",
+      "asset": 27,
+      "width": 16,
+      "height": 8,
+      "count": 128
+    },
+    {
+      "name": "lofiChar216x16",
+      "asset": 27,
+      "width": 16,
+      "height": 16,
+      "count": 64
+    },
+    {
+      "name": "lofiCharBig",
+      "asset": 28,
+      "width": 16,
+      "height": 16,
+      "count": 256
+    },
+    {
+      "name": "lofiEnvironment",
+      "asset": 32,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiEnvironment2",
+      "asset": 30,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiEnvironment3",
+      "asset": 31,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiInterface",
+      "asset": 35,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "redLootBag",
+      "asset": 52,
+      "width": 8,
+      "height": 8,
+      "count": 512
+    },
+    {
+      "name": "lofiInterfaceBig",
+      "asset": 34,
+      "width": 16,
+      "height": 16,
+      "count": 256
+    },
+    {
+      "name": "lofiInterface2",
+      "asset": 33,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObj",
+      "asset": 43,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObj2",
+      "asset": 36,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObj3",
+      "asset": 37,
+      "width": 8,
+      "height": 8,
+      "count": 1024
+    },
+    {
+      "name": "lofiObj4",
+      "asset": 39,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObj5",
+      "asset": 40,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObj6",
+      "asset": 41,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiObjBig",
+      "asset": 42,
+      "width": 16,
+      "height": 16,
+      "count": 256
+    },
+    {
+      "name": "lofiObj40x40",
+      "asset": 38,
+      "width": 40,
+      "height": 40,
+      "count": 5
+    },
+    {
+      "name": "lofiProjs",
+      "asset": 46,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "lofiProjsBig",
+      "asset": 45,
+      "width": 16,
+      "height": 16,
+      "count": 256
+    },
+    {
+      "name": "lofiParts",
+      "asset": 44,
+      "width": 8,
+      "height": 8,
+      "count": 256
+    },
+    {
+      "name": "stars",
+      "asset": 54,
+      "width": 5,
+      "height": 5,
+      "count": 10
+    },
+    {
+      "name": "textile4x4",
+      "asset": 56,
+      "width": 4,
+      "height": 4,
+      "count": 256
+    },
+    {
+      "name": "textile5x5",
+      "asset": 57,
+      "width": 5,
+      "height": 5,
+      "count": 256
+    },
+    {
+      "name": "textile9x9",
+      "asset": 58,
+      "width": 9,
+      "height": 9,
+      "count": 256
+    },
+    {
+      "name": "textile10x10",
+      "asset": 55,
+      "width": 10,
+      "height": 10,
+      "count": 256
+    },
+    {
+      "name": "inner_mask",
+      "asset": 24,
+      "width": 4,
+      "height": 4,
+      "count": 1
+    },
+    {
+      "name": "sides_mask",
+      "asset": 53,
+      "width": 4,
+      "height": 4,
+      "count": 3
+    },
+    {
+      "name": "outer_mask",
+      "asset": 47,
+      "width": 4,
+      "height": 4,
+      "count": 1
+    },
+    {
+      "name": "innerP1_mask",
+      "asset": 25,
+      "width": 4,
+      "height": 4,
+      "count": 1
+    },
+    {
+      "name": "innerP2_mask",
+      "asset": 26,
+      "width": 4,
+      "height": 4,
+      "count": 1
+    },
+    {
+      "name": "invisible",
+      "asset": -1,
+      "width": 8,
+      "height": 8,
+      "count": 1
+    }
+  ],
+  "animated": [
+    {
+      "name": "chars8x8rBeach",
+      "asset": 11,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8dBeach",
+      "asset": 8,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars8x8rLow1",
+      "asset": 16,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rLow2",
+      "asset": 17,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rMid",
+      "asset": 19,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rMid2",
+      "asset": 18,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rHigh",
+      "asset": 15,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rHero1",
+      "asset": 13,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rHero2",
+      "asset": 14,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8dHero1",
+      "asset": 10,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x16dMountains1",
+      "asset": 3,
+      "mask": -1,
+      "width": 16,
+      "height": 16,
+      "strip_width": 112,
+      "strip_height": 16,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x16dMountains2",
+      "asset": 4,
+      "mask": -1,
+      "width": 16,
+      "height": 16,
+      "strip_width": 112,
+      "strip_height": 16,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars8x8dEncounters",
+      "asset": 9,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars8x8rEncounters",
+      "asset": 12,
+      "mask": -1,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars16x8dEncounters",
+      "asset": 6,
+      "mask": -1,
+      "width": 16,
+      "height": 8,
+      "strip_width": 112,
+      "strip_height": 8,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x8rEncounters",
+      "asset": 7,
+      "mask": -1,
+      "width": 16,
+      "height": 8,
+      "strip_width": 112,
+      "strip_height": 8,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x16dEncounters",
+      "asset": 2,
+      "mask": -1,
+      "width": 16,
+      "height": 16,
+      "strip_width": 112,
+      "strip_height": 16,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x16dEncounters2",
+      "asset": 1,
+      "mask": -1,
+      "width": 16,
+      "height": 16,
+      "strip_width": 112,
+      "strip_height": 16,
+      "first": "DOWN"
+    },
+    {
+      "name": "chars16x16rEncounters",
+      "asset": 5,
+      "mask": -1,
+      "width": 16,
+      "height": 16,
+      "strip_width": 112,
+      "strip_height": 16,
+      "first": "RIGHT"
+    },
+    {
+      "name": "players",
+      "asset": 48,
+      "mask": 49,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 24,
+      "first": "RIGHT"
+    },
+    {
+      "name": "playerskins",
+      "asset": 50,
+      "mask": 51,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 24,
+      "first": "RIGHT"
+    },
+    {
+      "name": "chars8x8rPets1",
+      "asset": 20,
+      "mask": 21,
+      "width": 8,
+      "height": 8,
+      "strip_width": 56,
+      "strip_height": 8,
+      "first": "RIGHT"
+    }
+  ],
+  "packets": {
+    "FAILURE": 0,
+    "CREATE_SUCCESS": 1,
+    "CREATE": 2,
+    "PLAYERSHOOT": 3,
+    "MOVE": 4,
+    "PLAYERTEXT": 5,
+    "TEXT": 6,
+    "SERVERPLAYERSHOOT": 7,
+    "DAMAGE": 8,
+    "UPDATE": 9,
+    "NOTIFICATION": 10,
+    "NEWTICK": 11,
+    "INVSWAP": 12,
+    "USEITEM": 13,
+    "SHOWEFFECT": 14,
+    "HELLO": 15,
+    "GOTO": 16,
+    "INVDROP": 17,
+    "INVRESULT": 18,
+    "RECONNECT": 19,
+    "MAPINFO": 20,
+    "LOAD": 21,
+    "TELEPORT": 22,
+    "USEPORTAL": 23,
+    "DEATH": 24,
+    "BUY": 25,
+    "BUYRESULT": 26,
+    "AOE": 27,
+    "PLAYERHIT": 28,
+    "ENEMYHIT": 29,
+    "AOEACK": 30,
+    "SHOOTACK": 31,
+    "SQUAREHIT": 32,
+    "EDITACCOUNTLIST": 33,
+    "ACCOUNTLIST": 34,
+    "QUESTOBJID": 35,
+    "CREATEGUILD": 36,
+    "GUILDRESULT": 37,
+    "GUILDREMOVE": 38,
+    "GUILDINVITE": 39,
+    "ALLYSHOOT": 40,
+    "ENEMYSHOOT": 41,
+    "ESCAPE": 42,
+    "INVITEDTOGUILD": 43,
+    "JOINGUILD": 44,
+    "CHANGEGUILDRANK": 45,
+    "PLAYSOUND": 46,
+    "RESKIN": 47,
+    "GOTOACK": 48,
+    "CHOOSENAME": 49,
+    "NAMERESULT": 50,
+    "REQUESTTRADE": 51,
+    "TRADEREQUESTED": 52,
+    "TRADESTART": 53,
+    "CHANGETRADE": 54,
+    "TRADECHANGED": 55,
+    "ACCEPTTRADE": 56,
+    "CANCELTRADE": 57,
+    "TRADEDONE": 58,
+    "TRADEACCEPTED": 59,
+    "GLOBAL_NOTIFICATION": 60,
+    "PING": 61,
+    "PONG": 62
+  },
+  "stats": {
+    "MAX_HP_STAT": 0,
+    "HP_STAT": 1,
+    "SIZE_STAT": 2,
+    "MAX_MP_STAT": 3,
+    "MP_STAT": 4,
+    "NEXT_LEVEL_EXP_STAT": 5,
+    "EXP_STAT": 6,
+    "LEVEL_STAT": 7,
+    "INVENTORY_0_STAT": 8,
+    "INVENTORY_1_STAT": 9,
+    "INVENTORY_2_STAT": 10,
+    "INVENTORY_3_STAT": 11,
+    "INVENTORY_4_STAT": 12,
+    "INVENTORY_5_STAT": 13,
+    "INVENTORY_6_STAT": 14,
+    "INVENTORY_7_STAT": 15,
+    "INVENTORY_8_STAT": 16,
+    "INVENTORY_9_STAT": 17,
+    "INVENTORY_10_STAT": 18,
+    "INVENTORY_11_STAT": 19,
+    "ATTACK_STAT": 20,
+    "DEFENSE_STAT": 21,
+    "SPEED_STAT": 22,
+    "VITALITY_STAT": 23,
+    "WISDOM_STAT": 24,
+    "DEXTERITY_STAT": 25,
+    "CONDITION_STAT": 26,
+    "NUM_STARS_STAT": 27,
+    "NAME_STAT": 28,
+    "TEX1_STAT": 29,
+    "TEX2_STAT": 30,
+    "MERCHANDISE_TYPE_STAT": 31,
+    "MERCHANDISE_PRICE_STAT": 32,
+    "CREDITS_STAT": 33,
+    "ACTIVE_STAT": 34,
+    "ACCOUNT_ID_STAT": 35,
+    "FAME_STAT": 36,
+    "MERCHANDISE_CURRENCY_STAT": 37,
+    "CONNECT_STAT": 38,
+    "MERCHANDISE_COUNT_STAT": 39,
+    "MERCHANDISE_MINS_LEFT_STAT": 40,
+    "MERCHANDISE_DISCOUNT_STAT": 41,
+    "MERCHANDISE_RANK_REQ_STAT": 42,
+    "MAX_HP_BOOST_STAT": 43,
+    "MAX_MP_BOOST_STAT": 44,
+    "ATTACK_BOOST_STAT": 45,
+    "DEFENSE_BOOST_STAT": 46,
+    "SPEED_BOOST_STAT": 47,
+    "VITALITY_BOOST_STAT": 48,
+    "WISDOM_BOOST_STAT": 49,
+    "DEXTERITY_BOOST_STAT": 50,
+    "CHAR_FAME_STAT": 51,
+    "NEXT_CLASS_QUEST_FAME_STAT": 52,
+    "LEGENDARY_RANK_STAT": 53,
+    "SINK_LEVEL_STAT": 54,
+    "ALT_TEXTURE_STAT": 55,
+    "GUILD_NAME_STAT": 56,
+    "GUILD_RANK_STAT": 57,
+    "BREATH_STAT": 58,
+    "HEALTH_POTION_STACK_STAT": 59,
+    "MAGIC_POTION_STACK_STAT": 60,
+    "BACKPACK_0_STAT": 61,
+    "BACKPACK_1_STAT": 62,
+    "BACKPACK_2_STAT": 63,
+    "BACKPACK_3_STAT": 64,
+    "BACKPACK_4_STAT": 65,
+    "BACKPACK_5_STAT": 66,
+    "BACKPACK_6_STAT": 67,
+    "BACKPACK_7_STAT": 68,
+    "HASBACKPACK_STAT": 69,
+    "TEXTURE_STAT": 70,
+    "ITEMDATA_0_STAT": 71,
+    "ITEMDATA_1_STAT": 72,
+    "ITEMDATA_2_STAT": 73,
+    "ITEMDATA_3_STAT": 74,
+    "ITEMDATA_4_STAT": 75,
+    "ITEMDATA_5_STAT": 76,
+    "ITEMDATA_6_STAT": 77,
+    "ITEMDATA_7_STAT": 78,
+    "ITEMDATA_8_STAT": 79,
+    "ITEMDATA_9_STAT": 80,
+    "ITEMDATA_10_STAT": 81,
+    "ITEMDATA_11_STAT": 82,
+    "ITEMDATA_12_STAT": 83,
+    "ITEMDATA_13_STAT": 84,
+    "ITEMDATA_14_STAT": 85,
+    "ITEMDATA_15_STAT": 86,
+    "ITEMDATA_16_STAT": 87,
+    "ITEMDATA_17_STAT": 88,
+    "ITEMDATA_18_STAT": 89,
+    "ITEMDATA_19_STAT": 90,
+    "NAME_CHOSEN_STAT": 91
+  },
+  "string_stats": [
+    28,
+    56
+  ],
+  "data_files": [
+    {
+      "kind": "groundFiles",
+      "file": "xml/Ground.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Projectiles.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Equip.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Dyes.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Textiles.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Permapets.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Players.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Objects.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/TestingObjects.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/StaticObjects.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/TutorialObjects.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Monsters.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Pets.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/TempObjects.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Shore.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Low.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Mid.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/High.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Mountains.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/Encounters.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/OryxCastle.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/TombOfTheAncients.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/SpriteWorld.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/UndeadLair.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/OceanTrench.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/ForbiddenJungle.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/OryxChamber.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/OryxWineCellar.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/ManorOfTheImmortals.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/PirateCave.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/SnakePit.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/AbyssOfDemons.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/GhostShip.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/MadLab.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/CaveOfAThousandTreasures.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/CandyLand.xml"
+    },
+    {
+      "kind": "objectFiles",
+      "file": "xml/HauntedCemetery.xml"
+    },
+    {
+      "kind": "regionFiles",
+      "file": "xml/Regions.xml"
+    }
+  ],
+  "models": [
+    {
+      "name": "Monster Tank1",
+      "file": "models/monsterTank1.obj"
+    },
+    {
+      "name": "Monster Tank2",
+      "file": "models/monsterTank2.obj"
+    },
+    {
+      "name": "Monster Tank3",
+      "file": "models/monsterTank3.obj"
+    },
+    {
+      "name": "Monster Tank4",
+      "file": "models/monsterTank4.obj"
+    },
+    {
+      "name": "GasEmitter",
+      "file": "models/gasEmitter.obj"
+    },
+    {
+      "name": "Lab Tank",
+      "file": "models/labTank.obj"
+    },
+    {
+      "name": "Tesla",
+      "file": "models/tesla.obj"
+    },
+    {
+      "name": "CloningVat",
+      "file": "models/cloningVat.obj"
+    },
+    {
+      "name": "Crate",
+      "file": "models/crate.obj"
+    },
+    {
+      "name": "Cube",
+      "file": "models/cube.obj"
+    },
+    {
+      "name": "Big Cube",
+      "file": "models/bigcube.obj"
+    },
+    {
+      "name": "Ico",
+      "file": "models/icosahedron.obj"
+    },
+    {
+      "name": "Octa",
+      "file": "models/octahedron.obj"
+    },
+    {
+      "name": "Pyramid",
+      "file": "models/pyramid.obj"
+    },
+    {
+      "name": "Tetra",
+      "file": "models/tetrahedron.obj"
+    },
+    {
+      "name": "Dodec",
+      "file": "models/dodecahedron.obj"
+    },
+    {
+      "name": "Pillar",
+      "file": "models/pillar.obj"
+    },
+    {
+      "name": "Broken Pillar",
+      "file": "models/brokenPillar.obj"
+    },
+    {
+      "name": "Tower",
+      "file": "models/tower.obj"
+    },
+    {
+      "name": "Obelisk",
+      "file": "models/obelisk.obj"
+    },
+    {
+      "name": "Table",
+      "file": "models/table.obj"
+    },
+    {
+      "name": "Table Edge",
+      "file": "models/tableEdge.obj"
+    },
+    {
+      "name": "Sign",
+      "file": "models/sign.obj"
+    },
+    {
+      "name": "Web",
+      "file": "models/web.obj"
+    },
+    {
+      "name": "Candy Col Broken",
+      "file": "models/candyColBroken.obj"
+    },
+    {
+      "name": "Candy Col Whole",
+      "file": "models/candyColWhole.obj"
+    },
+    {
+      "name": "Candy Doughnut 1",
+      "file": "models/candyDoughnut1.obj"
+    },
+    {
+      "name": "Candy Doughnut 2",
+      "file": "models/candyDoughnut2.obj"
+    },
+    {
+      "name": "Candy Doughnut 3",
+      "file": "models/candyDoughnut3.obj"
+    },
+    {
+      "name": "Candy Doughnut 4",
+      "file": "models/candyDoughnut4.obj"
+    },
+    {
+      "name": "Gate",
+      "file": "models/newGate.obj"
+    },
+    {
+      "name": "Gate Entry",
+      "file": "models/newGateEntry.obj"
+    },
+    {
+      "name": "Gate Entry 2",
+      "file": "models/newGateEntry2.obj"
+    },
+    {
+      "name": "Gate End 1",
+      "file": "models/newGateEnd1.obj"
+    },
+    {
+      "name": "Gate End 2",
+      "file": "models/newGateEnd2.obj"
+    },
+    {
+      "name": "Monument 1",
+      "file": "models/newMonument1.obj"
+    },
+    {
+      "name": "Monument 2",
+      "file": "models/newMonument2.obj"
+    },
+    {
+      "name": "Monument 3",
+      "file": "models/newMonument3.obj"
+    },
+    {
+      "name": "Large Monument 1",
+      "file": "models/largeMonument1.obj"
+    },
+    {
+      "name": "Large Monument 2",
+      "file": "models/largeMonument2.obj"
+    },
+    {
+      "name": "Large Monument 3",
+      "file": "models/largeMonument3.obj"
+    },
+    {
+      "name": "Jacko",
+      "file": "models/jacko.obj"
+    }
+  ],
+  "files": [
+    {
+      "file": "data/MapBackground.jm",
+      "original": "src/kabam/rotmg/ui/view/components/MapBackground_EMBEDDED_BACKGROUNDMAP.dat",
+      "sha256": "3359f8bea35ed2467e77c094273ab26983021591818b174a88f430f82f5eb09a"
+    },
+    {
+      "file": "fonts/MyriadPro.otf",
+      "original": "src/com/company/ui/fonts/MyriadPro.otf",
+      "sha256": "87224cb7af1a3150172ae8190185fad761a50bd21648f8befd3a7751fc33167d"
+    },
+    {
+      "file": "fonts/MyriadProBold.otf",
+      "original": "src/com/company/ui/fonts/MyriadProBold.otf",
+      "sha256": "0c2923e4148b20a95c813c0331f62c07c1c24e246549f78127e946b943e4fee1"
+    },
+    {
+      "file": "images/Background.png",
+      "original": "src/kabam/rotmg/ui/view/components/Background.png",
+      "sha256": "3d9c6bb76fb48cb58826d28f395f1b87ffba2963b978df1269f2b222c8709b8f"
+    },
+    {
+      "file": "images/KeysView_greenKey.png",
+      "original": "src/kabam/rotmg/ui/view/KeysView_greenKeyPng.png",
+      "sha256": "ecd34e5004317eb8a83e4566cba15964e11c9cfa633422f5777d2d1b09f85b1c"
+    },
+    {
+      "file": "images/KeysView_keyBackground.png",
+      "original": "src/kabam/rotmg/ui/view/KeysView_keyBackgroundPng.png",
+      "sha256": "ae881b2e97af0b52257faffb6fd34ed3f7d8be83b8bd713c7637672d77e43c09"
+    },
+    {
+      "file": "images/KeysView_purpleKey.png",
+      "original": "src/kabam/rotmg/ui/view/KeysView_purpleKeyPng.png",
+      "sha256": "deb3ecc311dd3e2391ed700a10dd0e5258722f649a686af1adf43eefa54f4553"
+    },
+    {
+      "file": "images/KeysView_redKey.png",
+      "original": "src/kabam/rotmg/ui/view/KeysView_redKeyPng.png",
+      "sha256": "5bc9992f114a335fd914daed420d24b09bf8c278494f2f8374ca629cc91b4330"
+    },
+    {
+      "file": "images/KeysView_yellowKey.png",
+      "original": "src/kabam/rotmg/ui/view/KeysView_yellowKeyPng.png",
+      "sha256": "36aa85c85a01594701461c7124767b9d738dbce23d569513cc8e8664d99cceda"
+    },
+    {
+      "file": "images/MEMap_transbackground.png",
+      "original": "src/com/company/assembleegameclient/mapeditor/MEMap_transbackgroundEmbed_.png",
+      "sha256": "844daa83f9a0c3b26a483eb878aebaee7e115dec6840c7f8a1a5cc93d48eb4ae"
+    },
+    {
+      "file": "images/TitleView_Logo.png",
+      "original": "src/kabam/rotmg/ui/view/TitleView_Logo.png",
+      "sha256": "463d9b2b7261eb204e80fc0fb8ac19c1ed25db0be359948f5fd496a6ea6ca4e3"
+    },
+    {
+      "file": "images/chars16x16dEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x16dEncountersEmbed_.png",
+      "sha256": "7b0f340dc9abb4ed8be3b77d5d517880f4e134718d7dbd5c3ad7b37428292726"
+    },
+    {
+      "file": "images/chars16x16dEncounters2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x16dEncounters2Embed_.png",
+      "sha256": "438a09468c4fa80b2db1b64c0671df22f5b2d0f4c33658617a4611360332a507"
+    },
+    {
+      "file": "images/chars16x16dMountains1.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x16dMountains1Embed_.png",
+      "sha256": "9ad5e1cd5bd17ce3b3c46200ff7766fe8ff54028dd1e77243acc45ce4f478d1f"
+    },
+    {
+      "file": "images/chars16x16dMountains2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x16dMountains2Embed_.png",
+      "sha256": "818f55af9f94c98986fb91de4f6850c008b0904be689ef5964cd7a10918423c9"
+    },
+    {
+      "file": "images/chars16x16rEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x16rEncountersEmbed_.png",
+      "sha256": "38d0ec2364ab6c3ca33978e0e26b1352766bebb26862e6d4b23b8679a269aa37"
+    },
+    {
+      "file": "images/chars16x8dEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x8dEncountersEmbed_.png",
+      "sha256": "a8a0767dc73594fb861abaff6fe631cbd2b32db2add49f04ec050bf9a7f970d5"
+    },
+    {
+      "file": "images/chars16x8rEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars16x8rEncountersEmbed_.png",
+      "sha256": "3e380dbd4601015029a52ee0434abb8d13701435b8631bb7d943608dd2e0f11d"
+    },
+    {
+      "file": "images/chars8x8dBeach.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8dBeachEmbed_.png",
+      "sha256": "3a52fe1b5bcfa130546b62b31a907bfd2ab5441f1f7b3143001f0383bf3faa76"
+    },
+    {
+      "file": "images/chars8x8dEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8dEncountersEmbed_.png",
+      "sha256": "0669a9df434150f90c8e043e3413d6572d4d269973f34381316984400f6ecc59"
+    },
+    {
+      "file": "images/chars8x8dHero1.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8dHero1Embed_.png",
+      "sha256": "65d15e1363714e83ffa3aced24792f260bf5c953d6f22c6b210746ea3ca00ab2"
+    },
+    {
+      "file": "images/chars8x8rBeach.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rBeachEmbed_.png",
+      "sha256": "59c44757e4a5ea3860cec7c12941ce331712184096b695dbb188eb67dcb8fe0f"
+    },
+    {
+      "file": "images/chars8x8rEncounters.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rEncountersEmbed_.png",
+      "sha256": "8d4768ec668b8a42b01d68a18b972f0a8278b6582ec1d6d72e4fe2384420ed87"
+    },
+    {
+      "file": "images/chars8x8rHero1.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rHero1Embed_.png",
+      "sha256": "0328d624a5093f26db61fa1cf12ac39cb185df5e53b91117c96f38c156b40754"
+    },
+    {
+      "file": "images/chars8x8rHero2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rHero2Embed_.png",
+      "sha256": "0034558a82f944c4cfc2d09d13e0556dd4aaf097abd3be2cbd667484d1972bea"
+    },
+    {
+      "file": "images/chars8x8rHigh.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rHighEmbed_.png",
+      "sha256": "3e9b4124a23f78b3bdae98ac5ebb18608e0818c99832c26c7d5f23ba27b487f2"
+    },
+    {
+      "file": "images/chars8x8rLow1.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rLow1Embed_.png",
+      "sha256": "e5e2e248277eb5a0d0e5831df25e69959d10a03eb6e4666e0dc2b553033a7d20"
+    },
+    {
+      "file": "images/chars8x8rLow2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rLow2Embed_.png",
+      "sha256": "c94d9342b6463cd617c60ad4a216519654196ad9ab534eb6816ae4c896b0c420"
+    },
+    {
+      "file": "images/chars8x8rMid.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rMidEmbed_.png",
+      "sha256": "75f50832c559342400b59edb679bb87a7ae791ac2e09cfd3c329e2c3483e6905"
+    },
+    {
+      "file": "images/chars8x8rMid2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rMid2Embed_.png",
+      "sha256": "5ba1aa2577ef2e5f3f61216adfb53d050ec8476593520af158979a74899160cc"
+    },
+    {
+      "file": "images/chars8x8rPets1.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rPets1Embed_.png",
+      "sha256": "98c741974d9f0281ea9f0057466102bc8e0db9ac84cfc8280e016f6671be9e6f"
+    },
+    {
+      "file": "images/chars8x8rPets1Mask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rPets1MaskEmbed_.png",
+      "sha256": "957f1ebf61f1b632e3f692c4176acb59255eb4ad9d58a521efae477f4bb4c76f"
+    },
+    {
+      "file": "images/chars8x8rPetsKaratePenguin.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_chars8x8rPetsKaratePenguin_.png",
+      "sha256": "ea0e4af2e7f008db2d4bde42a5f6c7c572e0eb15ee626c5d04913ec98f4651ee"
+    },
+    {
+      "file": "images/cursors.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_cursorsEmbed_.png",
+      "sha256": "e54600a471fad99eef974bb7748221454f09a52e8e9933f6539692a3b199f7de"
+    },
+    {
+      "file": "images/innerMask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_innerMaskEmbed_.png",
+      "sha256": "1a15d08e6d345dde6f19135c48471be2bbd06f53792d4b68907a9c7f66ede7ae"
+    },
+    {
+      "file": "images/innerP1Mask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_innerP1MaskEmbed_.png",
+      "sha256": "539701d98711393cdd32ecceb446a5217f73eeb6a1dde0e1d786b0292ba49c18"
+    },
+    {
+      "file": "images/innerP2Mask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_innerP2MaskEmbed_.png",
+      "sha256": "15a5f6f17c9f4575127ca2f716ac362477e18e912be1dd0eb609577168267a8f"
+    },
+    {
+      "file": "images/lofiChar.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiCharEmbed_.png",
+      "sha256": "5c7a827a799c7979d890e9cf9d04cf1b471cea1f1bc7e3692ea4f8ab4f860da0"
+    },
+    {
+      "file": "images/lofiChar2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiChar2Embed_.png",
+      "sha256": "7cf3cc647ba011b07bab037d4e0472c05497a03f99e767e07958c69cfdbebdab"
+    },
+    {
+      "file": "images/lofiCharBig.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiCharBigEmbed_.png",
+      "sha256": "e0da7b9b39d491ba4b0598e1be146d7dbc4b4d5d306579fb115fbe701e90f8d1"
+    },
+    {
+      "file": "images/lofiEnvironment.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiEnvironmentEmbed_.png",
+      "sha256": "3f7cc74f10bf8e6f9c55011442393cb83d9263699cdbc996ec24af6b772b51e7"
+    },
+    {
+      "file": "images/lofiEnvironment2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiEnvironment2Embed_.png",
+      "sha256": "7419207028bfc80b7e0976e503d3a90ac2f4fa18bf2c47ad941debca6388111f"
+    },
+    {
+      "file": "images/lofiEnvironment3.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiEnvironment3Embed_.png",
+      "sha256": "7999ba62aaea798c2162820d657853af7f968808dea6c3d784e903a1cebf2fac"
+    },
+    {
+      "file": "images/lofiInterface.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiInterfaceEmbed_.png",
+      "sha256": "ca24741d3146f0a8b0ffdcc9d5a5462eb64a1ba8804d814a908c10ec83771496"
+    },
+    {
+      "file": "images/lofiInterface2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiInterface2Embed_.png",
+      "sha256": "4a97aef9225cb26851976626b9088033f599993af0551eb5dece8b95b053f3c9"
+    },
+    {
+      "file": "images/lofiInterfaceBig.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiInterfaceBigEmbed_.png",
+      "sha256": "41be0182ce17fe7755eca19af00c329ec037e5bc0c8ce5e90c37c5eaf7797cea"
+    },
+    {
+      "file": "images/lofiObj.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObjEmbed_.png",
+      "sha256": "d611001f5812ac90892c989c2da922b37266ada6502008f5723f2977b81d31c2"
+    },
+    {
+      "file": "images/lofiObj2.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj2Embed_.png",
+      "sha256": "70c5866f469eab3da08d04a06e4c3463ab2b977724f5d74b1fb3e575f332b96e"
+    },
+    {
+      "file": "images/lofiObj3.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj3Embed_.png",
+      "sha256": "ef1911559a619a14ca2c8a8d64312c7cb8315d9c28a9306e50cb851864a3dcfc"
+    },
+    {
+      "file": "images/lofiObj4.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj4Embed_.png",
+      "sha256": "42b1defa691cbb640931f8b9d1d532de11d8e0c6438a9dac67c85557dd11e05b"
+    },
+    {
+      "file": "images/lofiObj40x40.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj40x40Embed_.png",
+      "sha256": "e8269090ae79f58842870eba8279fb87a33e66d22ebe89ed9a38f6f3cb0bb03c"
+    },
+    {
+      "file": "images/lofiObj5.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj5Embed_.png",
+      "sha256": "9a7f2012cc9263eb7ed2cf48b7424bd7de0dfaacf233c65b04954ce5dd7eb229"
+    },
+    {
+      "file": "images/lofiObj6.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObj6Embed_.png",
+      "sha256": "6a593824295c436badbe567b5bfd6dcc67f2a6cc69603ed3b40d199f20b83057"
+    },
+    {
+      "file": "images/lofiObjBig.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiObjBigEmbed_.png",
+      "sha256": "d0c60d90094654636df7d091a523e123bdebef253bc48771a2006a599276ad3d"
+    },
+    {
+      "file": "images/lofiParts.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiPartsEmbed_.png",
+      "sha256": "8cf1ebc4d105801bac7f1e01812e402eb5ba322b100bba677b235eb84d1ef574"
+    },
+    {
+      "file": "images/lofiProjs.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiProjsEmbed_.png",
+      "sha256": "485267cc5e1427b172002cffe79f85825513de6dcb8f94e0dfa46d7c9cabc955"
+    },
+    {
+      "file": "images/lofiProjsBig.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_lofiProjsBigEmbed_.png",
+      "sha256": "2bb4e024ca21de8125a249a973d77e442ccfae58ca6ae08c415f0c97a5a0fa44"
+    },
+    {
+      "file": "images/outerMask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_outerMaskEmbed_.png",
+      "sha256": "61b09abde87c080b31fb64bcbb62b97ee59c23c9d9aa067d34ca3e85d498ce93"
+    },
+    {
+      "file": "images/players.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_playersEmbed_.png",
+      "sha256": "5bb3b9ed5edf8685f06a2df5bce06dc17732677fa8b083288ad99d7bc5fc9c0a"
+    },
+    {
+      "file": "images/playersMask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_playersMaskEmbed_.png",
+      "sha256": "9c9a94b69aec36f7de06c11527afeec4464c43cb85d3a61102a5e6169b94b8aa"
+    },
+    {
+      "file": "images/playersSkins.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_playersSkinsEmbed_.png",
+      "sha256": "2e03b887b5288db671776d0e6795785cc59eb505398d2abe8f83c1cad3bd6c07"
+    },
+    {
+      "file": "images/playersSkinsMask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_playersSkinsMaskEmbed_.png",
+      "sha256": "0625158d685d6de83f3feb4f341757b1f7bfc407d39cd8f09758841292553b31"
+    },
+    {
+      "file": "images/redLootBag.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_redLootBagEmbed_.png",
+      "sha256": "93e61962cf80e738bf2e7f78f215d8ce0db428a83b98ddcbfcdbd2242b028fec"
+    },
+    {
+      "file": "images/sidesMask.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_sidesMaskEmbed_.png",
+      "sha256": "daed6f1c72f63a7f0830a1922dda76166b093d3597fd2ea23d86935e28becbc1"
+    },
+    {
+      "file": "images/stars.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_starsEmbed_.png",
+      "sha256": "78b56bd3dafe5aa03d88fc1e762da07cd0e92bfdb382c20533b01397201ef92c"
+    },
+    {
+      "file": "images/textile10x10.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_textile10x10Embed_.png",
+      "sha256": "fcff7a8160df35122bdfcbf39b1e91c932f90954f5a204ae8a1ec00ff4cd6345"
+    },
+    {
+      "file": "images/textile4x4.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_textile4x4Embed_.png",
+      "sha256": "f6167b36b9dbb0c400f8d926230be5ed4bcbea24f8b1ae51c791c337caca5194"
+    },
+    {
+      "file": "images/textile5x5.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_textile5x5Embed_.png",
+      "sha256": "1a8f3c770a0b5a02b53c481a76f09a3c57fa4b4b098c6b20fe665b5889056df1"
+    },
+    {
+      "file": "images/textile9x9.png",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_textile9x9Embed_.png",
+      "sha256": "110e3f54a22390dad8b1944472e27fbc4e5dbc373b26e51b4d7e21f092d77b31"
+    },
+    {
+      "file": "models/bigcube.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_bigcubeEmbed_.dat",
+      "sha256": "c77fc0dd0dfb9aa3dbb50bb791665d9f4c3fcf2c84a3634d46b568fd352dac52"
+    },
+    {
+      "file": "models/brokenPillar.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_brokenPillarEmbed_.dat",
+      "sha256": "9e7c3c9f07dc82b6acaad3ca787c2686674eeb8cd98041e95d2586c9704dbf7f"
+    },
+    {
+      "file": "models/candyColBroken.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyColBrokenEmbed_.dat",
+      "sha256": "250b459785f6d2f9edd805edee501858142098a8fc0fbf440f47c39c33576c74"
+    },
+    {
+      "file": "models/candyColWhole.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyColWholeEmbed_.dat",
+      "sha256": "38eab22c519ddaf91696193418457c1edc0016ceb081288e883b6cb48d393e60"
+    },
+    {
+      "file": "models/candyDoughnut1.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyDoughnut1Embed_.dat",
+      "sha256": "68b4c610e44ece6f1a7b6658eb0e96756e1914e945f7ec09f112df41baeb2e2e"
+    },
+    {
+      "file": "models/candyDoughnut2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyDoughnut2Embed_.dat",
+      "sha256": "abcd4f01c03f797f3cd7ae608a6ae7ac47e87a3294c8c8ff767102a238d87766"
+    },
+    {
+      "file": "models/candyDoughnut3.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyDoughnut3Embed_.dat",
+      "sha256": "45a8ea480284401f15c6bd679e6acac7d0dd6d2b94e8295eed49000a7ad037ac"
+    },
+    {
+      "file": "models/candyDoughnut4.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_candyDoughnut4Embed_.dat",
+      "sha256": "80c0104edbf746a5ff9415e6c5e8a380ed1025fe54c3969561773a8c171e9a18"
+    },
+    {
+      "file": "models/cloningVat.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_cloningVatEmbed_.dat",
+      "sha256": "80dc4720e8f8bdb8f007568443c94f2eab0e2d180d37b301f1dc041429ca7033"
+    },
+    {
+      "file": "models/crate.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_crateEmbed_.dat",
+      "sha256": "c4f4af6e7cf1c7d32c68f1077315a61b1290adfd56bea8b91578aceba02e8b60"
+    },
+    {
+      "file": "models/cube.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_cubeEmbed_.dat",
+      "sha256": "6f6e232ba1e1ddb72f73a91812ef021d452d250ba9924637d03057cf4062ff30"
+    },
+    {
+      "file": "models/dodecahedron.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_dodecahedronEmbed_.dat",
+      "sha256": "b3929f013ed8e8dd43b4713ac8f51588ecf67727fa2b9ea4df78a5aba58fd1fe"
+    },
+    {
+      "file": "models/gasEmitter.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_gasEmitter_.dat",
+      "sha256": "5b20d187a3c27237cc32d278052f66b0eacd83e4a7c83daa35886bb8a84e4589"
+    },
+    {
+      "file": "models/icosahedron.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_icosahedronEmbed_.dat",
+      "sha256": "4212f822a3e8f1e4278525a9d2cf63814974f733d2c7dc026131a7dfa79e4c95"
+    },
+    {
+      "file": "models/jacko.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_jackoEmbed_.dat",
+      "sha256": "21fc708415fa79a8adfe537e1824c6c23ae7c46aafff5fa7104a53cf9ad5c69a"
+    },
+    {
+      "file": "models/labTank.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_labTankEmbed_.dat",
+      "sha256": "6b277f08295d858892ed23060a7e677fd0d2c13f729c0bdaf9feb0ff393707dd"
+    },
+    {
+      "file": "models/largeMonument1.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_largeMonument1Embed_.dat",
+      "sha256": "ba233605da0e59f0c1415a7ea1b21cec86a4683c8c47664b80cac47894d2f160"
+    },
+    {
+      "file": "models/largeMonument2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_largeMonument2Embed_.dat",
+      "sha256": "b703c1d807d18a5b57cc569660ffd5fa47c95af4bd9a0fb954fa3770a8025364"
+    },
+    {
+      "file": "models/largeMonument3.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_largeMonument3Embed_.dat",
+      "sha256": "231106254e6e83fefb1100f9257f473f89a15cd67612837824e22e804a21ed65"
+    },
+    {
+      "file": "models/monsterTank1.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_monsterTank1Embed_.dat",
+      "sha256": "1e1f7a83cfb0b95dd05f61e351c260cfe8938918a4d98d7c437d2d179416107b"
+    },
+    {
+      "file": "models/monsterTank2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_monsterTank2Embed_.dat",
+      "sha256": "34cd3ff6f65ed9ebd2998fe68a41415c17cec76c30cf16a0b57546ad47e23d68"
+    },
+    {
+      "file": "models/monsterTank3.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_monsterTank3Embed_.dat",
+      "sha256": "8a24079d505722b2293ee395c253d2281806ef072bb264cc8f420f7675edb001"
+    },
+    {
+      "file": "models/monsterTank4.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_monsterTank4Embed_.dat",
+      "sha256": "3e71c385da3c3c72fcf428543251f5721ffde941c6e3c97493ce7530eb713ab0"
+    },
+    {
+      "file": "models/newGate.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newGateEmbed_.dat",
+      "sha256": "f9814d654d0bfd0ea5c95a2e826e8b0048dc9c73131f28a708af968fbdde24e2"
+    },
+    {
+      "file": "models/newGateEnd1.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newGateEnd1Embed_.dat",
+      "sha256": "00206eb3bdfb6213ef7358211ebfb2cf5e56e3d7a0c4bb641f11c75afb9789d5"
+    },
+    {
+      "file": "models/newGateEnd2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newGateEnd2Embed_.dat",
+      "sha256": "6803533c80dbb31e02f9b12365ec16feb7a807f0db8a01438a8ae0b71688b2c1"
+    },
+    {
+      "file": "models/newGateEntry.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newGateEntryEmbed_.dat",
+      "sha256": "52a9e0e8d10135ac51169abac744e212b95375b68b85f98dfe3116cbede67c06"
+    },
+    {
+      "file": "models/newGateEntry2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newGateEntry2Embed_.dat",
+      "sha256": "b31a2fa120eb8d520c0cf9cbfb19c94eed25678453ca5d8d209c2047063e7f9e"
+    },
+    {
+      "file": "models/newMonument1.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newMonument1Embed_.dat",
+      "sha256": "ffede6f7b124a59eb75019e1863494e48b0ad446a83120433fbb1e034a63c7ea"
+    },
+    {
+      "file": "models/newMonument2.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newMonument2Embed_.dat",
+      "sha256": "1bfcba47f7364a68930228cdce3cfa9f9c21c1398e508098f5c9f67c3bba4c34"
+    },
+    {
+      "file": "models/newMonument3.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_newMonument3Embed_.dat",
+      "sha256": "c6410efec9ee1ffda4ee2506e1d8d4ad9a6197294d6c2144512856aad1c11638"
+    },
+    {
+      "file": "models/obelisk.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_obeliskEmbed_.dat",
+      "sha256": "afd0e83749113bef66080f43b3c95cca732a14be9c628324b9fa9d28eab3acc5"
+    },
+    {
+      "file": "models/octahedron.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_octahedronEmbed_.dat",
+      "sha256": "b17010dec23e32a318cb965562b641ce8e55e940a9f3d5a66ea3744fb258bd45"
+    },
+    {
+      "file": "models/pillar.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_pillarEmbed_.dat",
+      "sha256": "d9e8b1aa950130c51ff759a9d9cd761b492b85e30807272a988bb0d68d42c2f0"
+    },
+    {
+      "file": "models/pyramid.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_pyramidEmbed_.dat",
+      "sha256": "67bb8dc8126234982f0c0343edea2b38e2c1a02fe28dabd0feada8e6484992ca"
+    },
+    {
+      "file": "models/sign.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_signEmbed_.dat",
+      "sha256": "34c000c1c65bf7ffb2de30d4343ed35ed386ca72f5a3350139b95fd26453cf19"
+    },
+    {
+      "file": "models/table.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_tableEmbed_.dat",
+      "sha256": "1533fa4175e9e4ba99f5dae45aae5f624a74e8dc6d301f68a31c30f7e01816cf"
+    },
+    {
+      "file": "models/tableEdge.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_tableEdgeEmbed_.dat",
+      "sha256": "197841e13ffa3607ab7b5a3c3bfc24f7a59dc429785b5b9231fedc82e40abf1a"
+    },
+    {
+      "file": "models/tesla.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_teslaEmbed_.dat",
+      "sha256": "984bf90355bbecbbd53168b392de541e433d8e65d6c3ae3bb277757b979e5fac"
+    },
+    {
+      "file": "models/tetrahedron.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_tetrahedronEmbed_.dat",
+      "sha256": "b87cccb377010d5290b5ea95bf5d190a634d7c20fc00f5f9ee802ce53e7f5978"
+    },
+    {
+      "file": "models/tower.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_towerEmbed_.dat",
+      "sha256": "3713814b6b1fbc2dfc6e18575340d57a184e3f444e0ba16bc0d5b8acefb9727c"
+    },
+    {
+      "file": "models/web.obj",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_webEmbed_.dat",
+      "sha256": "362d5997c27048caec6ee306fd289e0e9f17b373758b6bb265073b6da3fe49f5"
+    },
+    {
+      "file": "shapes/DeleteXGraphic.swf",
+      "original": "src/com/company/rotmg/graphics/DeleteXGraphic.swf",
+      "sha256": "b88d06746526542cb800009cd7ecf949bc5824da7a19e67ba44922edc64449f8"
+    },
+    {
+      "file": "shapes/FameIconBackgroundDesign.swf",
+      "original": "src/com/company/rotmg/graphics/FameIconBackgroundDesign.swf",
+      "sha256": "7e7da85201406cecad9ce0632437b834cc940c394d46d29a66f0fb561a278d36"
+    },
+    {
+      "file": "shapes/FullCharBoxGraphic.swf",
+      "original": "src/com/company/rotmg/graphics/FullCharBoxGraphic.swf",
+      "sha256": "77febc55dfd07ea2ba4b02ddd3f6436b624d3c9f623a50d5f691738d2efb4340"
+    },
+    {
+      "file": "shapes/LockedCharBoxGraphic.swf",
+      "original": "src/com/company/rotmg/graphics/LockedCharBoxGraphic.swf",
+      "sha256": "0e05b591642441d7b92acf68eb68db6b08bddfec1c91c649a047084d1e368541"
+    },
+    {
+      "file": "shapes/ScreenGraphic.swf",
+      "original": "src/com/company/rotmg/graphics/ScreenGraphic.swf",
+      "sha256": "1a111d6bfaa7316188b96fd8b75224282c6625033cf219ebab2764112ae3d083"
+    },
+    {
+      "file": "shapes/StarGraphic.swf",
+      "original": "src/com/company/rotmg/graphics/StarGraphic.swf",
+      "sha256": "bfd21fd61bab05720c7c95b68b3e841d4424e456e231ae1a65b9ffe85964b119"
+    },
+    {
+      "file": "xml/AbyssOfDemons.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_AbyssOfDemonsCXML.dat",
+      "sha256": "2415f089340f5b92ad51eaf079f9456f61ccff33e14b1ca6980743b799d7337c"
+    },
+    {
+      "file": "xml/CandyLand.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_CandyLandCXML.dat",
+      "sha256": "836812cf8af8eafbe65697afabb9af599cf408afc36cdd202a388b7ebe8878a5"
+    },
+    {
+      "file": "xml/CaveOfAThousandTreasures.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_CaveOfAThousandTreasuresCXML.dat",
+      "sha256": "e89d525b7690f2aebe4808be84e68fa037af7f056ae9ebfa48bfb3cb5ed20e84"
+    },
+    {
+      "file": "xml/Dyes.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_DyesCXML.dat",
+      "sha256": "39a66ee27d393bbe7b8aa3a92ecd974b48cfcc7deb8b5c92fab016dd5bb51a6e"
+    },
+    {
+      "file": "xml/Encounters.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_EncountersCXML.dat",
+      "sha256": "46bf8127957655b331e15eab5c99874390000eb47b89a5464040ebcdb4c347df"
+    },
+    {
+      "file": "xml/Equip.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_EquipCXML.dat",
+      "sha256": "5bfb114863a6b680006cbb8ad311c98b90f5727ded263f8148db884db5917256"
+    },
+    {
+      "file": "xml/ForbiddenJungle.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_ForbiddenJungleCXML.dat",
+      "sha256": "86f2f63e9d68addd0aa6131a3abacabe82656e27e74c848f99a0a4c79d9a52cf"
+    },
+    {
+      "file": "xml/GhostShip.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_GhostShipCXML.dat",
+      "sha256": "4fa8ee05b27c53d1faf41df8a7bac975c205a1a366f54ebac5a6aae711700068"
+    },
+    {
+      "file": "xml/Ground.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_GroundCXML.dat",
+      "sha256": "f74d0ea100ec0f780b61be84ed78be8e2430a7dbcb4dfe6d06c2c6a91718293b"
+    },
+    {
+      "file": "xml/HauntedCemetery.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_HauntedCemeteryCXML.dat",
+      "sha256": "b952228806580820831903630ab4a990fa270f23e1d3f8d8f142b40c5259ee15"
+    },
+    {
+      "file": "xml/High.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_HighCXML.dat",
+      "sha256": "35645cb762aee3093821516fdff51bc8010574071fc72d1a895a5fd493586a36"
+    },
+    {
+      "file": "xml/Low.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_LowCXML.dat",
+      "sha256": "ab66ae0387443802136f7476e773e00726d40b792f5b2458266f5eb7acc159ab"
+    },
+    {
+      "file": "xml/MadLab.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_MadLabCXML.dat",
+      "sha256": "45941aaef9ea64448ea59a8fde53ded5727f555dfd2ba2f12b6ba06526b92bca"
+    },
+    {
+      "file": "xml/ManorOfTheImmortals.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_ManorOfTheImmortalsCXML.dat",
+      "sha256": "2b88d874fa4ba7137b636760e5a47786e54f81bcff80d486141c70af71e5491e"
+    },
+    {
+      "file": "xml/Mid.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_MidCXML.dat",
+      "sha256": "6d9fb6786dbc57ae751432d0b665cecb735c80042411b24f67d49ba4323bdec0"
+    },
+    {
+      "file": "xml/Monsters.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_MonstersCXML.dat",
+      "sha256": "c84e14018a1a554a69d86b4d4d2a4b26b09bd2dc44c88e1b66b43edcc5edf9c3"
+    },
+    {
+      "file": "xml/Mountains.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_MountainsCXML.dat",
+      "sha256": "b3b0891f903eaa0f9fb01943b2620c01a379dd1ad22021c8a79f7d4038f61356"
+    },
+    {
+      "file": "xml/Objects.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_ObjectsCXML.dat",
+      "sha256": "2d1f497290b75e3b61c7b280d93761d6545f8741764901a205ed0a2cfd762c52"
+    },
+    {
+      "file": "xml/OceanTrench.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_OceanTrenchCXML.dat",
+      "sha256": "4b3fac775f7c7025502f297ae8a8d51cbc5598cee28be752ea357c86721ff712"
+    },
+    {
+      "file": "xml/OryxCastle.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_OryxCastleCXML.dat",
+      "sha256": "ae1a045a2a0090b44e30513862a446a6e9735892fe8cc1236855da0da4e1350e"
+    },
+    {
+      "file": "xml/OryxChamber.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_OryxChamberCXML.dat",
+      "sha256": "715e4a3fb1e352a5d8f976226d06e518dfdb546e522bf645fbf4d102519d70ae"
+    },
+    {
+      "file": "xml/OryxWineCellar.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_OryxWineCellarCXML.dat",
+      "sha256": "8c08aaa8fb62fc2e863e9572f986331bb9c403fdb6ebb4bab96958a13d83a37c"
+    },
+    {
+      "file": "xml/Permapets.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_PermapetsCXML.dat",
+      "sha256": "dad15d84a97a94875e1252d1a23cbd30f2f3c315e1583d2d5927efde4c530b48"
+    },
+    {
+      "file": "xml/Pets.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_PetsCXML.dat",
+      "sha256": "374b14f092872aba5bc088e94a235adec75592b5c93999990689a5388e2e7ff7"
+    },
+    {
+      "file": "xml/PirateCave.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_PirateCaveCXML.dat",
+      "sha256": "86f4b6063bf5df54740ff05f8ee635afb414dab0f8b32b40bf7ccbd3bc69d490"
+    },
+    {
+      "file": "xml/Players.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_PlayersCXML.dat",
+      "sha256": "fcc8e05e837aa96d50602cd44edca17ab469dd601c7cf90f69f706ae80e8d627"
+    },
+    {
+      "file": "xml/Projectiles.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_ProjectilesCXML.dat",
+      "sha256": "5c0f1d2c70ab27596f43147f6ced992ff0daae4ecb49dbf59e2f5d7fcf2ed541"
+    },
+    {
+      "file": "xml/Regions.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_RegionsCXML.dat",
+      "sha256": "14b248a25d1617e5d20b315c9ae33c4bfbe6d86f216505c6a90a3a3f75bdcfeb"
+    },
+    {
+      "file": "xml/Shore.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_ShoreCXML.dat",
+      "sha256": "637d16594112b015331c00d41ad62c4cf3ab98f9891de7d8639e0980d500183a"
+    },
+    {
+      "file": "xml/Skins.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_SkinsCXML.dat",
+      "sha256": "b0a052d2dae191f5651cae2fc5cfed4181aa44fb4b5ece829e8df6117ceaa90a"
+    },
+    {
+      "file": "xml/SnakePit.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_SnakePitCXML.dat",
+      "sha256": "ce8cfab7c728f717289e4b0d95e8a9c8a578d277ad1ac04a464e74cb0357b5b2"
+    },
+    {
+      "file": "xml/SpriteWorld.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_SpriteWorldCXML.dat",
+      "sha256": "13994e484be7fd43f7495c60e037d7b3424036259b26bce4535dd976d3e8a37a"
+    },
+    {
+      "file": "xml/StaticObjects.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_StaticObjectsCXML.dat",
+      "sha256": "f09399952a5e6898a8e35efe274203a1a1fa8e141d70a7eafcc84cacdbff6a6e"
+    },
+    {
+      "file": "xml/TempObjects.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TempObjectsCXML.dat",
+      "sha256": "d3e72509faa87aa26bedb4a24d26965a6674446c83900033e1279ed232b4ff0c"
+    },
+    {
+      "file": "xml/TestingObjects.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TestingObjectsCXML.dat",
+      "sha256": "92e7f8bebe07237e70178b6902d4f7c034b8679fe973dc0d4cafcd386967f98e"
+    },
+    {
+      "file": "xml/Textiles.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TextilesCXML.dat",
+      "sha256": "3c947ecc6db27a3371795b0575eaace16dd1827380d4d78d24042bd179ca0a41"
+    },
+    {
+      "file": "xml/TombOfTheAncients.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TombOfTheAncientsCXML.dat",
+      "sha256": "97f58353412f67a6ab8dce9b6a24f35519fc6eecca1a7aa445bd34174aaf50da"
+    },
+    {
+      "file": "xml/TutorialObjects.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TutorialObjectsCXML.dat",
+      "sha256": "b645d79ff585ad3a0b12f057d6d23eef2e6fdc5cb2d4aec60006a792431b4f84"
+    },
+    {
+      "file": "xml/TutorialScript.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_TutorialScriptCXML.dat",
+      "sha256": "4cd05dcd8aa51129325d1795a7127384d6b96852fc75a6108d9528510dcebf9e"
+    },
+    {
+      "file": "xml/UndeadLair.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedData_UndeadLairCXML.dat",
+      "sha256": "84e21e2ec8617ff535c23320bbaf6b79e1d7b373265bc5dd61ce3384830fa882"
+    },
+    {
+      "file": "xml/particles.xml",
+      "original": "src/kabam/rotmg/assets/EmbeddedAssets_particlesEmbed.dat",
+      "sha256": "b350045516874f2972a27e114bbfa39f7994ee952abd5c128e4fb707d0a51f6a"
+    }
+  ]
+}

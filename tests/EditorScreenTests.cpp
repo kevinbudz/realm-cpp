@@ -156,10 +156,10 @@ bool named(const realm::EditorScreen& editor, int x, int y, std::optional<std::s
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
-    FontBook fonts(flash::source_root);
+    Catalog catalog(flash::assets_root);
+    FontBook fonts(flash::assets_root);
     HudArt art;
-    EditorScreen editor(catalog, fonts, flash::source_root, &art);
+    EditorScreen editor(catalog, fonts, flash::assets_root, &art);
     editor.resize(800, 600, 1);
 
     check(editor.tool() == EditorTool::draw && editor.layer() == EditorLayer::ground,

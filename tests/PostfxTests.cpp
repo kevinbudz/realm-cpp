@@ -96,7 +96,7 @@ void rendering() {
   while (glGetError() != GL_NO_ERROR) {
   }
   {
-    Atlas atlas(flash::source_root);
+    Atlas atlas(flash::assets_root);
     Renderer renderer(64);
     const std::array<float, 4> orange{.8F, .4F, .2F, 1}, white{1, 1, 1, 1};
     const auto field = [&](double w, double h) { return solid(0, 0, w, h, orange); };

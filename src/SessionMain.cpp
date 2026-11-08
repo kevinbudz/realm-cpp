@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
       std::getline(std::cin, options.password);
     }
 
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     realm::Session session(world);
     session.connect(std::move(options));

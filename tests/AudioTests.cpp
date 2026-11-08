@@ -201,7 +201,8 @@ void test_name_validation() {
 }
 
 void test_defaults_and_environment() {
-  CHECK(!default_sfx_root().empty());
+  // No bundled SFX: the default root is empty, so sounds come from the app server over HTTP.
+  CHECK(default_sfx_root().empty());
   const auto config = config_from_environment();
   CHECK(config.cache_bytes >= (std::size_t{1} << 20U));
   CHECK(config.pending_timeout == 250ms);
@@ -324,7 +325,7 @@ void test_library_decodes_wav() {
 }
 
 void test_library_decodes_mp3() {
-  const auto root = fs::path(config_from_environment().source.disk_root);
+  const auto root = fs::path(REALM_TEST_SFX_ROOT);
   if (!fs::is_regular_file(root / "error.mp3")) {
     std::cout << "  skip: real mp3 case, SFX root missing (" << root.string() << ")\n";
     ++skipped;

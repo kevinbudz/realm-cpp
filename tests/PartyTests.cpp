@@ -23,7 +23,7 @@ realm::Entity& add(realm::World& world, std::int32_t id, realm::Vec2 position,
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(200, 200);
     realm::Party party;

@@ -314,9 +314,9 @@ int main() {
     while (glGetError() != GL_NO_ERROR) {
     }
     {
-      Catalog catalog(flash::source_root);
-      AnimationLibrary animations(flash::source_root);
-      Atlas atlas(flash::source_root, animations.images(), animations.images().size());
+      Catalog catalog(flash::assets_root);
+      AnimationLibrary animations(flash::assets_root);
+      Atlas atlas(flash::assets_root, animations.images(), animations.images().size());
       std::vector<const ObjectDef*> pool, models, projectiles;
       if (std::getenv("VISIBILITY_EXTENTS")) {
         for (std::size_t i = 0; i < model_count(); ++i) {

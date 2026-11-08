@@ -13,7 +13,7 @@
 int main(int argc, char** argv) {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     if (argc == 2 && std::string(argv[1]) == "--guards") {
       World world(catalog);
       Session live(world);
@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
       if (working < 1 || working > 512 || ticks < 2 || ticks > 1000) {
         throw std::invalid_argument("Icon fixture bounds");
       }
-      AnimationLibrary animations(flash::source_root);
-      Appearances appearances(flash::source_root, animations);
+      AnimationLibrary animations(flash::assets_root);
+      Appearances appearances(flash::assets_root, animations);
       HudArt art;
       art.appearances(&appearances, &catalog);
       std::vector<std::string> keys;

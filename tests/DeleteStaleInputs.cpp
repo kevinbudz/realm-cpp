@@ -17,7 +17,7 @@ using Clock = std::chrono::steady_clock;
 struct Harness {
   FontBook fonts;
   HudArt art;
-  Catalog catalog{flash::source_root};
+  Catalog catalog{flash::assets_root};
   std::unique_ptr<Startup> startup;
   std::int32_t time{};
   std::uint16_t port{};
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     StartupOptions options;
     options.app_port = h.port;
     options.account_file = argv[3];
-    h.startup = std::make_unique<Startup>(h.fonts, &h.art, h.catalog, flash::source_root, options);
+    h.startup = std::make_unique<Startup>(h.fonts, &h.art, h.catalog, flash::assets_root, options);
     h.until([&] { return h.startup->char_list() != nullptr; }, "the character list");
     h.startup->perform({StartupAction::Kind::play});
     h.update(2);

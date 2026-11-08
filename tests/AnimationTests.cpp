@@ -68,7 +68,7 @@ int main() {
     check(
         character.frame(0, 0, realm::Action::walk, 1).image == character.directions[0][1][1].image,
         "phase clamped to last frame");
-    realm::AnimationLibrary actual(realm::flash::source_root);
+    realm::AnimationLibrary actual(realm::flash::assets_root);
     std::size_t characters{};
     for (std::size_t s = 0; s < realm::flash::animated.size(); ++s) {
       for (int i = 0; const auto* c = actual.character(static_cast<int>(s), i); ++i) {

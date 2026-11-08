@@ -288,7 +288,7 @@ void compare_geometry(const std::vector<ObjectFaceGeometry>& faces, const World&
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(12, 12);
     Camera camera;

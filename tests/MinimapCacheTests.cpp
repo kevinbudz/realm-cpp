@@ -17,11 +17,11 @@ void check(bool ok, const char* reason) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
-    realm::AnimationLibrary animations(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
+    realm::AnimationLibrary animations(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(100, 100);
-    realm::Minimap mini(catalog, animations, realm::flash::source_root);
+    realm::Minimap mini(catalog, animations, realm::flash::assets_root);
     const auto* grass = catalog.ground("Grass");
     const auto* wizard = catalog.object("Wizard");
     const realm::ObjectDef* wall{};

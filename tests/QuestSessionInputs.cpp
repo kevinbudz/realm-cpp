@@ -18,7 +18,7 @@ realm::net::Packet packet(realm::flash::PacketId id, realm::net::Bytes body) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     std::vector<net::Packet> sent;
     Session session(world, [&](const auto& value) { sent.push_back(value); }, {});

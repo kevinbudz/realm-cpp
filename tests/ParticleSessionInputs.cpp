@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     using namespace realm;
     std::string password;
     std::getline(std::cin, password);
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     Session session(world);
     SessionOptions options;

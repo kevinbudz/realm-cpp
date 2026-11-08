@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
       large.insert(large.find("</Fame>"), "<Bonus id='test'>1</Bonus>");
     }
     rejects([&] { (void)realm::parse_character_fame(large, 7); });
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     int sent{};

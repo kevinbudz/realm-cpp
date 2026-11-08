@@ -201,7 +201,7 @@ void page_cap_checks(const Appearances& appearances, long& checks) {
 // purge_zoom drops exactly the zoomed variants of other levels, with their bytes and LRU entries.
 // Scale 10 and the kept level stay, and a purge is not an LRU eviction.
 void purge_checks(const AnimationLibrary& animations, long& checks) {
-  Appearances cache(flash::source_root, animations);
+  Appearances cache(flash::assets_root, animations);
   const auto key = [](std::int32_t size, std::uint8_t scale) {
     return Appearances::Key{7, -1, 0, 0, size, 0, 0, 1, 0, scale};
   };
@@ -259,8 +259,8 @@ void purge_checks(const AnimationLibrary& animations, long& checks) {
 int main(int argc, char**) {
   try {
     using namespace realm;
-    AnimationLibrary animations(flash::source_root);
-    Appearances appearances(flash::source_root, animations);
+    AnimationLibrary animations(flash::assets_root);
+    Appearances appearances(flash::assets_root, animations);
     std::mt19937 rng(41);
     long checks{};
     const std::uint32_t dyes[]{0,         0x1ff0000, 0x100ff00, 0x1ffffff, 0x4000003,

@@ -113,7 +113,7 @@ void bars() {
 
 // A world with a player, an enemy, and a bystander, built without a map.
 struct Fixture {
-  Catalog catalog{flash::source_root};
+  Catalog catalog{flash::assets_root};
   World world{catalog};
 
   Fixture() {
@@ -363,7 +363,7 @@ int main() {
     events();
     progress();
     texts(fonts);
-    art_cache(fonts, realm::flash::source_root);
+    art_cache(fonts, realm::flash::assets_root);
     std::cout << "status rules passed (" << checks << " checks)\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

@@ -42,7 +42,7 @@ std::vector<float> shades(const MeshDraw& mesh) {
 
 int main() {
   try {
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     // CONNECT_STAT's four bytes are N,E,S,W; ConnectedObject masks each byte to its low nibble and
     // takes the first registered rotation of each canonical pattern.
     constexpr std::array<std::pair<std::uint32_t, ConnectedShape>, 6> connected_patterns{

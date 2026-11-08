@@ -381,7 +381,7 @@ Catalog::Catalog(const std::filesystem::path& root)
       }
     }
   }
-  const auto particle_path = root / "src/kabam/rotmg/assets/EmbeddedAssets_particlesEmbed.dat";
+  const auto particle_path = root / "xml/particles.xml";
   auto* particles_doc = parse_xml_asset(particle_path, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
   if (!particles_doc) {
     throw std::runtime_error("Cannot load particle definitions");
@@ -404,7 +404,7 @@ Catalog::Catalog(const std::filesystem::path& root)
     }
     particles_.push_back(std::move(particle));
   }
-  const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_SkinsCXML.dat";
+  const auto path = root / "xml/Skins.xml";
   auto* doc = parse_xml_asset(path, XML_PARSE_NONET | XML_PARSE_NOBLANKS);
   if (!doc) {
     throw std::runtime_error("Cannot load skin definitions");

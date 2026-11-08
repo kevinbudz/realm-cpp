@@ -268,7 +268,7 @@ void profile(const Fixture& f) {
 
 int main(int argc, char** argv) {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     Fixture f{catalog};
     for (const auto& object : catalog.objects()) {
       if (object.enemy && !object.stationary && !f.enemy) {

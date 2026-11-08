@@ -106,7 +106,7 @@ int main() {
     }
     check(bounded.lines().size() == Chat::capacity, "log storage is bounded");
     {
-      Catalog catalog(flash::source_root);
+      Catalog catalog(flash::assets_root);
       World world(catalog);
       world.initialize(10, 10);
       world.add(1, catalog.object("Wizard")->type, {2, 2});

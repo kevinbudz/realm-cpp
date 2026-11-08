@@ -17,7 +17,7 @@ void check(bool condition, const char* reason) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const realm::FontBook fonts;

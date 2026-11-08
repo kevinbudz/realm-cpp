@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Expected no arguments or an output directory");
     }
     using K = realm::HudState::SocialKind;
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8, "fixture");
     const auto* wizard = catalog.object("Wizard");

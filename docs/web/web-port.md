@@ -120,9 +120,10 @@ Chromium; AudioWorklet needs cross-origin isolation headers on the host).
 - **GL headers**: one header `src/stage3D/gl/GlApi.hpp` includes `<GLES3/gl3.h>` under
   `__EMSCRIPTEN__` and `<GL/glew.h>` otherwise. Every realm file that included `<GL/glew.h>` includes it
   instead. Define `REALM_GLES 1` there on web so code can test one macro.
-- **Assets**: the Flash art, XML and SFX are compiled into the wasm (`realm_embedded_assets`, from `assets/flash`
-  and `assets/sfx`), and the runtime Flash root is the virtual `embedded:/flash`. Only the bench fixtures are
-  preloaded (`--preload-file`). Not built or run here: emcc is not installed.
+- **Assets**: the art, XML, fonts and shapes are compiled into the wasm (`realm_embedded_assets`, from `assets/`),
+  and the runtime root is the virtual `embedded:`. Only the bench fixtures are preloaded (`--preload-file`). SFX are
+  not bundled and the web build has no blocking HTTP, so the web build plays no sound for now. Not built or run
+  here: emcc is not installed.
 - **Main loop**: `application::run` hands its per-frame body to `emscripten_set_main_loop_arg(..., 0, 1)`;
   long-lived state (`owner`, `layers`) moves to heap storage owned by the callback arg. No frame cap,
   no `SDL_Delay`, no spin; requestAnimationFrame paces.

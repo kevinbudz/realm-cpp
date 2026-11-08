@@ -242,8 +242,8 @@ int main() {
     check(first.x == 0 && first.y == 0 && first.width == 800 && first.height == 600,
           "first render uploads the whole stage");
 
-    Catalog catalog(flash::source_root);
-    Tutorial tutorial(catalog, flash::source_root);
+    Catalog catalog(flash::assets_root);
+    Tutorial tutorial(catalog, flash::assets_root);
     World world(catalog);
     world.initialize(20, 20, "Tutorial");
     world.add(1, catalog.object("Wizard")->type, {5, 5});

@@ -7,18 +7,18 @@
 #include <string_view>
 #include <vector>
 
-// Game asset access. The Flash art, XML data and SFX are compiled into the executable (see
-// tools/embed_game_assets.py), so every asset reader goes through read_asset: a path under a
-// virtual root is served from the executable, and any other path is read from disk (a --flash-root
-// or REALM_SFX_ROOT override).
+// Game asset access. The Flash art, XML, fonts and shapes are compiled into the executable
+// (tools/embed_game_assets.py), so every asset reader goes through read_asset: a path under the
+// virtual root "embedded:" is served from the executable, and any other path is read from disk
+// (--assets-root names a directory with the same layout).
 namespace realm::assets {
-// Virtual roots. flash::source_root and the default SFX root name these; they are never opened on
-// disk.
-inline constexpr std::string_view embedded_flash_root = "embedded:/flash";
-inline constexpr std::string_view embedded_sfx_root = "embedded:/sfx";
+// The virtual root of the compiled-in assets. A path under it names a file by its path in the
+// assets directory, for example "embedded:/images/lofiObj.png". flash::assets_root is this string.
+inline constexpr std::string_view embedded_root = "embedded:";
 
-// The embedded bytes of one asset, keyed "flash/<path under the Flash root>" or "sfx/<path under
-// the SFX root>". Defined by the generated translation unit; nullopt when the key is not embedded.
+// The embedded bytes of one asset, keyed by its path in the assets directory
+// ("images/lofiObj.png"). Defined by the generated translation unit; nullopt when the key is not
+// embedded.
 std::optional<std::span<const unsigned char>> embedded_file(std::string_view key);
 
 // The bytes of a game asset, or nullopt when it is missing, unreadable or larger than max_bytes.

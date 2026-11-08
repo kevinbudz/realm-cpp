@@ -442,7 +442,7 @@ void map_change_cancels(const realm::Catalog& catalog) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     cue_queue_cap();
     catalog_sounds(catalog);
     hit_sounds(catalog);

@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     if (argc != 2) {
       throw std::runtime_error("Expected loopback port");
     }
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     realm::Session session(world);
     realm::SessionOptions options;

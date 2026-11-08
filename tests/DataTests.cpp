@@ -28,7 +28,7 @@ void rejects(F f) {
 
 int main(int argc, char** argv) {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     std::cout << "Catalog: " << catalog.objects().size() << " objects, " << catalog.grounds().size()
               << " grounds\n";
     for (const auto& id : catalog.unresolved_textures()) {

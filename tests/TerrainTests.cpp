@@ -18,11 +18,11 @@ void check(bool ok, const char* why) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.load_jm(REALM_NEXUS_MAP);
-    realm::Terrain reference(world, realm::flash::source_root, 0, 0),
-        live(world, realm::flash::source_root, 0, 0, true);
+    realm::Terrain reference(world, realm::flash::assets_root, 0, 0),
+        live(world, realm::flash::assets_root, 0, 0, true);
     live.begin_frame();
     for (int y = 0; y < world.height(); ++y) {
       for (int x = 0; x < world.width(); ++x) {
@@ -91,7 +91,7 @@ int main() {
     }
     check(live.cache_evictions() > 1000, "stress exercise must cross bounded cache capacity");
     check(live.images().size() == 8192, "live terrain image storage must remain bounded");
-    realm::Terrain final_reference(world, realm::flash::source_root, 0, 0);
+    realm::Terrain final_reference(world, realm::flash::assets_root, 0, 0);
     const auto a = final_reference.tile(1, 1), b = live.tile(1, 1);
     check(final_reference.images().at(a.image).pixels == live.images().at(b.image).pixels,
           "eviction/reuse corrupted composition");

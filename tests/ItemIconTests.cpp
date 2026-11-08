@@ -55,7 +55,7 @@ Center dark_center(const realm::Image& image) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     HudArt art;
     const auto icon = [&](std::string_view name, const std::string& prefix = "item") {
       const auto* object = catalog.object(name);

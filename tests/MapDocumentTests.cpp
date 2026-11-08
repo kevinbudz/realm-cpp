@@ -41,8 +41,8 @@ void rejects(F action) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
-    MapDocument document(catalog, flash::source_root);
+    Catalog catalog(flash::assets_root);
+    MapDocument document(catalog, flash::assets_root);
     check(document.empty() && !document.dirty(), "new editor document is empty and clean");
     check(!document.choices(EditorLayer::ground).empty() &&
               !document.choices(EditorLayer::object).empty() &&
@@ -71,7 +71,7 @@ int main() {
               json.find("\"height\"") < json.find("\"dict\"") &&
               json.find("\"dict\"") < json.find("\"data\""),
           "JM top-level keys follow Flash order");
-    MapDocument loaded(catalog, flash::source_root);
+    MapDocument loaded(catalog, flash::assets_root);
     loaded.load(json);
     check(!loaded.dirty() && loaded.serialize() == json, "JM roundtrip retains layers and names");
     // A 2 by 1 map loads at x = int(128 - 1), y = int(128 - 0.5).
@@ -116,7 +116,7 @@ int main() {
     }
 
     // Names are independent of the object: they survive erase and repaint.
-    MapDocument named(catalog, flash::source_root);
+    MapDocument named(catalog, flash::assets_root);
     named.paint(10, 10, EditorLayer::object, objects[0].id);
     named.name(10, 10, "Kept");
     named.paint(10, 10, EditorLayer::object, "");
@@ -126,25 +126,25 @@ int main() {
     check(named.tile(10, 10).name == "Kept", "name survives object repaint");
 
     // Odd sizes round the half up: a 5 by 1 map loads at x=125 (int(128 - 2.5)).
-    MapDocument odd(catalog, flash::source_root);
+    MapDocument odd(catalog, flash::assets_root);
     odd.begin_edit();
     for (int x = 125; x < 130; ++x) {
       odd.paint(x, 128, EditorLayer::ground, ground);
     }
     odd.end_edit();
-    MapDocument odd_loaded(catalog, flash::source_root);
+    MapDocument odd_loaded(catalog, flash::assets_root);
     odd_loaded.load(odd.serialize());
     check(odd_loaded.tile(125, 127).ids[0] == ground && odd_loaded.tile(129, 127).ids[0] == ground &&
               odd_loaded.tile(124, 127).ids[0].empty() && odd_loaded.tile(130, 127).ids[0].empty(),
           "odd width 5 loads at left 125");
 
     // An explicit empty name is a name: it is written and round-trips.
-    MapDocument blank(catalog, flash::source_root);
+    MapDocument blank(catalog, flash::assets_root);
     blank.paint(20, 20, EditorLayer::object, objects[0].id);
     blank.name(20, 20, "");
     const auto blank_json = blank.serialize();
     check(blank_json.find("\"name\":\"\"") != std::string::npos, "empty object name is written");
-    MapDocument blank_loaded(catalog, flash::source_root);
+    MapDocument blank_loaded(catalog, flash::assets_root);
     blank_loaded.load(blank_json);
     check(blank_loaded.tile(127, 127).name.has_value() &&
               blank_loaded.tile(127, 127).name->empty() &&
@@ -152,26 +152,26 @@ int main() {
           "loaded empty name round-trips");
 
     // Entries with several objects keep the last known one; unknown ids are skipped.
-    MapDocument single(catalog, flash::source_root);
+    MapDocument single(catalog, flash::assets_root);
     single.paint(128, 128, EditorLayer::ground, ground);
     auto entry_json = nlohmann::json::parse(single.serialize());
     const nlohmann::json first{{"id", objects[0].id}, {"name", "First"}};
     const nlohmann::json second{{"id", objects[1].id}};
     const nlohmann::json unknown{{"id", "NoSuchObjectId"}, {"name", "Lost"}};
     entry_json["dict"][0]["objs"] = nlohmann::json::array({first, second, unknown});
-    MapDocument many(catalog, flash::source_root);
+    MapDocument many(catalog, flash::assets_root);
     many.load(entry_json.dump());
     check(many.tile(127, 127).ids[1] == objects[1].id && !many.tile(127, 127).name &&
               many.tile(127, 127).ids[0] == ground,
           "last known object wins and unknown ids are skipped");
     entry_json["dict"][0]["objs"] = nlohmann::json::array({unknown});
-    MapDocument none(catalog, flash::source_root);
+    MapDocument none(catalog, flash::assets_root);
     none.load(entry_json.dump());
     check(none.tile(127, 127).ids[1].empty() && none.tile(127, 127).ids[0] == ground,
           "unknown object id is skipped");
 
     // Undo history is unbounded; an edit that changes nothing records nothing.
-    MapDocument capped(catalog, flash::source_root);
+    MapDocument capped(catalog, flash::assets_root);
     for (int x = 0; x < 150; ++x) {
       capped.paint(x, 0, EditorLayer::ground, ground);
     }

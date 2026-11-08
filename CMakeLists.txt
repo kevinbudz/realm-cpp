@@ -92,40 +92,30 @@ if(REALM_BUILD_VIEWER)
     # Vendored, pinned RmlUi 6.3 core (third_party/rmlui/VENDORED.md); no download at configure time.
     add_subdirectory(third_party/rmlui)
 endif()
-# The Flash source. The build-time import reads it, and cmake/ClientTargets.cmake embeds its runtime files (every
-# non-.as file under src/) in realm_client. The default is the copy vendored under assets/flash by
-# tools/sync_game_assets.py, so the build does not need a sibling realm-client checkout.
-set(REALM_FLASH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/assets/flash" CACHE PATH
-    "Flash source: import input and embedded art and XML (vendored copy by default)")
-get_filename_component(REALM_FLASH_ROOT_PATH "${REALM_FLASH_ROOT}" ABSOLUTE)
-# The Flash root the generated header names at runtime (flash::source_root). embedded:/flash is served from the
-# executable; a disk path makes the client read that tree instead.
-set(REALM_FLASH_RUNTIME_ROOT "embedded:/flash" CACHE PATH
-    "Flash root the client reads at runtime: embedded:/flash (compiled in) or a disk path")
-if(NOT REALM_FLASH_RUNTIME_ROOT MATCHES "^embedded:")
-    get_filename_component(REALM_FLASH_RUNTIME_ROOT "${REALM_FLASH_RUNTIME_ROOT}" ABSOLUTE)
+# The game assets: assets/ holds manifest.json (written by tools/sync_game_assets.py from a realm-client checkout) and
+# the images/, models/, xml/, fonts/, shapes/ and data/ folders. The build reads only these, never a Flash source tree.
+set(REALM_ASSETS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/assets" CACHE PATH
+    "Game assets: manifest.json and the images, models, xml, fonts, shapes and data folders")
+get_filename_component(REALM_ASSETS_ROOT_PATH "${REALM_ASSETS_ROOT}" ABSOLUTE)
+# The assets root the generated header names at runtime (flash::assets_root). "embedded:" is served from the executable;
+# a disk directory makes the client read that layout instead.
+set(REALM_ASSETS_RUNTIME_ROOT "embedded:" CACHE PATH
+    "Assets root the client reads at runtime: embedded: (compiled in) or a disk directory with the same layout")
+if(NOT REALM_ASSETS_RUNTIME_ROOT MATCHES "^embedded:")
+    get_filename_component(REALM_ASSETS_RUNTIME_ROOT "${REALM_ASSETS_RUNTIME_ROOT}" ABSOLUTE)
 endif()
-# The SFX source. Every .mp3 below it is embedded in realm_client (cmake/ClientTargets.cmake). The client plays the
-# embedded copy unless the REALM_SFX_ROOT environment variable names a disk root at runtime.
-set(REALM_SFX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/assets/sfx" CACHE PATH
-    "SFX source: every .mp3 below it is embedded in realm_client (vendored copy by default)")
-get_filename_component(REALM_SFX_ROOT_PATH "${REALM_SFX_ROOT}" ABSOLUTE)
 # Changing the runtime root regenerates flash_assets.hpp (the stamp is rewritten only when the value changes).
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
-file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/flash_runtime_root.txt" CONTENT "${REALM_FLASH_RUNTIME_ROOT}\n")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/assets_runtime_root.txt" CONTENT "${REALM_ASSETS_RUNTIME_ROOT}\n")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-file(GLOB_RECURSE FLASH_INPUTS CONFIGURE_DEPENDS "${REALM_FLASH_ROOT}/src/*")
-if(EXISTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
-    list(APPEND FLASH_INPUTS "${REALM_FLASH_ROOT}/.git/logs/HEAD")
-endif()
-# A vendored copy records the identity of its realm-client checkout here (see tools/import_flash.py source_identity).
-if(EXISTS "${REALM_FLASH_ROOT}/SOURCE.json")
-    list(APPEND FLASH_INPUTS "${REALM_FLASH_ROOT}/SOURCE.json")
-endif()
+set(REALM_ASSET_MANIFEST "${REALM_ASSETS_ROOT_PATH}/manifest.json")
+# The vendored files the generators read: the palettes read the images, the models read the OBJ files.
+file(GLOB_RECURSE REALM_ASSET_FILES CONFIGURE_DEPENDS "${REALM_ASSETS_ROOT_PATH}/images/*" "${REALM_ASSETS_ROOT_PATH}/models/*")
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_assets.hpp" "${GENERATED_DIR}/source_inventory.json"
-    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/import_flash.py"
-        --flash-root "${REALM_FLASH_ROOT}" --runtime-root "${REALM_FLASH_RUNTIME_ROOT}" --output "${GENERATED_DIR}"
-    DEPENDS ${FLASH_INPUTS} tools/import_flash.py "${CMAKE_CURRENT_BINARY_DIR}/flash_runtime_root.txt" VERBATIM)
+    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_asset_headers.py"
+        --manifest "${REALM_ASSET_MANIFEST}" --runtime-root "${REALM_ASSETS_RUNTIME_ROOT}" --output "${GENERATED_DIR}"
+    DEPENDS "${REALM_ASSET_MANIFEST}" tools/generate_asset_headers.py "${CMAKE_CURRENT_BINARY_DIR}/assets_runtime_root.txt"
+    VERBATIM)
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_bitmap_colors.hpp"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_bitmap_colors.py"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/bitmap-colors.bin" "${GENERATED_DIR}/flash_bitmap_colors.hpp"
@@ -137,11 +127,11 @@ add_custom_command(OUTPUT "${GENERATED_DIR}/flash_party_transforms.hpp"
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_particle_palettes.hpp"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_particle_palettes.py"
         "${GENERATED_DIR}/source_inventory.json" "${GENERATED_DIR}/flash_particle_palettes.hpp"
-    DEPENDS "${GENERATED_DIR}/source_inventory.json" ${FLASH_INPUTS} tools/compile_particle_palettes.py VERBATIM)
+    DEPENDS "${GENERATED_DIR}/source_inventory.json" ${REALM_ASSET_FILES} tools/compile_particle_palettes.py VERBATIM)
 add_custom_command(OUTPUT "${GENERATED_DIR}/flash_models.hpp"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/compile_models.py"
         "${GENERATED_DIR}/source_inventory.json" "${GENERATED_DIR}/flash_models.hpp"
-    DEPENDS "${GENERATED_DIR}/source_inventory.json" ${FLASH_INPUTS} tools/compile_models.py VERBATIM)
+    DEPENDS "${GENERATED_DIR}/source_inventory.json" ${REALM_ASSET_FILES} tools/compile_models.py VERBATIM)
 add_custom_target(flash_manifest DEPENDS "${GENERATED_DIR}/flash_models.hpp" "${GENERATED_DIR}/flash_particle_palettes.hpp" "${GENERATED_DIR}/flash_assets.hpp" "${GENERATED_DIR}/flash_bitmap_colors.hpp" "${GENERATED_DIR}/flash_party_transforms.hpp")
 
 include(cmake/ClientTargets.cmake)
@@ -189,8 +179,8 @@ if(REALM_BUILD_VIEWER)
             COMMENT "Copying web site art")
         add_dependencies(realm_client realm_web_site)
         # The preload flags go in a response file: CMake drops the second --preload-file when both are link options.
-        # The Flash art, XML and SFX are compiled into the wasm (realm_embedded_assets), so only the bench fixtures
-        # are preloaded.
+        # The art, XML and fonts are compiled into the wasm (realm_embedded_assets). SFX are not bundled, so the web
+        # build plays no sound for now; only the bench fixtures are preloaded.
         set(REALM_WEB_PRELOAD_RSP "${CMAKE_CURRENT_BINARY_DIR}/web_preload.rsp")
         set(REALM_WEB_PRELOAD_TEXT "")
         # A small, offline subset for the opt-in browser benchmark query mode. These workloads use
@@ -467,7 +457,7 @@ if(BUILD_TESTING)
     realm_add_python_test(NAME session_loopback LABELS unit
         SCRIPT tests/session_tests.py ARGS "$<TARGET_FILE:realm_session>")
     realm_add_python_test(NAME flash_import LABELS unit
-        SCRIPT tests/import_tests.py ARGS "${REALM_FLASH_ROOT}")
+        SCRIPT tests/import_tests.py ARGS "${REALM_ASSETS_ROOT}")
     # Tests that open a window, GL context or GPU (SDL, realm_client, or a *_gpu script). They share one lock so they
     # never overlap; CPU-only tests keep running in parallel. Names missing from this configuration are skipped.
     # delete_character_stale is not listed: it drives Startup headlessly through a Python HTTP mock.
@@ -479,6 +469,11 @@ if(BUILD_TESTING)
             set_tests_properties(${gpu_test} PROPERTIES RESOURCE_LOCK realm_gpu)
         endif()
     endforeach()
+    # The SFX that the audio test decodes come from the realm-server copy beside this checkout (the client has none).
+    if(TARGET realm_audio_tests)
+        target_compile_definitions(realm_audio_tests PRIVATE
+            "REALM_TEST_SFX_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/../realm-server/Resources/Web/sfx\"")
+    endif()
     # The Nexus map that three tests load is the realm-server copy beside this checkout, not a Flash asset.
     foreach(map_test IN ITEMS realm_frame_cache_tests realm_data_tests realm_terrain_tests)
         if(TARGET ${map_test})

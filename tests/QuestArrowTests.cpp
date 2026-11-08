@@ -25,7 +25,7 @@ bool near(double a, double b) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(100, 100);
     const auto type = catalog.object("Wizard")->type;

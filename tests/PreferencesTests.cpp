@@ -26,7 +26,7 @@ constexpr std::uint8_t stat(flash::StatId id) {
 }
 
 struct Fixture {
-  Catalog catalog{flash::source_root};
+  Catalog catalog{flash::assets_root};
   World world{catalog};
   Combat combat{world};
 

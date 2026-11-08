@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Expected actor port and peer port");
     }
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World actor_world(catalog), peer_world(catalog);
     Session actor(actor_world), peer(peer_world);
     std::string password;

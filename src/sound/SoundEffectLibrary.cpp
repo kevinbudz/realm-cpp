@@ -26,7 +26,7 @@ constexpr std::size_t decode_chunk_frames = 4096;
 constexpr std::size_t max_clip_frames = max_clip_seconds * sample_rate;
 constexpr std::size_t max_name_length = 128;
 
-// Reads the asset from the disk root: the embedded copy for the virtual root, a file otherwise.
+// Reads NAME.mp3 from the disk root (REALM_SFX_ROOT).
 // Empty when the root is unset, the file is missing, or it cannot be read.
 std::optional<std::string> read_disk(const SourceConfig& source, const std::string& name) {
   if (source.disk_root.empty()) {
@@ -44,7 +44,7 @@ std::optional<std::string> read_disk(const SourceConfig& source, const std::stri
 std::optional<std::string> read_http([[maybe_unused]] const SourceConfig& source,
                                      [[maybe_unused]] const std::string& name) {
 #if defined(__EMSCRIPTEN__)
-  // The web build has no blocking HTTP. Its sounds are embedded in the wasm, the default root.
+  // The web build has no blocking HTTP, so it plays no sound for now (no bundled SFX either).
   return std::nullopt;
 #else
   if (source.http_host.empty()) {
@@ -192,10 +192,10 @@ bool valid_name(std::string_view name) noexcept {
   return true;
 }
 
-// The SFX compiled into the executable (realm_embedded_assets). REALM_SFX_ROOT replaces it with a
-// disk root.
+// The default SFX root is empty: sounds come from the app server (GET /sfx/NAME.mp3, read_http). The
+// REALM_SFX_ROOT environment variable sets a disk root instead.
 std::string default_sfx_root() {
-  return std::string(assets::embedded_sfx_root);
+  return {};
 }
 
 // ---- Mixer

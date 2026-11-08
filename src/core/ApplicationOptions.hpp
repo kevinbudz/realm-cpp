@@ -8,7 +8,7 @@
 
 namespace realm::application {
 struct Options {
-  std::filesystem::path root{realm::flash::source_root};
+  std::filesystem::path assets_root{realm::flash::assets_root};
   std::filesystem::path capture;
   std::filesystem::path map;
   std::filesystem::path account_file;

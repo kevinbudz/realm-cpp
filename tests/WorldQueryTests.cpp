@@ -369,8 +369,8 @@ void sets_differential(const realm::Catalog& catalog) {
   check(!players.empty() && !enemies.empty() && !statics.empty() && !static_enemies.empty() &&
             !portals.empty() && !merchants.empty() && !projectiles.empty(),
         "set pools");
-  realm::AnimationLibrary animations(realm::flash::source_root);
-  realm::Minimap minimap(catalog, animations, realm::flash::source_root);
+  realm::AnimationLibrary animations(realm::flash::assets_root);
+  realm::Minimap minimap(catalog, animations, realm::flash::assets_root);
   std::mt19937 rng(5051);
   std::uniform_real_distribution<double> unit(0, 1);
   const auto pick = [&](const std::vector<std::uint16_t>& pool) {
@@ -593,7 +593,7 @@ void sets_differential(const realm::Catalog& catalog) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     sets_differential(catalog);
     std::vector<std::uint16_t> interactive, merchants, plain, dyes, items;
     for (const auto& d : catalog.objects()) {

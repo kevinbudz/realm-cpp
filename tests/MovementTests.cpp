@@ -52,7 +52,7 @@ int main() {
     check(realm::damage_with_defense(100, 20, true, 0) == 100, "piercing");
     check(realm::damage_with_defense(100, 20, true, 1U << 21U) == 0,
           "invulnerable ignores piercing");
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const auto* grass = catalog.ground("Grass");

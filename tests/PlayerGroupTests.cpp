@@ -17,7 +17,7 @@ void check(bool value, const char* text) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(100, 100);
     const auto wizard = catalog.object("Wizard")->type;
@@ -28,8 +28,8 @@ int main() {
     world.add(8, wizard, {90, 90});
     world.add(3, wizard, {85, 85});
     world.add(1, catalog.object("Loot Bag")->type, {51, 50});
-    AnimationLibrary animations(flash::source_root);
-    Minimap map(catalog, animations, flash::source_root);
+    AnimationLibrary animations(flash::assets_root);
+    Minimap map(catalog, animations, flash::assets_root);
     map.update(world, *world.entity(99), 0);
     const auto hover = [&](Vec2 p) { return map.hover_players(world, *world.entity(99), p); };
     check(hover({100, 96}) == std::vector<std::int32_t>{7, 2},

@@ -241,10 +241,8 @@ EditorScreen::EditorScreen(const Catalog& catalog, const FontBook& fonts,
                            const std::filesystem::path& flash_root, const HudArt* art)
     : catalog_(catalog), fonts_(fonts), art_(art), document_(catalog, flash_root),
       dialog_(std::make_unique<platform::FileDialog>()) {
-  // MEMap_transbackgroundEmbed_: the checker bitmap, loaded from the Flash root like the other UI
-  // PNGs.
-  const auto checker =
-      flash_root / "src/com/company/assembleegameclient/mapeditor/MEMap_transbackgroundEmbed_.png";
+  // The checker bitmap, loaded from the assets root like the other UI PNGs.
+  const auto checker = flash_root / "images/MEMap_transbackground.png";
   if (assets::asset_exists(checker)) {
     checker_ = load_png(checker);
     normalize_flash_png(checker_);

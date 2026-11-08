@@ -52,7 +52,7 @@ std::uint32_t span_color(const std::vector<realm::RichLine>& lines, std::string_
 
 int main(int argc, char** argv) {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::World world(catalog);
     world.initialize(8, 8);
     const auto type = [&](std::string_view name) {

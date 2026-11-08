@@ -19,9 +19,9 @@ void check(bool value, const char* message) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
-    AnimationLibrary animations(flash::source_root);
-    Appearances appearances(flash::source_root, animations);
+    Catalog catalog(flash::assets_root);
+    AnimationLibrary animations(flash::assets_root);
+    Appearances appearances(flash::assets_root, animations);
     const auto& def = catalog.player_texture(782, 0);
     const auto* c = animations.character(def.animated, def.index);
     check(c != nullptr, "Wizard animation");

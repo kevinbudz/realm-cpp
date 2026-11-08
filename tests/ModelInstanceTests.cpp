@@ -246,9 +246,9 @@ int main(int argc, char** argv) {
     const auto gpu_rng = rng;  // both passes draw the same random cameras
     for (const bool base_instance : {true, false}) {
       rng = gpu_rng;
-      Catalog catalog(flash::source_root);
-      AnimationLibrary animations(flash::source_root);
-      Atlas atlas(flash::source_root, animations.images(), animations.images().size());
+      Catalog catalog(flash::assets_root);
+      AnimationLibrary animations(flash::assets_root);
+      Atlas atlas(flash::assets_root, animations.images(), animations.images().size());
       Renderer renderer(65536);
       renderer.set_base_instance_draws(base_instance);
       std::cout << "Quad draw path: "

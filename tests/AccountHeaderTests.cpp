@@ -38,7 +38,7 @@ int main() {
           "a missing Guild element leaves no guild");
     check(unguilded.stars() == 0, "no class stats means no stars");
 
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     FontBook fonts;
     HudArt art;
     const auto tooltip = render_rank_tooltip(fonts, art, catalog, 7);

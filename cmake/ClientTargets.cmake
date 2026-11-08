@@ -40,18 +40,18 @@ if(NOT EMSCRIPTEN)
     find_package(Freetype REQUIRED)
 endif()
 
-# The runtime game assets are compiled into realm_embedded_assets: every non-.as file under the Flash src/ and every
-# .mp3 under the SFX root, as byte arrays (tools/embed_game_assets.py). The client reads them through
-# realm::assets::read_asset (src/assets/AssetStore.cpp), so the executable does not need the asset directories at run
+# The runtime game assets are compiled into realm_embedded_assets: the images, xml, fonts, shapes and data folders of the
+# assets directory, as byte arrays keyed by path (tools/embed_game_assets.py). The client reads them through
+# realm::assets::read_asset (src/assets/AssetStore.cpp), so the executable does not need the assets directory at run
 # time. A plain static library, not realm_library: its arrays stay out of LTO.
-file(GLOB_RECURSE REALM_EMBED_FLASH_FILES CONFIGURE_DEPENDS "${REALM_FLASH_ROOT_PATH}/src/*")
-list(FILTER REALM_EMBED_FLASH_FILES EXCLUDE REGEX "\\.as$")
-file(GLOB_RECURSE REALM_EMBED_SFX_FILES CONFIGURE_DEPENDS "${REALM_SFX_ROOT_PATH}/*.mp3")
+file(GLOB_RECURSE REALM_EMBED_FILES CONFIGURE_DEPENDS
+    "${REALM_ASSETS_ROOT_PATH}/images/*" "${REALM_ASSETS_ROOT_PATH}/xml/*" "${REALM_ASSETS_ROOT_PATH}/fonts/*"
+    "${REALM_ASSETS_ROOT_PATH}/shapes/*" "${REALM_ASSETS_ROOT_PATH}/data/*")
 set(REALM_EMBEDDED_ASSETS_CPP "${GENERATED_DIR}/embedded_assets.cpp")
 add_custom_command(OUTPUT "${REALM_EMBEDDED_ASSETS_CPP}"
     COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_game_assets.py"
-        --flash-root "${REALM_FLASH_ROOT_PATH}" --sfx-root "${REALM_SFX_ROOT_PATH}" --output "${REALM_EMBEDDED_ASSETS_CPP}"
-    DEPENDS ${REALM_EMBED_FLASH_FILES} ${REALM_EMBED_SFX_FILES} "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_game_assets.py"
+        --assets-root "${REALM_ASSETS_ROOT_PATH}" --output "${REALM_EMBEDDED_ASSETS_CPP}"
+    DEPENDS ${REALM_EMBED_FILES} "${REALM_ASSET_MANIFEST}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_game_assets.py"
     VERBATIM)
 add_library(realm_embedded_assets STATIC "${REALM_EMBEDDED_ASSETS_CPP}")
 target_link_libraries(realm_embedded_assets PUBLIC realm_build_options)

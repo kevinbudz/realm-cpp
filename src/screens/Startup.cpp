@@ -67,12 +67,12 @@ Startup::Impl::Impl(const FontBook& fonts, const HudArt* art, const Catalog& cat
     options_.account_file = account_path();
   }
 
-  auto logo = load_png(root_ / "src/kabam/rotmg/ui/view/TitleView_Logo.png");
+  auto logo = load_png(root_ / "images/TitleView_Logo.png");
   normalize_flash_png(logo);
   view_model_.set_logo(std::move(logo));
 
   state_.background_map_ = read_file(
-      root_ / "src/kabam/rotmg/ui/view/components/MapBackground_EMBEDDED_BACKGROUNDMAP.dat");
+      root_ / "data/MapBackground.jm");
 
   // ObjectLibrary.playerChars_: Player definitions in their XML order.
   for (const auto& object : catalog_.objects()) {

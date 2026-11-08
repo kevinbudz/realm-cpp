@@ -95,7 +95,7 @@ enum class TextFilter { none, soft_shadow };
 // Text from the original regular/bold Myriad OTFs in the Flash source, rasterized with FreeType.
 class FontBook {
  public:
-  // Loads the fonts from the configured Flash source root.
+  // Loads the fonts from the configured assets root.
   FontBook();
   explicit FontBook(const std::filesystem::path& flash_root);
   ~FontBook();

@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
     using namespace realm;
     FontBook fonts;
     HudArt art;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     SkinChooser chooser(catalog, fonts, art);
     const std::string mode = argv[1];
     const auto port = static_cast<std::uint16_t>(std::stoi(argv[2]));

@@ -682,7 +682,7 @@ void profile(const realm::Catalog& catalog, const Defs& f) {
 
 int main(int argc, char** argv) {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     const auto f = find_defs(catalog);
     check(f.player && f.enemy && f.model && f.single && f.multi && f.merchant,
           "fixture definitions exist");

@@ -33,7 +33,8 @@ struct AudioBridge::Impl {
 
 AudioBridge::AudioBridge(const Options& options) {
   auto config = audio::config_from_environment();
-  // Loads fall back to the application server's /sfx/NAME.mp3 when the file is not on disk.
+  // Sounds come from the application server's /sfx/NAME.mp3 (the client bundles none), unless REALM_SFX_ROOT
+  // names a disk root.
   config.source.http_host = options.session.host;
   config.source.http_port = options.app_port;
 

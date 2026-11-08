@@ -55,8 +55,8 @@ Options parse(int argc, char** argv) {
       }
       return argv[i];
     };
-    if (arg == "--flash-root") {
-      options.root = value();
+    if (arg == "--assets-root") {
+      options.assets_root = value();
     } else if (arg == "--server") {
       options.session.host = value();
     } else if (arg == "--app-port") {
@@ -170,7 +170,7 @@ Options parse(int argc, char** argv) {
       options.benchmark = true;
     } else if (arg == "--help") {
       std::cout
-          << "realm_client [--flash-root PATH] [--server HOST] [--port N] [--app-port N] "
+          << "realm_client [--assets-root PATH] [--server HOST] [--port N] [--app-port N] "
              "[--account-file PATH]\n"
              "  [--settings-file PATH] [--width N] [--height N] [--hidden]\n"
              "  [--renderer " REALM_RENDERER_FLAGS "] (graphics API for this run only; the Options screen saves "
@@ -178,10 +178,10 @@ Options parse(int argc, char** argv) {
              "  [--audio auto|on|off|null] (sound output; auto plays only in the client; "
              "REALM_AUDIO_DEVICE=null also "
              "selects null)\n"
-             "  --flash-root PATH reads Flash art and XML from a realm-client checkout at PATH "
-             "instead of the copy compiled into the client.\n"
-             "  REALM_SFX_ROOT=DIR plays the SFX from DIR (NAME.mp3 below it) "
-             "instead of the embedded copy.\n"
+             "  --assets-root PATH reads the art, XML, fonts and shapes from a directory with the assets/ "
+             "layout (manifest.json and images/, xml/, ...) instead of the copy compiled into the client.\n"
+             "  REALM_SFX_ROOT=DIR plays the SFX from DIR (NAME.mp3 below it) instead of the app server "
+             "over HTTP.\n"
              "Startup sequence (default): loading, title, character selection, then gameplay.\n"
              "  --server HOST and --port N choose the game server; --account-file PATH stores the "
              "account.\n"

@@ -13,7 +13,7 @@ Every test has exactly one label, which states what the test needs:
 
 | Label | Meaning | Prerequisites | Command |
 |---|---|---|---|
-| `unit` | Headless. No GL context, no display. Network only on 127.0.0.1. | Python 3. `flash_import` also needs the Flash source tree at `REALM_FLASH_ROOT` (default `assets/flash`, vendored by `tools/sync_game_assets.py`). | `ctest --test-dir build -L unit -j 6` |
+| `unit` | Headless. No GL context, no display. Network only on 127.0.0.1. | Python 3. `flash_import` also needs the assets directory at `REALM_ASSETS_ROOT` (default `assets/`, written by `tools/sync_game_assets.py`). | `ctest --test-dir build -L unit -j 6` |
 | `gpu` | Opens an SDL window or GL context, or runs `realm_client`. | A display (`DISPLAY` or `WAYLAND_DISPLAY` set) with an OpenGL 3.3 driver. Python 3 with Pillow for the status, options, legends, death-fame, delete-character and UI-bundle scripts. | `ctest --test-dir build -L gpu -j 6` |
 | `live` | Needs a real game server. | Not used: no CTest test needs a live server. | none |
 

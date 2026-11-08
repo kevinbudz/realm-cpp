@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
     }
     using namespace realm;
     const std::string mode = argv[1];
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     Session session(world);
     SessionOptions options;

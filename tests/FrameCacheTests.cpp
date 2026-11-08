@@ -35,15 +35,15 @@ int main() {
     using namespace realm;
     platform::WindowSession window;
     window.open(realm::gfx::Api::opengl, "frame caches", 800, 600, true, 0);
-    Catalog catalog(flash::source_root);
-    AnimationLibrary animations(flash::source_root);
+    Catalog catalog(flash::assets_root);
+    AnimationLibrary animations(flash::assets_root);
     World world(catalog);
     world.load_jm(REALM_NEXUS_MAP);
     const auto first = animations.images().size();
-    Terrain terrain(world, flash::source_root, first, 0, true);
+    Terrain terrain(world, flash::assets_root, first, 0, true);
     auto images = animations.images();
     images.insert(images.end(), terrain.images().begin(), terrain.images().end());
-    Atlas atlas(flash::source_root, images, first);
+    Atlas atlas(flash::assets_root, images, first);
     Renderer renderer(32, true, 0), orphan(32, false);
     Scene reference, cached;
     cached.set_cached_terrain(true);
@@ -112,7 +112,7 @@ int main() {
         }
       }
       world.apply(fill);
-      Terrain source(world, flash::source_root, first, 0, true);
+      Terrain source(world, flash::assets_root, first, 0, true);
       source.begin_frame();
       compare(scene_image(reference, {16.3, 16.2}, .23, 1, 1234, &source),
               scene_image(cached, {16.3, 16.2}, .23, 1, 1234, &source), .002,
@@ -169,8 +169,8 @@ int main() {
     mini_world.add(-2, wizard, {50.5, 50.5});
     mini_world.set_player_id(-2);
     mini_world.add(3, wizard, {52.13, 48.19});
-    Minimap cpu(catalog, animations, flash::source_root),
-        gpu(catalog, animations, flash::source_root);
+    Minimap cpu(catalog, animations, flash::assets_root),
+        gpu(catalog, animations, flash::assets_root);
     MinimapGpu gpu_view;
     SurfaceTexture bitmap;
     auto minimap_image = [&](bool native, double angle, double scale) {

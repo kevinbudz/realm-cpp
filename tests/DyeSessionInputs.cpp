@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     std::string password;
     std::getline(std::cin, password);
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog), other(catalog);
     Session actor(world), peer(other);
     SessionOptions options;
@@ -30,8 +30,8 @@ int main(int argc, char** argv) {
     options.port = static_cast<std::uint16_t>(std::stoi(argv[2]));
     peer.connect(options);
     FontBook fonts;
-    AnimationLibrary animations(flash::source_root);
-    Appearances appearances(flash::source_root, animations);
+    AnimationLibrary animations(flash::assets_root);
+    Appearances appearances(flash::assets_root, animations);
     HudArt art;
     art.appearances(&appearances, &catalog);
     PlayerGroup group(catalog, fonts, art);

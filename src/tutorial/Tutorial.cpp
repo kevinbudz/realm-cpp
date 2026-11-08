@@ -10,7 +10,7 @@
 
 namespace realm {
 Tutorial::Tutorial(const Catalog& catalog, const std::filesystem::path& root) {
-  const auto path = root / "src/kabam/rotmg/assets/EmbeddedData_TutorialScriptCXML.dat";
+  const auto path = root / "xml/TutorialScript.xml";
   const auto bytes = assets::read_asset(path);
   const auto document = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>(
       bytes ? xmlReadMemory(reinterpret_cast<const char*>(bytes->data()),

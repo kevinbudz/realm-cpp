@@ -598,11 +598,11 @@ void run_map_mode(const Catalog& catalog, const AnimationLibrary& animations,
   }
   // The client builds Appearances and Terrain for --map before the atlas, with the terrain images
   // after the animations.
-  Appearances appearances(flash::source_root, animations);
-  Terrain terrain(world, flash::source_root, animations.images().size(), -1, false);
+  Appearances appearances(flash::assets_root, animations);
+  Terrain terrain(world, flash::assets_root, animations.images().size(), -1, false);
   auto images = animations.images();
   images.insert(images.end(), terrain.images().begin(), terrain.images().end());
-  Atlas atlas(flash::source_root, images, animations.images().size(), 2);
+  Atlas atlas(flash::assets_root, images, animations.images().size(), 2);
   std::map<std::string, std::size_t> by_class;
   for (const auto& e : world.entities()) {
     const auto* def = catalog.object(e.type);
@@ -658,12 +658,12 @@ int main(int argc, char** argv) {
     }
     {
       using namespace realm;
-      Catalog catalog(flash::source_root);
-      AnimationLibrary animations(flash::source_root);
+      Catalog catalog(flash::assets_root);
+      AnimationLibrary animations(flash::assets_root);
       if (map_mode) {
         run_map_mode(catalog, animations, map);
       } else {
-        Atlas atlas(flash::source_root, animations.images(), animations.images().size());
+        Atlas atlas(flash::assets_root, animations.images(), animations.images().size());
         World world(catalog);
         world.initialize(48, 48);
         const auto placed = fill_field(world, catalog);

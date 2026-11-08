@@ -17,7 +17,7 @@ void check(bool b, const char* s) {
 
 int main() {
   try {
-    realm::Catalog catalog(realm::flash::source_root);
+    realm::Catalog catalog(realm::flash::assets_root);
     realm::FontBook fonts;
     realm::HudArt art;
     auto data = realm::parse_char_list(

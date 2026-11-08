@@ -19,7 +19,7 @@ void check(bool ok, const char* why) {
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(100, 100);
     world.add(99, catalog.object("Wizard")->type, {50, 50});

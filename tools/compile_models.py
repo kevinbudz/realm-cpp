@@ -12,24 +12,12 @@ import json, math, re, struct, sys
 from pathlib import Path
 
 inventory, output = map(Path, sys.argv[1:3])
-root = Path(json.loads(inventory.read_text())['source_root'])
-asset_dir = root / 'src/kabam/rotmg/assets'
-assets = (asset_dir / 'EmbeddedAssets.as').read_text()
-declared = dict(re.findall(r'private static var (\w+):Class\s*=\s*(\w+)\s*;', assets))
-registry = re.search(r'models_:Object\s*=\s*\{(.*?)\n\s*\};', assets, re.S)
-if not registry:
-    raise ValueError('EmbeddedAssets.models_ was not found')
-entries = re.findall(r'"([^"]+)"\s*:\s*new (\w+)\(\)', registry[1])
+data = json.loads(inventory.read_text())
+root = Path(data['source_root'])
+# (name, OBJ path) in the order EmbeddedAssets.models_ registers them; tools/sync_game_assets.py writes the list.
+entries = [(model['name'], root / model['path']) for model in data['models']]
 if not entries:
-    raise ValueError('EmbeddedAssets.models_ has no entries')
-
-
-def embed_path(field):
-    wrapper = asset_dir / (declared[field] + '.as')
-    embed = re.search(r'\[Embed\(source="([^"]+)"', wrapper.read_text())
-    if not embed:
-        raise ValueError(f'Missing model embed: {wrapper}')
-    return (wrapper.parent / embed[1]).resolve()
+    raise ValueError('The manifest lists no models')
 
 
 def face_normal(face, positions):
@@ -108,8 +96,7 @@ def f32(value):
 
 
 vertex_rows, index_rows, group_rows, model_rows = [], [], [], []
-for name, field in entries:
-    path = embed_path(field)
+for name, path in entries:
     vertices, groups = parse(path.read_bytes().decode('utf-8', 'replace'))
     if not vertices or not groups:
         raise ValueError(f'Model {name} has no geometry')

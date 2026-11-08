@@ -1,6 +1,6 @@
 # Realm C++
 
-A native C++20 client for the RotMG game served by `../realm-server`. It renders with OpenGL 3.3 and SDL2, builds its menus and HUD with RmlUi, and talks to the existing app and game servers over the same protocol. The original art, object XML, fonts, and sounds come from the Flash client source in `../realm-client`. Their copies live in `assets/` (see below), so the build scans `assets/flash` with `tools/import_flash.py`, and the executable embeds the runtime files: it runs from any directory with no asset folders beside it. The goal is a client that looks and plays basically like the original and performs better. Pixel-level parity with Flash is not a goal; gameplay rules and server compatibility are.
+A native C++20 client for the RotMG game served by `../realm-server`. It renders with OpenGL 3.3 and SDL2, builds its menus and HUD with RmlUi, and talks to the existing app and game servers over the same protocol. The original art, object XML, fonts, and shapes come from the Flash client source in `../realm-client`. `tools/sync_game_assets.py` copies them into `assets/` with a `manifest.json`, and the executable embeds the runtime files, so it runs from any directory. Sound effects are not bundled: the client fetches them from the app server. The goal is a client that looks and plays basically like the original and performs better. Pixel-level parity with Flash is not a goal; gameplay rules and server compatibility are.
 
 ## Coverage
 
@@ -19,7 +19,7 @@ A native C++20 client for the RotMG game served by `../realm-server`. It renders
 - CMake 3.22 or newer, Ninja (the presets use it), Python 3, and a C++20 compiler.
 - Found with `find_package`: libxml2, zlib, libpng, FreeType, and nlohmann_json. The client (`REALM_BUILD_VIEWER=ON`, the default) also needs SDL2, OpenGL, and GLEW. Pillow is needed by some GPU test scripts (see [tests/README.md](tests/README.md)).
 - Vendored under `third_party/`, so configuring needs no network: RmlUi 6.3 ([VENDORED.md](third_party/rmlui/VENDORED.md)) and miniaudio 0.11.25 ([README](third_party/miniaudio/README.md)). Only the optional Tracy profiler (`REALM_TRACY=ON`) is downloaded.
-- Sibling checkouts are optional for building. `assets/flash/` and `assets/sfx/` hold the copied Flash and sound-effect files that the build uses. To refresh them from the sibling checkouts, run `python3 tools/sync_game_assets.py --flash-root ../realm-client --sfx-root ../realm-server/Resources/Web/sfx`. `../realm-server` also supplies world files for `--map` and the .NET project used by live tests.
+- Sibling checkouts are optional for building. `assets/` holds the copied Flash files: `manifest.json` and the `images/`, `models/`, `xml/`, `fonts/`, `shapes/` and `data/` folders. To refresh them from a realm-client checkout, run `python3 tools/sync_game_assets.py --flash-root ../realm-client`. `../realm-server` also supplies world files for `--map` and the .NET project used by live tests.
 - Linux is the verified platform. The code has Windows branches (`%APPDATA%`, `ws2_32`) that remain unverified.
 
 ### Build and test
@@ -42,8 +42,8 @@ ctest --preset sanitize
 
 | Option | Default | Effect |
 |---|---|---|
-| `REALM_FLASH_ROOT` | `assets/flash` | Flash source for the import and for the embedded art and XML |
-| `REALM_SFX_ROOT` | `assets/sfx` | Sound-effect source, every `.mp3` below it is embedded; `REALM_SFX_ROOT` in the environment replaces it at run time |
+| `REALM_ASSETS_ROOT` | `assets` | The game assets the build reads (`manifest.json` and the folders); the embedded copy is made from them |
+| `REALM_ASSETS_RUNTIME_ROOT` | `embedded:` | Where the client reads its assets: `embedded:` (compiled in) or a disk directory with the same layout |
 | `REALM_BUILD_VIEWER` | `ON` | Build `realm_client` and the OpenGL, SDL, and RmlUi libraries |
 | `REALM_AUDIO` | `ON` | Build native sound-effect output (`realm_audio`) |
 | `REALM_SANITIZERS` | `OFF` | Enable AddressSanitizer and UBSan |
@@ -113,7 +113,7 @@ returns to the editor with the document preserved. Escape or Back returns to the
 | `--port N` | `2050` | Game server port |
 | `--account-file PATH` | per-user config directory | Saved account |
 | `--settings-file PATH` | beside the account file | Saved options |
-| `--flash-root PATH` | the embedded copy | Read Flash art, XML, and fonts from a realm-client checkout at PATH instead |
+| `--assets-root PATH` | the embedded copy | Read the art, XML, fonts and shapes from a directory with the `assets/` layout (for hot-editing art) |
 | `--width N`, `--height N` | `800`, `600` | Window size, 64 to 8192 |
 | `--audio auto\|on\|off\|null` | `auto` | Sound output; `auto` plays only in the interactive client |
 | `--hidden` | off | Hide the window; needs `--frames N` or `--script` |
@@ -151,7 +151,7 @@ Run control and diagnostics:
 | `REALM_AUDIO=0` | Disable sound output |
 | `REALM_AUDIO_DEVICE=null` | Select the null audio output |
 | `REALM_AUDIO_CACHE_MB=N` | Decoded sound cache size, 1 to 4096 MiB |
-| `REALM_SFX_ROOT=PATH` | Play sound effects from PATH (`NAME.mp3` files) instead of the embedded copy |
+| `REALM_SFX_ROOT=PATH` | Play sound effects from PATH (`NAME.mp3` files) instead of the app server's `/sfx/NAME.mp3` over HTTP |
 | `REALM_QUAD_CHECKSUM=1` | Enable the painter-stream digest, written as `quad_stream_checksum` in stress summaries |
 | `REALM_UI_ACTION_TRACE` | Print startup actions to stderr when set |
 
@@ -253,7 +253,7 @@ A few domain folders span paired data and GPU/view layers (`map/`, `background/`
 | `platform/` | `Platform`, `PlatformSdl` (window, input, GL context), `SdlKeyCodes` | — |
 | `fixtures/` | `StressTimeline` (stress scene generator) | — |
 
-Headers generated from the Flash source (`build/generated/flash_*.hpp`) come from `tools/import_flash.py` and `tools/compile_*.py`.
+Headers generated from the asset manifest (`build/generated/flash_*.hpp`) come from `tools/generate_asset_headers.py` and `tools/compile_*.py`.
 
 ### Flash names
 
@@ -297,8 +297,8 @@ Comments and names refer to classes from the original ActionScript 3 client when
 
 | Term | Meaning |
 |---|---|
-| Flash source, `--flash-root` | Art, XML, fonts, and sounds: the copies embedded from `assets/`, or a realm-client tree given by `--flash-root` |
-| `flash::` namespace, `build/generated/flash_*.hpp` | Tables generated from the Flash source by `tools/import_flash.py` and `tools/compile_*.py` |
+| Flash source, `--assets-root` | Art, XML, fonts, and shapes: the copies embedded from `assets/`, or a directory given by `--assets-root`. Sounds come from the app server |
+| `flash::` namespace, `build/generated/flash_*.hpp` | Tables generated from the asset manifest by `tools/generate_asset_headers.py` and `tools/compile_*.py` |
 | `realm::flash_draw` | Native drawing helpers that reproduce Flash `Graphics`/`BitmapData` vector and bitmap drawing |
 | SWF | Flash's binary movie container; `flash_draw` parses vector shapes from it |
 | `BitmapData` | AS3 pixel buffer; Flash colors are stored premultiplied (`premultiply_flash_bitmap`) |

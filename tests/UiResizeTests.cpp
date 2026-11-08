@@ -31,8 +31,8 @@ int main() {
           "bitmap drawing reaches final rounded pixel");
     FontBook fonts;
     HudArt art;
-    Catalog catalog(flash::source_root);
-    AnimationLibrary animations(flash::source_root);
+    Catalog catalog(flash::assets_root);
+    AnimationLibrary animations(flash::assets_root);
     World world(catalog);
     world.initialize(8, 8);
     const auto wizard = catalog.object("Wizard")->type,
@@ -45,7 +45,7 @@ int main() {
     Hud hud(fonts, &art, &catalog);
     ItemTooltip item(catalog, fonts, art);
     PlayerTooltip player(catalog, fonts, art);
-    Minimap minimap(catalog, animations, flash::source_root);
+    Minimap minimap(catalog, animations, flash::assets_root);
     InteractionDialog dialog;
     HudState::Social panel{HudState::SocialKind::choose_name,
                            77,

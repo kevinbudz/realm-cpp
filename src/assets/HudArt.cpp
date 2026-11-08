@@ -263,7 +263,7 @@ struct HudArt::Sources {
   int classes{};
 
   Sources(const Appearances* shared_appearances, const Catalog* shared_catalog) {
-    const std::filesystem::path root(flash::source_root);
+    const std::filesystem::path root(flash::assets_root);
     if (shared_catalog) {
       catalog = shared_catalog;
     } else {
@@ -290,7 +290,7 @@ struct HudArt::Sources {
       }
       auto& image = sheets[sheet.asset];
       if (image.pixels.empty()) {
-        image = load_png(std::filesystem::path(flash::source_root) /
+        image = load_png(std::filesystem::path(flash::assets_root) /
                          flash::assets.at(static_cast<std::size_t>(sheet.asset)).path);
         normalize_flash_png(image);
       }
@@ -430,8 +430,8 @@ struct HudArt::Sources {
 
   const fd::Shape& star_shape() {
     if (!star) {
-      star = fd::load_swf_shape(std::filesystem::path(flash::source_root) /
-                                "src/com/company/rotmg/graphics/StarGraphic.swf");
+      star = fd::load_swf_shape(std::filesystem::path(flash::assets_root) /
+                                "shapes/StarGraphic.swf");
     }
     return *star;
   }
@@ -449,16 +449,16 @@ struct HudArt::Sources {
 
   const fd::Shape& cross_shape() {
     if (!cross) {
-      cross = fd::load_swf_shape(std::filesystem::path(flash::source_root) /
-                                 "src/com/company/rotmg/graphics/DeleteXGraphic.swf");
+      cross = fd::load_swf_shape(std::filesystem::path(flash::assets_root) /
+                                 "shapes/DeleteXGraphic.swf");
     }
     return *cross;
   }
 
   const fd::Shape& box_shape() {
     if (!box) {
-      box = fd::load_swf_shape(std::filesystem::path(flash::source_root) /
-                               "src/com/company/rotmg/graphics/FullCharBoxGraphic.swf");
+      box = fd::load_swf_shape(std::filesystem::path(flash::assets_root) /
+                               "shapes/FullCharBoxGraphic.swf");
     }
     return *box;
   }
@@ -1405,8 +1405,8 @@ std::optional<Image> HudArt::make(const std::string& key, bool dry, double densi
       return Image{};
     }
     const auto shape =
-        fd::load_swf_shape(std::filesystem::path(flash::source_root) /
-                           "src/com/company/rotmg/graphics/FameIconBackgroundDesign.swf");
+        fd::load_swf_shape(std::filesystem::path(flash::assets_root) /
+                           "shapes/FameIconBackgroundDesign.swf");
     auto image = fd::canvas(static_cast<int>(std::ceil(shape.width())),
                             static_cast<int>(std::ceil(shape.height())));
     fd::draw_shape(image, shape, -shape.left, -shape.top);

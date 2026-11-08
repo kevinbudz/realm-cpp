@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
       std::string password;
       std::getline(std::cin, password);
       const int rank = std::stoi(argv[6]);
-      realm::Catalog catalog(realm::flash::source_root);
+      realm::Catalog catalog(realm::flash::assets_root);
       realm::World world(catalog);
       realm::Session session(world);
       realm::SessionOptions o;

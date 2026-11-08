@@ -8,11 +8,11 @@ namespace realm {
 namespace {
 const std::array<Image, 5>& key_art() {
   static const std::array<Image, 5> images = [] {
-    const auto root = std::filesystem::path(flash::source_root) / "src/kabam/rotmg/ui/view";
+    const auto root = std::filesystem::path(flash::assets_root) / "images";
     return std::array<Image, 5>{
-        load_png(root / "KeysView_keyBackgroundPng.png"),
-        load_png(root / "KeysView_purpleKeyPng.png"), load_png(root / "KeysView_greenKeyPng.png"),
-        load_png(root / "KeysView_redKeyPng.png"), load_png(root / "KeysView_yellowKeyPng.png")};
+        load_png(root / "KeysView_keyBackground.png"),
+        load_png(root / "KeysView_purpleKey.png"), load_png(root / "KeysView_greenKey.png"),
+        load_png(root / "KeysView_redKey.png"), load_png(root / "KeysView_yellowKey.png")};
   }();
   return images;
 }

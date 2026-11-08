@@ -17,7 +17,7 @@ void check(bool value, const char* reason) {
 int main(int argc, char** argv) {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(100, 100);
     Party party;

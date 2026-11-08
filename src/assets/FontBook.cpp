@@ -286,7 +286,7 @@ struct FontBook::NativeFonts {
   }
 };
 
-FontBook::FontBook() : FontBook(flash::source_root) {}
+FontBook::FontBook() : FontBook(flash::assets_root) {}
 
 FontBook::FontBook(const std::filesystem::path& root) : native_(std::make_unique<NativeFonts>()) {
   if (FT_Init_FreeType(&native_->library)) {
@@ -294,7 +294,7 @@ FontBook::FontBook(const std::filesystem::path& root) : native_(std::make_unique
   }
   for (std::size_t i = 0; i < 2; ++i) {
     const auto path =
-        root / "src/com/company/ui/fonts" / (i ? "MyriadProBold.otf" : "MyriadPro.otf");
+        root / "fonts" / (i ? "MyriadProBold.otf" : "MyriadPro.otf");
     auto file = assets::read_asset(path);
     if (!file) {
       throw std::runtime_error("Cannot load original Myriad font: " + path.string());

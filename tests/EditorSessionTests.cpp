@@ -6,7 +6,7 @@
 int main() {
   try {
     using namespace realm;
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     SessionOptions options;
     options.game_id = -4;

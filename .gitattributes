@@ -2,5 +2,9 @@
 * text=auto
 
 # Vendored game assets are embedded byte for byte; never normalize their line endings.
-assets/flash/** -text
-assets/sfx/** -text
+assets/images/** -text
+assets/models/** -text
+assets/xml/** -text
+assets/fonts/** -text
+assets/shapes/** -text
+assets/data/** -text

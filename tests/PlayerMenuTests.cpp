@@ -19,7 +19,7 @@ int main() {
     using A = PlayerMenuAction;
     using S = flash::StatId;
     const auto stat = [](S id) { return static_cast<std::uint8_t>(id); };
-    Catalog catalog(flash::source_root);
+    Catalog catalog(flash::assets_root);
     World world(catalog);
     world.initialize(100, 100);
     Party party;

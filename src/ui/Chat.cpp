@@ -14,10 +14,11 @@ constexpr double block_spacing = 4;
 constexpr double first_width = 596;
 constexpr double next_width = 576;
 // FTE line ascent for 14-pixel MyriadProBoldCFF, and where a TextField-style
-// bitmap's baseline sits relative to that line top.
-constexpr double text_baseline_offset = -3;
+// bitmap's baseline sits relative to that line top, raised one pixel from Flash's -3.
+constexpr double text_baseline_offset = -4;
 constexpr double text_gutter = 2;
-constexpr double icon_y = -2;
+// The rank star sits one pixel lower than Flash's -2.
+constexpr double icon_y = -1;
 // ElementFormats colors.
 constexpr std::uint32_t normal_color = 0xffffff;
 constexpr std::uint32_t server_color = 0xffff00;

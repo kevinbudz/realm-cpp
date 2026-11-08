@@ -37,7 +37,7 @@ with socket.socket() as listener:
                 conn.settimeout(5)
                 ident, body = receive(conn)
                 assert ident == 15
-                assert body == utf('1.0.0') + struct.pack('>i', -1) + utf('fixture') + utf('test-password') + struct.pack('>i', 0), 'HELLO wire bytes'
+                assert body == utf('7.0') + struct.pack('>i', -1) + utf('fixture') + utf('test-password') + struct.pack('>i', 0), 'HELLO wire bytes'
                 info = struct.pack('>ii', 8, 8) + utf('Nexus') + utf('Loopback Nexus') + struct.pack('>Ii??', 77, 0, True, True)
                 packet = frame(20, info)
                 # Deliberately fragment the packet length, ID and payload.

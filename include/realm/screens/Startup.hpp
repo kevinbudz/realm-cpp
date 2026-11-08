@@ -27,7 +27,7 @@ struct Death;
 struct StartupOptions {
   // Parameters.SERVER_ADDRESS, APP_PORT, GAME_PORT and BUILD_VERSION.
   std::string host{"127.0.0.1"};
-  std::string build_version{"1.0.0"};
+  std::string build_version{"7.0"};
   std::uint16_t app_port{7777};
   std::uint16_t game_port{2050};
   std::filesystem::path account_file;

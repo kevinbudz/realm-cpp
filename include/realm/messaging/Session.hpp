@@ -15,7 +15,7 @@ enum class SessionState { disconnected, connecting, selecting_character, playing
 
 struct SessionOptions {
   std::string host{"127.0.0.1"};
-  std::string build_version{"1.0.0"};
+  std::string build_version{"7.0"};
   std::string username;
   std::string password;
   std::string map_json;

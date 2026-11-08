@@ -41,7 +41,7 @@ with socket.socket() as listener:
             with conn:
                 conn.settimeout(5)
                 ident, body = receive(conn)
-                assert ident == 15 and body == utf('1.0.0')+struct.pack('>i',-1)+utf('fixture')+utf('test-password')+struct.pack('>i',0), 'Initial HELLO'
+                assert ident == 15 and body == utf('7.0')+struct.pack('>i',-1)+utf('fixture')+utf('test-password')+struct.pack('>i',0), 'Initial HELLO'
                 conn.sendall(map_info('Nexus'))
                 assert receive(conn) == (21, struct.pack('>i',7)), 'LOAD'
                 update = struct.pack('>hhH', 0,1,0x030e)+status('Native Guild')+struct.pack('>h',0)
@@ -64,7 +64,7 @@ with socket.socket() as listener:
             with conn:
                 conn.settimeout(5)
                 ident, body = receive(conn)
-                assert ident == 15 and body == utf('1.0.0')+struct.pack('>i',-10)+utf('Renamed')+utf('test-password')+struct.pack('>i',0), 'Reconnect uses renamed login'
+                assert ident == 15 and body == utf('7.0')+struct.pack('>i',-10)+utf('Renamed')+utf('test-password')+struct.pack('>i',0), 'Reconnect uses renamed login'
                 conn.sendall(map_info('Guild Hall'))
                 assert receive(conn) == (21,struct.pack('>i',7)), 'Reload same character'
                 conn.sendall(frame(1,struct.pack('>ii',99,7)))

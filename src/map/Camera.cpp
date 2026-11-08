@@ -26,16 +26,17 @@ void Camera::configure(Vec2 position, double angle, double width, double height,
   max_distance_ = std::sqrt(w * w + h * h) + 1;
 }
 
-void Camera::configure(Vec2 position, double angle, Rect clip) {
+void Camera::configure(Vec2 position, double angle, Rect clip, double zoom) {
   if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(angle) ||
-      !std::isfinite(clip.x) || !std::isfinite(clip.y) || !(clip.width > 0) || !(clip.height > 0)) {
+      !std::isfinite(clip.x) || !std::isfinite(clip.y) || !(clip.width > 0) || !(clip.height > 0) ||
+      !std::isfinite(zoom) || zoom <= 0) {
     throw std::invalid_argument("Invalid camera parameters");
   }
 
   position_ = position;
-  width_ = clip.width;
-  height_ = clip.height;
-  zoom_ = 1;
+  width_ = clip.width * zoom;
+  height_ = clip.height * zoom;
+  zoom_ = zoom;
   clip_ = clip;
   const realm::math::SinCos heading = realm::math::sincos(angle);
   c_ = heading.cosine;

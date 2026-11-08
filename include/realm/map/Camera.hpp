@@ -21,8 +21,9 @@ class Camera {
  public:
   void configure(Vec2 position, double angle, double width, double height, double zoom = 1.0,
                  bool centered = true);
-  // An explicit clip rectangle without the gameplay HUD allowance (MapBackground).
-  void configure(Vec2 position, double angle, Rect clip);
+  // An explicit clip rectangle without the gameplay HUD allowance (MapBackground). clip is in
+  // unzoomed world pixels; the view covers clip * zoom screen pixels.
+  void configure(Vec2 position, double angle, Rect clip, double zoom = 1.0);
   [[nodiscard]] Vec2 world_to_screen(Vec2 position, double z = 0) const;
   [[nodiscard]] Vec2 screen_to_world(Vec2 position) const;
 

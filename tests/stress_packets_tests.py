@@ -40,7 +40,7 @@ def run(exe,out,fragment,delay):
                     with c:
                         c.settimeout(30)
                         ident,b=receive(c);assert ident==15
-                        assert b==utf('1.0.0')+struct.pack('>i',-1 if not connection else -3)+utf('Q02Fixture')+utf('disposable-mock')+struct.pack('>i',0)
+                        assert b==utf('7.0')+struct.pack('>i',-1 if not connection else -3)+utf('Q02Fixture')+utf('disposable-mock')+struct.pack('>i',0)
                         received.append((ident,b))
                         info=struct.pack('>ii',128,128)+utf('Nexus')+utf('Stress mock')+struct.pack('>Ii??',77,0,True,True)
                         send(c,frame(20,info))

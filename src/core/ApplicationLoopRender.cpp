@@ -64,17 +64,19 @@ void build_scene(ClientState& cs, const Options& options, Frame& frame) {
 
   if (cs.startup && cs.startup->menus()) {
     if (cs.startup->background() && cs.background_world) {
-      // MapBackground centers an at least 800x600 viewport on the stage.
-      const double view_w = std::max(800, width);
-      const double view_h = std::max(600, height);
+      // MapBackground shows a fixed 600-unit-tall view scaled to the window height (identical to
+      // 1:1 at 800x600).
+      const double scale = height / 600.0;
+      const double view_w = width / scale;
+      const double view_h = 600.0;
       const auto at = cs.startup->background_position();
       cs.camera.configure(at, realm::Startup::background_angle,
-                          realm::Rect{-view_w / 2, -view_h / 2, view_w, view_h});
+                          realm::Rect{-view_w / 2, -view_h / 2, view_w, view_h}, scale);
 
-      cs.fonts.set_pixel_scale(1);
+      cs.fonts.set_pixel_scale(scale);
       cs.scene.build(cs.world, cs.camera, cs.atlas, cs.animations, nullptr, cs.terrain.get(),
-                     &cs.appearances, at, realm::Startup::background_angle, 1, width, height, time,
-                     cs.quads);
+                     &cs.appearances, at, realm::Startup::background_angle, scale, width, height,
+                     time, cs.quads);
       cs.fonts.set_pixel_scale(height / 600.0);
     }
   } else if (options.world) {

@@ -376,19 +376,19 @@ void StartupViewModel::add_window_text(std::string_view value, int size, bool bo
   }
 }
 
-void StartupViewModel::menu_frame(bool background) {
-  menu_backdrop(background);
+void StartupViewModel::menu_frame(bool background, bool dim) {
+  menu_backdrop(background, dim);
   menu_bottom_bar();
 }
 
-void StartupViewModel::menu_backdrop(bool background) {
+void StartupViewModel::menu_backdrop(bool background, bool dim) {
   const auto window = [&](Element& e) {
     e.anchor = Anchor::window;
     e.full_width = true;
   };
   // MenuBackground dims the scrolling map and holds the SoundIcon; MenuFrame adds the glow band,
-  // then the bar.
-  if (background) {
+  // then the bar. The title screen passes dim = false to keep the map undimmed.
+  if (background && dim) {
     window(add_solid(0, 0, 0, 600, 0x2B2B2B, .8));
   }
   if (background && art_) {
@@ -761,7 +761,7 @@ void StartupViewModel::account_header(const StartupScreenState& state) {
 }
 
 void StartupViewModel::title_screen(const StartupScreenState& state) {
-  menu_frame(true);
+  menu_frame(true, false);
   add_image(logo_, (800 - logo_.width) / 2.0, 83);
   add_button("PLAY", 36, 0, 520, play_action, true, true);
   add_button("ACCOUNT", 22, -94, 532, account_action, false, true);
@@ -769,8 +769,6 @@ void StartupViewModel::title_screen(const StartupScreenState& state) {
   add_button("EDITOR", 22, 8, 532, editor_action);
   add_window_text("RotMG " + build_version_, 12, false, 8355711, {0, 1}, {0, 0}, {0, 0}, false,
                   true);
-  add_window_text("\xC2\xA9 2010, 2011 by Wild Shadow Studios, Inc.", 12, false, 8355711, {1, 1},
-                  {0, 0}, {0, 0}, true, true);
   account_header(state);
 }
 

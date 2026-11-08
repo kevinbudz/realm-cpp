@@ -103,7 +103,8 @@ void ui_outline_alpha(Image& image, double radius) {
   std::vector<Tap> taps;
   for (int dy = -reach; dy <= reach; ++dy) {
     for (int dx = -reach; dx <= reach; ++dx) {
-      const double weight = std::clamp(r + 1 - std::hypot(dx, dy), 0.0, 1.0);
+      const double distance = math::hypot(static_cast<double>(dx), static_cast<double>(dy));
+      const double weight = std::clamp(r + 1 - distance, 0.0, 1.0);
       if (weight > 0 && (dx || dy)) {
         taps.push_back({dx, dy, static_cast<unsigned>(std::lround(weight * 256))});
       }
@@ -132,18 +133,6 @@ void ui_outline_alpha(Image& image, double radius) {
       outline = std::min(255U, (outline + 128U) >> 8U);
       image.pixels[at * 4 + 3] =
           static_cast<unsigned char>(alpha + (outline * (255U - alpha) + 127U) / 255U);
-    }
-  }
-}
-
-void ui_outline(Image& image, double radius) {
-  ui_outline_alpha(image, radius);
-  for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
-    if (const unsigned alpha = image.pixels[i + 3]; alpha && alpha != 255) {
-      for (unsigned c = 0; c < 3; ++c) {
-        image.pixels[i + c] =
-            static_cast<unsigned char>(std::min(255U, image.pixels[i + c] * 255U / alpha));
-      }
     }
   }
 }

@@ -376,19 +376,19 @@ void StartupViewModel::add_window_text(std::string_view value, int size, bool bo
   }
 }
 
-void StartupViewModel::menu_frame(bool background, bool dim) {
-  menu_backdrop(background, dim);
+void StartupViewModel::menu_frame(bool background) {
+  menu_backdrop(background);
   menu_bottom_bar();
 }
 
-void StartupViewModel::menu_backdrop(bool background, bool dim) {
+void StartupViewModel::menu_backdrop(bool background) {
   const auto window = [&](Element& e) {
     e.anchor = Anchor::window;
     e.full_width = true;
   };
   // MenuBackground dims the scrolling map and holds the SoundIcon; MenuFrame adds the glow band,
-  // then the bar. The title screen passes dim = false to keep the map undimmed.
-  if (background && dim) {
+  // then the bar.
+  if (background) {
     window(add_solid(0, 0, 0, 600, 0x2B2B2B, .8));
   }
   if (background && art_) {
@@ -761,8 +761,7 @@ void StartupViewModel::account_header(const StartupScreenState& state) {
 }
 
 void StartupViewModel::title_screen(const StartupScreenState& state) {
-  menu_frame(true, false);
-  add_image(logo_, (800 - logo_.width) / 2.0, 83);
+  menu_frame(true);
   add_button("PLAY", 36, 0, 520, play_action, true, true);
   add_button("ACCOUNT", 22, -94, 532, account_action, false, true);
   add_button("LEGENDS", 22, 96, 532, legends_action, false, true);

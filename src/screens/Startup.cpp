@@ -67,10 +67,6 @@ Startup::Impl::Impl(const FontBook& fonts, const HudArt* art, const Catalog& cat
     options_.account_file = account_path();
   }
 
-  auto logo = load_png(root_ / "images/TitleView_Logo.png");
-  normalize_flash_png(logo);
-  view_model_.set_logo(std::move(logo));
-
   state_.background_map_ = read_file(
       root_ / "data/MapBackground.jm");
 

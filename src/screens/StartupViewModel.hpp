@@ -43,7 +43,6 @@ class StartupViewModel {
 
   [[nodiscard]] bool has_rank_tooltip() const { return rank_tooltip_element_.has_value(); }
 
-  void set_logo(Image logo) { logo_ = std::move(logo); }
 
   void reset_character_tooltip();
   bool set_window(double width, double height);
@@ -111,8 +110,8 @@ class StartupViewModel {
   void add_window_text(std::string_view value, int size, bool bold, std::uint32_t color,
                        Vec2 anchor, Vec2 offset, Vec2 pixels, bool align_right, bool align_bottom,
                        int action = -1);
-  void menu_frame(bool background, bool dim = true);
-  void menu_backdrop(bool background, bool dim = true);
+  void menu_frame(bool background);
+  void menu_backdrop(bool background);
   void menu_bottom_bar();
   void sound_icon();
   void loading_screen(std::string_view text);
@@ -135,7 +134,6 @@ class StartupViewModel {
   Image sheet_{
       Startup::sheet_size, Startup::sheet_size,
       std::vector<unsigned char>(static_cast<std::size_t>(Startup::sheet_size) * sheet_.width * 4)};
-  Image logo_;
   int sheet_x_{1};
   int sheet_y_{1};
   int sheet_row_{};
